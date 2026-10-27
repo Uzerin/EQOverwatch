@@ -1,0 +1,47 @@
+name: Release
+
+# Publishing a version: push a tag such as v1.0.12 (the number must match <Version> in the two .csproj files).
+# This runs the tests, builds the single-file EQOverwatch.exe and attaches it to a GitHub release, which is what
+# the app's "new version available" check looks for.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Check the tag matches the project version
+        shell: pwsh
+        run: |
+          $tag = '${{ github.ref_name }}'.TrimStart('v')
+          foreach ($project in 'src/EQCompanion.App/EQCompanion.App.csproj', 'src/EQCompanion.Core/EQCompanion.Core.csproj') {
+            $xml = [xml](Get-Content $project)
+            $version = @($xml.Project.PropertyGroup.Version | Where-Object { $_ })[0]
+            if ($tag -ne $version) { throw "Tag v$tag does not match <Version> $version in $project" }
+          }
+
+      - name: Test
+        run: dotnet test -c Release
+
+      - name: Publish
+        run: dotnet publish src/EQCompanion.App -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o publish
+
+      - name: Zip
+        shell: pwsh
+        run: Compress-Archive -Path publish/* -DestinationPath "EQOverwatch-${{ github.ref_name }}-win-x64.zip"
+
+      - name: Create the release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release create "${{ github.ref_name }}" "EQOverwatch-${{ github.ref_name }}-win-x64.zip" --title "EQ Overwatch ${{ github.ref_name }}" --generate-notes
