@@ -1,105 +1,109 @@
 ![EQ Overwatch](docs/EQOverwatch-logo.jpg)
 
-# EQ Overwatch v1.0.14 — Phases 1-8
+# EQ Overwatch
 
-```
-EQCompanion.sln                  (namespaces stay EQCompanion.*; the executable is EQOverwatch.exe)
-src/EQCompanion.Core/            net8.0, platform-neutral
-  AppInfo.cs   product name / version ("EQ Overwatch", "v1.0.14" read from the assembly)
-  Discovery/   EqDirectoryScanner (eqlog_<Char>_<Server>.txt discovery, Logs -> parent folder, spells_us.txt)
-  Export/      EncounterExport (chat text "1. Name Total (SDPS)")
-  Models/      WatchedLogConfig(+Collection, CH chain slot), LogEvent, CombatEvent, CombatEncounter, ParticipantStats,
-               TriggerDefinition, Snapshots, TimerOverlayCategory (Buffs, Debuffs, Songs, Raid Triggers, CH Chain)
-  Parsing/     LogLineFormat, LogFileName, CombatLineParser
-  Pipeline/    ILogSinks, LogEventProcessor, TailWorker, LogTailService, LiveLogMonitor,
-               HistoricalLogImporter, CompositeTriggerSink, CompanionPipeline
-  Services/    DpsTrackerService (+Live/Historical), TriggerEngineService, TriggerTemplate, TriggerRuleTester,
-               BuffTrackerService (monitored-target filter), RaidBossTimerService,
-               ChChainService (Complete Heal chain bars + late-cast alarm), CooldownTrackerService (Divine Aura)
-  Settings/    AppSettings (+TriggerRule, RaidBossTimerRule, OverlaySettings, ChChainSettings), AppSettingsService
-               (auto-migrates %LocalAppData%\EQCompanion\settings.json), OverlayPlacement
-  Sharing/     TriggerShareSerializer ({EQO:...}, reads {EQC:...} and {EQNag:...}), SharedTriggerScanner
-  Spells/      SpellDatabaseService (spells_us.txt, both layouts), SpellDatabase, SpellInfo, SpellDefinition
-  Theming/     ThemePalette (9 colors), ThemePresets (3 dark presets), ThemeConfig, ThemeColors, ThemeDerived
-src/EQCompanion.App/             net8.0-windows (WPF), AssemblyName EQOverwatch
-  Interop/       Win32OverlayHelper
-  Overlays/      OverlayWindowBase, TimerOverlayWindow, DpsOverlayWindow (Chat / Img export buttons)
-  ViewModels/    MainViewModel (+ .Characters, .Sharing), TriggerRuleViewModel, EncounterViewModels, Timer/DpsOverlayViewModel
-  Services/      AudioNotificationService, OverlayHost (6 overlays), ThemeManagerService, WpfDialogService,
-                 WpfClipboardService, EncounterImageRenderer, Abstractions
-  Themes/        OverlayStyles.xaml, ModernStyles.xaml
-  MainWindow.xaml(.cs) six tabs: Characters, Custom Triggers, Raid Triggers, Buff & Song Tracker,
-                 DPS & Encounter History, Settings; toolbar with Start/Stop, Lock, Mute, Test overlays
-tests/EQCompanion.Core.Tests/    net8.0          (any OS)
-tests/EQCompanion.App.Tests/     net8.0-windows  (view models, formatting; Windows only)
+A Windows companion for EverQuest that reads your game logs and gives you timers, alerts and damage meters on screen, with no
+changes to the game. It runs alongside EverQuest and works for as many of your characters as you want to monitor at once.
 
-Settings file: %LocalAppData%\EQOverwatch\settings.json (atomic writes, debounced autosave; migrated from EQCompanion on first start)
+> EverQuest is a trademark of Daybreak Game Company. EQ Overwatch is an independent tool and is not affiliated with or endorsed by Daybreak.
 
+## What it does
+
+- **Custom triggers.** GINA-style triggers: match a line in your log, then show text, play a sound, speak it, or start a timer.
+- **Raid triggers.** Recast timers for boss abilities, with a spoken announcement when the timer starts and another when 10 seconds
+  remain. Pick the ability from your spell file or type the log text yourself, and edit saved triggers in place.
+- **Buff & Song Tracker.** Pick the buffs, debuffs and songs you care about and choose which overlay each one appears in. Bars start
+  from your own casts (and your monitored characters' landings) using the messages in your spell file.
+- **AAs & Discs.** Track disciplines and AAs: an "active" bar for how long it lasts and a "cooldown" bar until it can be used again,
+  for everyone in the raid or only your own characters, each in the overlay you choose.
+- **CH chain.** Complete Heal chain bars from the raid-say position tags (for example `5-5-5`), with a late-cast alarm.
+- **DPS & encounter history.** Live damage meter and a single newest-first list of fights, live and imported. Opening the app in the
+  middle of a fight picks the fight up from your log. Copy results as chat text or as a picture.
+- **Six overlays.** Buffs, Debuffs, Songs, Raid Triggers, CH Chain and DPS. Each is movable, resizable and lockable, with a theme bar
+  for colors.
+- **Sharing.** Share triggers in chat as `{EQO:...}` tokens. Nothing from a shared trigger is switched on until you accept it, and
+  audio file paths are never imported. It can also read `{EQC:...}` tokens and, as a best effort, `{EQNag}` ones.
+- **Update notifications.** When the app opens it checks this repository for a newer release and offers to open the download page.
+
+## Install
+
+1. Open the [latest release](https://github.com/Uzerin/EQOverwatch/releases/latest) and download `EQOverwatch-<version>-win-x64.zip`.
+2. Unzip it anywhere and run `EQOverwatch.exe`. It is a single self-contained file; you do not need to install .NET.
+3. On the **Settings** tab, choose your EverQuest folder. The app finds your character logs (`Logs\eqlog_<Character>_<Server>.txt`)
+   and your `spells_us.txt`.
+4. On the **Characters** tab, tick **Enable Triggers** for the characters you want monitored. Characters found in the EverQuest
+   folder start with triggers off until you do.
+
+EverQuest must be writing logs: type `/log on` in game.
+
+Your settings are saved to `%LocalAppData%\EQOverwatch\settings.json`.
+
+## Updating
+
+If a newer version has been published, a bar appears at the top of the window with **Download**, **Later** and **Skip this version**.
+Nothing is installed automatically: download the new zip and replace your `EQOverwatch.exe`. Your settings are kept. You can turn the
+check off, or run it by hand, under **Settings > Updates**.
+
+## Notes
+
+- The CH Chain overlay is off by default. With it off, chain bars and the late-cast alarm show in the Buffs overlay.
+- Spell data comes from your own `spells_us.txt` (and `spells_us_str.txt` next to it). Discs have their recast and duration filled in
+  from it; most AAs have no recast there, so type the name exactly as the log prints it and enter the times yourself.
+
+## Changelog
+
+### 1.0.14
+- New app icon: the radar from the logo, used for the exe, the taskbar and the window.
+
+### 1.0.13
+- Fixes a build error in 1.0.12 (the update check).
+
+### 1.0.12
+- Update notifications: the app checks GitHub for a newer release when it opens.
+- Releases are built and published automatically when a version tag is pushed (`RELEASING.md`).
+
+### 1.0.11
+- Fixes build errors in 1.0.10.
+
+### 1.0.10
+- New **AAs & Discs** tab with active and cooldown bars, per-ability scope (everyone in the raid or only your characters) and
+  per-bar overlays. The Divine Aura cooldown box moved here.
+
+### 1.0.9
+- The app now loads your Primary DPS log at start-up, so a fight already in progress appears on the meter, and live monitoring starts
+  automatically (the Start/Stop button is gone).
+- Live and imported fights share one list, newest first.
+- The saved EverQuest folder is scanned at start-up; no need to press Refresh.
+- Raid triggers can be edited in place.
+- CH chain calls are recognised from the position tag and "cast now" in any letter case; the bar reads `<player>: Complete Heal <position>`.
+  The "Total clerics in chain" box is gone.
+
+### 1.0.3 to 1.0.8
+- Spell messages are read from the correct columns of `spells_us_str.txt` (landing and fade text were wrong before).
+- Songs start from your own `You begin singing <song>.` line, so a group's songs no longer create duplicate bars.
+- Bard level and the good/bad flag are read from the correct spell-file columns, so buffs are no longer mistaken for songs or debuffs.
+- The tracker list shows what starts each bar ("Starts when").
+- Raid triggers have separate announcements for when the timer starts and when 10 seconds remain.
+
+### 1.0.1
+- The Buff & Song Tracker is a list you build: search a spell, pick its overlay, add it. Each row has its own overlay and on/off switch.
+- The Raid Triggers boss box is a drop-down of mobs from ended fights.
+
+## Building from source
+
+Requires the .NET 8 SDK. The app itself is Windows-only (WPF); the core library and its tests run anywhere.
+
+```powershell
 dotnet test tests/EQCompanion.Core.Tests     # any OS
 dotnet test                                  # whole solution, Windows
 dotnet run --project src/EQCompanion.App     # Windows
+dotnet publish src/EQCompanion.App -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o publish
 ```
 
-## Phase 7 notes
-- Characters discovered from the EverQuest folder start with triggers disabled until you tick **Enable Triggers**.
-- The CH Chain overlay is off by default; with it off, chain bars and the late-cast alarm show in the Buffs overlay.
-- Shared `{EQO}`/`{EQC}`/`{EQNag}` triggers are never enabled without your Accept; audio file paths are never imported.
-- `{EQNag}` mapping is best-effort (foreign format).
+The solution is `EQCompanion.sln`; the code keeps the `EQCompanion.*` namespaces from the project's earlier name and builds `EQOverwatch.exe`.
 
-## Raid Triggers: separate announcements
-- A Raid Trigger now has two announcements: one spoken the moment it starts and one spoken when 10 seconds remain (it was a
-  single text with a timing drop-down and a 5-second warning). The 10-second text is skipped when the recast is 10 seconds or less.
-- Existing triggers and `{EQO}` tokens are converted automatically: "when the timer starts" becomes the start text, "at 5 seconds"
-  becomes the 10-second text, "both" fills both.
+- `src/EQCompanion.Core` is the platform-neutral engine: log tailing and parsing, triggers, timers, DPS, spell database, settings, sharing.
+- `src/EQCompanion.App` is the WPF app: view models, overlays, themes.
+- `tests/` holds the unit tests for both.
 
-## Phase 8 fix 2 (songs and spell messages)
-- `spells_us_str.txt` columns are now read from its own header (`CASTEDMETXT` = cast on you, `CASTEDOTHERTXT` = cast on other,
-  `SPELLGONE` = fades; normally 3, 4, 5). Before, columns 1-3 were read, which are the caster-side texts.
-- Your own `You begin singing <song>.` starts (or restarts) the song's bar immediately; no landing text is needed.
-- Buffs still start from the cast line plus the landing text (`Your eyes sharpen...` on you, `Name's eyes sharpen...` on others).
-- Split spell files: Bard level is column 43 (class levels are columns 36-51) and the good/bad flag is column 28. Before, columns 110 and 78 were read, which are effect values and made buffs look like songs or debuffs.
-- Songs never start from landing text (it appears in every group member's log); only the singer's own sing line starts a bar.
-- The tracker list has a "Starts when" column showing what starts each bar.
-
-## v1.0.14: app icon
-- The radar from the logo is now the exe's icon and the window/taskbar icon (`src/EQCompanion.App/Assets/EQOverwatch.ico`, sizes 16-256).
-  The full logo is in `docs/`.
-
-## v1.0.12 (fixed in v1.0.13): update notifications and GitHub releases
-- When the app opens it asks GitHub (`Uzerin/EQOverwatch`, public) for the latest published release. If it is newer than the running
-  version, a bar at the top offers **Download** (opens the release page), **Later** and **Skip this version**. Nothing is installed
-  automatically. A failed check (offline, rate limited) is silent; Settings > Updates shows the result and has **Check now** and a
-  switch to turn the start-up check off.
-- `RELEASING.md` explains how to publish a version; `.github/workflows/release.yml` builds and attaches the exe when a `v*` tag is pushed.
-
-## v1.0.10 (fixed in v1.0.11): AAs & Discs tab
-- New tab for AAs and disciplines. Each use starts an **active** bar (how long it lasts) and a **cooldown** bar (until it can be used
-  again) for the person who used it. Seen in logs as `You activate <name>.` (your own log) and `<Name> activates <name>.` (anyone else).
-- Per ability: **Everyone in the raid** (every user gets bars of their own, e.g. all 6 warriors' Defensive) or **My characters only**
-  (e.g. just your own Trueshots). One person using it again restarts only their own bars, never another's.
-- Per ability you also choose the overlay of the active bar and of the cooldown bar, edit the times (3:00, 10:30, 1:07:30 or seconds),
-  and switch it on or off.
-- The picker searches the spell file: discs have their recast and duration filled in. Most AAs have no recast in the spell file; type the
-  name exactly as the log prints it and enter the times yourself.
-- The Divine Aura box moved here ("Built-in: Divine Aura"); it is unchanged.
-
-## Phase 8 fix 8 / v1.0.9 (start-up, one encounter list, raid edit, CH chain)
-- **Versioning:** Phase 8 is 1.0.1; fix N is 1.0.(N+1), so fix 8 is 1.0.9. Releases after that are named by version (EQOverwatch-v1.0.10.zip). Shown in the window title.
-- **Start-up:** the saved EverQuest folder is scanned on launch (no need to press Refresh), the Primary DPS log is read so a fight
-  already in progress appears as if the app had been open all along, and live monitoring starts automatically and stays on while the app
-  is open (there is no start/stop button or setting any more). The catch-up covers the history window (default 7 days).
-- **DPS & Encounter History:** live and imported fights are now a single list, newest first. A fight that is both live and in an
-  imported copy of the log is listed once.
-- **Raid Triggers:** each saved trigger has an **Edit** button. It loads the trigger into the builder; **Save Changes** replaces it
-  in place (same on/off state and position), **Cancel edit** abandons the change.
-- **CH Chain:** a call is recognised by the position tag (e.g. `5-5-5`, any spacing/dash/case) in a raid say, and "cast now"
-  (any case, anywhere in the line) moves the chain along. The bar reads `<player>: Complete Heal <position>`. The "Total
-  clerics in chain" box is gone.
-
-## Phase 8 notes (v1.0.1)
-- **Buff & Song Tracker** is now a list you build: search a spell, pick the overlay it appears in, press Add to Tracker.
-  Each row has its own overlay dropdown and On switch. Spells tracked in older versions are carried over once, with the
-  spell file's suggested overlay, and can be changed afterwards. A status line shows how many bars have started.
-- **Raid Triggers** boss box is a drop-down of mobs from ended fights (live and imported) with fight counts; any other name
-  can be typed for a first-time fight.
-- `settings.json` gains `TrackedSpells` (spell id, name, overlay, on/off); `TrackedSpellIds` is still written for older builds.
+See `RELEASING.md` for how a version is published.
