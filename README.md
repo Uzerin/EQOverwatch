@@ -1,6 +1,6 @@
 ![EQ Overwatch](docs/EQOverwatch-logo.jpg)
 
-# EQ Overwatch v1.0.14 (formerly EQCompanion) — Phases 1-8
+# EQ Overwatch v1.0.14 — Phases 1-8
 
 ```
 EQCompanion.sln                  (namespaces stay EQCompanion.*; the executable is EQOverwatch.exe)
