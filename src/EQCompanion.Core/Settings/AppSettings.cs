@@ -94,6 +94,9 @@ public sealed class AppSettings
     /// </summary>
     public List<TrackedSpellSetting> TrackedSpells { get; set; } = new();
 
+    /// <summary>Verified players (with classes) and pets, learned from /who and /pet leader lines.</summary>
+    public RosterSettings Roster { get; set; } = new();
+
     /// <summary>The AAs and disciplines on the "AAs &amp; Discs" tab.</summary>
     public List<TrackedAbilitySetting> TrackedAbilities { get; set; } = new();
 

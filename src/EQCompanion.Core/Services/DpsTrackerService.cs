@@ -1,5 +1,6 @@
 using EQCompanion.Core.Models;
 using EQCompanion.Core.Pipeline;
+using EQCompanion.Core.Roster;
 
 namespace EQCompanion.Core.Services;
 
@@ -44,6 +45,13 @@ public sealed record DpsTrackerOptions
 
     /// <summary>Clear all encounters when a batch (historical import) begins.</summary>
     public bool ResetOnBeginBatch { get; init; }
+
+    /// <summary>
+    /// Verified players and pets. Roster players count as players, pets count as friendly, and (when
+    /// <see cref="PlayerRoster.MergePetDamage"/> is on) a pet's damage is credited to its owner. The tracker also feeds it the
+    /// /who and /pet leader lines it sees.
+    /// </summary>
+    public PlayerRoster? Roster { get; init; }
 }
 
 /// <summary>
@@ -61,7 +69,8 @@ public sealed record DpsTrackerOptions
 /// word is Unknown until observed: a Player attacking an Unknown (or an Unknown attacking a Player) makes the Unknown an Npc;
 /// an Unknown attacking a known Npc becomes a Player. Only Player-to-Npc events count as damage dealt, so a boss like
 /// "Tormax" is tracked as a target and its hits on players are ignored. Two Unknowns fighting each other are ignored until one
-/// is resolved. Same-named mobs share an encounter, and pet damage is not attributed to owners.
+/// is resolved. Same-named mobs share an encounter. A pet is only known once <c>/pet leader</c> has been used on it (see
+/// <see cref="PlayerRoster"/>); from then on its damage is credited to the owner.
 /// </para>
 /// All mutation happens under a lock; readers use <see cref="Snapshot"/>, which is lock-free.
 /// </summary>
@@ -76,6 +85,7 @@ public class DpsTrackerService : IDpsEventSink
 
     private readonly object _gate = new();
     private readonly DpsTrackerOptions _options;
+    private readonly PlayerRoster? _roster;
     private readonly Dictionary<string, CombatEncounter> _active = new(StringComparer.Ordinal);
     private readonly List<EncounterSnapshot> _completed = new();
     private readonly HashSet<string> _seedPlayers = new(StringComparer.Ordinal);
@@ -106,6 +116,7 @@ public class DpsTrackerService : IDpsEventSink
         }
 
         _inactivityTimeout = _options.InactivityTimeout;
+        _roster = _options.Roster;
 
         if (_options.KnownPlayers is not null)
         {
@@ -246,7 +257,7 @@ public class DpsTrackerService : IDpsEventSink
                     if (IsAttack(combatEvent))
                     {
                         GetOrStart(combatEvent.Target, combatEvent.Timestamp)
-                            .AddDamage(combatEvent.Timestamp, combatEvent.Source, combatEvent.Amount, isCritical);
+                            .AddDamage(combatEvent.Timestamp, Attacker(combatEvent.Source), combatEvent.Amount, isCritical);
                         changed = true;
                     }
 
@@ -254,7 +265,7 @@ public class DpsTrackerService : IDpsEventSink
 
                 case CombatEventKind.Miss when IsAttack(combatEvent):
                     GetOrStart(combatEvent.Target, combatEvent.Timestamp)
-                        .AddMiss(combatEvent.Timestamp, combatEvent.Source);
+                        .AddMiss(combatEvent.Timestamp, Attacker(combatEvent.Source));
                     changed = true;
                     break;
 
@@ -274,6 +285,9 @@ public class DpsTrackerService : IDpsEventSink
             }
         }
     }
+
+    /// <summary>Lets the roster learn from /who and /pet leader lines, including while a log is imported or caught up.</summary>
+    public void OnNonCombatMessage(ReadOnlySpan<char> message) => _roster?.Observe(message);
 
     public void OnLogClock(DateTime logTimestamp)
     {
@@ -339,8 +353,17 @@ public class DpsTrackerService : IDpsEventSink
         _confirmedNpcs.Remove(name);
     }
 
+    /// <summary>The row a hit is credited to: the owner when the attacker is a known pet and merging is on.</summary>
+    private string Attacker(string source) =>
+        _roster is { MergePetDamage: true } roster && roster.TryGetOwner(source, out string? owner) ? owner : source;
+
     private NameKind Classify(string name)
     {
+        if (_roster is not null && (_roster.IsVerifiedPlayer(name) || _roster.IsPet(name)))
+        {
+            return NameKind.Player;
+        }
+
         if (_confirmedPlayers.Contains(name))
         {
             return NameKind.Player;
@@ -499,11 +522,15 @@ public sealed class LiveDpsTracker : DpsTrackerService
 {
     public const int DefaultMaxCompletedEncounters = 500;
 
-    public LiveDpsTracker(TimeSpan? inactivityTimeout = null, int maxCompletedEncounters = DefaultMaxCompletedEncounters)
+    public LiveDpsTracker(
+        TimeSpan? inactivityTimeout = null,
+        int maxCompletedEncounters = DefaultMaxCompletedEncounters,
+        PlayerRoster? roster = null)
         : base(new DpsTrackerOptions
         {
             InactivityTimeout = inactivityTimeout ?? TimeSpan.FromSeconds(8),
             MaxCompletedEncounters = maxCompletedEncounters,
+            Roster = roster,
         })
     {
     }
@@ -512,11 +539,12 @@ public sealed class LiveDpsTracker : DpsTrackerService
 /// <summary>Tracker fed by the historical importer. Unbounded history; each import replaces the previous result.</summary>
 public sealed class HistoricalDpsTracker : DpsTrackerService
 {
-    public HistoricalDpsTracker(TimeSpan? inactivityTimeout = null)
+    public HistoricalDpsTracker(TimeSpan? inactivityTimeout = null, PlayerRoster? roster = null)
         : base(new DpsTrackerOptions
         {
             InactivityTimeout = inactivityTimeout ?? TimeSpan.FromSeconds(8),
             ResetOnBeginBatch = true,
+            Roster = roster,
         })
     {
     }

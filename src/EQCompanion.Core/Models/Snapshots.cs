@@ -17,7 +17,8 @@ public sealed record ParticipantSnapshot(
     double HitRate,
     int MaxCritHit = 0,
     int CritHitCount = 0,
-    double CritRatePercent = 0.0);
+    double CritRatePercent = 0.0,
+    string Class = "");
 
 public sealed record EncounterSnapshot(
     int Id,
@@ -31,6 +32,19 @@ public sealed record EncounterSnapshot(
 {
     public string DisplayName =>
         $"{TargetName} — {StartTime:HH:mm:ss} ({DurationSeconds:0}s, {TotalDamage:N0} dmg){(IsActive ? " • live" : string.Empty)}";
+
+    /// <summary>
+    /// A copy whose participants carry their class label ("WAR", "Pet", or empty), looked up now. Classes are not stored in the
+    /// frozen fight, so one learned after the fight ended (a later /who) still shows.
+    /// </summary>
+    public EncounterSnapshot WithClasses(Func<string, string> classOf)
+    {
+        ArgumentNullException.ThrowIfNull(classOf);
+        return this with
+        {
+            Participants = Array.AsReadOnly(Participants.Select(p => p with { Class = classOf(p.Name) }).ToArray()),
+        };
+    }
 
     /// <summary>Freezes an encounter. Participants are ordered by damage, highest first.</summary>
     public static EncounterSnapshot From(CombatEncounter encounter)

@@ -359,6 +359,7 @@ public sealed class AppSettingsService : IDisposable
         settings.TrackedSpellIds ??= new HashSet<int>();
         settings.TrackedSpells = NormalizeTrackedSpells(settings.TrackedSpells);
         settings.TrackedAbilities = NormalizeTrackedAbilities(settings.TrackedAbilities);
+        settings.Roster = Roster.PlayerRoster.Sanitize(settings.Roster);
         settings.DefaultCasterLevel = Math.Clamp(settings.DefaultCasterLevel, AppSettings.MinCasterLevel, AppSettings.MaxCasterLevel);
 
         double timeout = settings.EncounterTimeoutSeconds;

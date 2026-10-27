@@ -74,6 +74,10 @@ public sealed partial class ParticipantRowViewModel : ObservableObject
     [ObservableProperty]
     private string _name = string.Empty;
 
+    /// <summary>"WAR", "Pet" or empty when the class is not known.</summary>
+    [ObservableProperty]
+    private string _class = string.Empty;
+
     [ObservableProperty]
     private long _totalDamage;
 
@@ -110,6 +114,7 @@ public sealed partial class ParticipantRowViewModel : ObservableObject
     {
         Rank = rank;
         Name = participant.Name;
+        Class = participant.Class;
         TotalDamage = participant.TotalDamage;
         DamagePercent = participant.PercentOfGroupDamage;
         ScaledDps = participant.ScaledDps;

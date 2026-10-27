@@ -18,7 +18,10 @@ changes to the game. It runs alongside EverQuest and works for as many of your c
   for everyone in the raid or only your own characters, each in the overlay you choose.
 - **CH chain.** Complete Heal chain bars from the raid-say position tags (for example `5-5-5`), with a late-cast alarm.
 - **DPS & encounter history.** Live damage meter and a single newest-first list of fights, live and imported. Opening the app in the
-  middle of a fight picks the fight up from your log. Copy the top 12 as chat text, or everyone as a picture for Discord.
+  middle of a fight picks the fight up from your log. Copy the top 12 as chat text, or everyone as a picture for Discord. Every
+  attacker shows a class (WAR, CLR, ...), and a pet's damage counts under its owner.
+- **Players & pets.** The app remembers the players it has verified and which pet belongs to whom, and keeps them between runs.
+  Classes are read from `/who`. To link a pet, target it and type `/pet leader`.
 - **Six overlays.** Buffs, Debuffs, Songs, Raid Triggers, CH Chain and DPS. Each is movable, resizable and lockable, with a theme bar
   for colors.
 - **Sharing.** Share triggers in chat as `{EQO:...}` tokens. Nothing from a shared trigger is switched on until you accept it, and
@@ -46,11 +49,22 @@ check off, or run it by hand, under **Settings > Updates**.
 
 ## Notes
 
+- Classes come from `/who` lines in your logs (run `/who all` in a zone and the Class column fills in). A player who has never been
+  listed shows a blank class. Pets show "Pet" and are linked to their owner when you target the pet and type `/pet leader`.
+  Review or forget what is stored under **Settings > Players & pets**.
+- A pet's damage moves to its owner's row only for fights parsed after the pet is linked. Turn this off in the same place to list
+  pets separately.
 - The CH Chain overlay is off by default. With it off, chain bars and the late-cast alarm show in the Buffs overlay.
 - Spell data comes from your own `spells_us.txt` (and `spells_us_str.txt` next to it). Discs have their recast and duration filled in
   from it; most AAs have no recast there, so type the name exactly as the log prints it and enter the times yourself.
 
 ## Changelog
+
+### 1.0.16
+- The DPS table, the DPS overlay and the Discord picture have a **Class** column.
+- Verified players and pets are remembered. A player is verified by a `/who` line (which also gives the class) or by owning a pet;
+  a pet is linked by targeting it and typing `/pet leader`.
+- A known pet's damage is counted under its owner (can be switched off). **Settings > Players & pets** lists everything stored.
 
 ### 1.0.15
 - The Discord picture now lists every attacker in the fight, not just the top 12. (Chat text still copies the top 12.)

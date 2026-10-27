@@ -63,6 +63,10 @@ public static class LogEventProcessor
                 else
                 {
                     dpsSink.OnLogClock(timestamp);
+                    if (evt.Line.Length > LogLineFormat.MessageOffset)
+                    {
+                        dpsSink.OnNonCombatMessage(evt.Line.AsSpan(LogLineFormat.MessageOffset));
+                    }
                 }
             }
             catch (Exception ex)

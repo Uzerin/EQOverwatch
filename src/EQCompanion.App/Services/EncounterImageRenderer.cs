@@ -27,7 +27,7 @@ public static class EncounterImageRenderer
     private static readonly Typeface Bold = new(new FontFamily("Segoe UI"), FontStyles.Normal, FontWeights.SemiBold, FontStretches.Normal);
 
     // Column left edges (name is left-aligned; the numbers are right-aligned to the next edge).
-    private static readonly double[] ColumnRight = { 52, 0, 400, 490, 580, 655, 716 };
+    private static readonly double[] ColumnRight = { 52, 0, 0, 400, 490, 580, 655, 716 };
 
     public static BitmapSource Render(EncounterSnapshot encounter, ThemePalette palette, string footer, int topCount = EncounterExport.AllAttackers)
     {
@@ -71,7 +71,7 @@ public static class EncounterImageRenderer
                     dc.DrawRoundedRectangle(barFill, null, new Rect(Padding, y + 2, barWidth, RowHeight - 4), 5, 5);
                 }
 
-                DrawRow(dc, new[] { row.Rank.ToString(CultureInfo.InvariantCulture), row.Name, row.Total, row.Sdps, row.MaxHit, row.MaxCrit, row.CritPercent },
+                DrawRow(dc, new[] { row.Rank.ToString(CultureInfo.InvariantCulture), row.Name, row.Class, row.Total, row.Sdps, row.MaxHit, row.MaxCrit, row.CritPercent },
                     y, Regular, 14, text);
                 y += RowHeight;
             }
@@ -99,12 +99,13 @@ public static class EncounterImageRenderer
 
     private static void DrawRow(DrawingContext dc, IReadOnlyList<string> cells, double y, Typeface face, double size, Brush brush)
     {
-        // # (right-aligned), Name (left), then five right-aligned number columns.
+        // # (right-aligned), Name and Class (left), then five right-aligned number columns.
         Draw(dc, cells[0], face, size, brush, Padding, y + 4, ColumnRight[0] - Padding, TextAlignment.Right);
-        Draw(dc, cells[1], face, size, brush, 62, y + 4, 184, TextAlignment.Left);
+        Draw(dc, cells[1], face, size, brush, 62, y + 4, 138, TextAlignment.Left);
+        Draw(dc, cells[2], face, size, brush, 204, y + 4, 46, TextAlignment.Left);
 
         double left = 250;
-        for (int i = 2; i < cells.Count; i++)
+        for (int i = 3; i < cells.Count; i++)
         {
             double right = ColumnRight[i];
             Draw(dc, cells[i], face, size, brush, left, y + 4, right - left, TextAlignment.Right);

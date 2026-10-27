@@ -81,6 +81,7 @@ public sealed partial class MainViewModel : ObservableObject
 
         PendingSharedTriggers.CollectionChanged += (_, _) => OnPendingSharedChanged();
         _pipeline.SharedTriggers.Offered += OnSharedOffered;
+        _pipeline.Roster.Changed += OnRosterChanged;
 
         Restore(settings);
 
@@ -729,6 +730,7 @@ public sealed partial class MainViewModel : ObservableObject
         UpdateTrackerActivity();
         UpdateAbilityActivity();
         UpdateKnownMobs();
+        DrainRosterChanges();
 
         DpsSnapshot live = _pipeline.LiveDps.Snapshot;
         DpsSnapshot imported = _pipeline.HistoricalDps.Snapshot;
@@ -835,7 +837,7 @@ public sealed partial class MainViewModel : ObservableObject
             return;
         }
 
-        IReadOnlyList<ParticipantSnapshot> ranked = encounter.Participants;
+        IReadOnlyList<ParticipantSnapshot> ranked = encounter.WithClasses(_pipeline.Roster.GetClassLabel).Participants;
         for (int i = 0; i < ranked.Count; i++)
         {
             if (i >= Participants.Count)
@@ -1259,6 +1261,7 @@ public sealed partial class MainViewModel : ObservableObject
 
             RestoreTrackedSpells(settings);
             RestoreTrackedAbilities(settings);
+            RestoreRoster(settings);
             SpellsFilePath = settings.SpellsFilePath ?? string.Empty;
             if (string.IsNullOrWhiteSpace(SpellsFilePath) && EqDirectoryScanner.HasSpellsFile(EqFolderPath))
             {
@@ -1340,6 +1343,7 @@ public sealed partial class MainViewModel : ObservableObject
         TrackedSpellIds = new HashSet<int>(TrackedSpells.Where(r => r.IsEnabled).Select(r => r.SpellId)),
         TrackedSpells = TrackedSpells.Select(r => r.ToSetting()).ToList(),
         TrackedAbilities = TrackedAbilities.Select(r => r.ToSetting()).ToList(),
+        Roster = _pipeline.Roster.ToSettings(),
         EqFolderPath = EqFolderPath,
         AdditionalMonitoredCharacters = AdditionalCharacters.ToList(),
         HistoricalDaysLimit = HistoricalDaysLimit,
@@ -1436,6 +1440,7 @@ public sealed partial class MainViewModel : ObservableObject
         Logs.CollectionChanged -= OnLogsChanged;
         _overlays.PlacementChanged -= OnPlacementChanged;
         _pipeline.SharedTriggers.Offered -= OnSharedOffered;
+        _pipeline.Roster.Changed -= OnRosterChanged;
         foreach (WatchedLogConfig log in _subscribedLogs)
         {
             log.PropertyChanged -= OnLogPropertyChanged;

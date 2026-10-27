@@ -14,7 +14,8 @@ public sealed record EncounterExportRow(
     string MaxHit,
     string MaxCrit,
     string CritPercent,
-    double Fill);
+    double Fill,
+    string Class = "");
 
 /// <summary>Text and table versions of an encounter, for pasting into EverQuest chat or rendering as a Discord screenshot.</summary>
 public static class EncounterExport
@@ -27,7 +28,7 @@ public static class EncounterExport
 
     /// <summary>The column titles of the screenshot's table, in order.</summary>
     public static IReadOnlyList<string> ColumnHeaders { get; } =
-        new[] { "#", "Name", "Total", "SDPS", "Max Hit", "Max Crit", "Crit %" };
+        new[] { "#", "Name", "Class", "Total", "SDPS", "Max Hit", "Max Crit", "Crit %" };
 
     /// <summary>The rows of the screenshot's table: the top attackers with every number formatted.</summary>
     public static IReadOnlyList<EncounterExportRow> BuildRows(EncounterSnapshot encounter, int topCount = DefaultTopCount)
@@ -48,7 +49,8 @@ public static class EncounterExport
                 p.MaxHit.ToString("N0", CultureInfo.InvariantCulture),
                 hasCrits ? p.MaxCritHit.ToString("N0", CultureInfo.InvariantCulture) : "-",
                 hasCrits ? p.CritRatePercent.ToString("0.0", CultureInfo.InvariantCulture) + "%" : "-",
-                best > 0 ? (double)p.TotalDamage / best : 0.0));
+                best > 0 ? (double)p.TotalDamage / best : 0.0,
+                p.Class));
         }
 
         return rows;

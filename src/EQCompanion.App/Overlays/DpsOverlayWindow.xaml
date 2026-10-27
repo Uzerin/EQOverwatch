@@ -62,13 +62,15 @@
                 <Grid Margin="6,3,6,0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="34"/>
                         <ColumnDefinition Width="52"/>
                         <ColumnDefinition Width="58"/>
                         <ColumnDefinition Width="40"/>
                     </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="1" Text="SDPS" HorizontalAlignment="Right" Style="{StaticResource OverlayMutedTextStyle}"/>
-                    <TextBlock Grid.Column="2" Text="Total" HorizontalAlignment="Right" Style="{StaticResource OverlayMutedTextStyle}"/>
-                    <TextBlock Grid.Column="3" Text="%" HorizontalAlignment="Right" Style="{StaticResource OverlayMutedTextStyle}"/>
+                    <TextBlock Grid.Column="1" Text="Cls" HorizontalAlignment="Center" Style="{StaticResource OverlayMutedTextStyle}"/>
+                    <TextBlock Grid.Column="2" Text="SDPS" HorizontalAlignment="Right" Style="{StaticResource OverlayMutedTextStyle}"/>
+                    <TextBlock Grid.Column="3" Text="Total" HorizontalAlignment="Right" Style="{StaticResource OverlayMutedTextStyle}"/>
+                    <TextBlock Grid.Column="4" Text="%" HorizontalAlignment="Right" Style="{StaticResource OverlayMutedTextStyle}"/>
                 </Grid>
 
                 <!-- Ranked rows with relative fill bars -->
@@ -87,14 +89,16 @@
                                 <Grid Margin="6,0">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="34"/>
                                         <ColumnDefinition Width="52"/>
                                         <ColumnDefinition Width="58"/>
                                         <ColumnDefinition Width="40"/>
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Grid.Column="0" Text="{Binding RankName}" TextTrimming="CharacterEllipsis" Style="{StaticResource OverlayTextStyle}"/>
-                                    <TextBlock Grid.Column="1" Text="{Binding SdpsText}" HorizontalAlignment="Right" Style="{StaticResource OverlayTextStyle}"/>
-                                    <TextBlock Grid.Column="2" Text="{Binding TotalText}" HorizontalAlignment="Right" Style="{StaticResource OverlayTextStyle}"/>
-                                    <TextBlock Grid.Column="3" Text="{Binding PercentText}" HorizontalAlignment="Right" Style="{StaticResource OverlayTextStyle}"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding ClassText}" HorizontalAlignment="Center" Style="{StaticResource OverlayMutedTextStyle}"/>
+                                    <TextBlock Grid.Column="2" Text="{Binding SdpsText}" HorizontalAlignment="Right" Style="{StaticResource OverlayTextStyle}"/>
+                                    <TextBlock Grid.Column="3" Text="{Binding TotalText}" HorizontalAlignment="Right" Style="{StaticResource OverlayTextStyle}"/>
+                                    <TextBlock Grid.Column="4" Text="{Binding PercentText}" HorizontalAlignment="Right" Style="{StaticResource OverlayTextStyle}"/>
                                 </Grid>
                             </Grid>
                         </DataTemplate>

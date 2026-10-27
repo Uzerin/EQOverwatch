@@ -1,4 +1,5 @@
 using EQCompanion.Core.Models;
+using EQCompanion.Core.Roster;
 using EQCompanion.Core.Services;
 using EQCompanion.Core.Sharing;
 using EQCompanion.Core.Spells;
@@ -25,21 +26,22 @@ public sealed class CompanionPipeline : IAsyncDisposable
         Triggers = new TriggerEngineService();
         Spells = new SpellDatabaseService();
         Buffs = new BuffTrackerService(Spells, Triggers);
-        LiveDps = new LiveDpsTracker(inactivityTimeout);
+        Roster = new PlayerRoster();
+        LiveDps = new LiveDpsTracker(inactivityTimeout, roster: Roster);
         LiveDpsTracker liveDps = LiveDps;
         RaidBosses = new RaidBossTimerService(Triggers, () => liveDps.Snapshot);
         ChChain = new ChChainService(Triggers);
         Cooldowns = new CooldownTrackerService(Triggers);
         Abilities = new AbilityTrackerService(Triggers);
         SharedTriggers = new SharedTriggerScanner();
-        HistoricalDps = new HistoricalDpsTracker(inactivityTimeout);
+        HistoricalDps = new HistoricalDpsTracker(inactivityTimeout, Roster);
 
         Triggers.Error += RaiseError;
         Logs.CollectionChanged += (_, _) => RefreshMonitoredCharacters();
 
         // Every sink sees every line of every trigger-enabled log. Historical imports use none of them.
         var triggerSinks = new CompositeTriggerSink(
-            new ITriggerLineSink[] { Triggers, Buffs, RaidBosses, ChChain, Cooldowns, Abilities, SharedTriggers }, RaiseError);
+            new ITriggerLineSink[] { Triggers, Buffs, RaidBosses, ChChain, Cooldowns, Abilities, SharedTriggers, Roster }, RaiseError);
         _monitor = new LiveLogMonitor(Logs, triggerSinks, LiveDps, RaiseError);
         _monitor.TailError += (config, ex) => TailError?.Invoke(config, ex);
     }
@@ -67,6 +69,9 @@ public sealed class CompanionPipeline : IAsyncDisposable
 
     /// <summary>Spots <c>{EQO:...}</c> shared triggers in chat.</summary>
     public SharedTriggerScanner SharedTriggers { get; }
+
+    /// <summary>Verified players (with classes) and pets, learned from /who and /pet leader lines.</summary>
+    public PlayerRoster Roster { get; }
     public LiveDpsTracker LiveDps { get; }
     public HistoricalDpsTracker HistoricalDps { get; }
 

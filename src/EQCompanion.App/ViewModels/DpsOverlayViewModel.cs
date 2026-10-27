@@ -12,6 +12,10 @@ public sealed partial class DpsRowViewModel : ObservableObject
     [ObservableProperty]
     private string _rankName = string.Empty;
 
+    /// <summary>"WAR", "Pet" or empty.</summary>
+    [ObservableProperty]
+    private string _classText = string.Empty;
+
     [ObservableProperty]
     private string _sdpsText = string.Empty;
 
@@ -28,6 +32,7 @@ public sealed partial class DpsRowViewModel : ObservableObject
     public void Update(int rank, ParticipantSnapshot participant, long topDamage)
     {
         RankName = $"{rank}. {participant.Name}";
+        ClassText = participant.Class;
         SdpsText = OverlayFormat.Compact((long)Math.Round(participant.ScaledDps));
         TotalText = OverlayFormat.Compact(participant.TotalDamage);
         PercentText = participant.PercentOfGroupDamage.ToString("0", System.Globalization.CultureInfo.InvariantCulture) + "%";
@@ -47,9 +52,13 @@ public sealed partial class DpsOverlayViewModel : ObservableObject
     private readonly Func<DpsSnapshot> _source;
     private long _lastVersion = -1;
 
-    public DpsOverlayViewModel(Func<DpsSnapshot> source)
+    private readonly Func<string, string>? _classOf;
+
+    /// <param name="classOf">Looks up a name's class label ("WAR", "Pet", or empty); null shows no classes.</param>
+    public DpsOverlayViewModel(Func<DpsSnapshot> source, Func<string, string>? classOf = null)
     {
         _source = source ?? throw new ArgumentNullException(nameof(source));
+        _classOf = classOf;
     }
 
     [ObservableProperty]
@@ -110,6 +119,11 @@ public sealed partial class DpsOverlayViewModel : ObservableObject
             .ThenByDescending(e => e.Id)
             .FirstOrDefault()
             ?? (snapshot.Completed.Count > 0 ? snapshot.Completed[^1] : null);
+
+        if (encounter is not null && _classOf is not null)
+        {
+            encounter = encounter.WithClasses(_classOf);
+        }
 
         DisplayedEncounter = encounter;
 

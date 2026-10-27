@@ -52,4 +52,12 @@ public interface IDpsEventSink
     void OnLogOwner(string characterName)
     {
     }
+
+    /// <summary>
+    /// Called for every DPS-routed line that is not a combat event, with the text after the timestamp. The DPS tracker uses it to
+    /// learn players and pets from /who and /pet leader lines. Default implementation does nothing.
+    /// </summary>
+    void OnNonCombatMessage(ReadOnlySpan<char> message)
+    {
+    }
 }

@@ -936,6 +936,7 @@
                                 <DataGrid.Columns>
                                     <DataGridTextColumn Header="#" Binding="{Binding Rank}" Width="36" ElementStyle="{StaticResource NumericCell}"/>
                                     <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="*"/>
+                                    <DataGridTextColumn Header="Class" Binding="{Binding Class}" Width="56"/>
                                     <DataGridTextColumn Header="Total damage" Binding="{Binding TotalDamage, StringFormat=N0}" Width="100"
                                                         ElementStyle="{StaticResource NumericCell}"/>
                                     <DataGridTextColumn Header="% of group" Binding="{Binding DamagePercent, StringFormat={}{0:0.0}%}" Width="84"
@@ -1114,6 +1115,57 @@
                             </StackPanel>
                         </GroupBox>
 
+
+                        <GroupBox Header="Players &amp; pets" Margin="0,12,0,0">
+                            <StackPanel Margin="4">
+                                <TextBlock TextWrapping="Wrap" Style="{StaticResource HintText}" Margin="0,0,0,6"
+                                           Text="Classes come from /who. To link a pet to its owner, target the pet and type /pet leader; the pet answers &quot;My leader is Name.&quot; and the app remembers it."/>
+                                <CheckBox Content="Count a pet's damage under its owner" IsChecked="{Binding MergePetDamage}" Margin="0,0,0,6"
+                                          ToolTip="Applies to fights parsed from now on. Off lists each pet on its own row."/>
+                                <TextBlock Text="{Binding RosterSummary}" Style="{StaticResource HintText}" Margin="0,0,0,6"/>
+                                <Grid Height="190">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="12"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <DataGrid Grid.Column="0" ItemsSource="{Binding RosterPlayers}" AutoGenerateColumns="False"
+                                              CanUserAddRows="False" IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="Player" Binding="{Binding Name}" Width="*"/>
+                                            <DataGridTextColumn Header="Class" Binding="{Binding Class}" Width="110"/>
+                                            <DataGridTemplateColumn Width="70">
+                                                <DataGridTemplateColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <Button Content="Forget" Style="{StaticResource SecondaryButton}"
+                                                                Command="{Binding DataContext.ForgetPlayerCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                CommandParameter="{Binding}"/>
+                                                    </DataTemplate>
+                                                </DataGridTemplateColumn.CellTemplate>
+                                            </DataGridTemplateColumn>
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                    <DataGrid Grid.Column="2" ItemsSource="{Binding RosterPets}" AutoGenerateColumns="False"
+                                              CanUserAddRows="False" IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="Pet" Binding="{Binding Pet}" Width="*"/>
+                                            <DataGridTextColumn Header="Owner" Binding="{Binding Owner}" Width="*"/>
+                                            <DataGridTemplateColumn Width="70">
+                                                <DataGridTemplateColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <Button Content="Forget" Style="{StaticResource SecondaryButton}"
+                                                                Command="{Binding DataContext.ForgetPetCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                CommandParameter="{Binding}"/>
+                                                    </DataTemplate>
+                                                </DataGridTemplateColumn.CellTemplate>
+                                            </DataGridTemplateColumn>
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                </Grid>
+                                <Button Content="Forget everyone" Command="{Binding ClearRosterCommand}" Style="{StaticResource SecondaryButton}"
+                                        HorizontalAlignment="Left" Margin="0,8,0,0"/>
+                            </StackPanel>
+                        </GroupBox>
 
                         <GroupBox Header="Updates" Margin="0,12,0,0">
                             <StackPanel Margin="4">

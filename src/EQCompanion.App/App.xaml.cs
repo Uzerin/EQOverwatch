@@ -50,7 +50,7 @@ public partial class CompanionApp : Application
             }
             else
             {
-                dpsVm = new DpsOverlayViewModel(() => _pipeline.LiveDps.Snapshot);
+                dpsVm = new DpsOverlayViewModel(() => _pipeline.LiveDps.Snapshot, _pipeline.Roster.GetClassLabel);
                 windows[kind] = new DpsOverlayWindow(dpsVm);
             }
         }
