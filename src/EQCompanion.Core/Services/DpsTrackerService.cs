@@ -253,7 +253,9 @@ public class DpsTrackerService : IDpsEventSink
                     break;
 
                 case CombatEventKind.Damage:
-                    bool isCritical = ConsumeCrit(combatEvent); // consumed even if the hit is not counted (e.g. an NPC's crit)
+                    // The older announcement line is consumed even if the hit is not counted (e.g. an NPC's crit); the current client
+                    // instead tags the damage line itself: "... points of damage. (Critical)".
+                    bool isCritical = ConsumeCrit(combatEvent) || combatEvent.IsCritical;
                     if (IsAttack(combatEvent))
                     {
                         GetOrStart(combatEvent.Target, combatEvent.Timestamp)

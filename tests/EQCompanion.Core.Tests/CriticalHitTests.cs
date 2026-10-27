@@ -1,5 +1,6 @@
 using EQCompanion.Core.Models;
 using EQCompanion.Core.Parsing;
+using EQCompanion.Core.Pipeline;
 using EQCompanion.Core.Services;
 using Xunit;
 using static EQCompanion.Core.Tests.TestData;
@@ -69,6 +70,63 @@ public class CriticalHitTests
     {
         CombatEvent ev = ParseOk("a frost giant scores a critical hit! (77)");
         Assert.Equal(Giant, ev.Source);
+    }
+
+    [Theory]
+    [InlineData("Warene slashes a Praetorian Medicus for 180 points of damage. (Critical)", "Warene", 180, true)]
+    [InlineData("Zepheera shoots Lord Inquisitor Seru for 82 points of damage. (Critical Double Bow Shot)", "Zepheera", 82, true)]
+    [InlineData("Warene slashes a Praetorian Medicus for 180 points of damage. (Lucky Critical)", "Warene", 180, true)]
+    [InlineData("Warene slashes a Praetorian Medicus for 180 points of damage. (Crippling Blow)", "Warene", 180, false)]
+    [InlineData("Warene slashes a Praetorian Medicus for 180 points of damage.", "Warene", 180, false)]
+    public void A_damage_line_tagged_critical_is_marked_as_a_crit(string message, string attacker, int damage, bool critical)
+    {
+        CombatEvent ev = ParseOk(message);
+        Assert.Equal(CombatEventKind.Damage, ev.Kind);
+        Assert.Equal(attacker, ev.Source);
+        Assert.Equal(damage, ev.Amount);
+        Assert.Equal(critical, ev.IsCritical);
+    }
+
+    [Fact]
+    public void Spell_and_dot_lines_can_carry_the_critical_tag_too()
+    {
+        Assert.True(ParseOk("a frost giant was hit by non-melee for 900 points of damage. (Critical)").IsCritical);
+        Assert.True(ParseOk("a frost giant has taken 300 damage from your Flame Lick. (Critical)").IsCritical);
+        Assert.False(ParseOk("a frost giant has taken 300 damage from your Flame Lick.").IsCritical);
+    }
+
+    [Fact]
+    public async Task Tagged_crits_fill_max_crit_and_crit_percent()
+    {
+        var tracker = new LiveDpsTracker();
+        tracker.AddKnownPlayer("Warene");
+        await RunLinesAsync(new[]
+        {
+            Line("Warene slashes a Praetorian Medicus for 180 points of damage. (Critical)", "11:45:01"),
+            Line("Warene slashes a Praetorian Medicus for 100 points of damage.", "11:45:02"),
+            Line("Warene slashes a Praetorian Medicus for 150 points of damage. (Critical)", "11:45:03"),
+            Line("Warene slashes a Praetorian Medicus for 90 points of damage.", "11:45:04"),
+        }, Self, LogRoute.Dps, dpsSink: tracker);
+
+        ParticipantSnapshot warene = Only(tracker);
+        Assert.Equal(4, warene.Hits);
+        Assert.Equal(2, warene.CritHitCount);
+        Assert.Equal(180, warene.MaxCritHit);
+        Assert.Equal(50.0, warene.CritRatePercent, 3);
+    }
+
+    [Theory]
+    [InlineData("Ream Scores a critical hit!(1234)", "Ream", 1234, DamageKind.Melee)]      // capital verb, no space, as the client writes it
+    [InlineData("Ream Scores a critical hit! (1234)", "Ream", 1234, DamageKind.Melee)]
+    [InlineData("Ream Scores a Lucky critical hit!(88)", "Ream", 88, DamageKind.Melee)]
+    [InlineData("Oodles Delivers a critical blast!(2100)", "Oodles", 2100, DamageKind.NonMelee)]
+    public void The_clients_capitalized_and_unspaced_crit_lines_are_understood(string message, string attacker, int damage, DamageKind kind)
+    {
+        CombatEvent ev = ParseOk(message);
+        Assert.Equal(CombatEventKind.CriticalHit, ev.Kind);
+        Assert.Equal(attacker, ev.Source);
+        Assert.Equal(damage, ev.Amount);
+        Assert.Equal(kind, ev.DamageKind);
     }
 
     [Theory]

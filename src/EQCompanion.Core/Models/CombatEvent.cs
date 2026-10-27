@@ -31,6 +31,7 @@ public enum DamageKind : byte
 /// <param name="Amount">Points of damage; 0 for misses and deaths.</param>
 /// <param name="DamageKind">Melee / non-melee / DoT for damage events.</param>
 /// <param name="Detail">Melee verb, spell name, or miss verb when available.</param>
+/// <param name="IsCritical">The damage line itself was tagged critical, e.g. <c>... points of damage. (Critical)</c> or <c>(Critical Double Bow Shot)</c>.</param>
 public readonly record struct CombatEvent(
     DateTime Timestamp,
     CombatEventKind Kind,
@@ -38,4 +39,5 @@ public readonly record struct CombatEvent(
     string Target,
     int Amount,
     DamageKind DamageKind,
-    string? Detail);
+    string? Detail,
+    bool IsCritical = false);

@@ -44,7 +44,7 @@ public static partial class CombatLineParser
                 }
 
                 combatEvent = new CombatEvent(timestamp, CombatEventKind.Damage, selfName,
-                    match.Groups["target"].Value, spellAmount, DamageKind.NonMelee, null);
+                    match.Groups["target"].Value, spellAmount, DamageKind.NonMelee, null, IsCriticalTag(match));
                 return true;
             }
 
@@ -55,7 +55,7 @@ public static partial class CombatLineParser
                 if (match.Success && TryAmount(match, out int ownDot))
                 {
                     combatEvent = new CombatEvent(timestamp, CombatEventKind.Damage, selfName,
-                        match.Groups["target"].Value, ownDot, DamageKind.DamageOverTime, match.Groups["spell"].Value);
+                        match.Groups["target"].Value, ownDot, DamageKind.DamageOverTime, match.Groups["spell"].Value, IsCriticalTag(match));
                     return true;
                 }
 
@@ -64,7 +64,7 @@ public static partial class CombatLineParser
                 {
                     combatEvent = new CombatEvent(timestamp, CombatEventKind.Damage,
                         Resolve(match.Groups["source"].Value, selfName),
-                        match.Groups["target"].Value, otherDot, DamageKind.DamageOverTime, match.Groups["spell"].Value);
+                        match.Groups["target"].Value, otherDot, DamageKind.DamageOverTime, match.Groups["spell"].Value, IsCriticalTag(match));
                     return true;
                 }
 
@@ -85,7 +85,8 @@ public static partial class CombatLineParser
                     Resolve(match.Groups["target"].Value, selfName),
                     amount,
                     match.Groups["nonmelee"].Success ? DamageKind.NonMelee : DamageKind.Melee,
-                    match.Groups["verb"].Value);
+                    match.Groups["verb"].Value,
+                    IsCriticalTag(match));
                 return true;
             }
 
@@ -93,9 +94,9 @@ public static partial class CombatLineParser
         }
 
         // "Ream scores a critical hit! (1234)" / "You deliver a critical blast! (900)": announced on the line BEFORE the damage line.
-        if (message[^1] == ')' && Contains(message, " critical "))
+        if (message[^1] == ')' && message.IndexOf(" critical ", StringComparison.OrdinalIgnoreCase) >= 0)
         {
-            bool blast = Contains(message, "a critical blast!");
+            bool blast = message.IndexOf("critical blast!", StringComparison.OrdinalIgnoreCase) >= 0;
             match = (blast ? CritBlastRegex() : CritHitRegex()).Match(line, start, length);
             if (!match.Success || !TryAmount(match, "damage", out int critDamage))
             {
@@ -147,6 +148,13 @@ public static partial class CombatLineParser
         return false;
     }
 
+    /// <summary>
+    /// True when the damage line ends in a tag naming a critical hit: "(Critical)", "(Lucky Critical)", "(Critical Double Bow Shot)".
+    /// Other tags such as "(Crippling Blow)", "(Flurry)" or "(Riposte)" are not crits.
+    /// </summary>
+    private static bool IsCriticalTag(Match match) =>
+        match.Groups["tag"] is { Success: true } tag && tag.ValueSpan.IndexOf("Critical", StringComparison.OrdinalIgnoreCase) >= 0;
+
     private static bool Contains(ReadOnlySpan<char> span, string value) =>
         span.IndexOf(value, StringComparison.Ordinal) >= 0;
 
@@ -165,22 +173,22 @@ public static partial class CombatLineParser
     // The verb list is explicit on purpose: NPC names contain spaces, so "<attacker> <verb> <target>" is only
     // unambiguous when the verb set is known. Trailing client tags such as " (Critical)" are tolerated.
     [GeneratedRegex(
-        @"^(?<source>.+?) (?<verb>hit|hits|slash|slashes|crush|crushes|pierce|pierces|bash|bashes|kick|kicks|punch|punches|backstab|backstabs|strike|strikes|claw|claws|bite|bites|maul|mauls|gore|gores|slice|slices|rend|rends|slam|slams|smash|smashes|sting|stings|shoot|shoots|frenzy on|frenzies on) (?<target>.+?) for (?<amount>\d+) points? of (?<nonmelee>non-melee )?damage\.(?: \(.+\))?$",
+        @"^(?<source>.+?) (?<verb>hit|hits|slash|slashes|crush|crushes|pierce|pierces|bash|bashes|kick|kicks|punch|punches|backstab|backstabs|strike|strikes|claw|claws|bite|bites|maul|mauls|gore|gores|slice|slices|rend|rends|slam|slams|smash|smashes|sting|stings|shoot|shoots|frenzy on|frenzies on) (?<target>.+?) for (?<amount>\d+) points? of (?<nonmelee>non-melee )?damage\.(?: \((?<tag>.+)\))?$",
         RegexOptions.CultureInvariant)]
     private static partial Regex DirectDamageRegex();
 
     [GeneratedRegex(
-        @"^(?<target>.+?) was hit by non-melee for (?<amount>\d+) points? of damage\.(?: \(.+\))?$",
+        @"^(?<target>.+?) was hit by non-melee for (?<amount>\d+) points? of damage\.(?: \((?<tag>.+)\))?$",
         RegexOptions.CultureInvariant)]
     private static partial Regex OwnSpellDamageRegex();
 
     [GeneratedRegex(
-        @"^(?<target>.+?) has taken (?<amount>\d+) damage from your (?<spell>.+?)\.(?: \(.+\))?$",
+        @"^(?<target>.+?) has taken (?<amount>\d+) damage from your (?<spell>.+?)\.(?: \((?<tag>.+)\))?$",
         RegexOptions.CultureInvariant)]
     private static partial Regex OwnDotRegex();
 
     [GeneratedRegex(
-        @"^(?<target>.+?) has taken (?<amount>\d+) damage from (?<spell>.+?) by (?<source>.+?)\.(?: \(.+\))?$",
+        @"^(?<target>.+?) has taken (?<amount>\d+) damage from (?<spell>.+?) by (?<source>.+?)\.(?: \((?<tag>.+)\))?$",
         RegexOptions.CultureInvariant)]
     private static partial Regex OtherDotRegex();
 
@@ -190,16 +198,17 @@ public static partial class CombatLineParser
         RegexOptions.CultureInvariant)]
     private static partial Regex MissRegex();
 
-    // "Ream scores a critical hit! (1234)"  /  "You score a critical hit! (1234)"
+    // "Ream scores a critical hit! (1234)"  /  "You score a critical hit! (1234)". The game client capitalizes the verb
+    // ("Ream Scores a critical hit!(1234)") and may leave out the space before the number, so both are accepted, as is "Lucky".
     [GeneratedRegex(
-        @"^(?<attacker>.+?) scores? a critical hit! \((?<damage>\d+)\)$",
-        RegexOptions.CultureInvariant)]
+        @"^(?<attacker>.+?) scores? a (?:lucky )?critical hit!\s*\((?<damage>\d+)\)$",
+        RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex CritHitRegex();
 
-    // "Ream delivers a critical blast! (1234)"  /  "You deliver a critical blast! (1234)"
+    // "Ream delivers a critical blast! (1234)"  /  "You deliver a critical blast! (1234)"  (same tolerance as above)
     [GeneratedRegex(
-        @"^(?<attacker>.+?) delivers? a critical blast! \((?<damage>\d+)\)$",
-        RegexOptions.CultureInvariant)]
+        @"^(?<attacker>.+?) delivers? a (?:lucky )?critical blast!\s*\((?<damage>\d+)\)$",
+        RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex CritBlastRegex();
 
     // "a frost giant has been slain by Stackprime!"  /  "You have been slain by a frost giant!"

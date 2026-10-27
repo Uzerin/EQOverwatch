@@ -60,6 +60,10 @@ check off, or run it by hand, under **Settings > Updates**.
 
 ## Changelog
 
+### 1.0.17
+- Max Crit and Crit % now work. The game marks a critical hit on the damage line itself, such as `(Critical)` or
+  `(Critical Double Bow Shot)`; the older separate "Scores a critical hit!" line is still understood.
+
 ### 1.0.16
 - The DPS table, the DPS overlay and the Discord picture have a **Class** column.
 - Verified players and pets are remembered. A player is verified by a `/who` line (which also gives the class) or by owning a pet;
