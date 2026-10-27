@@ -9,7 +9,7 @@ using EQCompanion.Core.Theming;
 namespace EQCompanion.App.Services;
 
 /// <summary>
-/// Draws the "Copy Image for Discord" picture: the encounter summary, a table of the top attackers (Total, SDPS, Max Hit, Max Crit,
+/// Draws the "Copy Image for Discord" picture: the encounter summary, a table of every attacker (Total, SDPS, Max Hit, Max Crit,
 /// Crit %) and the product footer, in the active theme's colors. Rendered at twice the layout size so it stays sharp when Discord
 /// scales it. Call on the UI thread.
 /// </summary>
@@ -29,7 +29,7 @@ public static class EncounterImageRenderer
     // Column left edges (name is left-aligned; the numbers are right-aligned to the next edge).
     private static readonly double[] ColumnRight = { 52, 0, 400, 490, 580, 655, 716 };
 
-    public static BitmapSource Render(EncounterSnapshot encounter, ThemePalette palette, string footer, int topCount = EncounterExport.DefaultTopCount)
+    public static BitmapSource Render(EncounterSnapshot encounter, ThemePalette palette, string footer, int topCount = EncounterExport.AllAttackers)
     {
         ArgumentNullException.ThrowIfNull(encounter);
         ArgumentNullException.ThrowIfNull(palette);

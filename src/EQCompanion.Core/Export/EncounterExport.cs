@@ -19,7 +19,11 @@ public sealed record EncounterExportRow(
 /// <summary>Text and table versions of an encounter, for pasting into EverQuest chat or rendering as a Discord screenshot.</summary>
 public static class EncounterExport
 {
+    /// <summary>The attackers in the chat text (EverQuest chat has little room).</summary>
     public const int DefaultTopCount = 12;
+
+    /// <summary>Pass as the top count to include every attacker (the Discord picture lists everyone).</summary>
+    public const int AllAttackers = int.MaxValue;
 
     /// <summary>The column titles of the screenshot's table, in order.</summary>
     public static IReadOnlyList<string> ColumnHeaders { get; } =

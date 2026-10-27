@@ -1,5 +1,6 @@
 using System.IO;
 using EQCompanion.App.ViewModels;
+using EQCompanion.Core.Export;
 using EQCompanion.Core.Models;
 using EQCompanion.Core.Settings;
 using EQCompanion.Core.Sharing;
@@ -29,8 +30,8 @@ public partial class MainViewModelTests
         using var h = new Harness();
 
         Assert.Equal("EQ Overwatch", h.Vm.AppName);
-        Assert.Equal("v1.0.14", h.Vm.AppVersion);
-        Assert.Equal("EQ Overwatch v1.0.14", h.Vm.WindowTitle);
+        Assert.Equal("v1.0.15", h.Vm.AppVersion);
+        Assert.Equal("EQ Overwatch v1.0.15", h.Vm.WindowTitle);
     }
 
     [Fact]
@@ -252,8 +253,8 @@ public partial class MainViewModelTests
 
         var image = Assert.Single(h.Clipboard.Images);
         Assert.Equal(Giant, image.Encounter.TargetName);
-        Assert.Equal("EQ Overwatch v1.0.14", image.Footer);
-        Assert.Equal(12, image.TopCount);
+        Assert.Equal("EQ Overwatch v1.0.15", image.Footer);
+        Assert.Equal(EncounterExport.AllAttackers, image.TopCount); // the picture lists everyone, not just the top 12
     }
 
     [Fact]

@@ -40,6 +40,20 @@ public sealed class EncounterExportTests
     }
 
     [Fact]
+    public void The_picture_table_can_list_every_attacker_while_the_default_stays_at_twelve()
+    {
+        EncounterSnapshot fight = Fight(30);
+
+        IReadOnlyList<EncounterExportRow> everyone = EncounterExport.BuildRows(fight, EncounterExport.AllAttackers);
+
+        Assert.Equal(30, everyone.Count);
+        Assert.Equal(Enumerable.Range(1, 30), everyone.Select(r => r.Rank));
+        Assert.Equal("Player29", everyone[0].Name);
+        Assert.Equal("Player00", everyone[29].Name);
+        Assert.Equal(12, EncounterExport.BuildRows(fight).Count);
+    }
+
+    [Fact]
     public void Fewer_attackers_give_fewer_lines_and_the_format_is_culture_independent()
     {
         EncounterSnapshot fight = Fight(2);

@@ -18,7 +18,7 @@ changes to the game. It runs alongside EverQuest and works for as many of your c
   for everyone in the raid or only your own characters, each in the overlay you choose.
 - **CH chain.** Complete Heal chain bars from the raid-say position tags (for example `5-5-5`), with a late-cast alarm.
 - **DPS & encounter history.** Live damage meter and a single newest-first list of fights, live and imported. Opening the app in the
-  middle of a fight picks the fight up from your log. Copy results as chat text or as a picture.
+  middle of a fight picks the fight up from your log. Copy the top 12 as chat text, or everyone as a picture for Discord.
 - **Six overlays.** Buffs, Debuffs, Songs, Raid Triggers, CH Chain and DPS. Each is movable, resizable and lockable, with a theme bar
   for colors.
 - **Sharing.** Share triggers in chat as `{EQO:...}` tokens. Nothing from a shared trigger is switched on until you accept it, and
@@ -51,6 +51,9 @@ check off, or run it by hand, under **Settings > Updates**.
   from it; most AAs have no recast there, so type the name exactly as the log prints it and enter the times yourself.
 
 ## Changelog
+
+### 1.0.15
+- The Discord picture now lists every attacker in the fight, not just the top 12. (Chat text still copies the top 12.)
 
 ### 1.0.14
 - New app icon: the radar from the logo, used for the exe, the taskbar and the window.
