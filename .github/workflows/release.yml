@@ -24,7 +24,7 @@ jobs:
         shell: pwsh
         run: |
           $tag = '${{ github.ref_name }}'.TrimStart('v')
-          foreach ($project in 'src/EQCompanion.App/EQCompanion.App.csproj', 'src/EQCompanion.Core/EQCompanion.Core.csproj') {
+          foreach ($project in 'src/EQOverwatch.App/EQOverwatch.App.csproj', 'src/EQOverwatch.Core/EQOverwatch.Core.csproj') {
             $xml = [xml](Get-Content $project)
             $version = @($xml.Project.PropertyGroup.Version | Where-Object { $_ })[0]
             if ($tag -ne $version) { throw "Tag v$tag does not match <Version> $version in $project" }
@@ -34,7 +34,7 @@ jobs:
         run: dotnet test -c Release
 
       - name: Publish
-        run: dotnet publish src/EQCompanion.App -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o publish
+        run: dotnet publish src/EQOverwatch.App -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o publish
 
       - name: Zip
         shell: pwsh

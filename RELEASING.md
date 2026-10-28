@@ -5,7 +5,7 @@ version is newer than the running one, a bar offers **Download** (opens the rele
 
 To publish v1.0.12 (use your own number):
 
-1. The version in `src/EQCompanion.App/EQCompanion.App.csproj` and `src/EQCompanion.Core/EQCompanion.Core.csproj` is already 1.0.12
+1. The version in `src/EQOverwatch.App/EQOverwatch.App.csproj` and `src/EQOverwatch.Core/EQOverwatch.Core.csproj` is already 1.0.12
    (and the tests that assert it).
 2. Commit and push to `main`.
 3. Tag it and push the tag: `git tag v1.0.12` then `git push origin v1.0.12`.

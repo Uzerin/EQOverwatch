@@ -1,0 +1,78 @@
+<overlays:OverlayWindowBase x:Class="EQOverwatch.App.Overlays.TimerOverlayWindow"
+                            xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                            xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                            xmlns:overlays="clr-namespace:EQOverwatch.App.Overlays"
+                            xmlns:vm="clr-namespace:EQOverwatch.App.ViewModels"
+                            Title="EQ Overwatch"
+                            OverlayName="Overlay"
+                            WindowStartupLocation="Manual"
+                            Left="60" Top="60"
+                            Width="320" Height="240"
+                            MinWidth="200" MinHeight="90">
+    <Grid>
+        <Border Style="{StaticResource OverlayBackdropStyle}"/>
+
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="0"
+                    Style="{StaticResource OverlayTitleStripStyle}"
+                    MouseLeftButtonDown="OnTitleStripMouseDown">
+                <TextBlock Margin="6,0"
+                           Style="{StaticResource OverlayTextStyle}"
+                           Text="{Binding OverlayName, RelativeSource={RelativeSource AncestorType={x:Type overlays:OverlayWindowBase}}}"/>
+            </Border>
+
+            <StackPanel Grid.Row="1" Margin="4" ClipToBounds="True">
+
+                <!-- Flash alert banner -->
+                <ItemsControl ItemsSource="{Binding Alerts}" Focusable="False">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="{x:Type vm:AlertViewModel}">
+                            <Border Margin="0,2"
+                                    Padding="8,2"
+                                    CornerRadius="3"
+                                    Background="{DynamicResource RowBackdropBrush}">
+                                <TextBlock Text="{Binding Text}"
+                                           HorizontalAlignment="Center"
+                                           Style="{StaticResource AlertTextStyle}"/>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <!-- Countdown bars: the fill is scaled from its left edge, so it drains right to left. -->
+                <ItemsControl ItemsSource="{Binding Bars}" Focusable="False">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="{x:Type vm:TimerBarViewModel}">
+                            <Grid Height="22" Margin="0,2">
+                                <Border Background="{DynamicResource BarBackBrush}" CornerRadius="3"/>
+                                <Border Style="{StaticResource TimerFillStyle}"
+                                        RenderTransformOrigin="0,0.5">
+                                    <Border.RenderTransform>
+                                        <ScaleTransform ScaleX="{Binding Fraction}"/>
+                                    </Border.RenderTransform>
+                                </Border>
+                                <DockPanel Margin="6,0" LastChildFill="True">
+                                    <TextBlock DockPanel.Dock="Right"
+                                               Margin="8,0,0,0"
+                                               Text="{Binding RemainingText}"
+                                               Style="{StaticResource OverlayTextStyle}"/>
+                                    <TextBlock Text="{Binding Label}"
+                                               TextTrimming="CharacterEllipsis"
+                                               Style="{StaticResource OverlayTextStyle}"/>
+                                </DockPanel>
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+            </StackPanel>
+        </Grid>
+
+        <Rectangle Style="{StaticResource OverlayDashedBorderStyle}"/>
+    </Grid>
+</overlays:OverlayWindowBase>

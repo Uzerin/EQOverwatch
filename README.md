@@ -12,7 +12,7 @@ changes to the game. It runs alongside EverQuest and works for as many of your c
 - **Custom triggers.** GINA-style triggers: match a line in your log, then show text, play a sound, speak it, or start a timer.
 - **Raid triggers.** Recast timers for boss abilities, with a spoken announcement when the timer starts and another when 10 seconds
   remain. Pick the ability from your spell file or type the log text yourself, and edit saved triggers in place.
-- **Buff & Song Tracker.** Pick the buffs, debuffs and songs you care about and choose which overlay each one appears in. Bars start
+- **Spells & Songs tab.** Pick the buffs, debuffs and songs you care about and choose which overlay each one appears in. Bars start
   from your own casts (and your monitored characters' landings) using the messages in your spell file.
 - **AAs & Discs.** Track disciplines and AAs: an "active" bar for how long it lasts and a "cooldown" bar until it can be used again,
   for everyone in the raid or only your own characters, each in the overlay you choose.
@@ -59,6 +59,15 @@ check off, or run it by hand, under **Settings > Updates**.
   from it; most AAs have no recast there, so type the name exactly as the log prints it and enter the times yourself.
 
 ## Changelog
+
+### 1.0.18
+- **Characters** tab: Level and Class columns, filled in from your logs (`/who` lines and "Welcome to level N"). The extra characters
+  you monitor are now a table with the same columns.
+- **Spells & Songs** (was Buff & Song Tracker): long text wraps instead of being cut off.
+- **AAs & Discs**: new "Starts when" and "Fades" columns.
+- **Encounter DPS** (was DPS & Encounter History): the import bar is gone, since the Primary DPS log loads by itself; a status line and
+  progress bar show only while it loads. The fight list and attacker table each take half the window.
+- **Settings**: sections flow into one, two or three columns as you resize the window.
 
 ### 1.0.17
 - Max Crit and Crit % now work. The game marks a critical hit on the damage line itself, such as `(Critical)` or
@@ -107,7 +116,7 @@ check off, or run it by hand, under **Settings > Updates**.
 - Raid triggers have separate announcements for when the timer starts and when 10 seconds remain.
 
 ### 1.0.1
-- The Buff & Song Tracker is a list you build: search a spell, pick its overlay, add it. Each row has its own overlay and on/off switch.
+- The Spells & Songs tab is a list you build: search a spell, pick its overlay, add it. Each row has its own overlay and on/off switch.
 - The Raid Triggers boss box is a drop-down of mobs from ended fights.
 
 ## Building from source
@@ -115,16 +124,16 @@ check off, or run it by hand, under **Settings > Updates**.
 Requires the .NET 8 SDK. The app itself is Windows-only (WPF); the core library and its tests run anywhere.
 
 ```powershell
-dotnet test tests/EQCompanion.Core.Tests     # any OS
+dotnet test tests/EQOverwatch.Core.Tests     # any OS
 dotnet test                                  # whole solution, Windows
-dotnet run --project src/EQCompanion.App     # Windows
-dotnet publish src/EQCompanion.App -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o publish
+dotnet run --project src/EQOverwatch.App     # Windows
+dotnet publish src/EQOverwatch.App -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o publish
 ```
 
-The solution is `EQCompanion.sln`; the code keeps the `EQCompanion.*` namespaces from the project's earlier name and builds `EQOverwatch.exe`.
+The solution is `EQOverwatch.sln`; the code uses the `EQOverwatch.*` namespaces and builds `EQOverwatch.exe`.
 
-- `src/EQCompanion.Core` is the platform-neutral engine: log tailing and parsing, triggers, timers, DPS, spell database, settings, sharing.
-- `src/EQCompanion.App` is the WPF app: view models, overlays, themes.
+- `src/EQOverwatch.Core` is the platform-neutral engine: log tailing and parsing, triggers, timers, DPS, spell database, settings, sharing.
+- `src/EQOverwatch.App` is the WPF app: view models, overlays, themes.
 - `tests/` holds the unit tests for both.
 
 See `RELEASING.md` for how a version is published.

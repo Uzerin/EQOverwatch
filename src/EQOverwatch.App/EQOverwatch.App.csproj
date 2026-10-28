@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <LangVersion>12.0</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>EQOverwatch.App</RootNamespace>
+    <AssemblyName>EQOverwatch</AssemblyName>
+    <Product>EQ Overwatch</Product>
+    <ApplicationIcon>Assets\EQOverwatch.ico</ApplicationIcon>
+    <Version>1.0.18</Version>
+    <AssemblyVersion>1.0.18.0</AssemblyVersion>
+    <FileVersion>1.0.18.0</FileVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\EQOverwatch.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.*" />
+    <PackageReference Include="System.Speech" Version="8.0.*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\EQOverwatch.Core\EQOverwatch.Core.csproj" />
+  </ItemGroup>
+
+</Project>
