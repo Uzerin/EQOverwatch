@@ -160,7 +160,8 @@ public sealed partial class CharacterDataViewModel : ObservableObject
             .ToList();
 
         // A scroll in a bag or bank is named "Spell: <spell>". This character's own (and the shared bank's) come first, then the
-        // other characters' with their name in front, e.g. "Ream: Spell: Sanctuary · General 2 · slot 3".
+        // other characters' on the same server with their name in front, e.g. "Ream: Spell: Sanctuary · General 2 · slot 3".
+        // Scrolls on another server cannot be traded over, so they are not listed.
         var holders = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
 
         void AddScroll(InventoryItem item, string owner)
@@ -190,7 +191,8 @@ public sealed partial class CharacterDataViewModel : ObservableObject
         }
 
         foreach (CharacterData other in _store.All()
-                     .Where(c => !c.Name.Equals(CharacterName, StringComparison.OrdinalIgnoreCase))
+                     .Where(c => !c.Name.Equals(CharacterName, StringComparison.OrdinalIgnoreCase)
+                                 && (server.Length == 0 || c.Server.Equals(server, StringComparison.OrdinalIgnoreCase)))
                      .OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase))
         {
             foreach (InventoryItem item in other.Inventory)

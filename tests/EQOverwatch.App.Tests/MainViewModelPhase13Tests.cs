@@ -222,7 +222,7 @@ public partial class MainViewModelTests
     }
 
     [Fact]
-    public async Task The_missing_spells_tab_lists_scrolls_carried_by_the_other_characters()
+    public async Task The_missing_spells_tab_lists_scrolls_carried_by_the_other_characters_on_the_same_server()
     {
         using var h = new Harness();
         (WatchedLogConfig reamiiv, _) = await WatchReamCharactersAsync(h);
@@ -237,6 +237,9 @@ public partial class MainViewModelTests
         WriteOutputFile(h, "Reamii_frostreaver-Inventory",
             "Location\tName\tID\tCount\tSlots",
             "Bank3\tSpell: Sanctuary\t7001\t1\t6");
+        WriteOutputFile(h, "Elsewhere_othersrv-Inventory", // a character on another server: its scrolls are not listed
+            "Location\tName\tID\tCount\tSlots",
+            "Bank1\tSpell: Remove Minor Curse\t7002\t1\t6");
 
         h.Vm.OpenMissingSpellsCommand.Execute(reamiiv);
 

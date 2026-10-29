@@ -81,7 +81,7 @@
                             <DataGridTextColumn Header="Level" Binding="{Binding Level, Mode=OneWay}" Width="80"
                                                 ElementStyle="{StaticResource NumericCell}"/>
                             <DataGridTextColumn Header="Spell" Binding="{Binding Name, Mode=OneWay}" Width="*"/>
-                            <DataGridTextColumn Header="Scroll on hand (any of your characters)" Binding="{Binding Scroll, Mode=OneWay}" Width="320"
+                            <DataGridTextColumn Header="Scroll on hand (same server)" Binding="{Binding Scroll, Mode=OneWay}" Width="320"
                                                 ElementStyle="{StaticResource WrapCell}"/>
                         </DataGrid.Columns>
                     </DataGrid>

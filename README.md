@@ -62,8 +62,11 @@ check off, or run it by hand, under **Settings > Updates**.
 
 ## Changelog
 
+### 1.0.21
+- The scrolls listed on the Missing spells tab come only from characters on the same server.
+
 ### 1.0.20
-- The Missing spells tab lists the scrolls any of your characters carry, not just the one you are looking at. A spell Reamiiv is
+- The Missing spells tab lists the scrolls your other characters on the same server carry, not just the one you are looking at. A spell Reamiiv is
   missing shows "Ream: Spell: Sanctuary · General 2 · slot 3" when Ream has the scroll. Click a character's data button or Refresh so
   the other characters' newest files are read.
 
