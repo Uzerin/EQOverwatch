@@ -220,4 +220,35 @@ public partial class MainViewModelTests
 
         Assert.Equal(2, vm.SpellbookRows.Count);
     }
+
+    [Fact]
+    public async Task The_missing_spells_tab_lists_scrolls_carried_by_the_other_characters()
+    {
+        using var h = new Harness();
+        (WatchedLogConfig reamiiv, _) = await WatchReamCharactersAsync(h);
+        WriteOutputFile(h, "Reamiiv_frostreaver-CLR-MissingSpells", "6\tSanctuary", "8\tRemove Minor Curse", "15\tBlessing of Piety");
+        WriteOutputFile(h, "Reamiiv_frostreaver-Inventory",
+            "Location\tName\tID\tCount\tSlots",
+            "General 1-Slot5\tSpell: Blessing of Piety\t30411\t1\t6");
+        WriteOutputFile(h, "Ream_frostreaver-Inventory",
+            "Location\tName\tID\tCount\tSlots",
+            "General 2-Slot3\tSpell: Sanctuary\t7001\t1\t6",
+            "General 2-Slot4\tSpell: Blessing of Piety\t30411\t2\t6");
+        WriteOutputFile(h, "Reamii_frostreaver-Inventory",
+            "Location\tName\tID\tCount\tSlots",
+            "Bank3\tSpell: Sanctuary\t7001\t1\t6");
+
+        h.Vm.OpenMissingSpellsCommand.Execute(reamiiv);
+
+        CharacterDataViewModel vm = Assert.Single(h.CharacterPresenter.Shown);
+        Assert.Equal(
+            new[]
+            {
+                ("Sanctuary", "Ream: Spell: Sanctuary · General 2 · slot 3; Reamii: Spell: Sanctuary · Bank 3"),
+                ("Remove Minor Curse", "—"),
+                ("Blessing of Piety", "Spell: Blessing of Piety · General 1 · slot 5; Ream: Spell: Blessing of Piety · General 2 · slot 4"),
+            },
+            vm.MissingRows.Select(r => (r.Name, r.Scroll)));
+        Assert.Contains("Scrolls on hand for missing spells: 2", vm.MissingSummary);
+    }
 }

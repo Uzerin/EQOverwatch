@@ -71,7 +71,7 @@
             <TabItem Header="Missing spells">
                 <DockPanel Margin="0,6,0,0">
                     <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6">
-                        <CheckBox DockPanel.Dock="Right" Content="Only spells I hold a scroll for" IsChecked="{Binding OnlyWithScroll}"
+                        <CheckBox DockPanel.Dock="Right" Content="Only spells with a scroll on hand" IsChecked="{Binding OnlyWithScroll}"
                                   VerticalAlignment="Center"/>
                         <TextBlock Text="{Binding MissingSummary}" VerticalAlignment="Center"/>
                     </DockPanel>
@@ -81,7 +81,7 @@
                             <DataGridTextColumn Header="Level" Binding="{Binding Level, Mode=OneWay}" Width="80"
                                                 ElementStyle="{StaticResource NumericCell}"/>
                             <DataGridTextColumn Header="Spell" Binding="{Binding Name, Mode=OneWay}" Width="*"/>
-                            <DataGridTextColumn Header="Scroll on hand" Binding="{Binding Scroll, Mode=OneWay}" Width="320"
+                            <DataGridTextColumn Header="Scroll on hand (any of your characters)" Binding="{Binding Scroll, Mode=OneWay}" Width="320"
                                                 ElementStyle="{StaticResource WrapCell}"/>
                         </DataGrid.Columns>
                     </DataGrid>

@@ -62,6 +62,11 @@ check off, or run it by hand, under **Settings > Updates**.
 
 ## Changelog
 
+### 1.0.20
+- The Missing spells tab lists the scrolls any of your characters carry, not just the one you are looking at. A spell Reamiiv is
+  missing shows "Ream: Spell: Sanctuary · General 2 · slot 3" when Ream has the scroll. Click a character's data button or Refresh so
+  the other characters' newest files are read.
+
 ### 1.0.19
 - **Character data windows.** The Characters tab has Inventory, Spellbook and Missing spells buttons for each character. They open a
   window built from the files EverQuest's `/outputfile` command writes into your game folder (`/outputfile inventory`,

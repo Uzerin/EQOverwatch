@@ -91,7 +91,7 @@ public sealed partial class CharacterDataViewModel : ObservableObject
     [RelayCommand]
     public void Refresh()
     {
-        _store.Scan(_eqFolder(), CharacterName, ServerName);
+        _store.ScanAll(_eqFolder()); // this character's files, and the other characters' (their scrolls are listed too)
         Rebuild();
     }
 
@@ -159,19 +159,47 @@ public sealed partial class CharacterDataViewModel : ObservableObject
             .Select(s => new SpellRow(s.Level, s.Name))
             .ToList();
 
-        // A scroll in a bag or bank is named "Spell: <spell>"; the first one found is shown.
-        var scrolls = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        // A scroll in a bag or bank is named "Spell: <spell>". This character's own (and the shared bank's) come first, then the
+        // other characters' with their name in front, e.g. "Ream: Spell: Sanctuary · General 2 · slot 3".
+        var holders = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+
+        void AddScroll(InventoryItem item, string owner)
+        {
+            if (!item.Name.StartsWith(ScrollPrefix, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            string spell = item.Name[ScrollPrefix.Length..].Trim();
+            if (spell.Length == 0)
+            {
+                return;
+            }
+
+            if (!holders.TryGetValue(spell, out List<string>? list))
+            {
+                holders[spell] = list = new List<string>();
+            }
+
+            list.Add($"{owner}{item.Name} · {item.Where}");
+        }
+
         foreach (InventoryItem item in items)
         {
-            if (item.Name.StartsWith(ScrollPrefix, StringComparison.OrdinalIgnoreCase))
+            AddScroll(item, string.Empty);
+        }
+
+        foreach (CharacterData other in _store.All()
+                     .Where(c => !c.Name.Equals(CharacterName, StringComparison.OrdinalIgnoreCase))
+                     .OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase))
+        {
+            foreach (InventoryItem item in other.Inventory)
             {
-                string spell = item.Name[ScrollPrefix.Length..].Trim();
-                if (spell.Length > 0 && !scrolls.ContainsKey(spell))
-                {
-                    scrolls[spell] = $"{item.Name} · {item.Where}";
-                }
+                AddScroll(item, $"{other.Name}: ");
             }
         }
+
+        var scrolls = holders.ToDictionary(p => p.Key, p => string.Join("; ", p.Value), StringComparer.OrdinalIgnoreCase);
 
         List<SpellListEntry> missing = data?.Missing ?? new List<SpellListEntry>();
         int withScroll = missing.Count(m => scrolls.ContainsKey(m.Name));

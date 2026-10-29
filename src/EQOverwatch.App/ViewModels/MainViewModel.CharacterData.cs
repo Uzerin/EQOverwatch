@@ -32,8 +32,9 @@ public sealed partial class MainViewModel
             return;
         }
 
-        // Always look at the game folder first: the files may have been written since the last time.
-        _characterData.Scan(EqFolderPath, log.CharacterName, log.ServerName);
+        // Always look at the game folder first: the files may have been written since the last time. Every character is read, because
+        // the Missing spells tab also lists the scrolls the other characters carry.
+        _characterData.ScanAll(EqFolderPath);
         CharacterData? data = _characterData.Find(log.CharacterName, log.ServerName);
         RefreshCharacterInfo();
 

@@ -84,6 +84,15 @@ public sealed class CharacterDataStore
         }
     }
 
+    /// <summary>Every character whose files have been read, as a snapshot.</summary>
+    public IReadOnlyList<CharacterData> All()
+    {
+        lock (_gate)
+        {
+            return _characters.Values.ToList();
+        }
+    }
+
     public SharedBankData? FindShared(string server)
     {
         lock (_gate)
