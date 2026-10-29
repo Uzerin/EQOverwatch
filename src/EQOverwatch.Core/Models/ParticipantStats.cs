@@ -94,3 +94,27 @@ public sealed class ParticipantStats : ObservableObject
         }
     }
 }
+
+/// <summary>Damage one player or pet took from a fight's target.</summary>
+internal sealed class DamageTakenStats
+{
+    public DamageTakenStats(string name)
+    {
+        Name = name;
+    }
+
+    public string Name { get; }
+    public long TotalDamage { get; private set; }
+    public int Hits { get; private set; }
+    public int MaxHit { get; private set; }
+
+    public void Record(int amount)
+    {
+        Hits++;
+        TotalDamage += amount;
+        if (amount > MaxHit)
+        {
+            MaxHit = amount;
+        }
+    }
+}

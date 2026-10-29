@@ -179,17 +179,17 @@ public partial class MainViewModelTests
         Assert.Equal(
             new[] { "Head", "General 1", "General 1 · slot 5", "Shared bank 4 · slot 6" },
             vm.InventoryRows.Select(r => r.Where));
-        Assert.Equal(new[] { "Courage", "Stun" }, vm.SpellbookRows.Select(r => r.Name));
+        Assert.Equal(new[] { "Stun", "Courage" }, vm.SpellbookRows.Select(r => r.Name));
         Assert.Equal("Desiccated Hedgerow Leaf", Assert.Single(vm.KeyRingRows).Name);
 
         // Scrolls in the bags and the shared bank are matched to the missing spells.
         Assert.Equal(
-            new[] { ("Sanctuary", "—"), ("Blessing of Piety", "Spell: Blessing of Piety · General 1 · slot 5"),
-                    ("Judgment", "Spell: Judgment · Shared bank 4 · slot 6") },
+            new[] { ("Judgment", "Spell: Judgment · Shared bank 4 · slot 6"),
+                    ("Blessing of Piety", "Spell: Blessing of Piety · General 1 · slot 5"), ("Sanctuary", "—") },
             vm.MissingRows.Select(r => (r.Name, r.Scroll)));
         Assert.Contains("Scrolls on hand for missing spells: 2", vm.MissingSummary);
         vm.OnlyWithScroll = true;
-        Assert.Equal(new[] { "Blessing of Piety", "Judgment" }, vm.MissingRows.Select(r => r.Name));
+        Assert.Equal(new[] { "Judgment", "Blessing of Piety" }, vm.MissingRows.Select(r => r.Name));
 
         // The filter narrows the tables; Reamiiv's files are not Ream's.
         vm.OnlyWithScroll = false;
@@ -247,11 +247,25 @@ public partial class MainViewModelTests
         Assert.Equal(
             new[]
             {
-                ("Sanctuary", "Ream: Spell: Sanctuary · General 2 · slot 3; Reamii: Spell: Sanctuary · Bank 3"),
-                ("Remove Minor Curse", "—"),
                 ("Blessing of Piety", "Spell: Blessing of Piety · General 1 · slot 5; Ream: Spell: Blessing of Piety · General 2 · slot 4"),
+                ("Remove Minor Curse", "—"),
+                ("Sanctuary", "Ream: Spell: Sanctuary · General 2 · slot 3; Reamii: Spell: Sanctuary · Bank 3"),
             },
             vm.MissingRows.Select(r => (r.Name, r.Scroll)));
         Assert.Contains("Scrolls on hand for missing spells: 2", vm.MissingSummary);
+    }
+
+    [Fact]
+    public void A_player_who_died_shows_the_death_count_after_the_name()
+    {
+        var row = new ParticipantRowViewModel();
+        row.Update(1, new ParticipantSnapshot("Reamiiv", 1000, 50, 10, 10, 100, 10, 0, 1.0, Deaths: 2), topDamage: 2000);
+
+        Assert.Equal("Reamiiv", row.Name);
+        Assert.Equal("Reamiiv (Deaths: 2)", row.DisplayName);
+        Assert.Equal(0.5, row.BarFraction);
+
+        row.Update(1, new ParticipantSnapshot("Ream", 1000, 50, 10, 10, 100, 10, 0, 1.0), topDamage: 1000);
+        Assert.Equal("Ream", row.DisplayName); // no deaths: the plain name
     }
 }

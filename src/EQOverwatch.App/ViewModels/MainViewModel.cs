@@ -444,6 +444,12 @@ public sealed partial class MainViewModel : ObservableObject
 
     public ObservableCollection<ParticipantRowViewModel> Participants { get; } = new();
 
+    /// <summary>What the selected fight's target did to the group, most damage first.</summary>
+    public ObservableCollection<DamageTakenRowViewModel> DamageTaken { get; } = new();
+
+    [ObservableProperty]
+    private string _damageTakenSummary = string.Empty;
+
     partial void OnSelectedEncounterChanged(EncounterRowViewModel? value) => RefreshParticipants();
 
     partial void OnEncounterTimeoutSecondsChanged(double value)
@@ -840,11 +846,14 @@ public sealed partial class MainViewModel : ObservableObject
         if (encounter is null)
         {
             Participants.Clear();
+            DamageTaken.Clear();
+            DamageTakenSummary = string.Empty;
             EncounterSummary = NoEncounterText;
             return;
         }
 
         IReadOnlyList<ParticipantSnapshot> ranked = encounter.WithClasses(_pipeline.Roster.GetClassLabel).Participants;
+        long topDealt = ranked.Count > 0 ? ranked.Max(p => p.TotalDamage) : 0;
         for (int i = 0; i < ranked.Count; i++)
         {
             if (i >= Participants.Count)
@@ -852,8 +861,27 @@ public sealed partial class MainViewModel : ObservableObject
                 Participants.Add(new ParticipantRowViewModel());
             }
 
-            Participants[i].Update(i + 1, ranked[i]);
+            Participants[i].Update(i + 1, ranked[i], topDealt);
         }
+
+        IReadOnlyList<DamageTakenSnapshot> taken = encounter.TakenRows;
+        long topTaken = taken.Count > 0 ? taken.Max(t => t.TotalDamage) : 0;
+        for (int i = 0; i < taken.Count; i++)
+        {
+            if (i >= DamageTaken.Count)
+            {
+                DamageTaken.Add(new DamageTakenRowViewModel());
+            }
+
+            DamageTaken[i].Update(i + 1, taken[i], topTaken);
+        }
+
+        while (DamageTaken.Count > taken.Count)
+        {
+            DamageTaken.RemoveAt(DamageTaken.Count - 1);
+        }
+
+        DamageTakenSummary = $"Damage taken from {encounter.TargetName}: {encounter.TotalDamageTaken:N0}";
 
         while (Participants.Count > ranked.Count)
         {
@@ -1393,6 +1421,9 @@ public sealed partial class MainViewModel : ObservableObject
                  && sender is WatchedLogConfig { IsPrimaryDps: true }
                  && !_restoring)
         {
+            // The list only shows fights the Primary DPS character saw: drop the previous character's fights, then load the new one's.
+            _pipeline.LiveDps.Reset();
+            _pipeline.HistoricalDps.Reset();
             QueueAutoImport(); // a newly chosen Primary DPS character gets its recent history loaded
         }
 

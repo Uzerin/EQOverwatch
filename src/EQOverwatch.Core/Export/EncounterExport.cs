@@ -15,7 +15,12 @@ public sealed record EncounterExportRow(
     string MaxCrit,
     string CritPercent,
     double Fill,
-    string Class = "");
+    string Class = "",
+    int Deaths = 0)
+{
+    /// <summary>The name, followed by " (Deaths: 2)" when the player died during the fight.</summary>
+    public string DisplayName => Deaths > 0 ? $"{Name} (Deaths: {Deaths})" : Name;
+}
 
 /// <summary>Text and table versions of an encounter, for pasting into EverQuest chat or rendering as a Discord screenshot.</summary>
 public static class EncounterExport
@@ -50,7 +55,8 @@ public static class EncounterExport
                 hasCrits ? p.MaxCritHit.ToString("N0", CultureInfo.InvariantCulture) : "-",
                 hasCrits ? p.CritRatePercent.ToString("0.0", CultureInfo.InvariantCulture) + "%" : "-",
                 best > 0 ? (double)p.TotalDamage / best : 0.0,
-                p.Class));
+                p.Class,
+                p.Deaths));
         }
 
         return rows;

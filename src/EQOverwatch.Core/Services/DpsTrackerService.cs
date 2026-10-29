@@ -262,6 +262,13 @@ public class DpsTrackerService : IDpsEventSink
                             .AddDamage(combatEvent.Timestamp, Attacker(combatEvent.Source), combatEvent.Amount, isCritical);
                         changed = true;
                     }
+                    else if (_active.TryGetValue(combatEvent.Source, out CombatEncounter? foe)
+                             && Classify(combatEvent.Target) != NameKind.Npc)
+                    {
+                        // The fight's target hurt a player or pet: that is damage taken in this fight.
+                        foe.AddDamageTaken(combatEvent.Target, combatEvent.Amount);
+                        changed = true;
+                    }
 
                     break;
 
@@ -276,6 +283,10 @@ public class DpsTrackerService : IDpsEventSink
                     {
                         CloseEncounter(dead, combatEvent.Timestamp);
                         changed = true;
+                    }
+                    else if (Classify(combatEvent.Target) != NameKind.Npc)
+                    {
+                        changed |= RecordPlayerDeath(combatEvent);
                     }
 
                     break;
@@ -309,6 +320,31 @@ public class DpsTrackerService : IDpsEventSink
         {
             ResetLocked();
         }
+    }
+
+    /// <summary>
+    /// A player or pet died. It counts in the fight of the NPC that killed it; when the killer is not in a fight, in every running
+    /// fight the victim took part in.
+    /// </summary>
+    private bool RecordPlayerDeath(in CombatEvent death)
+    {
+        if (!string.IsNullOrEmpty(death.Source) && _active.TryGetValue(death.Source, out CombatEncounter? killerFight))
+        {
+            killerFight.AddDeath(death.Target);
+            return true;
+        }
+
+        bool recorded = false;
+        foreach (CombatEncounter encounter in _active.Values)
+        {
+            if (encounter.Involves(death.Target))
+            {
+                encounter.AddDeath(death.Target);
+                recorded = true;
+            }
+        }
+
+        return recorded;
     }
 
     /// <summary>Remembers "X scores a critical hit/blast" for the attacker's next damage line.</summary>

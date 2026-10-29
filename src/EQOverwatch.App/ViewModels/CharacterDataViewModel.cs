@@ -156,6 +156,8 @@ public sealed partial class CharacterDataViewModel : ObservableObject
 
         SpellbookRows = (data?.Spellbook ?? new List<SpellListEntry>())
             .Where(s => Match(s.Name))
+            .OrderByDescending(s => s.Level) // highest level first, then by name
+            .ThenBy(s => s.Name, StringComparer.OrdinalIgnoreCase)
             .Select(s => new SpellRow(s.Level, s.Name))
             .ToList();
 
@@ -207,6 +209,8 @@ public sealed partial class CharacterDataViewModel : ObservableObject
         int withScroll = missing.Count(m => scrolls.ContainsKey(m.Name));
         MissingRows = missing
             .Where(m => Match(m.Name))
+            .OrderByDescending(m => m.Level)
+            .ThenBy(m => m.Name, StringComparer.OrdinalIgnoreCase)
             .Select(m => new MissingSpellRow(m.Level, m.Name, scrolls.GetValueOrDefault(m.Name) ?? None))
             .Where(m => !OnlyWithScroll || m.Scroll != None)
             .ToList();

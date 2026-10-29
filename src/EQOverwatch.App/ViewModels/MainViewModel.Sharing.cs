@@ -206,7 +206,8 @@ public sealed partial class MainViewModel
         try
         {
             _clipboard.SetEncounterImage(encounter, ActivePalette, WindowTitle, EncounterExport.AllAttackers);
-            StatusMessage = $"Copied a picture of {encounter.TargetName} with all {encounter.Participants.Count} attacker(s). Paste it into Discord.";
+            StatusMessage = $"Copied a picture of {encounter.TargetName} with all {encounter.Participants.Count} attacker(s)" +
+                            (encounter.TakenRows.Count > 0 ? $" and the damage taken by {encounter.TakenRows.Count}" : string.Empty) + ". Paste it into Discord.";
         }
         catch (Exception ex)
         {

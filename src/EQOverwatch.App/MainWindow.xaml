@@ -910,7 +910,7 @@
                             <Button Content="[ Copy Top 12 for EQ Chat ]" Command="{Binding CopyTop12ForChatCommand}" Margin="0,0,8,0"
                                     ToolTip="Copies the selected fight and its top 12 attackers as text for EverQuest chat."/>
                             <Button Content="[ Copy Image for Discord ]" Command="{Binding CopyImageForDiscordCommand}"
-                                    ToolTip="Copies the selected fight as a picture listing every attacker, ready to paste into Discord."/>
+                                    ToolTip="Copies the selected fight as one picture with the damage dealt and the damage taken, ready to paste into Discord."/>
                         </WrapPanel>
                     </DockPanel>
 
@@ -954,40 +954,92 @@
                             </DataGrid.Columns>
                         </DataGrid>
 
-                        <DockPanel Grid.Column="2">
-                            <TextBlock DockPanel.Dock="Top" FontWeight="SemiBold" Margin="0,0,0,8" TextWrapping="Wrap"
-                                       Text="{Binding EncounterSummary}"/>
-                            <DataGrid ItemsSource="{Binding Participants}"
-                                      AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
-                                      HeadersVisibility="Column" GridLinesVisibility="Horizontal"
-                                      FrozenColumnCount="2" HorizontalScrollBarVisibility="Auto">
-                                <DataGrid.Columns>
-                                    <DataGridTextColumn Header="#" Binding="{Binding Rank}" Width="36" ElementStyle="{StaticResource NumericCell}"/>
-                                    <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="150"/>
-                                    <DataGridTextColumn Header="Class" Binding="{Binding Class}" Width="56"/>
-                                    <DataGridTextColumn Header="Total damage" Binding="{Binding TotalDamage, StringFormat=N0}" Width="100"
-                                                        ElementStyle="{StaticResource NumericCell}"/>
-                                    <DataGridTextColumn Header="% of group" Binding="{Binding DamagePercent, StringFormat={}{0:0.0}%}" Width="84"
-                                                        ElementStyle="{StaticResource NumericCell}"/>
-                                    <DataGridTextColumn Header="Scaled DPS" Binding="{Binding ScaledDps, StringFormat=N1}" Width="84"
-                                                        ElementStyle="{StaticResource NumericCell}"/>
-                                    <DataGridTextColumn Header="DPS" Binding="{Binding Dps, StringFormat=N1}" Width="70"
-                                                        ElementStyle="{StaticResource NumericCell}"/>
-                                    <DataGridTextColumn Header="Max hit" Binding="{Binding MaxHit, StringFormat=N0}" Width="70"
-                                                        ElementStyle="{StaticResource NumericCell}"/>
-                                    <DataGridTextColumn Header="Max crit" Binding="{Binding MaxCritHit, StringFormat=N0}" Width="72"
-                                                        ElementStyle="{StaticResource NumericCell}"/>
-                                    <DataGridTextColumn Header="Hits" Binding="{Binding Hits, StringFormat=N0}" Width="56"
-                                                        ElementStyle="{StaticResource NumericCell}"/>
-                                    <DataGridTextColumn Header="Misses" Binding="{Binding Misses, StringFormat=N0}" Width="62"
-                                                        ElementStyle="{StaticResource NumericCell}"/>
-                                    <DataGridTextColumn Header="Hit rate" Binding="{Binding HitRatePercent, StringFormat={}{0:0.0}%}" Width="72"
-                                                        ElementStyle="{StaticResource NumericCell}"/>
-                                    <DataGridTextColumn Header="Crit %" Binding="{Binding CritRatePercent, StringFormat={}{0:0.0}%}" Width="66"
-                                                        ElementStyle="{StaticResource NumericCell}"/>
-                                </DataGrid.Columns>
-                            </DataGrid>
-                        </DockPanel>
+                        <!-- Right half: damage dealt on top, damage taken below. -->
+                        <Grid Grid.Column="2">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="12"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+
+                            <DockPanel Grid.Row="0">
+                                <TextBlock DockPanel.Dock="Top" FontWeight="SemiBold" Margin="0,0,0,8" TextWrapping="Wrap"
+                                           Text="{Binding EncounterSummary}"/>
+                                <DataGrid ItemsSource="{Binding Participants}"
+                                          AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
+                                          HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                                          FrozenColumnCount="2" HorizontalScrollBarVisibility="Auto">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="#" Binding="{Binding Rank}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                        <DataGridTextColumn Header="Name" Binding="{Binding DisplayName, Mode=OneWay}" Width="Auto"/>
+                                        <DataGridTextColumn Header="Class" Binding="{Binding Class}" Width="Auto"/>
+                                        <DataGridTemplateColumn Header="Total damage" Width="170" SortMemberPath="TotalDamage">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Grid>
+                                                        <ProgressBar Minimum="0" Maximum="1" Value="{Binding BarFraction, Mode=OneWay}" Height="16"
+                                                                     BorderThickness="0" Background="Transparent"
+                                                                     Foreground="{DynamicResource AccentBrush}" Opacity="0.45"/>
+                                                        <TextBlock Text="{Binding TotalDamage, StringFormat=N0}" HorizontalAlignment="Right" Margin="0,0,6,0"
+                                                                   VerticalAlignment="Center"/>
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTextColumn Header="% of group" Binding="{Binding DamagePercent, StringFormat={}{0:0.0}%}" Width="Auto"
+                                                            ElementStyle="{StaticResource NumericCell}"/>
+                                        <DataGridTextColumn Header="Scaled DPS" Binding="{Binding ScaledDps, StringFormat=N1}" Width="Auto"
+                                                            ElementStyle="{StaticResource NumericCell}"/>
+                                        <DataGridTextColumn Header="DPS" Binding="{Binding Dps, StringFormat=N1}" Width="Auto"
+                                                            ElementStyle="{StaticResource NumericCell}"/>
+                                        <DataGridTextColumn Header="Max hit" Binding="{Binding MaxHit, StringFormat=N0}" Width="Auto"
+                                                            ElementStyle="{StaticResource NumericCell}"/>
+                                        <DataGridTextColumn Header="Max crit" Binding="{Binding MaxCritHit, StringFormat=N0}" Width="Auto"
+                                                            ElementStyle="{StaticResource NumericCell}"/>
+                                        <DataGridTextColumn Header="Hits" Binding="{Binding Hits, StringFormat=N0}" Width="Auto"
+                                                            ElementStyle="{StaticResource NumericCell}"/>
+                                        <DataGridTextColumn Header="Misses" Binding="{Binding Misses, StringFormat=N0}" Width="Auto"
+                                                            ElementStyle="{StaticResource NumericCell}"/>
+                                        <DataGridTextColumn Header="Hit rate" Binding="{Binding HitRatePercent, StringFormat={}{0:0.0}%}" Width="Auto"
+                                                            ElementStyle="{StaticResource NumericCell}"/>
+                                        <DataGridTextColumn Header="Crit %" Binding="{Binding CritRatePercent, StringFormat={}{0:0.0}%}" Width="Auto"
+                                                            ElementStyle="{StaticResource NumericCell}"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </DockPanel>
+
+                            <DockPanel Grid.Row="2">
+                                <TextBlock DockPanel.Dock="Top" FontWeight="SemiBold" Margin="0,0,0,8" TextWrapping="Wrap"
+                                           Text="{Binding DamageTakenSummary}"/>
+                                <DataGrid ItemsSource="{Binding DamageTaken}"
+                                          AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
+                                          HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                                          FrozenColumnCount="2" HorizontalScrollBarVisibility="Auto">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="#" Binding="{Binding Rank}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                        <DataGridTextColumn Header="Name" Binding="{Binding DisplayName, Mode=OneWay}" Width="Auto"/>
+                                        <DataGridTemplateColumn Header="Damage taken" Width="170" SortMemberPath="TotalDamage">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Grid>
+                                                        <ProgressBar Minimum="0" Maximum="1" Value="{Binding BarFraction, Mode=OneWay}" Height="16"
+                                                                     BorderThickness="0" Background="Transparent" Foreground="#E5845C" Opacity="0.55"/>
+                                                        <TextBlock Text="{Binding TotalDamage, StringFormat=N0}" HorizontalAlignment="Right" Margin="0,0,6,0"
+                                                                   VerticalAlignment="Center"/>
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTextColumn Header="% of total" Binding="{Binding PercentOfTotal, StringFormat={}{0:0.0}%}" Width="Auto"
+                                                            ElementStyle="{StaticResource NumericCell}"/>
+                                        <DataGridTextColumn Header="Hits" Binding="{Binding Hits, StringFormat=N0}" Width="Auto"
+                                                            ElementStyle="{StaticResource NumericCell}"/>
+                                        <DataGridTextColumn Header="Max hit" Binding="{Binding MaxHit, StringFormat=N0}" Width="Auto"
+                                                            ElementStyle="{StaticResource NumericCell}"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </DockPanel>
+                        </Grid>
                     </Grid>
                 </Grid>
             </TabItem>

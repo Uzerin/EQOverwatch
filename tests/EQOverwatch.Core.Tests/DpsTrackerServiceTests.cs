@@ -378,4 +378,39 @@ public class DpsTrackerServiceTests
         snap.Completed.Select(e =>
             $"{e.TargetName}@{e.StartTime:O}-{e.EndTime:O}:{e.TotalDamage}:" +
             string.Join(",", e.Participants.Select(p => $"{p.Name}={p.TotalDamage}/{p.Hits}/{p.Misses}"))));
+
+    [Fact]
+    public void Damage_the_target_deals_to_players_is_recorded_as_damage_taken_in_that_fight()
+    {
+        var tracker = new LiveDpsTracker();
+        tracker.OnCombatEvent(Hit("Stackprime", Giant, 100, "11:45:01"));
+        tracker.OnCombatEvent(Hit(Giant, "Stackprime", 300, "11:45:02"));
+        tracker.OnCombatEvent(Hit(Giant, "Stackprime", 500, "11:45:03"));
+        tracker.OnCombatEvent(Hit(Giant, "Oodles", 200, "11:45:03"));
+
+        EncounterSnapshot fight = Assert.Single(tracker.Snapshot.Active);
+        Assert.Equal(100, fight.TotalDamage); // damage taken never counts as damage dealt
+        Assert.Equal(1000, fight.TotalDamageTaken);
+        Assert.Equal(new[] { "Stackprime", "Oodles" }, fight.TakenRows.Select(t => t.Name));
+        DamageTakenSnapshot tank = fight.TakenRows[0];
+        Assert.Equal(800, tank.TotalDamage);
+        Assert.Equal(2, tank.Hits);
+        Assert.Equal(500, tank.MaxHit);
+        Assert.Equal(80.0, tank.PercentOfTotal);
+    }
+
+    [Fact]
+    public void A_player_death_is_counted_in_the_fight_of_the_npc_that_killed_them()
+    {
+        var tracker = new LiveDpsTracker();
+        tracker.OnCombatEvent(Hit("Stackprime", Giant, 100, "11:45:01"));
+        tracker.OnCombatEvent(Hit(Giant, "Stackprime", 300, "11:45:02"));
+        tracker.OnCombatEvent(Death("Stackprime", Giant, "11:45:03"));
+        tracker.OnCombatEvent(Death("Stackprime", Giant, "11:45:04"));
+
+        EncounterSnapshot fight = Assert.Single(tracker.Snapshot.Active); // a player's death does not end the fight
+        Assert.Equal(2, fight.Participants.Single(p => p.Name == "Stackprime").Deaths);
+        Assert.Equal(2, fight.TakenRows.Single(t => t.Name == "Stackprime").Deaths);
+        Assert.Equal("Stackprime (Deaths: 2)", fight.Participants[0].DisplayName);
+    }
 }

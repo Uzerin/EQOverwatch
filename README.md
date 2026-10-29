@@ -62,6 +62,13 @@ check off, or run it by hand, under **Settings > Updates**.
 
 ## Changelog
 
+### 1.0.23
+- Encounter DPS tab: the fight list takes the left half; damage dealt is on the top right and a new damage-taken table (what the boss did to each player, with a bar) is on the bottom right.
+- A player who died in a fight shows `(Deaths: #)` after the name, in both tables and in the Discord picture.
+- Copy Image for Discord now puts the damage dealt and the damage taken in one picture.
+- The fight list only shows fights the Primary DPS character saw: choosing another Primary DPS character clears the old character's fights before loading the new one's.
+- Spellbook and Missing spells lists are sorted from the highest level to the lowest.
+
 ### 1.0.22
 - The columns in the character data windows and on the Characters tab fit their contents, so long scroll lists no longer wrap.
 

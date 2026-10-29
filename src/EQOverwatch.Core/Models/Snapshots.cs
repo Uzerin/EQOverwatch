@@ -18,7 +18,24 @@ public sealed record ParticipantSnapshot(
     int MaxCritHit = 0,
     int CritHitCount = 0,
     double CritRatePercent = 0.0,
-    string Class = "");
+    string Class = "",
+    int Deaths = 0)
+{
+    /// <summary>The name, followed by " (Deaths: 2)" when the player died during the fight.</summary>
+    public string DisplayName => Deaths > 0 ? $"{Name} (Deaths: {Deaths})" : Name;
+}
+
+/// <summary>Damage one player or pet took from the fight's target.</summary>
+public sealed record DamageTakenSnapshot(
+    string Name,
+    long TotalDamage,
+    double PercentOfTotal,
+    int Hits,
+    int MaxHit,
+    int Deaths = 0)
+{
+    public string DisplayName => Deaths > 0 ? $"{Name} (Deaths: {Deaths})" : Name;
+}
 
 public sealed record EncounterSnapshot(
     int Id,
@@ -28,8 +45,15 @@ public sealed record EncounterSnapshot(
     double DurationSeconds,
     long TotalDamage,
     bool IsActive,
-    IReadOnlyList<ParticipantSnapshot> Participants)
+    IReadOnlyList<ParticipantSnapshot> Participants,
+    IReadOnlyList<DamageTakenSnapshot>? DamageTaken = null)
 {
+    /// <summary>Who the target hurt, most damage first (empty when nothing was recorded).</summary>
+    public IReadOnlyList<DamageTakenSnapshot> TakenRows => DamageTaken ?? Array.Empty<DamageTakenSnapshot>();
+
+    /// <summary>Total damage the target dealt to players and pets.</summary>
+    public long TotalDamageTaken => TakenRows.Sum(t => t.TotalDamage);
+
     public string DisplayName =>
         $"{TargetName} — {StartTime:HH:mm:ss} ({DurationSeconds:0}s, {TotalDamage:N0} dmg){(IsActive ? " • live" : string.Empty)}";
 
@@ -54,15 +78,23 @@ public sealed record EncounterSnapshot(
         ParticipantSnapshot[] participants = encounter.ParticipantStats
             .Select(p => new ParticipantSnapshot(
                 p.Name, p.TotalDamage, p.PercentOfGroupDamage, p.Dps, p.ScaledDps, p.MaxHit, p.Hits, p.Misses, p.HitRate,
-                p.MaxCritHit, p.CritHitCount, p.CritRatePercent))
+                p.MaxCritHit, p.CritHitCount, p.CritRatePercent, Deaths: encounter.DeathsOf(p.Name)))
             .OrderByDescending(p => p.TotalDamage)
             .ThenBy(p => p.Name, StringComparer.Ordinal)
+            .ToArray();
+
+        long takenTotal = encounter.TotalDamageTaken;
+        DamageTakenSnapshot[] taken = encounter.TakenStats
+            .Select(t => new DamageTakenSnapshot(
+                t.Name, t.TotalDamage, takenTotal > 0 ? 100.0 * t.TotalDamage / takenTotal : 0.0, t.Hits, t.MaxHit, encounter.DeathsOf(t.Name)))
+            .OrderByDescending(t => t.TotalDamage)
+            .ThenBy(t => t.Name, StringComparer.Ordinal)
             .ToArray();
 
         return new EncounterSnapshot(
             encounter.Id, encounter.TargetName, encounter.StartTime, encounter.EndTime,
             encounter.DurationSeconds, encounter.TotalDamage, encounter.IsActive,
-            Array.AsReadOnly(participants));
+            Array.AsReadOnly(participants), Array.AsReadOnly(taken));
     }
 }
 

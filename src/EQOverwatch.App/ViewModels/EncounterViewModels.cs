@@ -110,10 +110,27 @@ public sealed partial class ParticipantRowViewModel : ObservableObject
     [ObservableProperty]
     private double _critRatePercent;
 
-    public void Update(int rank, ParticipantSnapshot participant)
+    /// <summary>Times the player died during the fight.</summary>
+    [ObservableProperty]
+    private int _deaths;
+
+    /// <summary>Damage relative to the top attacker (0 to 1): the length of the bar.</summary>
+    [ObservableProperty]
+    private double _barFraction;
+
+    /// <summary>The name, followed by " (Deaths: 2)" when the player died during the fight.</summary>
+    public string DisplayName => Deaths > 0 ? $"{Name} (Deaths: {Deaths})" : Name;
+
+    partial void OnNameChanged(string value) => OnPropertyChanged(nameof(DisplayName));
+
+    partial void OnDeathsChanged(int value) => OnPropertyChanged(nameof(DisplayName));
+
+    public void Update(int rank, ParticipantSnapshot participant, long topDamage = 0)
     {
         Rank = rank;
         Name = participant.Name;
+        Deaths = participant.Deaths;
+        BarFraction = topDamage > 0 ? (double)participant.TotalDamage / topDamage : 0.0;
         Class = participant.Class;
         TotalDamage = participant.TotalDamage;
         DamagePercent = participant.PercentOfGroupDamage;
@@ -125,5 +142,53 @@ public sealed partial class ParticipantRowViewModel : ObservableObject
         HitRatePercent = participant.HitRate * 100.0;
         MaxCritHit = participant.MaxCritHit;
         CritRatePercent = participant.CritRatePercent;
+    }
+}
+
+/// <summary>One row of the damage-taken grid.</summary>
+public sealed partial class DamageTakenRowViewModel : ObservableObject
+{
+    [ObservableProperty]
+    private int _rank;
+
+    [ObservableProperty]
+    private string _name = string.Empty;
+
+    [ObservableProperty]
+    private int _deaths;
+
+    [ObservableProperty]
+    private long _totalDamage;
+
+    [ObservableProperty]
+    private double _percentOfTotal;
+
+    [ObservableProperty]
+    private int _hits;
+
+    [ObservableProperty]
+    private int _maxHit;
+
+    /// <summary>Damage relative to the player who took the most (0 to 1): the length of the bar.</summary>
+    [ObservableProperty]
+    private double _barFraction;
+
+    /// <summary>The name, followed by " (Deaths: 2)" when the player died during the fight.</summary>
+    public string DisplayName => Deaths > 0 ? $"{Name} (Deaths: {Deaths})" : Name;
+
+    partial void OnNameChanged(string value) => OnPropertyChanged(nameof(DisplayName));
+
+    partial void OnDeathsChanged(int value) => OnPropertyChanged(nameof(DisplayName));
+
+    public void Update(int rank, DamageTakenSnapshot taken, long topDamage)
+    {
+        Rank = rank;
+        Name = taken.Name;
+        Deaths = taken.Deaths;
+        TotalDamage = taken.TotalDamage;
+        PercentOfTotal = taken.PercentOfTotal;
+        Hits = taken.Hits;
+        MaxHit = taken.MaxHit;
+        BarFraction = topDamage > 0 ? (double)taken.TotalDamage / topDamage : 0.0;
     }
 }
