@@ -1,8 +1,11 @@
+using System.IO;
 using System.Diagnostics;
 using System.Windows;
 using EQOverwatch.App.Overlays;
 using EQOverwatch.App.Services;
 using EQOverwatch.App.ViewModels;
+using EQOverwatch.Core;
+using EQOverwatch.Core.Characters;
 using EQOverwatch.Core.Pipeline;
 using EQOverwatch.Core.Settings;
 using EQOverwatch.Core.Theming;
@@ -60,7 +63,10 @@ public partial class CompanionApp : Application
         _viewModel = new MainViewModel(
             _pipeline, _settingsService, settings, new OverlayHost(windows), _audio, new WpfDialogService(), themeManager, new WpfClipboardService(),
             updateChecker: new GitHubUpdateChecker(_http),
-            openUrl: url => Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }));
+            openUrl: url => Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }),
+            characterDataPresenter: new WpfCharacterDataPresenter(),
+            characterData: new CharacterDataStore(Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), AppInfo.SettingsFolderName, "characters")));
 
         if (dpsVm is not null)
         {

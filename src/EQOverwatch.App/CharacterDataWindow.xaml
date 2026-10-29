@@ -1,0 +1,104 @@
+<Window x:Class="EQOverwatch.App.CharacterDataWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="{Binding Title}"
+        Icon="pack://application:,,,/Assets/EQOverwatch.ico"
+        Width="1000" Height="700"
+        MinWidth="640" MinHeight="420"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource WindowBgBrush}"
+        Foreground="{DynamicResource TextPrimaryBrush}"
+        FontFamily="Segoe UI" FontSize="13">
+
+    <Window.Resources>
+        <Style x:Key="NumericCell" TargetType="TextBlock">
+            <Setter Property="HorizontalAlignment" Value="Right"/>
+            <Setter Property="Margin" Value="0,0,8,0"/>
+        </Style>
+
+        <Style x:Key="HintText" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+
+        <Style x:Key="WrapCell" TargetType="TextBlock">
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="Margin" Value="2,3"/>
+        </Style>
+    </Window.Resources>
+
+    <DockPanel Margin="10">
+
+        <!-- Filter, refresh and where the data came from. -->
+        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+            <Button DockPanel.Dock="Right" Content="Refresh" Command="{Binding RefreshCommand}"
+                    Style="{StaticResource SecondaryButton}" Margin="10,0,0,0" Padding="12,4"
+                    ToolTip="Read this character's /outputfile files from the EverQuest folder again"/>
+            <TextBlock DockPanel.Dock="Left" Text="Filter" Style="{StaticResource HintText}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+            <TextBox DockPanel.Dock="Left" Width="240" Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
+                     ToolTip="Narrows the table you are looking at" VerticalAlignment="Center"/>
+            <TextBlock Text="{Binding SourceText}" Style="{StaticResource HintText}" VerticalAlignment="Center" Margin="14,0,0,0"
+                       TextTrimming="CharacterEllipsis"/>
+        </DockPanel>
+
+        <TabControl SelectedIndex="{Binding SelectedTabIndex, Mode=TwoWay}">
+
+            <TabItem Header="Inventory">
+                <DataGrid Margin="0,6,0,0" ItemsSource="{Binding InventoryRows}" AutoGenerateColumns="False" CanUserAddRows="False"
+                          CanUserDeleteRows="False" IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Where" Binding="{Binding Where, Mode=OneWay}" Width="200"/>
+                        <DataGridTextColumn Header="Item" Binding="{Binding Item, Mode=OneWay}" Width="*"/>
+                        <DataGridTextColumn Header="ID" Binding="{Binding ItemId, Mode=OneWay}" Width="90"
+                                            ElementStyle="{StaticResource NumericCell}"/>
+                        <DataGridTextColumn Header="Count" Binding="{Binding Count, Mode=OneWay}" Width="70"
+                                            ElementStyle="{StaticResource NumericCell}"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </TabItem>
+
+            <TabItem Header="Spellbook">
+                <DataGrid Margin="0,6,0,0" ItemsSource="{Binding SpellbookRows}" AutoGenerateColumns="False" CanUserAddRows="False"
+                          CanUserDeleteRows="False" IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Level" Binding="{Binding Level, Mode=OneWay}" Width="80"
+                                            ElementStyle="{StaticResource NumericCell}"/>
+                        <DataGridTextColumn Header="Spell" Binding="{Binding Name, Mode=OneWay}" Width="*"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </TabItem>
+
+            <TabItem Header="Missing spells">
+                <DockPanel Margin="0,6,0,0">
+                    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6">
+                        <CheckBox DockPanel.Dock="Right" Content="Only spells I hold a scroll for" IsChecked="{Binding OnlyWithScroll}"
+                                  VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding MissingSummary}" VerticalAlignment="Center"/>
+                    </DockPanel>
+                    <DataGrid ItemsSource="{Binding MissingRows}" AutoGenerateColumns="False" CanUserAddRows="False"
+                              CanUserDeleteRows="False" IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Level" Binding="{Binding Level, Mode=OneWay}" Width="80"
+                                                ElementStyle="{StaticResource NumericCell}"/>
+                            <DataGridTextColumn Header="Spell" Binding="{Binding Name, Mode=OneWay}" Width="*"/>
+                            <DataGridTextColumn Header="Scroll on hand" Binding="{Binding Scroll, Mode=OneWay}" Width="320"
+                                                ElementStyle="{StaticResource WrapCell}"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </TabItem>
+
+            <TabItem Header="Key ring">
+                <DataGrid Margin="0,6,0,0" ItemsSource="{Binding KeyRingRows}" AutoGenerateColumns="False" CanUserAddRows="False"
+                          CanUserDeleteRows="False" IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Type" Binding="{Binding Type, Mode=OneWay}" Width="160"/>
+                        <DataGridTextColumn Header="Item" Binding="{Binding Name, Mode=OneWay}" Width="*"/>
+                        <DataGridTextColumn Header="ID" Binding="{Binding ItemId, Mode=OneWay}" Width="90"
+                                            ElementStyle="{StaticResource NumericCell}"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </TabItem>
+        </TabControl>
+    </DockPanel>
+</Window>

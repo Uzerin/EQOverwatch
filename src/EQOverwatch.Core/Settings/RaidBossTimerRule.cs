@@ -61,14 +61,19 @@ public sealed class RaidBossTimerRule
     public RaidBossTimerRule Clone() => (RaidBossTimerRule)MemberwiseClone();
 
     /// <summary>
-    /// What to match for a spell: its cast-on-you message when it has one, otherwise its cast-on-other message without the
-    /// leading space or apostrophe-s spacing. Empty when the spell has neither.
+    /// What to match for a spell: the line EverQuest prints when a mob starts casting it, "begins to cast a spell. &lt;Dragon Roar&gt;". The
+    /// boss's name comes before that text in the log line, so leaving the rule's boss name empty matches any boss, and a boss name
+    /// narrows it. Matching the cast (not the landing message) works for every spell, whether or not it has a landing message,
+    /// and starts the bar when the cast begins.
     /// </summary>
     public static string SuggestMatchText(SpellDefinition spell)
     {
         ArgumentNullException.ThrowIfNull(spell);
-        return spell.CastOnYou.Length > 0 ? spell.CastOnYou : spell.CastOnOther.Trim();
+        return CastingText(spell.Name);
     }
+
+    /// <summary>"begins to cast a spell. &lt;Dragon Roar&gt;", the second half of "Tormax begins to cast a spell. &lt;Dragon Roar&gt;".</summary>
+    public static string CastingText(string spellName) => $"begins to cast a spell. <{spellName.Trim()}>";
 
     /// <summary>
     /// Converts a rule written with the old single text plus timing setting into separate start and warning texts: at start only

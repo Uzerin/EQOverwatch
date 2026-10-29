@@ -29,8 +29,8 @@ public sealed record SpellInfo(
 }
 
 /// <summary>
-/// A spell as the raid-boss picker sees it: any spell with at least one landing message, including instant casts such as
-/// boss AE nukes and knockbacks that <see cref="SpellInfo"/> leaves out.
+/// A spell as the raid-boss picker sees it: any named spell, including instant casts such as boss AE nukes and knockbacks
+/// that <see cref="SpellInfo"/> leaves out. A raid rule starts on the cast ("begins to cast"), so a spell needs no landing message.
 /// </summary>
 public sealed record SpellDefinition(int SpellId, string Name, string CastOnYou, string CastOnOther)
 {
@@ -63,7 +63,7 @@ public sealed class SpellDatabase
     private readonly Dictionary<string, SpellInfo[]> _bySpellFades;
 
     /// <param name="definitions">
-    /// Every spell with a landing message, duration or not. When null they are derived from <paramref name="spells"/>.
+    /// Every named spell, duration or not. When null they are derived from <paramref name="spells"/>.
     /// </param>
     public SpellDatabase(
         IEnumerable<SpellInfo> spells,
@@ -115,7 +115,7 @@ public sealed class SpellDatabase
             ?? list.Select(s => new SpellDefinition(s.SpellId, s.Name, s.CastOnYou, s.CastOnOther));
         foreach (SpellDefinition definition in source)
         {
-            if (definition.CastOnYou.Length > 0 || definition.CastOnOther.Trim().Length > 0)
+            if (!string.IsNullOrWhiteSpace(definition.Name))
             {
                 _definitionsById[definition.SpellId] = definition;
             }
@@ -141,7 +141,7 @@ public sealed class SpellDatabase
     public IReadOnlyList<SpellInfo> Spells { get; }
 
     /// <summary>
-    /// Every spell that has a landing message (including instant and permanent ones), ordered by name then id.
+    /// Every named spell (including instant and permanent ones, with or without a landing message), ordered by name then id.
     /// Feeds the raid boss spell picker.
     /// </summary>
     public IReadOnlyList<SpellDefinition> AllSpellDefinitions { get; }

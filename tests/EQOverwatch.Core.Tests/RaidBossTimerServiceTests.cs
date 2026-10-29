@@ -359,13 +359,25 @@ public sealed class RaidBossTimerServiceTests : IDisposable
     // ───────────────────────── rule helpers ─────────────────────────
 
     [Fact]
-    public void Match_text_is_suggested_from_the_spells_landing_messages()
+    public void Match_text_is_suggested_from_the_casting_line_whatever_the_landing_messages_are()
     {
         var withYou = new SpellDefinition(1, "Dragon Roar", "You are blasted by a roar!", " is blasted by a roar.");
-        var otherOnly = new SpellDefinition(2, "Knockback", string.Empty, " is knocked back.");
+        var noMessages = new SpellDefinition(2, "Knockback", string.Empty, string.Empty);
 
-        Assert.Equal("You are blasted by a roar!", RaidBossTimerRule.SuggestMatchText(withYou));
-        Assert.Equal("is knocked back.", RaidBossTimerRule.SuggestMatchText(otherOnly)); // trimmed
+        Assert.Equal("begins to cast a spell. <Dragon Roar>", RaidBossTimerRule.SuggestMatchText(withYou));
+        Assert.Equal("begins to cast a spell. <Knockback>", RaidBossTimerRule.SuggestMatchText(noMessages));
+    }
+
+    [Fact]
+    public void A_cast_line_starts_the_bar_for_the_named_boss_even_when_nobody_is_hit()
+    {
+        _service.SetRules(new[] { Rule(mob: "Lord Inquisitor Seru", match: RaidBossTimerRule.CastingText("Dragon Roar")) });
+
+        Line("Lord Inquisitor Seru begins to cast a spell. <Dragon Roar>", T0);
+        Line("A Praetorian Medicus begins to cast a spell. <Dragon Roar>", T0.AddSeconds(5)); // another mob: ignored
+
+        ActiveTimerSnapshot timer = Assert.Single(Timers);
+        Assert.Equal("Lord Inquisitor Seru: Dragon Roar", timer.Text);
     }
 
     [Fact]

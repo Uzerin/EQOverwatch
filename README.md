@@ -14,6 +14,8 @@ changes to the game. It runs alongside EverQuest and works for as many of your c
   remain. Pick the ability from your spell file or type the log text yourself, and edit saved triggers in place.
 - **Spells & Songs tab.** Pick the buffs, debuffs and songs you care about and choose which overlay each one appears in. Bars start
   from your own casts (and your monitored characters' landings) using the messages in your spell file.
+- **Character data.** Buttons on the Characters tab open a character's inventory, spellbook, missing spells and key ring, read from the
+  files EverQuest's `/outputfile` command writes. Run the command in the game, then click the button.
 - **AAs & Discs.** Track disciplines and AAs: an "active" bar for how long it lasts and a "cooldown" bar until it can be used again,
   for everyone in the raid or only your own characters, each in the overlay you choose.
 - **CH chain.** Complete Heal chain bars from the raid-say position tags (for example `5-5-5`), with a late-cast alarm.
@@ -59,6 +61,17 @@ check off, or run it by hand, under **Settings > Updates**.
   from it; most AAs have no recast there, so type the name exactly as the log prints it and enter the times yourself.
 
 ## Changelog
+
+### 1.0.19
+- **Character data windows.** The Characters tab has Inventory, Spellbook and Missing spells buttons for each character. They open a
+  window built from the files EverQuest's `/outputfile` command writes into your game folder (`/outputfile inventory`,
+  `/outputfile spellbook`, `/outputfile missingspells`). The window has Inventory, Spellbook, Missing spells and Key ring tabs and a
+  filter box. Missing spells shows which ones you already hold a scroll for, in your bags or the shared bank. The shared bank is kept
+  once per server. A "Data from" column shows when each character's newest export was read. If a character has no file yet, the
+  button explains which command to type in the game.
+- Raid boss triggers now start on the cast. Picking a spell fills in the casting line ("begins to cast a spell. <Dragon Roar>")
+  instead of the landing message, so the bar starts when the boss begins the cast even if nobody is hit. Spells with no
+  landing message at all can be picked too. Edit the log text if your log words it differently.
 
 ### 1.0.18
 - **Characters** tab: Level and Class columns, filled in from your logs (`/who` lines and "Welcome to level N"). The extra characters

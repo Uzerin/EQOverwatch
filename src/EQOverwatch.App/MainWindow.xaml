@@ -197,11 +197,32 @@
                               IsReadOnly="True" HeadersVisibility="Column" SelectionMode="Single"
                               GridLinesVisibility="Horizontal">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="Server" Binding="{Binding ServerName}" Width="160"/>
-                            <DataGridTextColumn Header="Character" Binding="{Binding CharacterName}" Width="*"/>
-                            <DataGridTextColumn Header="Level" Binding="{Binding LevelText, Mode=OneWay}" Width="70"/>
-                            <DataGridTextColumn Header="Class" Binding="{Binding ClassText, Mode=OneWay}" Width="140"/>
-                            <DataGridTemplateColumn Header="Enable Triggers" Width="130">
+                            <DataGridTextColumn Header="Server" Binding="{Binding ServerName}" Width="110"/>
+                            <DataGridTextColumn Header="Character" Binding="{Binding CharacterName}" Width="*" MinWidth="110"/>
+                            <DataGridTextColumn Header="Level" Binding="{Binding LevelText, Mode=OneWay}" Width="60"/>
+                            <DataGridTextColumn Header="Class" Binding="{Binding ClassText, Mode=OneWay}" Width="100"/>
+                            <DataGridTemplateColumn Header="Character data" Width="265">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <Button Content="Inventory" Style="{StaticResource SecondaryButton}" Margin="4,1" Padding="8,3"
+                                                    ToolTip="Open this character's inventory (from /outputfile inventory)"
+                                                    Command="{Binding DataContext.OpenInventoryCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    CommandParameter="{Binding}"/>
+                                            <Button Content="Spellbook" Style="{StaticResource SecondaryButton}" Margin="0,1,4,1" Padding="8,3"
+                                                    ToolTip="Open this character's spellbook (from /outputfile spellbook)"
+                                                    Command="{Binding DataContext.OpenSpellbookCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    CommandParameter="{Binding}"/>
+                                            <Button Content="Missing spells" Style="{StaticResource SecondaryButton}" Margin="0,1,4,1" Padding="8,3"
+                                                    ToolTip="Open the spells this character has not scribed (from /outputfile missingspells)"
+                                                    Command="{Binding DataContext.OpenMissingSpellsCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    CommandParameter="{Binding}"/>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTextColumn Header="Data from" Binding="{Binding DataText, Mode=OneWay}" Width="115"/>
+                            <DataGridTemplateColumn Header="Enable Triggers" Width="115">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <CheckBox HorizontalAlignment="Center" VerticalAlignment="Center"
@@ -209,7 +230,7 @@
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
-                            <DataGridTemplateColumn Header="Primary DPS" Width="110">
+                            <DataGridTemplateColumn Header="Primary DPS" Width="100">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <RadioButton GroupName="PrimaryDps" HorizontalAlignment="Center" VerticalAlignment="Center"
@@ -217,7 +238,7 @@
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
-                            <DataGridTemplateColumn Header="CH Chain Position" Width="170">
+                            <DataGridTemplateColumn Header="CH Chain Position" Width="150">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <ComboBox Margin="6,2" MinWidth="110"
@@ -464,7 +485,7 @@
                                                Text="{Binding RaidMobHint}"/>
                                     <TextBlock Grid.Row="2" Style="{StaticResource FieldLabel}" Text="Search spell"/>
                                     <TextBox Grid.Row="2" Grid.Column="1" Margin="0,3"
-                                             ToolTip="Searches every spell with a landing message, including instant boss AEs"
+                                             ToolTip="Searches every spell by name or id, including instant boss AEs"
                                              Text="{Binding RaidSpellSearchText, UpdateSourceTrigger=PropertyChanged}"/>
                                 </Grid>
                                 <TextBlock DockPanel.Dock="Top" Style="{StaticResource HintText}" Margin="0,0,0,6" Text="{Binding RaidSpellSearchStatus}"/>
@@ -498,7 +519,7 @@
 
                                 <TextBlock Grid.Row="1" Style="{StaticResource FieldLabel}" Text="Log text to match"/>
                                 <TextBox Grid.Row="1" Grid.Column="1"
-                                         ToolTip="Filled in from the spell's landing message. Case-sensitive; edit it if your log words it differently."
+                                         ToolTip="Filled in with the casting line, for example &quot;begins to cast a spell. &lt;Dragon Roar&gt;&quot;. Case-sensitive; edit it if your log words it differently."
                                          Text="{Binding RaidMatchText, UpdateSourceTrigger=PropertyChanged}"/>
 
                                 <TextBlock Grid.Row="2" Style="{StaticResource FieldLabel}" Text="Recast (seconds)"/>

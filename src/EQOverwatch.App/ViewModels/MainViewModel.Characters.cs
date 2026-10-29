@@ -19,10 +19,10 @@ public sealed partial class MainViewModel
     /// <summary>"EQ Overwatch".</summary>
     public string AppName => AppInfo.Name;
 
-    /// <summary>"v1.0.18", read from this assembly's version.</summary>
+    /// <summary>"v1.0.19", read from this assembly's version.</summary>
     public string AppVersion { get; } = AppInfo.FormatVersion(typeof(MainViewModel).Assembly);
 
-    /// <summary>"EQ Overwatch v1.0.18": the window title, and the footer of the Discord picture.</summary>
+    /// <summary>"EQ Overwatch v1.0.19": the window title, and the footer of the Discord picture.</summary>
     public string WindowTitle => $"{AppName} {AppVersion}";
 
     // ───────────────────────── EverQuest folder ─────────────────────────
@@ -181,6 +181,7 @@ public sealed partial class MainViewModel
         {
             log.Level = _pipeline.Roster.GetLevel(log.CharacterName);
             log.ClassName = _pipeline.Roster.GetClass(log.CharacterName);
+            log.DataText = DescribeCharacterData(log);
         }
 
         AdditionalCharacterRows.Clear();

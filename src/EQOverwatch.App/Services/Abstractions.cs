@@ -70,6 +70,15 @@ public interface IDialogService
     string? PickEqFolder();
 }
 
+/// <summary>Opens a character's data window and shows plain messages, so view-model logic can be tested without windows.</summary>
+public interface ICharacterDataPresenter
+{
+    /// <summary>Shows the window for the character, or brings the existing one forward on the requested tab.</summary>
+    void Show(EQOverwatch.App.ViewModels.CharacterDataViewModel viewModel);
+
+    void ShowMessage(string title, string message);
+}
+
 /// <summary>The Windows clipboard, so view-model logic can be tested without touching it.</summary>
 public interface IClipboardService
 {

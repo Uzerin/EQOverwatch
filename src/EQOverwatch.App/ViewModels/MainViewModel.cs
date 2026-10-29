@@ -9,6 +9,7 @@ using CommunityToolkit.Mvvm.Input;
 using EQOverwatch.App.Presentation;
 using EQOverwatch.App.Services;
 using EQOverwatch.Core;
+using EQOverwatch.Core.Characters;
 using EQOverwatch.Core.Discovery;
 using EQOverwatch.Core.Export;
 using EQOverwatch.Core.Models;
@@ -65,8 +66,12 @@ public sealed partial class MainViewModel : ObservableObject
         IClipboardService clipboard,
         Func<DateTime>? clock = null,
         IUpdateChecker? updateChecker = null,
-        Action<string>? openUrl = null)
+        Action<string>? openUrl = null,
+        Services.ICharacterDataPresenter? characterDataPresenter = null,
+        CharacterDataStore? characterData = null)
     {
+        _characterDataPresenter = characterDataPresenter;
+        _characterData = characterData ?? new CharacterDataStore();
         _updateChecker = updateChecker;
         _openUrl = openUrl;
         _pipeline = pipeline ?? throw new ArgumentNullException(nameof(pipeline));
@@ -84,6 +89,8 @@ public sealed partial class MainViewModel : ObservableObject
         _pipeline.Roster.Changed += OnRosterChanged;
 
         Restore(settings);
+        _characterData.ScanAll(EqFolderPath); // output files written while the app was closed
+        RefreshCharacterInfo();
 
         Logs.CollectionChanged += OnLogsChanged;
         _overlays.PlacementChanged += OnPlacementChanged;
@@ -961,7 +968,7 @@ public sealed partial class MainViewModel : ObservableObject
 
         if (string.IsNullOrWhiteSpace(RaidMatchText))
         {
-            RaidBuilderStatus = "Enter the log text to look for (it is filled in for spells that have a landing message).";
+            RaidBuilderStatus = "Enter the log text to look for (it is filled in with the casting line when you pick a spell).";
             return false;
         }
 
@@ -1105,7 +1112,7 @@ public sealed partial class MainViewModel : ObservableObject
         if (term.Length == 0)
         {
             RaidSpellResults = Array.Empty<SpellDefinition>();
-            RaidSpellSearchStatus = $"{all.Count:N0} spells with landing messages. Type a name or spell id to search.";
+            RaidSpellSearchStatus = $"{all.Count:N0} spells. Type a name or spell id to search.";
             return;
         }
 

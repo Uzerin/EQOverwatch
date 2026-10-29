@@ -86,7 +86,7 @@ public sealed class SpellCategoryTests : IDisposable
     // ───────────────────────── all spell definitions (raid boss picker) ─────────────────────────
 
     [Fact]
-    public void Instant_and_permanent_spells_with_a_landing_message_stay_available_to_the_boss_picker()
+    public void Every_named_spell_stays_available_to_the_boss_picker_with_or_without_a_landing_message()
     {
         WriteFile(SpellsPath,
             LegacyRow(1, "Spirit of Wolf", "You feel quick.", " looks quick.", "Your speed fades.", 1000, 11, 100),
@@ -102,15 +102,17 @@ public sealed class SpellCategoryTests : IDisposable
 
         SpellDatabase db = service.Database;
         Assert.Equal(new[] { 1 }, db.Spells.Select(s => s.SpellId));                     // duration spells only
-        Assert.Equal(new[] { "Boss Aura", "Dragon Roar", "Knockback", "Spirit of Wolf" }, db.AllSpellDefinitions.Select(d => d.Name));
-        Assert.Equal(4, report.DefinitionCount);
+        Assert.Equal(
+            new[] { "Boss Aura", "Dragon Roar", "Knockback", "Silent Spell", "Spirit of Wolf", "Whitespace Only" },
+            db.AllSpellDefinitions.Select(d => d.Name));
+        Assert.Equal(6, report.DefinitionCount);
 
         SpellDefinition roar = db.FindDefinitionById(2)!;
         Assert.Equal("You are blasted by a roar!", roar.CastOnYou);
         Assert.Equal(" is blasted by a roar.", roar.CastOnOther);
         Assert.Equal("Dragon Roar  (#2)", roar.Label);
-        Assert.Null(db.FindDefinitionById(5));
-        Assert.Null(db.FindDefinitionById(6));
+        Assert.NotNull(db.FindDefinitionById(5)); // no messages at all: still pickable, a rule matches its casting line
+        Assert.Null(db.FindDefinitionById(7));    // a malformed row is skipped
     }
 
     [Fact]
@@ -131,21 +133,22 @@ public sealed class SpellCategoryTests : IDisposable
 
         SpellDatabase db = service.Database;
         Assert.Equal(new[] { 20 }, db.Spells.Select(s => s.SpellId));
-        Assert.Equal(new[] { "Dragon Roar", "Selo's Accelerando" }, db.AllSpellDefinitions.Select(d => d.Name));
+        Assert.Equal(new[] { "Dragon Roar", "Quiet Spell", "Selo's Accelerando" }, db.AllSpellDefinitions.Select(d => d.Name));
         Assert.Equal("You are blasted!", db.FindDefinitionById(21)!.CastOnYou);
-        Assert.Null(db.FindDefinitionById(22)); // no message in the strings file
-        Assert.Equal(2, report.DefinitionCount);
+        Assert.Equal(string.Empty, db.FindDefinitionById(22)!.CastOnYou); // no message in the strings file, still listed
+        Assert.Equal(3, report.DefinitionCount);
     }
 
     [Fact]
-    public void Without_a_strings_file_the_split_layout_has_no_definitions()
+    public void Without_a_strings_file_the_split_layout_lists_spells_without_messages()
     {
         WriteFile(SpellsPath, SplitRow(30, "Dragon Roar", 0, 0, 0));
         var service = new SpellDatabaseService();
 
         SpellLoadReport report = service.Load(SpellsPath);
 
-        Assert.Empty(service.Database.AllSpellDefinitions);
+        SpellDefinition only = Assert.Single(service.Database.AllSpellDefinitions);
+        Assert.Equal(string.Empty, only.CastOnYou);
         Assert.NotNull(report.Warning);
     }
 }

@@ -1,6 +1,7 @@
 using System.IO;
 using EQOverwatch.App.Services;
 using EQOverwatch.App.ViewModels;
+using EQOverwatch.Core.Characters;
 using EQOverwatch.Core.Models;
 using EQOverwatch.Core.Pipeline;
 using EQOverwatch.Core.Settings;
@@ -155,10 +156,15 @@ public partial class MainViewModelTests
 
             Service = new AppSettingsService(SettingsPath, TimeSpan.FromMilliseconds(30));
             Pipeline = new CompanionPipeline(TimeSpan.FromSeconds(settings.EncounterTimeoutSeconds));
-            Vm = new MainViewModel(Pipeline, Service, settings, Overlays, Audio, Dialogs, Theme, Clipboard, () => Now, Updates, url => OpenedUrls.Add(url));
+            Vm = new MainViewModel(Pipeline, Service, settings, Overlays, Audio, Dialogs, Theme, Clipboard, () => Now, Updates, url => OpenedUrls.Add(url), CharacterPresenter, CharacterStore);
         }
 
         public FakeUpdateChecker Updates { get; } = new();
+        public FakeCharacterPresenter CharacterPresenter { get; } = new();
+        public CharacterDataStore CharacterStore { get; } = new();
+
+        /// <summary>The temporary folder that holds this harness's settings, spell file and logs (also usable as the game folder).</summary>
+        public string Dir => _dir;
         public List<string> OpenedUrls { get; } = new();
         public FakeDialogs Dialogs { get; } = new();
         public FakeOverlayHost Overlays { get; } = new();
@@ -1160,10 +1166,12 @@ public partial class MainViewModelTests
         SpellDefinition knockback = Assert.Single(h.Vm.RaidSpellResults);
         h.Vm.SelectedRaidSpell = knockback;
         Assert.Equal("Knockback", h.Vm.RaidSpellName);
-        Assert.Equal("is knocked back.", h.Vm.RaidMatchText); // only a cast-on-other message, trimmed
+        Assert.Equal("begins to cast a spell. <Knockback>", h.Vm.RaidMatchText); // the casting line, whatever the landing messages are
 
         h.Vm.RaidSpellSearchText = "silent";
-        Assert.Empty(h.Vm.RaidSpellResults); // a spell without any landing message is not offered
+        SpellDefinition silent = Assert.Single(h.Vm.RaidSpellResults); // a spell without any landing message is still offered
+        h.Vm.SelectedRaidSpell = silent;
+        Assert.Equal("begins to cast a spell. <Silent Spell>", h.Vm.RaidMatchText);
 
         h.Vm.RaidSpellSearchText = "301"; // spell ids work too
         Assert.Equal("Disease Cloud", Assert.Single(h.Vm.RaidSpellResults).Name);
@@ -1199,7 +1207,7 @@ public partial class MainViewModelTests
         RaidTimerRuleViewModel row = Assert.Single(h.Vm.RaidRules);
         Assert.Equal("Tormax", row.MobText);
         Assert.Equal("Dragon Roar", row.SpellName);
-        Assert.Equal("You are blasted by a roar!", row.MatchText);
+        Assert.Equal("begins to cast a spell. <Dragon Roar>", row.MatchText);
         Assert.Equal("Debuffs", row.CategoryText);
         Assert.Contains("Added Tormax: Dragon Roar", h.Vm.RaidBuilderStatus);
 
@@ -1210,7 +1218,7 @@ public partial class MainViewModelTests
         Assert.Equal(TimerOverlayCategory.Debuffs, h.Vm.RaidCategory);
 
         // It is live straight away...
-        h.Pipeline.RaidBosses.OnLine("Stackprime", "Tormax: You are blasted by a roar!", DateTime.UtcNow);
+        h.Pipeline.RaidBosses.OnLine("Stackprime", "Tormax begins to cast a spell. <Dragon Roar>", DateTime.UtcNow);
         ActiveTimerSnapshot timer = Assert.Single(h.Pipeline.Triggers.Snapshot.Timers);
         Assert.Equal("Tormax: Dragon Roar", timer.Text);
         Assert.Equal(TimerOverlayCategory.Debuffs, timer.Category);

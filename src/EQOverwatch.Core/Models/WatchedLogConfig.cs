@@ -48,6 +48,10 @@ public sealed partial class WatchedLogConfig : ObservableObject
     [NotifyPropertyChangedFor(nameof(ClassText))]
     private string _className = string.Empty;
 
+    /// <summary>When the newest /outputfile export for this character was read ("Oct 28 18:12"), or "No data yet".</summary>
+    [ObservableProperty]
+    private string _dataText = "No data yet";
+
     public string LevelText => Level > 0 ? Level.ToString(CultureInfo.InvariantCulture) : "—";
 
     public string ClassText => ClassName.Length > 0 ? ClassName : "—";
