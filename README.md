@@ -62,6 +62,9 @@ check off, or run it by hand, under **Settings > Updates**.
 
 ## Changelog
 
+### 1.0.22
+- The columns in the character data windows and on the Characters tab fit their contents, so long scroll lists no longer wrap.
+
 ### 1.0.21
 - The scrolls listed on the Missing spells tab come only from characters on the same server.
 

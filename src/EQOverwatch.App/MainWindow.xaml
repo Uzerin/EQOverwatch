@@ -197,11 +197,11 @@
                               IsReadOnly="True" HeadersVisibility="Column" SelectionMode="Single"
                               GridLinesVisibility="Horizontal">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="Server" Binding="{Binding ServerName}" Width="110"/>
-                            <DataGridTextColumn Header="Character" Binding="{Binding CharacterName}" Width="*" MinWidth="110"/>
-                            <DataGridTextColumn Header="Level" Binding="{Binding LevelText, Mode=OneWay}" Width="60"/>
-                            <DataGridTextColumn Header="Class" Binding="{Binding ClassText, Mode=OneWay}" Width="100"/>
-                            <DataGridTemplateColumn Header="Character data" Width="265">
+                            <DataGridTextColumn Header="Server" Binding="{Binding ServerName}" Width="Auto"/>
+                            <DataGridTextColumn Header="Character" Binding="{Binding CharacterName}" Width="Auto" MinWidth="110"/>
+                            <DataGridTextColumn Header="Level" Binding="{Binding LevelText, Mode=OneWay}" Width="Auto"/>
+                            <DataGridTextColumn Header="Class" Binding="{Binding ClassText, Mode=OneWay}" Width="Auto"/>
+                            <DataGridTemplateColumn Header="Character data" Width="Auto">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -221,8 +221,8 @@
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
-                            <DataGridTextColumn Header="Data from" Binding="{Binding DataText, Mode=OneWay}" Width="115"/>
-                            <DataGridTemplateColumn Header="Enable Triggers" Width="115">
+                            <DataGridTextColumn Header="Data from" Binding="{Binding DataText, Mode=OneWay}" Width="Auto"/>
+                            <DataGridTemplateColumn Header="Enable Triggers" Width="Auto">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <CheckBox HorizontalAlignment="Center" VerticalAlignment="Center"
@@ -230,7 +230,7 @@
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
-                            <DataGridTemplateColumn Header="Primary DPS" Width="100">
+                            <DataGridTemplateColumn Header="Primary DPS" Width="Auto">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <RadioButton GroupName="PrimaryDps" HorizontalAlignment="Center" VerticalAlignment="Center"
@@ -238,7 +238,7 @@
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
-                            <DataGridTemplateColumn Header="CH Chain Position" Width="150">
+                            <DataGridTemplateColumn Header="CH Chain Position" Width="Auto">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <ComboBox Margin="6,2" MinWidth="110"
@@ -277,9 +277,9 @@
                                       CanUserDeleteRows="False" IsReadOnly="True" HeadersVisibility="Column"
                                       GridLinesVisibility="Horizontal" HorizontalAlignment="Left" Width="620" MaxHeight="170">
                                 <DataGrid.Columns>
-                                    <DataGridTextColumn Header="Character" Binding="{Binding Name, Mode=OneWay}" Width="*"/>
-                                    <DataGridTextColumn Header="Level" Binding="{Binding LevelText, Mode=OneWay}" Width="70"/>
-                                    <DataGridTextColumn Header="Class" Binding="{Binding ClassText, Mode=OneWay}" Width="150"/>
+                                    <DataGridTextColumn Header="Character" Binding="{Binding Name, Mode=OneWay}" Width="Auto"/>
+                                    <DataGridTextColumn Header="Level" Binding="{Binding LevelText, Mode=OneWay}" Width="Auto"/>
+                                    <DataGridTextColumn Header="Class" Binding="{Binding ClassText, Mode=OneWay}" Width="Auto"/>
                                     <DataGridTemplateColumn Width="100">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>

@@ -47,11 +47,11 @@
                 <DataGrid Margin="0,6,0,0" ItemsSource="{Binding InventoryRows}" AutoGenerateColumns="False" CanUserAddRows="False"
                           CanUserDeleteRows="False" IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal">
                     <DataGrid.Columns>
-                        <DataGridTextColumn Header="Where" Binding="{Binding Where, Mode=OneWay}" Width="200"/>
-                        <DataGridTextColumn Header="Item" Binding="{Binding Item, Mode=OneWay}" Width="*"/>
-                        <DataGridTextColumn Header="ID" Binding="{Binding ItemId, Mode=OneWay}" Width="90"
+                        <DataGridTextColumn Header="Where" Binding="{Binding Where, Mode=OneWay}" Width="Auto"/>
+                        <DataGridTextColumn Header="Item" Binding="{Binding Item, Mode=OneWay}" Width="Auto"/>
+                        <DataGridTextColumn Header="ID" Binding="{Binding ItemId, Mode=OneWay}" Width="Auto"
                                             ElementStyle="{StaticResource NumericCell}"/>
-                        <DataGridTextColumn Header="Count" Binding="{Binding Count, Mode=OneWay}" Width="70"
+                        <DataGridTextColumn Header="Count" Binding="{Binding Count, Mode=OneWay}" Width="Auto"
                                             ElementStyle="{StaticResource NumericCell}"/>
                     </DataGrid.Columns>
                 </DataGrid>
@@ -61,9 +61,9 @@
                 <DataGrid Margin="0,6,0,0" ItemsSource="{Binding SpellbookRows}" AutoGenerateColumns="False" CanUserAddRows="False"
                           CanUserDeleteRows="False" IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal">
                     <DataGrid.Columns>
-                        <DataGridTextColumn Header="Level" Binding="{Binding Level, Mode=OneWay}" Width="80"
+                        <DataGridTextColumn Header="Level" Binding="{Binding Level, Mode=OneWay}" Width="Auto"
                                             ElementStyle="{StaticResource NumericCell}"/>
-                        <DataGridTextColumn Header="Spell" Binding="{Binding Name, Mode=OneWay}" Width="*"/>
+                        <DataGridTextColumn Header="Spell" Binding="{Binding Name, Mode=OneWay}" Width="Auto"/>
                     </DataGrid.Columns>
                 </DataGrid>
             </TabItem>
@@ -78,11 +78,10 @@
                     <DataGrid ItemsSource="{Binding MissingRows}" AutoGenerateColumns="False" CanUserAddRows="False"
                               CanUserDeleteRows="False" IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="Level" Binding="{Binding Level, Mode=OneWay}" Width="80"
+                            <DataGridTextColumn Header="Level" Binding="{Binding Level, Mode=OneWay}" Width="Auto"
                                                 ElementStyle="{StaticResource NumericCell}"/>
-                            <DataGridTextColumn Header="Spell" Binding="{Binding Name, Mode=OneWay}" Width="*"/>
-                            <DataGridTextColumn Header="Scroll on hand (same server)" Binding="{Binding Scroll, Mode=OneWay}" Width="320"
-                                                ElementStyle="{StaticResource WrapCell}"/>
+                            <DataGridTextColumn Header="Spell" Binding="{Binding Name, Mode=OneWay}" Width="Auto"/>
+                            <DataGridTextColumn Header="Scroll on hand (same server)" Binding="{Binding Scroll, Mode=OneWay}" Width="Auto"/>
                         </DataGrid.Columns>
                     </DataGrid>
                 </DockPanel>
@@ -92,9 +91,9 @@
                 <DataGrid Margin="0,6,0,0" ItemsSource="{Binding KeyRingRows}" AutoGenerateColumns="False" CanUserAddRows="False"
                           CanUserDeleteRows="False" IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal">
                     <DataGrid.Columns>
-                        <DataGridTextColumn Header="Type" Binding="{Binding Type, Mode=OneWay}" Width="160"/>
-                        <DataGridTextColumn Header="Item" Binding="{Binding Name, Mode=OneWay}" Width="*"/>
-                        <DataGridTextColumn Header="ID" Binding="{Binding ItemId, Mode=OneWay}" Width="90"
+                        <DataGridTextColumn Header="Type" Binding="{Binding Type, Mode=OneWay}" Width="Auto"/>
+                        <DataGridTextColumn Header="Item" Binding="{Binding Name, Mode=OneWay}" Width="Auto"/>
+                        <DataGridTextColumn Header="ID" Binding="{Binding ItemId, Mode=OneWay}" Width="Auto"
                                             ElementStyle="{StaticResource NumericCell}"/>
                     </DataGrid.Columns>
                 </DataGrid>
