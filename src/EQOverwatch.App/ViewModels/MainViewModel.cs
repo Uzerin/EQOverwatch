@@ -9,6 +9,7 @@ using CommunityToolkit.Mvvm.Input;
 using EQOverwatch.App.Presentation;
 using EQOverwatch.App.Services;
 using EQOverwatch.Core;
+using EQOverwatch.Core.Attendance;
 using EQOverwatch.Core.Characters;
 using EQOverwatch.Core.Discovery;
 using EQOverwatch.Core.Export;
@@ -68,8 +69,10 @@ public sealed partial class MainViewModel : ObservableObject
         IUpdateChecker? updateChecker = null,
         Action<string>? openUrl = null,
         Services.ICharacterDataPresenter? characterDataPresenter = null,
-        CharacterDataStore? characterData = null)
+        CharacterDataStore? characterData = null,
+        RaidRosterStore? raidRoster = null)
     {
+        _raidRoster = raidRoster ?? new RaidRosterStore();
         _characterDataPresenter = characterDataPresenter;
         _characterData = characterData ?? new CharacterDataStore();
         _updateChecker = updateChecker;
@@ -91,6 +94,9 @@ public sealed partial class MainViewModel : ObservableObject
         Restore(settings);
         _characterData.ScanAll(EqFolderPath); // output files written while the app was closed
         RefreshCharacterInfo();
+        InitializeRaidNight();
+        _raidRoster.ScanAll(EqFolderPath); // raid roster dumps written while the app was closed
+        RebuildAttendance();
 
         Logs.CollectionChanged += OnLogsChanged;
         _overlays.PlacementChanged += OnPlacementChanged;
@@ -744,6 +750,7 @@ public sealed partial class MainViewModel : ObservableObject
         UpdateAbilityActivity();
         UpdateKnownMobs();
         DrainRosterChanges();
+        RefreshRaidNight();
 
         DpsSnapshot live = _pipeline.LiveDps.Snapshot;
         DpsSnapshot imported = _pipeline.HistoricalDps.Snapshot;
@@ -848,6 +855,7 @@ public sealed partial class MainViewModel : ObservableObject
             Participants.Clear();
             DamageTaken.Clear();
             DamageTakenSummary = string.Empty;
+            UpdateEncounterDetails(null);
             EncounterSummary = NoEncounterText;
             return;
         }
@@ -882,6 +890,7 @@ public sealed partial class MainViewModel : ObservableObject
         }
 
         DamageTakenSummary = $"Damage taken from {encounter.TargetName}: {encounter.TotalDamageTaken:N0}";
+        UpdateEncounterDetails(encounter);
 
         while (Participants.Count > ranked.Count)
         {

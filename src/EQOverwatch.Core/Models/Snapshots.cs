@@ -37,6 +37,20 @@ public sealed record DamageTakenSnapshot(
     public string DisplayName => Deaths > 0 ? $"{Name} (Deaths: {Deaths})" : Name;
 }
 
+/// <summary>A spell a boss started casting, at log-clock time.</summary>
+public sealed record BossCastSnapshot(DateTime Time, string Spell);
+
+/// <summary>What one healer healed during a fight. Overheal is what the spells could have healed beyond what landed.</summary>
+public sealed record HealingSnapshot(
+    string Name,
+    long Effective,
+    long Overheal,
+    double OverhealPercent,
+    int Heals,
+    int MaxHeal,
+    double Hps,
+    string TopSpell);
+
 public sealed record EncounterSnapshot(
     int Id,
     string TargetName,
@@ -46,8 +60,16 @@ public sealed record EncounterSnapshot(
     long TotalDamage,
     bool IsActive,
     IReadOnlyList<ParticipantSnapshot> Participants,
-    IReadOnlyList<DamageTakenSnapshot>? DamageTaken = null)
+    IReadOnlyList<DamageTakenSnapshot>? DamageTaken = null,
+    IReadOnlyList<BossCastSnapshot>? BossCasts = null,
+    IReadOnlyList<HealingSnapshot>? Healing = null)
 {
+    /// <summary>The spells the target started casting during the fight, in order.</summary>
+    public IReadOnlyList<BossCastSnapshot> CastRows => BossCasts ?? Array.Empty<BossCastSnapshot>();
+
+    /// <summary>Healers, most effective healing first.</summary>
+    public IReadOnlyList<HealingSnapshot> HealingRows => Healing ?? Array.Empty<HealingSnapshot>();
+
     /// <summary>Who the target hurt, most damage first (empty when nothing was recorded).</summary>
     public IReadOnlyList<DamageTakenSnapshot> TakenRows => DamageTaken ?? Array.Empty<DamageTakenSnapshot>();
 
@@ -91,10 +113,21 @@ public sealed record EncounterSnapshot(
             .ThenBy(t => t.Name, StringComparer.Ordinal)
             .ToArray();
 
+        double seconds = Math.Max(1.0, encounter.DurationSeconds);
+        HealingSnapshot[] healing = encounter.Healers
+            .Select(h => new HealingSnapshot(
+                h.Name, h.Effective, h.Overheal,
+                h.Effective + h.Overheal > 0 ? 100.0 * h.Overheal / (h.Effective + h.Overheal) : 0.0,
+                h.Heals, h.MaxHeal, h.Effective / seconds, h.TopSpell))
+            .OrderByDescending(h => h.Effective)
+            .ThenBy(h => h.Name, StringComparer.Ordinal)
+            .ToArray();
+
         return new EncounterSnapshot(
             encounter.Id, encounter.TargetName, encounter.StartTime, encounter.EndTime,
             encounter.DurationSeconds, encounter.TotalDamage, encounter.IsActive,
-            Array.AsReadOnly(participants), Array.AsReadOnly(taken));
+            Array.AsReadOnly(participants), Array.AsReadOnly(taken),
+            Array.AsReadOnly(encounter.Casts.ToArray()), Array.AsReadOnly(healing));
     }
 }
 

@@ -458,6 +458,7 @@
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="110"/>
                                         <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="Auto"/>
@@ -481,6 +482,9 @@
                                             </DataTemplate>
                                         </ComboBox.ItemTemplate>
                                     </ComboBox>
+                                    <Button Grid.Row="0" Grid.Column="2" Margin="8,3,0,3" Content="Recommended…" Style="{StaticResource SecondaryButton}"
+                                            Command="{Binding SuggestRaidTriggersCommand}"
+                                            ToolTip="Looks through the fights against this boss for spells cast again and again at about the same interval, and offers them as raid triggers."/>
                                     <TextBlock Grid.Row="1" Grid.Column="1" Style="{StaticResource HintText}" FontSize="11" Margin="0,0,0,2"
                                                Text="{Binding RaidMobHint}"/>
                                     <TextBlock Grid.Row="2" Style="{StaticResource FieldLabel}" Text="Search spell"/>
@@ -488,6 +492,43 @@
                                              ToolTip="Searches every spell by name or id, including instant boss AEs"
                                              Text="{Binding RaidSpellSearchText, UpdateSourceTrigger=PropertyChanged}"/>
                                 </Grid>
+                                <Border DockPanel.Dock="Top" Margin="0,0,0,8" Padding="8" CornerRadius="6" BorderThickness="1"
+                                        BorderBrush="{DynamicResource BorderSoftBrush}" Background="{DynamicResource CardBgBrush}">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding HasRecommendationPanel}" Value="True">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <DockPanel>
+                                        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,4">
+                                            <Button DockPanel.Dock="Right" Content="Add all" Style="{StaticResource SecondaryButton}"
+                                                    Command="{Binding AddAllRecommendedTriggersCommand}"/>
+                                            <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" VerticalAlignment="Center"
+                                                       Text="{Binding RecommendedStatus}"/>
+                                        </DockPanel>
+                                        <ScrollViewer MaxHeight="110" VerticalScrollBarVisibility="Auto">
+                                            <ItemsControl ItemsSource="{Binding RecommendedTriggers}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <DockPanel Margin="0,2">
+                                                            <Button DockPanel.Dock="Right" Content="{Binding ButtonText}" MinWidth="64"
+                                                                    Style="{StaticResource SecondaryButton}"
+                                                                    Command="{Binding DataContext.AddRecommendedTriggerCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                    CommandParameter="{Binding}"/>
+                                                            <TextBlock Text="{Binding Description}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                                                       ToolTip="{Binding Suggestion.MatchText}"/>
+                                                        </DockPanel>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </ScrollViewer>
+                                    </DockPanel>
+                                </Border>
                                 <TextBlock DockPanel.Dock="Top" Style="{StaticResource HintText}" Margin="0,0,0,6" Text="{Binding RaidSpellSearchStatus}"/>
                                 <ListBox Height="150" ItemsSource="{Binding RaidSpellResults}" SelectedItem="{Binding SelectedRaidSpell, Mode=TwoWay}"
                                          DisplayMemberPath="Label"/>
@@ -519,7 +560,7 @@
 
                                 <TextBlock Grid.Row="1" Style="{StaticResource FieldLabel}" Text="Log text to match"/>
                                 <TextBox Grid.Row="1" Grid.Column="1"
-                                         ToolTip="Filled in with the casting line, for example &quot;begins to cast a spell. &lt;Dragon Roar&gt;&quot;. Case-sensitive; edit it if your log words it differently."
+                                         ToolTip="Filled in with the casting line, for example &quot;begins casting Dragon Roar.&quot;. Case-sensitive; edit it if your log words it differently."
                                          Text="{Binding RaidMatchText, UpdateSourceTrigger=PropertyChanged}"/>
 
                                 <TextBlock Grid.Row="2" Style="{StaticResource FieldLabel}" Text="Recast (seconds)"/>
@@ -1008,10 +1049,12 @@
                                 </DataGrid>
                             </DockPanel>
 
-                            <DockPanel Grid.Row="2">
-                                <TextBlock DockPanel.Dock="Top" FontWeight="SemiBold" Margin="0,0,0,8" TextWrapping="Wrap"
-                                           Text="{Binding DamageTakenSummary}"/>
-                                <DataGrid ItemsSource="{Binding DamageTaken}"
+                            <TabControl Grid.Row="2">
+                                <TabItem Header="Damage taken">
+                                    <DockPanel Margin="0,6,0,0">
+                                        <TextBlock DockPanel.Dock="Top" FontWeight="SemiBold" Margin="0,0,0,8" TextWrapping="Wrap"
+                                                   Text="{Binding DamageTakenSummary}"/>
+                                        <DataGrid ItemsSource="{Binding DamageTaken}"
                                           AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
                                           HeadersVisibility="Column" GridLinesVisibility="Horizontal"
                                           FrozenColumnCount="2" HorizontalScrollBarVisibility="Auto">
@@ -1038,8 +1081,280 @@
                                                             ElementStyle="{StaticResource NumericCell}"/>
                                     </DataGrid.Columns>
                                 </DataGrid>
-                            </DockPanel>
+                                    </DockPanel>
+                                </TabItem>
+
+                                <TabItem Header="Boss abilities">
+                                    <DockPanel Margin="0,6,0,0">
+                                        <TextBlock DockPanel.Dock="Top" FontWeight="SemiBold" Margin="0,0,0,8" TextWrapping="Wrap"
+                                                   Text="{Binding BossAbilitySummary}"/>
+                                        <DataGrid ItemsSource="{Binding BossAbilityRows}"
+                                                  AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
+                                                  HeadersVisibility="Column" GridLinesVisibility="Horizontal" HorizontalScrollBarVisibility="Auto">
+                                            <DataGrid.Columns>
+                                                <DataGridTextColumn Header="Spell" Binding="{Binding Spell, Mode=OneWay}" Width="Auto"/>
+                                                <DataGridTextColumn Header="Casts" Binding="{Binding Casts, Mode=OneWay}" Width="Auto"
+                                                                    ElementStyle="{StaticResource NumericCell}"/>
+                                                <DataGridTextColumn Header="Interval" Binding="{Binding Every, Mode=OneWay}" Width="Auto"/>
+                                                <DataGridTextColumn Header="When (into the fight)" Binding="{Binding Times, Mode=OneWay}" Width="Auto"/>
+                                            </DataGrid.Columns>
+                                        </DataGrid>
+                                    </DockPanel>
+                                </TabItem>
+
+                                <TabItem Header="Healing">
+                                    <DockPanel Margin="0,6,0,0">
+                                        <TextBlock DockPanel.Dock="Top" FontWeight="SemiBold" Margin="0,0,0,8" TextWrapping="Wrap"
+                                                   Text="{Binding HealingSummary}"/>
+                                        <DataGrid ItemsSource="{Binding HealingRows}"
+                                                  AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
+                                                  HeadersVisibility="Column" GridLinesVisibility="Horizontal" HorizontalScrollBarVisibility="Auto">
+                                            <DataGrid.Columns>
+                                                <DataGridTextColumn Header="#" Binding="{Binding Rank, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                                <DataGridTextColumn Header="Name" Binding="{Binding Name, Mode=OneWay}" Width="Auto"/>
+                                                <DataGridTextColumn Header="Healed" Binding="{Binding Effective, StringFormat=N0, Mode=OneWay}" Width="Auto"
+                                                                    ElementStyle="{StaticResource NumericCell}"/>
+                                                <DataGridTextColumn Header="HPS" Binding="{Binding Hps, StringFormat=N1, Mode=OneWay}" Width="Auto"
+                                                                    ElementStyle="{StaticResource NumericCell}"/>
+                                                <DataGridTextColumn Header="Overheal %" Binding="{Binding OverhealPercent, StringFormat={}{0:0.0}%, Mode=OneWay}" Width="Auto"
+                                                                    ElementStyle="{StaticResource NumericCell}"/>
+                                                <DataGridTextColumn Header="Heals" Binding="{Binding Heals, StringFormat=N0, Mode=OneWay}" Width="Auto"
+                                                                    ElementStyle="{StaticResource NumericCell}"/>
+                                                <DataGridTextColumn Header="Biggest" Binding="{Binding MaxHeal, StringFormat=N0, Mode=OneWay}" Width="Auto"
+                                                                    ElementStyle="{StaticResource NumericCell}"/>
+                                                <DataGridTextColumn Header="Main spell" Binding="{Binding TopSpell, Mode=OneWay}" Width="Auto"/>
+                                            </DataGrid.Columns>
+                                        </DataGrid>
+                                    </DockPanel>
+                                </TabItem>
+                            </TabControl>
                         </Grid>
+                    </Grid>
+                </Grid>
+            </TabItem>
+
+            <!-- ═════════ Loot ═════════ -->
+            <TabItem Header="Loot">
+                <Grid Margin="6">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <WrapPanel Grid.Row="0" Margin="0,0,0,8">
+                        <ComboBox Width="170" Margin="0,0,10,6" ItemsSource="{Binding LootViews}" SelectedIndex="{Binding LootViewIndex}"/>
+                        <TextBlock Style="{StaticResource FieldLabel}" Text="Filter"/>
+                        <TextBox Width="200" Margin="0,0,14,6" VerticalAlignment="Center"
+                                 ToolTip="Shows only loot whose item, looter or mob contains this text."
+                                 Text="{Binding LootFilter, UpdateSourceTrigger=PropertyChanged}"/>
+                        <Button Content="Read Primary DPS log" Margin="0,0,8,6" Command="{Binding ScanLootFromPrimaryLogCommand}"
+                                ToolTip="Adds the loot from the Primary DPS character's log (the number of days set in Settings)."/>
+                        <Button Content="Read a log file…" Margin="0,0,8,6" Style="{StaticResource SecondaryButton}" Command="{Binding ScanLootLogCommand}"/>
+                        <Button Content="Copy" Margin="0,0,8,6" Style="{StaticResource SecondaryButton}" Command="{Binding CopyLootCommand}"
+                                ToolTip="Copies the list you are looking at as text for Discord."/>
+                        <Button Content="Clear" Margin="0,0,8,6" Style="{StaticResource SecondaryButton}" Command="{Binding ClearLootCommand}"/>
+                    </WrapPanel>
+                    <TextBlock Grid.Row="1" Style="{StaticResource HintText}" Margin="0,0,0,8" Text="{Binding LootStatus}"/>
+
+                    <Grid Grid.Row="2">
+                        <DataGrid ItemsSource="{Binding LootLineRows}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
+                                  HeadersVisibility="Column" GridLinesVisibility="Horizontal">
+                            <DataGrid.Style>
+                                <Style TargetType="DataGrid" BasedOn="{StaticResource {x:Type DataGrid}}">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsLootLinesView}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </DataGrid.Style>
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Time" Binding="{Binding Time, Mode=OneWay}" Width="Auto"/>
+                                <DataGridTextColumn Header="Item" Binding="{Binding Item, Mode=OneWay}" Width="Auto"/>
+                                <DataGridTextColumn Header="Looted by" Binding="{Binding Looter, Mode=OneWay}" Width="Auto"/>
+                                <DataGridTextColumn Header="From" Binding="{Binding Mob, Mode=OneWay}" Width="Auto"/>
+                                <DataGridTextColumn Header="Roll won" Binding="{Binding Roll, Mode=OneWay}" Width="Auto"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                        <DataGrid ItemsSource="{Binding LootMobRows}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
+                                  HeadersVisibility="Column" GridLinesVisibility="Horizontal">
+                            <DataGrid.Style>
+                                <Style TargetType="DataGrid" BasedOn="{StaticResource {x:Type DataGrid}}">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsLootMobView}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </DataGrid.Style>
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Mob" Binding="{Binding Mob, Mode=OneWay}" Width="Auto"/>
+                                <DataGridTextColumn Header="Item" Binding="{Binding Item, Mode=OneWay}" Width="Auto"/>
+                                <DataGridTextColumn Header="Count" Binding="{Binding Count, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                <DataGridTextColumn Header="Looted by" Binding="{Binding Looters, Mode=OneWay}" Width="Auto"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                        <DataGrid ItemsSource="{Binding LootSummaryRows}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
+                                  HeadersVisibility="Column" GridLinesVisibility="Horizontal">
+                            <DataGrid.Style>
+                                <Style TargetType="DataGrid" BasedOn="{StaticResource {x:Type DataGrid}}">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsLootSummaryView}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </DataGrid.Style>
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Item" Binding="{Binding Item, Mode=OneWay}" Width="Auto"/>
+                                <DataGridTextColumn Header="Count" Binding="{Binding Count, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                <DataGridTextColumn Header="Looted by" Binding="{Binding Looters, Mode=OneWay}" Width="Auto"/>
+                                <DataGridTextColumn Header="From" Binding="{Binding Mobs, Mode=OneWay}" Width="Auto"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+                </Grid>
+            </TabItem>
+
+            <!-- ═════════ Attendance ═════════ -->
+            <TabItem Header="Attendance">
+                <Grid Margin="6">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="12"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="12"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <WrapPanel Grid.Row="0" Grid.ColumnSpan="5" Margin="0,0,0,8">
+                        <Button Content="Read new dumps" Margin="0,0,8,6" Command="{Binding RefreshAttendanceCommand}"
+                                ToolTip="Looks in your EverQuest folder for new RaidRoster_ files (the Raid window's Dump button writes them)."/>
+                        <Button Content="Copy raid" Margin="0,0,8,6" Style="{StaticResource SecondaryButton}" Command="{Binding CopyAttendanceCommand}"
+                                ToolTip="Copies the selected raid's roster as text for Discord."/>
+                        <Button Content="Delete raid" Margin="0,0,14,6" Style="{StaticResource SecondaryButton}" Command="{Binding DeleteAttendanceCommand}"/>
+                        <TextBlock Style="{StaticResource HintText}" VerticalAlignment="Center" Margin="0,0,0,6" Text="{Binding AttendanceStatus}"/>
+                    </WrapPanel>
+
+                    <DockPanel Grid.Row="1" Grid.Column="0">
+                        <TextBlock DockPanel.Dock="Top" FontWeight="SemiBold" Margin="0,0,0,6" Text="Raids"/>
+                        <DataGrid ItemsSource="{Binding AttendanceRaids}" SelectedItem="{Binding SelectedAttendanceRaid, Mode=TwoWay}"
+                                  AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" SelectionMode="Single"
+                                  HeadersVisibility="Column" GridLinesVisibility="Horizontal">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="When" Binding="{Binding When, Mode=OneWay}" Width="Auto"/>
+                                <DataGridTextColumn Header="Server" Binding="{Binding Server, Mode=OneWay}" Width="Auto"/>
+                                <DataGridTextColumn Header="Present" Binding="{Binding Members, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </DockPanel>
+
+                    <DockPanel Grid.Row="1" Grid.Column="2">
+                        <TextBlock DockPanel.Dock="Top" FontWeight="SemiBold" Margin="0,0,0,6" Text="Who was there"/>
+                        <DataGrid ItemsSource="{Binding RosterRows}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
+                                  HeadersVisibility="Column" GridLinesVisibility="Horizontal">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Group" Binding="{Binding Group, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                <DataGridTextColumn Header="Name" Binding="{Binding Name, Mode=OneWay}" Width="Auto"/>
+                                <DataGridTextColumn Header="Level" Binding="{Binding Level, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                <DataGridTextColumn Header="Class" Binding="{Binding Class, Mode=OneWay}" Width="Auto"/>
+                                <DataGridTextColumn Header="Role" Binding="{Binding Role, Mode=OneWay}" Width="Auto"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </DockPanel>
+
+                    <DockPanel Grid.Row="1" Grid.Column="4">
+                        <TextBlock DockPanel.Dock="Top" FontWeight="SemiBold" Margin="0,0,0,6" Text="Attendance over all raids"/>
+                        <DataGrid ItemsSource="{Binding AttendanceTotals}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
+                                  HeadersVisibility="Column" GridLinesVisibility="Horizontal">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Name" Binding="{Binding Name, Mode=OneWay}" Width="Auto"/>
+                                <DataGridTextColumn Header="Class" Binding="{Binding Class, Mode=OneWay}" Width="Auto"/>
+                                <DataGridTextColumn Header="Raids" Binding="{Binding Present, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                <DataGridTextColumn Header="Of" Binding="{Binding Raids, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                <DataGridTextColumn Header="%" Binding="{Binding Percent, StringFormat={}{0:0}%, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                <DataGridTextColumn Header="Last seen" Binding="{Binding LastSeen, Mode=OneWay}" Width="Auto"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </DockPanel>
+                </Grid>
+            </TabItem>
+
+            <!-- ═════════ Items & Scrolls ═════════ -->
+            <TabItem Header="Items &amp; Scrolls">
+                <Grid Margin="6">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="12"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <WrapPanel Grid.Row="0" Grid.ColumnSpan="3" Margin="0,0,0,8">
+                        <Button Content="Read new files" Margin="0,0,14,6" Command="{Binding RefreshCharacterToolsCommand}"
+                                ToolTip="Reads any new /outputfile files for your characters from the EverQuest folder."/>
+                        <TextBlock Style="{StaticResource HintText}" VerticalAlignment="Center" Margin="0,0,0,6" Text="{Binding ScrollPlanStatus}"/>
+                    </WrapPanel>
+
+                    <DockPanel Grid.Row="1" Grid.Column="0">
+                        <TextBlock DockPanel.Dock="Top" FontWeight="SemiBold" Margin="0,0,0,6" Text="Find an item on any character"/>
+                        <TextBox DockPanel.Dock="Top" Margin="0,0,0,6"
+                                 Text="{Binding ItemSearchText, UpdateSourceTrigger=PropertyChanged}"/>
+                        <TextBlock DockPanel.Dock="Top" Style="{StaticResource HintText}" Margin="0,0,0,6" Text="{Binding ItemSearchStatus}"/>
+                        <DataGrid ItemsSource="{Binding ItemHits}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
+                                  HeadersVisibility="Column" GridLinesVisibility="Horizontal">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Character" Binding="{Binding Character, Mode=OneWay}" Width="Auto"/>
+                                <DataGridTextColumn Header="Where" Binding="{Binding Where, Mode=OneWay}" Width="Auto"/>
+                                <DataGridTextColumn Header="Item" Binding="{Binding Item, Mode=OneWay}" Width="Auto"/>
+                                <DataGridTextColumn Header="Count" Binding="{Binding Count, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </DockPanel>
+
+                    <Grid Grid.Row="1" Grid.Column="2">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="12"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <DockPanel Grid.Row="0">
+                            <TextBlock DockPanel.Dock="Top" FontWeight="SemiBold" Margin="0,0,0,6" Text="Scrolls you carry that a character needs"/>
+                            <DataGrid ItemsSource="{Binding ScrollRows}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
+                                      HeadersVisibility="Column" GridLinesVisibility="Horizontal">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Spell" Binding="{Binding Spell, Mode=OneWay}" Width="Auto"/>
+                                    <DataGridTextColumn Header="Needed by" Binding="{Binding NeededBy, Mode=OneWay}" Width="Auto"/>
+                                    <DataGridTextColumn Header="Carried by" Binding="{Binding HeldBy, Mode=OneWay}" Width="Auto"/>
+                                    <DataGridTextColumn Header="Server" Binding="{Binding Server, Mode=OneWay}" Width="Auto"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </DockPanel>
+                        <DockPanel Grid.Row="2">
+                            <TextBlock DockPanel.Dock="Top" FontWeight="SemiBold" Margin="0,0,0,6" Text="Shopping list: missing spells nobody has a scroll for"/>
+                            <DataGrid ItemsSource="{Binding ShoppingRows}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
+                                      HeadersVisibility="Column" GridLinesVisibility="Horizontal">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Level" Binding="{Binding Level, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                    <DataGridTextColumn Header="Spell" Binding="{Binding Spell, Mode=OneWay}" Width="Auto"/>
+                                    <DataGridTextColumn Header="Needed by" Binding="{Binding NeededBy, Mode=OneWay}" Width="Auto"/>
+                                    <DataGridTextColumn Header="Server" Binding="{Binding Server, Mode=OneWay}" Width="Auto"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </DockPanel>
                     </Grid>
                 </Grid>
             </TabItem>

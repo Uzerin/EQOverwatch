@@ -45,6 +45,8 @@ public sealed class BuffTrackerService : ITriggerLineSink
     private const string YouBeginSinging = "You begin singing ";
     private const string OtherCastMarker = " begins to cast a spell. <";
     private const string OtherSingMarker = " begins to sing a song. <";
+    private const string OtherCastingMarker = " begins casting ";
+    private const string OtherSingingMarker = " begins singing ";
     private const string YourPrefix = "Your ";
     private const int MaxPendingCasts = 64;
     private const int MinSuffixLength = 3;
@@ -211,7 +213,7 @@ public sealed class BuffTrackerService : ITriggerLineSink
             spellName = WithoutTrailingPeriod(message[YouBeginSinging.Length..]);
             isSinging = true;
         }
-        else if (message[^1] == '>' && TrySplitOtherCast(message, out spellName, out isSinging))
+        else if ((message[^1] == '>' || message[^1] == '.') && TrySplitOtherCast(message, out spellName, out isSinging))
         {
             // spellName and isSinging were set by TrySplitOtherCast
         }
@@ -276,6 +278,28 @@ public sealed class BuffTrackerService : ITriggerLineSink
             marker = OtherSingMarker.Length;
             index = message.IndexOf(OtherSingMarker, StringComparison.Ordinal);
             isSinging = true;
+        }
+
+        if (index < 0)
+        {
+            // Newer wording: "Trick begins casting Complete Heal." / "Oodles begins singing Warsong of the Vah Shir."
+            marker = OtherCastingMarker.Length;
+            index = message.IndexOf(OtherCastingMarker, StringComparison.Ordinal);
+            isSinging = false;
+            if (index < 0)
+            {
+                marker = OtherSingingMarker.Length;
+                index = message.IndexOf(OtherSingingMarker, StringComparison.Ordinal);
+                isSinging = true;
+            }
+
+            if (index <= 0 || message[^1] != '.' || !IsWord(message[..index]))
+            {
+                return false;
+            }
+
+            spellName = message[(index + marker)..^1];
+            return !spellName.IsEmpty;
         }
 
         if (index <= 0 || !IsWord(message[..index]))

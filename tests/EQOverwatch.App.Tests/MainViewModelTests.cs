@@ -1166,12 +1166,12 @@ public partial class MainViewModelTests
         SpellDefinition knockback = Assert.Single(h.Vm.RaidSpellResults);
         h.Vm.SelectedRaidSpell = knockback;
         Assert.Equal("Knockback", h.Vm.RaidSpellName);
-        Assert.Equal("begins to cast a spell. <Knockback>", h.Vm.RaidMatchText); // the casting line, whatever the landing messages are
+        Assert.Equal("begins casting Knockback.", h.Vm.RaidMatchText); // the casting line, whatever the landing messages are
 
         h.Vm.RaidSpellSearchText = "silent";
         SpellDefinition silent = Assert.Single(h.Vm.RaidSpellResults); // a spell without any landing message is still offered
         h.Vm.SelectedRaidSpell = silent;
-        Assert.Equal("begins to cast a spell. <Silent Spell>", h.Vm.RaidMatchText);
+        Assert.Equal("begins casting Silent Spell.", h.Vm.RaidMatchText);
 
         h.Vm.RaidSpellSearchText = "301"; // spell ids work too
         Assert.Equal("Disease Cloud", Assert.Single(h.Vm.RaidSpellResults).Name);
@@ -1207,7 +1207,7 @@ public partial class MainViewModelTests
         RaidTimerRuleViewModel row = Assert.Single(h.Vm.RaidRules);
         Assert.Equal("Tormax", row.MobText);
         Assert.Equal("Dragon Roar", row.SpellName);
-        Assert.Equal("begins to cast a spell. <Dragon Roar>", row.MatchText);
+        Assert.Equal("begins casting Dragon Roar.", row.MatchText);
         Assert.Equal("Debuffs", row.CategoryText);
         Assert.Contains("Added Tormax: Dragon Roar", h.Vm.RaidBuilderStatus);
 

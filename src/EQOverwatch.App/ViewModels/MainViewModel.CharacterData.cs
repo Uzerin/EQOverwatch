@@ -9,6 +9,8 @@ namespace EQOverwatch.App.ViewModels;
 /// <summary>The Characters tab's Inventory / Spellbook / Missing spells buttons and the data window they open.</summary>
 public sealed partial class MainViewModel
 {
+    private static readonly TimeSpan StaleCharacterData = TimeSpan.FromDays(7);
+
     private readonly CharacterDataStore _characterData;
     private readonly Services.ICharacterDataPresenter? _characterDataPresenter;
 
@@ -83,6 +85,13 @@ public sealed partial class MainViewModel
     private string DescribeCharacterData(WatchedLogConfig log)
     {
         CharacterData? data = _characterData.Find(log.CharacterName, log.ServerName);
-        return data?.NewestUtc is { } newest ? CharacterDataViewModel.Describe(newest) : "No data yet";
+        if (data?.NewestUtc is not { } newest)
+        {
+            return "No data yet";
+        }
+
+        // A week-old export is probably out of date: the character has likely changed gear or learned spells since.
+        string stale = _clock().ToUniversalTime() - newest > StaleCharacterData ? " · old" : string.Empty;
+        return CharacterDataViewModel.Describe(newest) + stale;
     }
 }

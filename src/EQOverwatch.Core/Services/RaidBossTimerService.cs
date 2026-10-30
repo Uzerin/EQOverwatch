@@ -68,6 +68,7 @@ public sealed class RaidBossTimerService : ITriggerLineSink, IDisposable
             {
                 RaidBossTimerRule copy = r.Clone();
                 copy.ApplyLegacyTiming();
+                copy.AlternateMatchText = RaidBossTimerRule.AlternateCastForm(copy.MatchText);
                 return copy;
             })
             .ToArray();
@@ -101,7 +102,8 @@ public sealed class RaidBossTimerService : ITriggerLineSink, IDisposable
 
         foreach (RaidBossTimerRule rule in rules)
         {
-            if (message.IndexOf(rule.MatchText, StringComparison.Ordinal) < 0)
+            if (message.IndexOf(rule.MatchText, StringComparison.Ordinal) < 0
+                && (rule.AlternateMatchText is null || message.IndexOf(rule.AlternateMatchText, StringComparison.Ordinal) < 0))
             {
                 continue;
             }

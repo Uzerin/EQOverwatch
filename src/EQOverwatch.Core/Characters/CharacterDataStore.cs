@@ -93,6 +93,15 @@ public sealed class CharacterDataStore
         }
     }
 
+    /// <summary>The shared bank of every server that has been read, as a snapshot.</summary>
+    public IReadOnlyList<SharedBankData> SharedBanks()
+    {
+        lock (_gate)
+        {
+            return _shared.Values.ToList();
+        }
+    }
+
     public SharedBankData? FindShared(string server)
     {
         lock (_gate)

@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text.RegularExpressions;
 using EQOverwatch.Core.Models;
 using EQOverwatch.Core.Pipeline;
 using EQOverwatch.Core.Roster;
@@ -74,7 +76,7 @@ public sealed record DpsTrackerOptions
 /// </para>
 /// All mutation happens under a lock; readers use <see cref="Snapshot"/>, which is lock-free.
 /// </summary>
-public class DpsTrackerService : IDpsEventSink
+public partial class DpsTrackerService : IDpsEventSink
 {
     private enum NameKind
     {
@@ -96,6 +98,12 @@ public class DpsTrackerService : IDpsEventSink
     /// <summary>A critical announcement applies to the attacker's next damage line only if it follows within this long.</summary>
     public static readonly TimeSpan CritWindow = TimeSpan.FromSeconds(1);
     private const int MaxPendingCrits = 64;
+
+    /// <summary>Casts by a mob that no one has hit yet are kept this long, so a boss that casts before the pull still gets them.</summary>
+    private static readonly TimeSpan PendingCastWindow = TimeSpan.FromSeconds(20);
+    private const int MaxPendingCastNames = 32;
+    private readonly Dictionary<string, List<BossCastSnapshot>> _recentCasts = new(StringComparer.Ordinal);
+    private string _logOwner = string.Empty;
     private bool _keepActiveOnEndBatch;
 
     private IReadOnlyList<EncounterSnapshot> _completedView = Array.AsReadOnly(Array.Empty<EncounterSnapshot>());
@@ -179,6 +187,7 @@ public class DpsTrackerService : IDpsEventSink
 
         lock (_gate)
         {
+            _logOwner = characterName;
             ConfirmPlayerLocked(characterName);
         }
     }
@@ -262,7 +271,7 @@ public class DpsTrackerService : IDpsEventSink
                             .AddDamage(combatEvent.Timestamp, Attacker(combatEvent.Source), combatEvent.Amount, isCritical);
                         changed = true;
                     }
-                    else if (_active.TryGetValue(combatEvent.Source, out CombatEncounter? foe)
+                    else if (_active.TryGetValue(FoeName(combatEvent.Source), out CombatEncounter? foe)
                              && Classify(combatEvent.Target) != NameKind.Npc)
                     {
                         // The fight's target hurt a player or pet: that is damage taken in this fight.
@@ -300,7 +309,130 @@ public class DpsTrackerService : IDpsEventSink
     }
 
     /// <summary>Lets the roster learn from /who and /pet leader lines, including while a log is imported or caught up.</summary>
-    public void OnNonCombatMessage(ReadOnlySpan<char> message) => _roster?.Observe(message);
+    public void OnNonCombatMessage(ReadOnlySpan<char> message)
+    {
+        _roster?.Observe(message);
+
+        // Boss casts and heals are not combat events, so they arrive here with the log clock set by the line's own timestamp.
+        if (message.IndexOf(" begins casting ", StringComparison.Ordinal) > 0
+            || message.IndexOf(" begins to cast a spell. <", StringComparison.Ordinal) > 0)
+        {
+            ObserveCast(message.ToString());
+        }
+        else if (message.IndexOf(" healed ", StringComparison.Ordinal) > 0 && message.IndexOf(" hit point", StringComparison.Ordinal) > 0)
+        {
+            ObserveHeal(message.ToString());
+        }
+    }
+
+    /// <summary>"Lord Inquisitor Seru's corpse" is still the boss: damage-over-time keeps ticking from it after it dies.</summary>
+    private static string FoeName(string name) =>
+        name.EndsWith("'s corpse", StringComparison.Ordinal) ? name[..^"'s corpse".Length] : name;
+
+    private void ObserveCast(string message)
+    {
+        string caster;
+        string spell;
+        int newForm = message.IndexOf(" begins casting ", StringComparison.Ordinal);
+        if (newForm > 0 && message.EndsWith('.'))
+        {
+            caster = message[..newForm];
+            spell = message[(newForm + " begins casting ".Length)..^1];
+        }
+        else
+        {
+            const string oldMarker = " begins to cast a spell. <";
+            int oldForm = message.IndexOf(oldMarker, StringComparison.Ordinal);
+            if (oldForm <= 0 || !message.EndsWith('>'))
+            {
+                return;
+            }
+
+            caster = message[..oldForm];
+            spell = message[(oldForm + oldMarker.Length)..^1];
+        }
+
+        if (caster.Length == 0 || spell.Length == 0 || caster.Equals("You", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        lock (_gate)
+        {
+            if (_active.TryGetValue(caster, out CombatEncounter? fight))
+            {
+                fight.AddCast(_logClock, spell);
+                Publish();
+                return;
+            }
+
+            if (Classify(caster) != NameKind.Npc)
+            {
+                return;
+            }
+
+            if (!_recentCasts.TryGetValue(caster, out List<BossCastSnapshot>? list))
+            {
+                if (_recentCasts.Count >= MaxPendingCastNames)
+                {
+                    _recentCasts.Clear();
+                }
+
+                _recentCasts[caster] = list = new List<BossCastSnapshot>();
+            }
+
+            list.RemoveAll(c => _logClock - c.Time > PendingCastWindow);
+            list.Add(new BossCastSnapshot(_logClock, spell));
+        }
+    }
+
+    private void ObserveHeal(string message)
+    {
+        Match match = HealRegex().Match(message);
+        if (!match.Success
+            || !int.TryParse(match.Groups["actual"].ValueSpan, NumberStyles.None, CultureInfo.InvariantCulture, out int actual))
+        {
+            return;
+        }
+
+        int possible = actual;
+        if (match.Groups["possible"].Success)
+        {
+            int.TryParse(match.Groups["possible"].ValueSpan, NumberStyles.None, CultureInfo.InvariantCulture, out possible);
+        }
+
+        string healer = match.Groups["healer"].Value;
+        lock (_gate)
+        {
+            if (healer.Equals("You", StringComparison.OrdinalIgnoreCase))
+            {
+                if (_logOwner.Length == 0)
+                {
+                    return;
+                }
+
+                healer = _logOwner;
+            }
+
+            if (_active.Count == 0 || Classify(healer) == NameKind.Npc)
+            {
+                return;
+            }
+
+            foreach (CombatEncounter encounter in _active.Values)
+            {
+                encounter.AddHeal(healer, match.Groups["spell"].Value, actual, possible);
+            }
+
+            Publish();
+        }
+    }
+
+    // "Leinhart healed Regnier for 328 (8415) hit points by Complete Heal."  /  "X healed you over time for 32 hit points by Spell."
+    [GeneratedRegex(
+        @"^(?<healer>.+?) healed (?<target>.+?) (?:over time )?for (?<actual>\d+)(?: \((?<possible>\d+)\))? hit points? by (?<spell>.+)\.$",
+        RegexOptions.CultureInvariant)]
+    private static partial Regex HealRegex();
 
     public void OnLogClock(DateTime logTimestamp)
     {
@@ -328,7 +460,7 @@ public class DpsTrackerService : IDpsEventSink
     /// </summary>
     private bool RecordPlayerDeath(in CombatEvent death)
     {
-        if (!string.IsNullOrEmpty(death.Source) && _active.TryGetValue(death.Source, out CombatEncounter? killerFight))
+        if (!string.IsNullOrEmpty(death.Source) && _active.TryGetValue(FoeName(death.Source), out CombatEncounter? killerFight))
         {
             killerFight.AddDeath(death.Target);
             return true;
@@ -446,6 +578,15 @@ public class DpsTrackerService : IDpsEventSink
         {
             encounter = new CombatEncounter(_nextId++, target, timestamp);
             _active.Add(target, encounter);
+
+            if (_recentCasts.Remove(target, out List<BossCastSnapshot>? earlier))
+            {
+                foreach (BossCastSnapshot cast in earlier.Where(c => timestamp - c.Time <= PendingCastWindow))
+                {
+                    encounter.AddCast(cast.Time, cast.Spell);
+                }
+            }
+
         }
 
         return encounter;
@@ -518,6 +659,7 @@ public class DpsTrackerService : IDpsEventSink
         _nextId = 1;
 
         _pendingCrits.Clear();
+        _recentCasts.Clear();
         _confirmedNpcs.Clear();
         _confirmedPlayers.Clear();
         foreach (string name in _seedPlayers)

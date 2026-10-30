@@ -5,6 +5,7 @@ using EQOverwatch.App.Overlays;
 using EQOverwatch.App.Services;
 using EQOverwatch.App.ViewModels;
 using EQOverwatch.Core;
+using EQOverwatch.Core.Attendance;
 using EQOverwatch.Core.Characters;
 using EQOverwatch.Core.Pipeline;
 using EQOverwatch.Core.Settings;
@@ -59,6 +60,8 @@ public partial class CompanionApp : Application
         }
 
         // Restores logs, triggers, raid timers, spells, timeout, mute, theme and every overlay's bounds / visibility / lock state.
+        string appData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), AppInfo.SettingsFolderName);
+        _pipeline.Loot.SetStoragePath(Path.Combine(appData, "loot.json"));
         _http = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
         _viewModel = new MainViewModel(
             _pipeline, _settingsService, settings, new OverlayHost(windows), _audio, new WpfDialogService(), themeManager, new WpfClipboardService(),
@@ -66,7 +69,8 @@ public partial class CompanionApp : Application
             openUrl: url => Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }),
             characterDataPresenter: new WpfCharacterDataPresenter(),
             characterData: new CharacterDataStore(Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), AppInfo.SettingsFolderName, "characters")));
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), AppInfo.SettingsFolderName, "characters")),
+            raidRoster: new RaidRosterStore(Path.Combine(appData, "attendance")));
 
         if (dpsVm is not null)
         {

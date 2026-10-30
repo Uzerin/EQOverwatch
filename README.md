@@ -62,6 +62,19 @@ check off, or run it by hand, under **Settings > Updates**.
 
 ## Changelog
 
+### 1.0.24
+
+- **Boss abilities.** A new tab beside Damage taken lists each spell a boss cast, how many times, the usual interval and when into the fight.
+- **Recommended raid triggers.** A Recommended button next to the Boss dropdown in Raid Triggers offers spells cast at a regular interval in your loaded fights, ready to add.
+- **Loot tab.** Loot line by line, grouped by mob, or summed up, with who won the roll. Copy it for Discord.
+- **Attendance tab.** Reads the raid window's Dump files (`RaidRoster_...`) and shows who was there, plus attendance over all raids.
+- **Healing.** A Healing tab in Encounter DPS with effective healing, HPS and overheal.
+- **Items & Scrolls tab.** Search items on every character, see scrolls you carry that a character needs, and a shopping list of missing spells nobody has a scroll for. Old character files are marked.
+- Damage from a boss's corpse no longer counts as damage taken.
+- Boss timers and the buff tracker accept both "begins casting X." and the older "begins to cast a spell. X" wording.
+- Attempts that fail because the target is INVULNERABLE are no longer counted as misses.
+- Thorns (damage shield) damage is counted.
+
 ### 1.0.23
 - Encounter DPS tab: the fight list takes the left half; damage dealt is on the top right and a new damage-taken table (what the boss did to each player, with a bar) is on the bottom right.
 - A player who died in a fight shows `(Deaths: #)` after the name, in both tables and in the Discord picture.

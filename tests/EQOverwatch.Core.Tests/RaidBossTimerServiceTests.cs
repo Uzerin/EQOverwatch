@@ -364,8 +364,8 @@ public sealed class RaidBossTimerServiceTests : IDisposable
         var withYou = new SpellDefinition(1, "Dragon Roar", "You are blasted by a roar!", " is blasted by a roar.");
         var noMessages = new SpellDefinition(2, "Knockback", string.Empty, string.Empty);
 
-        Assert.Equal("begins to cast a spell. <Dragon Roar>", RaidBossTimerRule.SuggestMatchText(withYou));
-        Assert.Equal("begins to cast a spell. <Knockback>", RaidBossTimerRule.SuggestMatchText(noMessages));
+        Assert.Equal("begins casting Dragon Roar.", RaidBossTimerRule.SuggestMatchText(withYou));
+        Assert.Equal("begins casting Knockback.", RaidBossTimerRule.SuggestMatchText(noMessages));
     }
 
     [Fact]

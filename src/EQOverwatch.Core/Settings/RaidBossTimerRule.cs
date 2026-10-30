@@ -61,7 +61,7 @@ public sealed class RaidBossTimerRule
     public RaidBossTimerRule Clone() => (RaidBossTimerRule)MemberwiseClone();
 
     /// <summary>
-    /// What to match for a spell: the line EverQuest prints when a mob starts casting it, "begins to cast a spell. &lt;Dragon Roar&gt;". The
+    /// What to match for a spell: the line EverQuest prints when a mob starts casting it, "begins casting Dragon Roar.". The
     /// boss's name comes before that text in the log line, so leaving the rule's boss name empty matches any boss, and a boss name
     /// narrows it. Matching the cast (not the landing message) works for every spell, whether or not it has a landing message,
     /// and starts the bar when the cast begins.
@@ -72,8 +72,39 @@ public sealed class RaidBossTimerRule
         return CastingText(spell.Name);
     }
 
-    /// <summary>"begins to cast a spell. &lt;Dragon Roar&gt;", the second half of "Tormax begins to cast a spell. &lt;Dragon Roar&gt;".</summary>
-    public static string CastingText(string spellName) => $"begins to cast a spell. <{spellName.Trim()}>";
+    /// <summary>"begins casting Dragon Roar.", the second half of "Tormax begins casting Dragon Roar.".</summary>
+    public static string CastingText(string spellName) => $"begins casting {spellName.Trim()}.";
+
+    private const string OldCastPrefix = "begins to cast a spell. <";
+    private const string NewCastPrefix = "begins casting ";
+
+    /// <summary>
+    /// The other wording of a casting line. EverQuest has printed a cast as "begins casting Dragon Roar." and as
+    /// "begins to cast a spell. &lt;Dragon Roar&gt;", so a rule written for one also matches the other. Null for any other text.
+    /// </summary>
+    public static string? AlternateCastForm(string matchText)
+    {
+        if (string.IsNullOrEmpty(matchText))
+        {
+            return null;
+        }
+
+        if (matchText.StartsWith(OldCastPrefix, StringComparison.Ordinal) && matchText.EndsWith('>') && matchText.Length > OldCastPrefix.Length + 1)
+        {
+            return NewCastPrefix + matchText[OldCastPrefix.Length..^1] + ".";
+        }
+
+        if (matchText.StartsWith(NewCastPrefix, StringComparison.Ordinal) && matchText.EndsWith('.') && matchText.Length > NewCastPrefix.Length + 1)
+        {
+            return OldCastPrefix + matchText[NewCastPrefix.Length..^1] + ">";
+        }
+
+        return null;
+    }
+
+    /// <summary>Set by the timer service when the rule is installed; not saved.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    internal string? AlternateMatchText { get; set; }
 
     /// <summary>
     /// Converts a rule written with the old single text plus timing setting into separate start and warning texts: at start only

@@ -71,6 +71,21 @@ public static partial class CombatLineParser
                 return false;
             }
 
+            // Damage shield: "a frost giant is pierced by Fullfrontal's thorns for 34 points of non-melee damage."
+            if (Contains(message, " is pierced by ") && Contains(message, " thorns for "))
+            {
+                match = ThornsRegex().Match(line, start, length);
+                if (!match.Success || !TryAmount(match, out int thornsAmount))
+                {
+                    return false;
+                }
+
+                string owner = match.Groups["owner"].Success ? match.Groups["owner"].Value : selfName;
+                combatEvent = new CombatEvent(timestamp, CombatEventKind.Damage, owner,
+                    Resolve(match.Groups["target"].Value, selfName), thornsAmount, DamageKind.NonMelee, "thorns");
+                return true;
+            }
+
             // Melee and "non-melee" direct hits.
             if (Contains(message, " points of "))
             {
@@ -111,6 +126,12 @@ public static partial class CombatLineParser
 
         if (Contains(message, ", but ") && (Contains(message, " try to ") || Contains(message, " tries to ")))
         {
+            // Swings at a boss that cannot be hurt yet are not misses: "Regnier tries to slash Seru, but Seru is INVULNERABLE!"
+            if (Contains(message, " is INVULNERABLE!"))
+            {
+                return false;
+            }
+
             match = MissRegex().Match(line, start, length);
             if (!match.Success)
             {
@@ -191,6 +212,12 @@ public static partial class CombatLineParser
         @"^(?<target>.+?) has taken (?<amount>\d+) damage from (?<spell>.+?) by (?<source>.+?)\.(?: \((?<tag>.+)\))?$",
         RegexOptions.CultureInvariant)]
     private static partial Regex OtherDotRegex();
+
+    // "a frost giant is pierced by Fullfrontal's thorns for 34 points of non-melee damage."  /  "... by your thorns for ..."
+    [GeneratedRegex(
+        @"^(?<target>.+?) is pierced by (?:(?<owner>.+?)'s|[Yy]our) thorns for (?<amount>\d+) points? of non-melee damage\.$",
+        RegexOptions.CultureInvariant)]
+    private static partial Regex ThornsRegex();
 
     // "You try to slash a frost giant, but miss!"  /  "a frost giant tries to hit YOU, but YOU dodge!"
     [GeneratedRegex(

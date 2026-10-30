@@ -12,6 +12,9 @@ public sealed class CombatEncounter : ObservableObject
     private readonly List<ParticipantStats> _participants = new();
     private readonly Dictionary<string, DamageTakenStats> _takenByName = new(StringComparer.Ordinal);
     private readonly Dictionary<string, int> _deaths = new(StringComparer.Ordinal);
+    private readonly List<BossCastSnapshot> _casts = new();
+    private readonly Dictionary<string, HealStats> _healers = new(StringComparer.Ordinal);
+    private const int MaxCasts = 2000;
 
     public CombatEncounter(int id, string targetName, DateTime startTime)
     {
@@ -65,6 +68,32 @@ public sealed class CombatEncounter : ObservableObject
 
     /// <summary>Times <paramref name="name"/> died during the fight.</summary>
     public int DeathsOf(string name) => _deaths.GetValueOrDefault(name);
+
+    /// <summary>A spell the fight's target started casting.</summary>
+    internal void AddCast(DateTime timestamp, string spell)
+    {
+        if (_casts.Count < MaxCasts)
+        {
+            _casts.Add(new BossCastSnapshot(timestamp, spell));
+        }
+    }
+
+    /// <summary>Spells the fight's target cast, in log order.</summary>
+    internal IReadOnlyList<BossCastSnapshot> Casts => _casts;
+
+    /// <summary>A heal landed during the fight. <paramref name="possible"/> is what the spell could have healed.</summary>
+    internal void AddHeal(string healer, string spell, int actual, int possible)
+    {
+        if (!_healers.TryGetValue(healer, out HealStats? stats))
+        {
+            stats = new HealStats(healer);
+            _healers.Add(healer, stats);
+        }
+
+        stats.Record(spell, actual, possible);
+    }
+
+    internal IReadOnlyCollection<HealStats> Healers => _healers.Values;
 
     /// <summary>Damage the target dealt to each player or pet, in first-seen order.</summary>
     internal IReadOnlyCollection<DamageTakenStats> TakenStats => _takenByName.Values;

@@ -1,3 +1,4 @@
+using EQOverwatch.Core.Loot;
 using EQOverwatch.Core.Models;
 using EQOverwatch.Core.Roster;
 using EQOverwatch.Core.Services;
@@ -34,6 +35,7 @@ public sealed class CompanionPipeline : IAsyncDisposable
         Cooldowns = new CooldownTrackerService(Triggers);
         Abilities = new AbilityTrackerService(Triggers);
         SharedTriggers = new SharedTriggerScanner();
+        Loot = new LootTracker();
         HistoricalDps = new HistoricalDpsTracker(inactivityTimeout, Roster);
 
         Triggers.Error += RaiseError;
@@ -41,7 +43,7 @@ public sealed class CompanionPipeline : IAsyncDisposable
 
         // Every sink sees every line of every trigger-enabled log. Historical imports use none of them.
         var triggerSinks = new CompositeTriggerSink(
-            new ITriggerLineSink[] { Triggers, Buffs, RaidBosses, ChChain, Cooldowns, Abilities, SharedTriggers, Roster }, RaiseError);
+            new ITriggerLineSink[] { Triggers, Buffs, RaidBosses, ChChain, Cooldowns, Abilities, SharedTriggers, Roster, Loot }, RaiseError);
         _monitor = new LiveLogMonitor(Logs, triggerSinks, LiveDps, RaiseError);
         _monitor.TailError += (config, ex) => TailError?.Invoke(config, ex);
     }
@@ -66,6 +68,9 @@ public sealed class CompanionPipeline : IAsyncDisposable
 
     /// <summary>Active and cooldown bars for tracked AAs and disciplines.</summary>
     public AbilityTrackerService Abilities { get; }
+
+    /// <summary>Loot and the rolls won for it, collected from every trigger-enabled log.</summary>
+    public LootTracker Loot { get; }
 
     /// <summary>Spots <c>{EQO:...}</c> shared triggers in chat.</summary>
     public SharedTriggerScanner SharedTriggers { get; }

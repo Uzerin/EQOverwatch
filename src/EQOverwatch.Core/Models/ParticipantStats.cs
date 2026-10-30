@@ -118,3 +118,44 @@ internal sealed class DamageTakenStats
         }
     }
 }
+
+/// <summary>What one healer healed during a fight.</summary>
+internal sealed class HealStats
+{
+    private readonly Dictionary<string, long> _bySpell = new(StringComparer.Ordinal);
+
+    public HealStats(string name)
+    {
+        Name = name;
+    }
+
+    public string Name { get; }
+
+    /// <summary>Points that actually landed.</summary>
+    public long Effective { get; private set; }
+
+    /// <summary>Points the spells could have healed beyond what landed.</summary>
+    public long Overheal { get; private set; }
+
+    public int Heals { get; private set; }
+    public int MaxHeal { get; private set; }
+
+    public string TopSpell => _bySpell.Count == 0 ? string.Empty : _bySpell.OrderByDescending(p => p.Value).ThenBy(p => p.Key, StringComparer.Ordinal).First().Key;
+
+    public void Record(string spell, int actual, int possible)
+    {
+        Heals++;
+        Effective += actual;
+        if (possible > actual)
+        {
+            Overheal += possible - actual;
+        }
+
+        if (actual > MaxHeal)
+        {
+            MaxHeal = actual;
+        }
+
+        _bySpell[spell] = _bySpell.GetValueOrDefault(spell) + actual;
+    }
+}
