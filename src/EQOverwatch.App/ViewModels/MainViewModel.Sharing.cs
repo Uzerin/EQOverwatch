@@ -147,6 +147,67 @@ public sealed partial class MainViewModel
         }
     }
 
+    /// <summary>Copies the {EQO:...} tokens of every saved raid timer for the boss typed in the builder (all bosses when it is empty), one per line.</summary>
+    [RelayCommand]
+    private void CopyRaidPack()
+    {
+        string mob = RaidMobName?.Trim() ?? string.Empty;
+        List<RaidBossTimerRule> rules = RaidRules
+            .Select(r => r.ToRule())
+            .Where(r => mob.Length == 0 || (r.MobName ?? string.Empty).Trim().Equals(mob, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        if (rules.Count == 0)
+        {
+            RaidBuilderStatus = mob.Length == 0 ? "There are no saved raid timers to copy." : $"No saved raid timers for {mob}.";
+            return;
+        }
+
+        try
+        {
+            _clipboard.SetText(string.Join(Environment.NewLine, rules.Select(r => TriggerShareSerializer.Export(r))));
+            RaidBuilderStatus = $"Copied {rules.Count} raid timer{(rules.Count == 1 ? string.Empty : "s")}{(mob.Length == 0 ? string.Empty : " for " + mob)} as a pack. Send it to someone to paste into [ Import pack ].";
+        }
+        catch (Exception ex)
+        {
+            RaidBuilderStatus = $"The clipboard could not be used: {ex.Message}";
+        }
+    }
+
+    /// <summary>Reads {EQO:...} tokens from the clipboard and offers each one at the top of the window; nothing is switched on until accepted.</summary>
+    [RelayCommand]
+    private void ImportPackFromClipboard()
+    {
+        string? text;
+        try
+        {
+            text = _clipboard.GetText();
+        }
+        catch (Exception ex)
+        {
+            RaidBuilderStatus = $"The clipboard could not be used: {ex.Message}";
+            return;
+        }
+
+        int offered = 0;
+        foreach ((string tag, string payload) in TriggerShareSerializer.FindTokens(text))
+        {
+            if (PendingSharedTriggers.Count >= MaxPendingSharedTriggers)
+            {
+                break;
+            }
+
+            if (TriggerShareSerializer.TryDecode(tag, payload, out SharedItem? item, out _) && item is not null)
+            {
+                PendingSharedTriggers.Add(new PendingSharedTriggerViewModel(new SharedTriggerOffer(item, "Clipboard", payload, _clock())));
+                offered++;
+            }
+        }
+
+        RaidBuilderStatus = offered == 0
+            ? "No {EQO} timers were found on the clipboard."
+            : $"{offered} timer{(offered == 1 ? string.Empty : "s")} waiting at the top of the window. Accept or ignore each one.";
+    }
+
     private void CopyShareToken(string token, string name)
     {
         try

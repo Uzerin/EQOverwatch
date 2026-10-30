@@ -21,11 +21,19 @@ public sealed record BossAbilityDisplayRow(string Spell, int Casts, string Every
 /// <summary>One healer of the selected fight.</summary>
 public sealed record HealingDisplayRow(int Rank, string Name, long Effective, double Hps, double OverhealPercent, int Heals, int MaxHeal, string TopSpell);
 
+/// <summary>One death of the selected fight, with how far into the fight it happened.</summary>
+public sealed record DeathDisplayRow(string When, string Name, string KilledBy);
+
 public sealed record LootLineRow(string Time, string Item, string Looter, string Mob, string Roll);
 
 public sealed record LootMobRow(string Mob, string Item, int Count, string Looters);
 
 public sealed record LootSummaryRow(string Item, int Count, string Looters, string Mobs);
+
+public sealed record LootCharacterRow(string Looter, string Item, int Count, string Mobs);
+
+/// <summary>A line of the money views: who or what it is for, the splits behind it and the total.</summary>
+public sealed record LootMoneyRow(string Name, string Detail, int Splits, string Total);
 
 public sealed record AttendanceRaidRow(RaidAttendance Record, string When, string Server, int Members);
 
@@ -97,6 +105,18 @@ public sealed partial class MainViewModel
         }
     }
 
+    /// <summary>The main window's selected tab; remembered between runs.</summary>
+    [ObservableProperty]
+    private int _selectedMainTab;
+
+    partial void OnSelectedMainTabChanged(int value)
+    {
+        if (!_restoring)
+        {
+            RequestSave();
+        }
+    }
+
     // ───────────────────────── selected fight: boss abilities and healing ─────────────────────────
 
     [ObservableProperty]
@@ -104,6 +124,9 @@ public sealed partial class MainViewModel
 
     [ObservableProperty]
     private IReadOnlyList<HealingDisplayRow> _healingRows = Array.Empty<HealingDisplayRow>();
+
+    [ObservableProperty]
+    private IReadOnlyList<DeathDisplayRow> _deathRows = Array.Empty<DeathDisplayRow>();
 
     [ObservableProperty]
     private string _bossAbilitySummary = string.Empty;
@@ -117,6 +140,7 @@ public sealed partial class MainViewModel
         {
             BossAbilityRows = Array.Empty<BossAbilityDisplayRow>();
             HealingRows = Array.Empty<HealingDisplayRow>();
+            DeathRows = Array.Empty<DeathDisplayRow>();
             BossAbilitySummary = string.Empty;
             HealingSummary = string.Empty;
             return;
@@ -141,6 +165,19 @@ public sealed partial class MainViewModel
         if (!healing.SequenceEqual(HealingRows))
         {
             HealingRows = healing;
+        }
+
+        DeathDisplayRow[] deaths = encounter.DeathRows
+            .Select(d =>
+            {
+                double seconds = Math.Max(0.0, (d.Time - encounter.StartTime).TotalSeconds);
+                string when = d.Time == default ? string.Empty : $"{(int)seconds / 60}:{(int)seconds % 60:00}";
+                return new DeathDisplayRow(when, d.Name, d.KilledBy);
+            })
+            .ToArray();
+        if (!deaths.SequenceEqual(DeathRows))
+        {
+            DeathRows = deaths;
         }
 
         long total = healers.Sum(h => h.Effective);
@@ -249,17 +286,23 @@ public sealed partial class MainViewModel
 
     // ───────────────────────── loot ─────────────────────────
 
-    public IReadOnlyList<string> LootViews { get; } = new[] { "Line by line", "Grouped by mob", "Summary" };
+    public IReadOnlyList<string> LootViews { get; } = new[] { "Line by line", "Grouped by mob", "Summary", "By character", "Money by mob", "Money by character" };
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsLootLinesView))]
     [NotifyPropertyChangedFor(nameof(IsLootMobView))]
     [NotifyPropertyChangedFor(nameof(IsLootSummaryView))]
+    [NotifyPropertyChangedFor(nameof(IsLootCharacterView))]
+    [NotifyPropertyChangedFor(nameof(IsMoneyMobView))]
+    [NotifyPropertyChangedFor(nameof(IsMoneyCharacterView))]
     private int _lootViewIndex;
 
     public bool IsLootLinesView => LootViewIndex == 0;
     public bool IsLootMobView => LootViewIndex == 1;
     public bool IsLootSummaryView => LootViewIndex == 2;
+    public bool IsLootCharacterView => LootViewIndex == 3;
+    public bool IsMoneyMobView => LootViewIndex == 4;
+    public bool IsMoneyCharacterView => LootViewIndex == 5;
 
     [ObservableProperty]
     private string _lootFilter = string.Empty;
@@ -272,6 +315,15 @@ public sealed partial class MainViewModel
 
     [ObservableProperty]
     private IReadOnlyList<LootSummaryRow> _lootSummaryRows = Array.Empty<LootSummaryRow>();
+
+    [ObservableProperty]
+    private IReadOnlyList<LootCharacterRow> _lootCharacterRows = Array.Empty<LootCharacterRow>();
+
+    [ObservableProperty]
+    private IReadOnlyList<LootMoneyRow> _moneyMobRows = Array.Empty<LootMoneyRow>();
+
+    [ObservableProperty]
+    private IReadOnlyList<LootMoneyRow> _moneyCharacterRows = Array.Empty<LootMoneyRow>();
 
     [ObservableProperty]
     private string _lootStatus = "No loot seen yet. It is collected from every watched log that has triggers turned on.";
@@ -313,9 +365,51 @@ public sealed partial class MainViewModel
             .ThenBy(r => r.Item, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        LootStatus = all.Count == 0
+        LootCharacterRows = entries
+            .GroupBy(e => e.Looter, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(g => g.Key, StringComparer.OrdinalIgnoreCase)
+            .SelectMany(who => who
+                .GroupBy(e => e.Item, StringComparer.OrdinalIgnoreCase)
+                .OrderBy(g => g.Key, StringComparer.OrdinalIgnoreCase)
+                .Select(item => new LootCharacterRow(
+                    who.Key, item.Key, item.Count(),
+                    string.Join(", ", item.Select(e => e.Mob).Distinct(StringComparer.OrdinalIgnoreCase)))))
+            .ToList();
+
+        IReadOnlyList<MoneyEntry> allMoney = _pipeline.Loot.Money;
+        List<MoneyEntry> money = filter.Length == 0
+            ? allMoney.ToList()
+            : allMoney.Where(m => m.Mob.Contains(filter, StringComparison.OrdinalIgnoreCase)
+                                  || m.Character.Contains(filter, StringComparison.OrdinalIgnoreCase)).ToList();
+
+        MoneyMobRows = money
+            .GroupBy(m => m.Mob, StringComparer.OrdinalIgnoreCase)
+            .OrderByDescending(g => g.Max(m => m.Time))
+            .Select(g => new LootMoneyRow(
+                g.Key,
+                string.Join(", ", g.GroupBy(m => m.Character, StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(c => c.Key, StringComparer.OrdinalIgnoreCase)
+                    .Select(c => $"{c.Key} {LootLineParser.FormatCopper(c.Sum(m => m.Copper))}")),
+                g.Count(),
+                LootLineParser.FormatCopper(g.Sum(m => m.Copper))))
+            .ToList();
+
+        MoneyCharacterRows = money
+            .GroupBy(m => m.Character, StringComparer.OrdinalIgnoreCase)
+            .OrderByDescending(g => g.Sum(m => m.Copper))
+            .Select(g => new LootMoneyRow(
+                g.Key,
+                $"{g.Select(m => m.Mob).Distinct(StringComparer.OrdinalIgnoreCase).Count():N0} mob(s)",
+                g.Count(),
+                LootLineParser.FormatCopper(g.Sum(m => m.Copper))))
+            .ToList();
+
+        string moneyNote = allMoney.Count == 0
+            ? string.Empty
+            : $" Money received by your characters: {LootLineParser.FormatCopper(allMoney.Sum(m => m.Copper))} from {allMoney.Count:N0} split{(allMoney.Count == 1 ? string.Empty : "s")}.";
+        LootStatus = all.Count == 0 && allMoney.Count == 0
             ? "No loot seen yet. It is collected from every watched log that has triggers turned on."
-            : $"{entries.Count:N0} of {all.Count:N0} item{(all.Count == 1 ? string.Empty : "s")} looted.";
+            : $"{entries.Count:N0} of {all.Count:N0} item{(all.Count == 1 ? string.Empty : "s")} looted.{moneyNote}";
     }
 
     /// <summary>"Nasti, Warshield (2)": who looted the items, with a count when someone got more than one.</summary>
@@ -397,6 +491,31 @@ public sealed partial class MainViewModel
                 }
 
                 break;
+            case 3:
+                foreach (IGrouping<string, LootCharacterRow> who in LootCharacterRows.GroupBy(r => r.Looter))
+                {
+                    sb.AppendLine(who.Key);
+                    foreach (LootCharacterRow row in who)
+                    {
+                        sb.AppendLine($"  {(row.Count > 1 ? row.Count + "x " : string.Empty)}{row.Item}");
+                    }
+                }
+
+                break;
+            case 4:
+                foreach (LootMoneyRow row in MoneyMobRows)
+                {
+                    sb.AppendLine($"{row.Name}: {row.Total} ({row.Detail})");
+                }
+
+                break;
+            case 5:
+                foreach (LootMoneyRow row in MoneyCharacterRows)
+                {
+                    sb.AppendLine($"{row.Name}: {row.Total} over {row.Splits} split{(row.Splits == 1 ? string.Empty : "s")}");
+                }
+
+                break;
             default:
                 foreach (LootLineRow row in LootLineRows.Reverse())
                 {
@@ -406,7 +525,7 @@ public sealed partial class MainViewModel
                 break;
         }
 
-        CopyText(sb.ToString().TrimEnd(), "loot", LootViews[Math.Clamp(LootViewIndex, 0, 2)]);
+        CopyText(sb.ToString().TrimEnd(), "loot", LootViews[Math.Clamp(LootViewIndex, 0, LootViews.Count - 1)]);
     }
 
     private void CopyText(string text, string what, string detail)
@@ -447,6 +566,15 @@ public sealed partial class MainViewModel
 
     partial void OnSelectedAttendanceRaidChanged(AttendanceRaidRow? value) => RebuildRoster();
 
+    public IReadOnlyList<string> AttendanceRanges { get; } = new[] { "All raids", "Last 30 days", "Last 60 days", "Last 90 days" };
+
+    [ObservableProperty]
+    private int _attendanceRangeIndex;
+
+    partial void OnAttendanceRangeIndexChanged(int value) => RebuildAttendance();
+
+    private int AttendanceRangeDays => AttendanceRangeIndex switch { 1 => 30, 2 => 60, 3 => 90, _ => 0 };
+
     private void RebuildAttendance()
     {
         IReadOnlyList<RaidAttendance> records = _raidRoster.Records();
@@ -458,13 +586,19 @@ public sealed partial class MainViewModel
             ? AttendanceRaids.FirstOrDefault()
             : AttendanceRaids.FirstOrDefault(r => r.Record.FileName == selected.Record.FileName) ?? AttendanceRaids.FirstOrDefault();
 
-        AttendanceTotals = RaidRosterStore.Totals(records)
+        int rangeDays = AttendanceRangeDays;
+        IReadOnlyList<RaidAttendance> counted = rangeDays == 0
+            ? records
+            : records.Where(r => r.Taken >= _clock().AddDays(-rangeDays)).ToList();
+        AttendanceTotals = RaidRosterStore.Totals(counted)
             .Select(t => new AttendanceTotalRow(t.Name, t.Class, t.Present, t.Raids, t.Percent, t.LastSeen.ToString("MMM d", CultureInfo.CurrentCulture)))
             .ToList();
 
         AttendanceStatus = records.Count == 0
             ? "No raid roster dumps read yet. In the game, open the Raid window and click Dump."
-            : $"{records.Count} raid{(records.Count == 1 ? string.Empty : "s")} recorded.";
+            : rangeDays == 0
+                ? $"{records.Count} raid{(records.Count == 1 ? string.Empty : "s")} recorded."
+                : $"{records.Count} raid{(records.Count == 1 ? string.Empty : "s")} recorded; the totals count {counted.Count} in the last {rangeDays} days.";
         RebuildRoster();
     }
 
@@ -513,6 +647,20 @@ public sealed partial class MainViewModel
         }
 
         CopyText(sb.ToString().TrimEnd(), "raid roster", raid.When);
+    }
+
+    /// <summary>Copies the attendance totals as tab-separated lines that paste straight into a spreadsheet or Discord.</summary>
+    [RelayCommand]
+    private void CopyAttendanceTotals()
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("Name\tClass\tRaids attended\tRaids\tPercent\tLast seen");
+        foreach (AttendanceTotalRow t in AttendanceTotals)
+        {
+            sb.AppendLine($"{t.Name}\t{t.Class}\t{t.Present}\t{t.Raids}\t{t.Percent:0}%\t{t.LastSeen}");
+        }
+
+        CopyText(sb.ToString().TrimEnd(), "attendance totals", AttendanceRanges[Math.Clamp(AttendanceRangeIndex, 0, AttendanceRanges.Count - 1)]);
     }
 
     [RelayCommand]

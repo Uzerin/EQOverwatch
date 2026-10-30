@@ -17,6 +17,23 @@ public sealed class WpfClipboardService : IClipboardService
         Retry(() => Clipboard.SetText(text));
     }
 
+    public string? GetText()
+    {
+        for (int attempt = 1; attempt <= Attempts; attempt++)
+        {
+            try
+            {
+                return Clipboard.ContainsText() ? Clipboard.GetText() : null;
+            }
+            catch (COMException)
+            {
+                Thread.Sleep(RetryDelay);
+            }
+        }
+
+        return null;
+    }
+
     public void SetEncounterImage(EncounterSnapshot encounter, ThemePalette palette, string footer, int topCount)
     {
         var image = EncounterImageRenderer.Render(encounter, palette, footer, topCount);

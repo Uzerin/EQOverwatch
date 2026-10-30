@@ -62,6 +62,14 @@ check off, or run it by hand, under **Settings > Updates**.
 
 ## Changelog
 
+### 1.0.25
+
+- **Money in the Loot tab.** Your characters' coin splits are read from the log and shown per mob and per character (platinum, gold, silver, copper). Each character is counted separately. The Loot tab also gets a By character view.
+- **Deaths tab.** A tab in Encounter DPS lists who died in the selected fight, how far in, and what killed them.
+- **Attendance totals.** Pick All raids or the last 30, 60 or 90 days, and Copy totals to paste into a spreadsheet or Discord.
+- **Timer packs.** Copy pack puts every saved raid timer for the boss in the Boss box on the clipboard; Import pack reads them from the clipboard and offers each one for you to accept.
+- The window reopens on the tab you were last using.
+
 ### 1.0.24
 
 - **Boss abilities.** A new tab beside Damage taken lists each spell a boss cast, how many times, the usual interval and when into the fight.

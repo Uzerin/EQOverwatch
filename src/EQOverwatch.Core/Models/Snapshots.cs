@@ -40,6 +40,9 @@ public sealed record DamageTakenSnapshot(
 /// <summary>A spell a boss started casting, at log-clock time.</summary>
 public sealed record BossCastSnapshot(DateTime Time, string Spell);
 
+/// <summary>A player or pet that died during a fight; <see cref="KilledBy"/> is empty when the log did not say.</summary>
+public sealed record DeathSnapshot(DateTime Time, string Name, string KilledBy);
+
 /// <summary>What one healer healed during a fight. Overheal is what the spells could have healed beyond what landed.</summary>
 public sealed record HealingSnapshot(
     string Name,
@@ -62,8 +65,12 @@ public sealed record EncounterSnapshot(
     IReadOnlyList<ParticipantSnapshot> Participants,
     IReadOnlyList<DamageTakenSnapshot>? DamageTaken = null,
     IReadOnlyList<BossCastSnapshot>? BossCasts = null,
-    IReadOnlyList<HealingSnapshot>? Healing = null)
+    IReadOnlyList<HealingSnapshot>? Healing = null,
+    IReadOnlyList<DeathSnapshot>? DeathLog = null)
 {
+    /// <summary>Who died during the fight and when, in order.</summary>
+    public IReadOnlyList<DeathSnapshot> DeathRows => DeathLog ?? Array.Empty<DeathSnapshot>();
+
     /// <summary>The spells the target started casting during the fight, in order.</summary>
     public IReadOnlyList<BossCastSnapshot> CastRows => BossCasts ?? Array.Empty<BossCastSnapshot>();
 
@@ -127,7 +134,8 @@ public sealed record EncounterSnapshot(
             encounter.Id, encounter.TargetName, encounter.StartTime, encounter.EndTime,
             encounter.DurationSeconds, encounter.TotalDamage, encounter.IsActive,
             Array.AsReadOnly(participants), Array.AsReadOnly(taken),
-            Array.AsReadOnly(encounter.Casts.ToArray()), Array.AsReadOnly(healing));
+            Array.AsReadOnly(encounter.Casts.ToArray()), Array.AsReadOnly(healing),
+            Array.AsReadOnly(encounter.DeathLog.ToArray()));
     }
 }
 

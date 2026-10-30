@@ -365,4 +365,114 @@ public class RaidNightFeatureTests
         Assert.Equal("Remove Minor Curse", buy.Spell);
         Assert.Equal("Reamiiv", buy.NeededBy);
     }
+
+    // ───────────────────────── money splits ─────────────────────────
+
+    [Theory]
+    [InlineData("You receive 5 gold, 9 silver and 6 copper as your split (with a bonus).", 596)]
+    [InlineData("You receive 1 silver and 2 copper as your split (with a bonus).", 12)]
+    [InlineData("You receive 2 platinum and 3 copper as your split.", 2003)]
+    public void A_split_line_is_read_as_copper(string message, long expected)
+    {
+        Assert.True(LootLineParser.TryParseSplit(message, out long copper));
+        Assert.Equal(expected, copper);
+    }
+
+    [Fact]
+    public void Other_you_receive_lines_are_not_splits()
+    {
+        Assert.False(LootLineParser.TryParseSplit("You receive 5 gold from the merchant.", out _));
+        Assert.False(LootLineParser.TryParseSplit("You gained raid experience (with a bonus)!", out _));
+    }
+
+    [Theory]
+    [InlineData(596, "5g 9s 6c")]
+    [InlineData(12, "1s 2c")]
+    [InlineData(2003, "2p 3c")]
+    [InlineData(0, "0c")]
+    public void Copper_is_shown_as_coins(long copper, string expected) => Assert.Equal(expected, LootLineParser.FormatCopper(copper));
+
+    [Fact]
+    public void A_split_is_credited_to_the_mob_named_by_the_corpse_or_kill_line()
+    {
+        var loot = new LootTracker();
+        loot.OnLine("Reamiiv", "You gained raid experience (with a bonus)!", Now);
+        loot.OnLine("Reamiiv", "You receive 4 gold, 9 silver and 6 copper as your split (with a bonus).", Now);
+        loot.OnLine("Reamiiv", "A Praetorian Medicus's corpse says, 'Basta...'", Now.AddSeconds(0));
+        loot.OnLine("Reamiiv", "You receive 3 gold, 9 silver and 6 copper as your split (with a bonus).", Now.AddSeconds(5));
+        loot.OnLine("Reamiiv", "A Praetorian Pius was slain by Pecos!", Now.AddSeconds(6));
+
+        Assert.Equal(
+            new[] { ("A Praetorian Medicus", 496L), ("A Praetorian Pius", 396L) },
+            loot.Money.Select(m => (m.Mob, m.Copper)));
+        Assert.All(loot.Money, m => Assert.Equal("Reamiiv", m.Character));
+    }
+
+    [Fact]
+    public void A_split_with_no_mob_line_is_kept_as_unknown_once_time_has_passed()
+    {
+        var loot = new LootTracker();
+        loot.OnLine("Reamiiv", "You receive 1 silver and 2 copper as your split (with a bonus).", Now);
+        Assert.Empty(loot.Money); // still waiting for the corpse line
+        loot.OnLine("Reamiiv", "You slash a thing for 5 points of damage.", Now.AddSeconds(30));
+
+        MoneyEntry entry = Assert.Single(loot.Money);
+        Assert.Equal(("(unknown)", 12L), (entry.Mob, entry.Copper));
+    }
+
+    [Fact]
+    public void Each_characters_money_is_kept_separately()
+    {
+        var loot = new LootTracker();
+        loot.OnLine("Reamiiv", "You receive 1 gold as your split.", Now);
+        loot.OnLine("Reamiiv", $"{Boss}'s corpse looks positively amazed at this turn of events.", Now);
+        loot.OnLine("Ream", "You receive 1 gold as your split.", Now);
+        loot.OnLine("Ream", $"{Boss}'s corpse looks positively amazed at this turn of events.", Now);
+
+        Assert.Equal(new[] { "Reamiiv", "Ream" }, loot.Money.Select(m => m.Character));
+    }
+
+    [Fact]
+    public void A_scanned_log_adds_its_splits_once()
+    {
+        string dir = Path.Combine(Path.GetTempPath(), "eqo-money-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        string log = Path.Combine(dir, "eqlog_Reamiiv_frostreaver.txt");
+        try
+        {
+            File.WriteAllLines(log, new[]
+            {
+                "[Mon Oct 26 19:48:52 2026] You gained raid experience (with a bonus)!",
+                "[Mon Oct 26 19:48:52 2026] You receive 4 gold, 9 silver and 6 copper as your split (with a bonus).",
+                "[Mon Oct 26 19:48:52 2026] A Praetorian Medicus's corpse says, 'Basta...'",
+                "[Mon Oct 26 19:48:53 2026] A Praetorian Medicus was slain by Patide!",
+            });
+            var loot = new LootTracker();
+            loot.ScanLog(log);
+            loot.ScanLog(log);
+
+            MoneyEntry entry = Assert.Single(loot.Money);
+            Assert.Equal(("Reamiiv", "A Praetorian Medicus", 496L), (entry.Character, entry.Mob, entry.Copper));
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    // ───────────────────────── deaths ─────────────────────────
+
+    [Fact]
+    public void A_death_is_logged_with_its_time_and_killer()
+    {
+        var tracker = new LiveDpsTracker();
+        tracker.OnCombatEvent(Hit("Nasti", Boss, 100, "11:45:00"));
+        tracker.OnCombatEvent(Hit(Boss, "Nasti", 50, "11:45:02"));
+        tracker.OnCombatEvent(Death("Nasti", Boss, "11:45:05"));
+
+        EncounterSnapshot fight = Assert.Single(tracker.Snapshot.Active);
+        DeathSnapshot death = Assert.Single(fight.DeathRows);
+        Assert.Equal(("Nasti", Boss), (death.Name, death.KilledBy));
+        Assert.Equal(At("11:45:05"), death.Time);
+    }
 }

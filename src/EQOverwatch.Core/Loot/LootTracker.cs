@@ -12,6 +12,9 @@ namespace EQOverwatch.Core.Loot;
 /// <param name="Roll">The winning roll, or 0 when the item was not rolled for.</param>
 public sealed record LootEntry(DateTime Time, string Looter, string Item, string Mob, string RollType = "", int Roll = 0);
 
+/// <summary>A money split one of your characters received for a kill, stored as copper (1 sp = 10, 1 gp = 100, 1 pp = 1000).</summary>
+public sealed record MoneyEntry(DateTime Time, string Character, long Copper, string Mob);
+
 /// <summary>A won roll: "Warshield won the need roll on 1 item(s): Mnemonic of Khati Sha with a roll of 377."</summary>
 public sealed record RollWin(string Winner, string RollType, string Item, int Roll);
 
@@ -28,6 +31,120 @@ public static partial class LootLineParser
         @"^(?<winner>.+?) won the (?<type>\w+) roll on \d+ item\(s\): (?<item>.+?) with a roll of (?<roll>\d+)\.$",
         RegexOptions.CultureInvariant)]
     private static partial Regex WinRegex();
+
+    // "You receive 5 gold, 9 silver and 6 copper as your split (with a bonus)."
+    [GeneratedRegex(
+        @"^You receive (?<amount>.+?) as your split(?: \(with a bonus\))?\.$",
+        RegexOptions.CultureInvariant)]
+    private static partial Regex SplitRegex();
+
+    [GeneratedRegex(@"(?<n>\d+) (?<coin>platinum|gold|silver|copper)", RegexOptions.CultureInvariant)]
+    private static partial Regex CoinRegex();
+
+    // "Lord Inquisitor Seru's corpse looks positively amazed..."  /  "A Praetorian Pius's corpse says, 'Basta...'"
+    [GeneratedRegex(@"^(?<mob>.+?)'s corpse ", RegexOptions.CultureInvariant)]
+    private static partial Regex CorpseRegex();
+
+    // "A Praetorian Medicus was slain by Patide!"
+    [GeneratedRegex(@"^(?<mob>.+?) was slain by .+!$", RegexOptions.CultureInvariant)]
+    private static partial Regex SlainRegex();
+
+    /// <summary>True for "You receive 5 gold, 9 silver and 6 copper as your split.". Returns the amount in copper.</summary>
+    public static bool TryParseSplit(ReadOnlySpan<char> message, out long copper)
+    {
+        copper = 0;
+        if (!message.StartsWith("You receive ", StringComparison.Ordinal) || message.IndexOf(" as your split", StringComparison.Ordinal) < 0)
+        {
+            return false;
+        }
+
+        Match match = SplitRegex().Match(message.ToString());
+        if (!match.Success)
+        {
+            return false;
+        }
+
+        foreach (Match coin in CoinRegex().Matches(match.Groups["amount"].Value))
+        {
+            if (!long.TryParse(coin.Groups["n"].ValueSpan, NumberStyles.None, CultureInfo.InvariantCulture, out long n))
+            {
+                continue;
+            }
+
+            copper += n * coin.Groups["coin"].Value switch
+            {
+                "platinum" => 1000L,
+                "gold" => 100L,
+                "silver" => 10L,
+                _ => 1L,
+            };
+        }
+
+        return copper > 0;
+    }
+
+    /// <summary>True for the corpse or kill line that names the mob a split came from.</summary>
+    public static bool TryParseMobLine(ReadOnlySpan<char> message, out string mob)
+    {
+        mob = string.Empty;
+        if (message.IndexOf("'s corpse ", StringComparison.Ordinal) > 0)
+        {
+            Match corpse = CorpseRegex().Match(message.ToString());
+            if (corpse.Success)
+            {
+                mob = corpse.Groups["mob"].Value;
+                return true;
+            }
+        }
+
+        if (message.IndexOf(" was slain by ", StringComparison.Ordinal) > 0)
+        {
+            Match slain = SlainRegex().Match(message.ToString());
+            if (slain.Success)
+            {
+                mob = slain.Groups["mob"].Value;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Formats copper as "5g 9s 6c" (with "p" for platinum), or "0c".</summary>
+    public static string FormatCopper(long copper)
+    {
+        if (copper <= 0)
+        {
+            return "0c";
+        }
+
+        long pp = copper / 1000;
+        long gp = copper % 1000 / 100;
+        long sp = copper % 100 / 10;
+        long cp = copper % 10;
+        var parts = new List<string>(4);
+        if (pp > 0)
+        {
+            parts.Add(pp.ToString("N0", CultureInfo.InvariantCulture) + "p");
+        }
+
+        if (gp > 0)
+        {
+            parts.Add(gp + "g");
+        }
+
+        if (sp > 0)
+        {
+            parts.Add(sp + "s");
+        }
+
+        if (cp > 0)
+        {
+            parts.Add(cp + "c");
+        }
+
+        return string.Join(" ", parts);
+    }
 
     /// <summary>True for "--X has looted a Y from Z's corpse.--". "You" becomes <paramref name="selfName"/>.</summary>
     public static bool TryParseLoot(ReadOnlySpan<char> message, string selfName, out string looter, out string item, out string mob)
@@ -106,6 +223,9 @@ public sealed class LootTracker : ITriggerLineSink
         public int Recorded { get; set; }
     }
     private string? _filePath;
+    private readonly List<MoneyEntry> _money = new();
+    private readonly Dictionary<string, (DateTime Utc, DateTime Local, long Copper)> _pendingSplits = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly TimeSpan SplitMobWindow = TimeSpan.FromSeconds(3);
 
     /// <summary>Raised on the pipeline thread after the list changed.</summary>
     public event Action? Changed;
@@ -121,6 +241,20 @@ public sealed class LootTracker : ITriggerLineSink
             }
         }
     }
+
+    /// <summary>The money splits received, oldest first, as a snapshot.</summary>
+    public IReadOnlyList<MoneyEntry> Money
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _money.ToList();
+            }
+        }
+    }
+
+    private string? MoneyPath => _filePath is null ? null : Path.ChangeExtension(_filePath, ".money.json");
 
     /// <summary>Loads the saved list from <paramref name="path"/> and keeps saving to it from now on.</summary>
     public void SetStoragePath(string path)
@@ -144,6 +278,24 @@ public sealed class LootTracker : ITriggerLineSink
             {
                 // a damaged or locked file starts an empty list
             }
+
+            try
+            {
+                string? moneyPath = MoneyPath;
+                if (moneyPath is not null && File.Exists(moneyPath))
+                {
+                    List<MoneyEntry>? saved = JsonSerializer.Deserialize<List<MoneyEntry>>(File.ReadAllText(moneyPath));
+                    if (saved is not null)
+                    {
+                        _money.Clear();
+                        _money.AddRange(saved);
+                    }
+                }
+            }
+            catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException)
+            {
+                // a damaged or locked file starts an empty list
+            }
         }
 
         Changed?.Invoke();
@@ -154,6 +306,8 @@ public sealed class LootTracker : ITriggerLineSink
         lock (_gate)
         {
             _entries.Clear();
+            _money.Clear();
+            _pendingSplits.Clear();
             _pendingWins.Clear();
             Save();
         }
@@ -163,6 +317,12 @@ public sealed class LootTracker : ITriggerLineSink
 
     public void OnLine(string characterName, ReadOnlySpan<char> message, DateTime receivedUtc)
     {
+        if (HandleMoney(characterName, message, receivedUtc))
+        {
+            Changed?.Invoke();
+            return;
+        }
+
         if (message.Length < 20)
         {
             return;
@@ -212,6 +372,8 @@ public sealed class LootTracker : ITriggerLineSink
     {
         var scanned = new List<LootEntry>();
         var wins = new List<(RollWin Win, DateTime Time)>();
+        var scannedMoney = new List<MoneyEntry>();
+        (DateTime Time, long Copper)? pendingSplit = null;
         string owner = LogFileName.TryParse(Path.GetFileName(path), out string name, out _) ? name : string.Empty;
 
         using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
@@ -220,8 +382,17 @@ public sealed class LootTracker : ITriggerLineSink
             string? line;
             while ((line = reader.ReadLine()) is not null)
             {
-                if (line.Length <= LogLineFormat.MessageOffset
-                    || (line.IndexOf("looted", StringComparison.Ordinal) < 0 && line.IndexOf(" won the ", StringComparison.Ordinal) < 0))
+                if (line.Length <= LogLineFormat.MessageOffset)
+                {
+                    continue;
+                }
+
+                bool interesting = line.IndexOf("looted", StringComparison.Ordinal) >= 0
+                    || line.IndexOf(" won the ", StringComparison.Ordinal) >= 0
+                    || line.IndexOf(" as your split", StringComparison.Ordinal) >= 0
+                    || (pendingSplit is not null
+                        && (line.IndexOf("'s corpse ", StringComparison.Ordinal) >= 0 || line.IndexOf(" was slain by ", StringComparison.Ordinal) >= 0));
+                if (!interesting)
                 {
                     continue;
                 }
@@ -232,6 +403,32 @@ public sealed class LootTracker : ITriggerLineSink
                 }
 
                 ReadOnlySpan<char> message = line.AsSpan(LogLineFormat.MessageOffset);
+                if (pendingSplit is { } waiting)
+                {
+                    if (time - waiting.Time > SplitMobWindow)
+                    {
+                        scannedMoney.Add(new MoneyEntry(waiting.Time, owner, waiting.Copper, "(unknown)"));
+                        pendingSplit = null;
+                    }
+                    else if (LootLineParser.TryParseMobLine(message, out string splitMob))
+                    {
+                        scannedMoney.Add(new MoneyEntry(waiting.Time, owner, waiting.Copper, splitMob));
+                        pendingSplit = null;
+                        continue;
+                    }
+                }
+
+                if (LootLineParser.TryParseSplit(message, out long splitCopper))
+                {
+                    if (pendingSplit is { } previous)
+                    {
+                        scannedMoney.Add(new MoneyEntry(previous.Time, owner, previous.Copper, "(unknown)"));
+                    }
+
+                    pendingSplit = (time, splitCopper);
+                    continue;
+                }
+
                 if (LootLineParser.TryParseWin(message, out RollWin? win))
                 {
                     wins.Add((win, time));
@@ -248,9 +445,33 @@ public sealed class LootTracker : ITriggerLineSink
             }
         }
 
+        if (pendingSplit is { } last)
+        {
+            scannedMoney.Add(new MoneyEntry(last.Time, owner, last.Copper, "(unknown)"));
+        }
+
         int added = 0;
+        int addedMoney = 0;
         lock (_gate)
         {
+            foreach (MoneyEntry money in scannedMoney)
+            {
+                bool known = _money.Any(m => m.Character.Equals(money.Character, StringComparison.OrdinalIgnoreCase)
+                                             && m.Copper == money.Copper
+                                             && (m.Time - money.Time).Duration() <= SameEventWindow);
+                if (!known)
+                {
+                    _money.Add(money);
+                    addedMoney++;
+                }
+            }
+
+            if (addedMoney > 0)
+            {
+                _money.Sort((a, b) => a.Time.CompareTo(b.Time));
+                SaveMoney();
+            }
+
             var used = new HashSet<int>();
             foreach (LootEntry entry in scanned)
             {
@@ -287,12 +508,95 @@ public sealed class LootTracker : ITriggerLineSink
             }
         }
 
-        if (added > 0)
+        if (added > 0 || addedMoney > 0)
         {
             Changed?.Invoke();
         }
 
         return added;
+    }
+
+    // ───────────────────────── money ─────────────────────────
+
+    /// <summary>
+    /// Follows split lines. The mob is named by the corpse or kill line right after the split; if none comes within a few seconds the
+    /// split is kept with the mob "(unknown)". Returns true when the money list changed.
+    /// </summary>
+    private bool HandleMoney(string character, ReadOnlySpan<char> message, DateTime utc)
+    {
+        bool isSplit = message.StartsWith("You receive ", StringComparison.Ordinal) && message.IndexOf(" as your split", StringComparison.Ordinal) > 0;
+        lock (_gate)
+        {
+            bool changed = false;
+            if (_pendingSplits.TryGetValue(character, out var pending))
+            {
+                if (utc - pending.Utc > SplitMobWindow)
+                {
+                    AddMoney(pending.Local, character, pending.Copper, "(unknown)");
+                    _pendingSplits.Remove(character);
+                    changed = true;
+                }
+                else if (!isSplit && LootLineParser.TryParseMobLine(message, out string mob))
+                {
+                    AddMoney(pending.Local, character, pending.Copper, mob);
+                    _pendingSplits.Remove(character);
+                    changed = true;
+                }
+            }
+
+            if (isSplit && LootLineParser.TryParseSplit(message, out long copper))
+            {
+                if (_pendingSplits.Remove(character, out var previous))
+                {
+                    AddMoney(previous.Local, character, previous.Copper, "(unknown)");
+                    changed = true;
+                }
+
+                _pendingSplits[character] = (utc, utc.ToLocalTime(), copper);
+            }
+
+            if (changed)
+            {
+                SaveMoney();
+            }
+
+            return changed;
+        }
+    }
+
+    private void AddMoney(DateTime time, string character, long copper, string mob)
+    {
+        _money.Add(new MoneyEntry(time, character, copper, mob));
+        if (_money.Count > MaxEntries)
+        {
+            _money.RemoveRange(0, _money.Count - MaxEntries);
+        }
+    }
+
+    private void SaveMoney()
+    {
+        string? path = MoneyPath;
+        if (path is null)
+        {
+            return;
+        }
+
+        try
+        {
+            string? directory = Path.GetDirectoryName(path);
+            if (!string.IsNullOrEmpty(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            string temp = path + ".tmp";
+            File.WriteAllText(temp, JsonSerializer.Serialize(_money));
+            File.Move(temp, path, overwrite: true);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // the list stays in memory; the next change tries again
+        }
     }
 
     // ───────────────────────── internals ─────────────────────────

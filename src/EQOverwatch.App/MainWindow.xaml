@@ -171,7 +171,7 @@
             </StatusBarItem>
         </StatusBar>
 
-        <TabControl Margin="8">
+        <TabControl Margin="8" SelectedIndex="{Binding SelectedMainTab, Mode=TwoWay}">
 
             <!-- ═════════ Tab 1: Characters ═════════ -->
             <TabItem Header="Characters">
@@ -587,6 +587,10 @@
                                     <Button Content="Cancel edit" Command="{Binding CancelRaidEditCommand}" Style="{StaticResource SecondaryButton}" Margin="0,0,10,0"/>
                                     <Button Content="[ Share {EQO} ]" Command="{Binding ShareRaidBuilderCommand}" Style="{StaticResource SecondaryButton}" Margin="0,0,14,0"
                                             ToolTip="Copies this raid timer as an {EQO:...} token you can paste into raid chat."/>
+                                    <Button Content="Copy pack" Command="{Binding CopyRaidPackCommand}" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0"
+                                            ToolTip="Copies every saved raid timer for the boss in the Boss box (or all of them if it is empty) as {EQO:...} lines."/>
+                                    <Button Content="Import pack" Command="{Binding ImportPackFromClipboardCommand}" Style="{StaticResource SecondaryButton}" Margin="0,0,14,0"
+                                            ToolTip="Reads {EQO:...} timers from the clipboard and offers each one at the top of the window."/>
                                     <TextBlock Text="{Binding RaidBuilderStatus}" Style="{StaticResource HintText}" VerticalAlignment="Center" MaxWidth="360"/>
                                 </StackPanel>
                             </Grid>
@@ -1102,6 +1106,18 @@
                                     </DockPanel>
                                 </TabItem>
 
+                                <TabItem Header="Deaths">
+                                    <DataGrid Margin="0,6,0,0" ItemsSource="{Binding DeathRows}"
+                                              AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
+                                              HeadersVisibility="Column" GridLinesVisibility="Horizontal" HorizontalScrollBarVisibility="Auto">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="Into the fight" Binding="{Binding When, Mode=OneWay}" Width="Auto"/>
+                                            <DataGridTextColumn Header="Who died" Binding="{Binding Name, Mode=OneWay}" Width="Auto"/>
+                                            <DataGridTextColumn Header="Killed by" Binding="{Binding KilledBy, Mode=OneWay}" Width="Auto"/>
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                </TabItem>
+
                                 <TabItem Header="Healing">
                                     <DockPanel Margin="0,6,0,0">
                                         <TextBlock DockPanel.Dock="Top" FontWeight="SemiBold" Margin="0,0,0,8" TextWrapping="Wrap"
@@ -1218,6 +1234,66 @@
                                 <DataGridTextColumn Header="From" Binding="{Binding Mobs, Mode=OneWay}" Width="Auto"/>
                             </DataGrid.Columns>
                         </DataGrid>
+
+                        <DataGrid ItemsSource="{Binding LootCharacterRows}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
+                                  HeadersVisibility="Column" GridLinesVisibility="Horizontal">
+                            <DataGrid.Style>
+                                <Style TargetType="DataGrid" BasedOn="{StaticResource {x:Type DataGrid}}">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsLootCharacterView}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </DataGrid.Style>
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Character" Binding="{Binding Looter, Mode=OneWay}" Width="Auto"/>
+                                <DataGridTextColumn Header="Item" Binding="{Binding Item, Mode=OneWay}" Width="Auto"/>
+                                <DataGridTextColumn Header="Count" Binding="{Binding Count, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                <DataGridTextColumn Header="From" Binding="{Binding Mobs, Mode=OneWay}" Width="Auto"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                        <DataGrid ItemsSource="{Binding MoneyMobRows}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
+                                  HeadersVisibility="Column" GridLinesVisibility="Horizontal">
+                            <DataGrid.Style>
+                                <Style TargetType="DataGrid" BasedOn="{StaticResource {x:Type DataGrid}}">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsMoneyMobView}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </DataGrid.Style>
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Mob" Binding="{Binding Name, Mode=OneWay}" Width="Auto"/>
+                                <DataGridTextColumn Header="Total" Binding="{Binding Total, Mode=OneWay}" Width="Auto"/>
+                                <DataGridTextColumn Header="Splits" Binding="{Binding Splits, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                <DataGridTextColumn Header="Per character" Binding="{Binding Detail, Mode=OneWay}" Width="Auto"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                        <DataGrid ItemsSource="{Binding MoneyCharacterRows}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
+                                  HeadersVisibility="Column" GridLinesVisibility="Horizontal">
+                            <DataGrid.Style>
+                                <Style TargetType="DataGrid" BasedOn="{StaticResource {x:Type DataGrid}}">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsMoneyCharacterView}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </DataGrid.Style>
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Character" Binding="{Binding Name, Mode=OneWay}" Width="Auto"/>
+                                <DataGridTextColumn Header="Total" Binding="{Binding Total, Mode=OneWay}" Width="Auto"/>
+                                <DataGridTextColumn Header="Splits" Binding="{Binding Splits, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                <DataGridTextColumn Header="Mobs" Binding="{Binding Detail, Mode=OneWay}" Width="Auto"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
                     </Grid>
                 </Grid>
             </TabItem>
@@ -1243,6 +1319,10 @@
                         <Button Content="Copy raid" Margin="0,0,8,6" Style="{StaticResource SecondaryButton}" Command="{Binding CopyAttendanceCommand}"
                                 ToolTip="Copies the selected raid's roster as text for Discord."/>
                         <Button Content="Delete raid" Margin="0,0,14,6" Style="{StaticResource SecondaryButton}" Command="{Binding DeleteAttendanceCommand}"/>
+                        <ComboBox Width="130" Margin="0,0,8,6" ItemsSource="{Binding AttendanceRanges}" SelectedIndex="{Binding AttendanceRangeIndex}"
+                                  ToolTip="Which raids the totals on the right count."/>
+                        <Button Content="Copy totals" Margin="0,0,14,6" Style="{StaticResource SecondaryButton}" Command="{Binding CopyAttendanceTotalsCommand}"
+                                ToolTip="Copies the totals as tab-separated lines that paste into a spreadsheet."/>
                         <TextBlock Style="{StaticResource HintText}" VerticalAlignment="Center" Margin="0,0,0,6" Text="{Binding AttendanceStatus}"/>
                     </WrapPanel>
 

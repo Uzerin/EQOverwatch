@@ -1274,6 +1274,7 @@ public sealed partial class MainViewModel : ObservableObject
 
             _pipeline.SetAdditionalMonitoredCharacters(AdditionalCharacters);
             HistoricalDaysLimit = settings.HistoricalDaysLimit;
+            SelectedMainTab = Math.Max(0, settings.LastTabIndex);
             IsCooldownTrackerEnabled = settings.IsCooldownTrackerEnabled;
             _pipeline.Cooldowns.IsEnabled = IsCooldownTrackerEnabled;
             CheckForUpdates = settings.CheckForUpdates;
@@ -1391,6 +1392,7 @@ public sealed partial class MainViewModel : ObservableObject
         EqFolderPath = EqFolderPath,
         AdditionalMonitoredCharacters = AdditionalCharacters.ToList(),
         HistoricalDaysLimit = HistoricalDaysLimit,
+        LastTabIndex = SelectedMainTab,
         ChChain = BuildChainSettings(),
         IsCooldownTrackerEnabled = IsCooldownTrackerEnabled,
         CheckForUpdates = CheckForUpdates,

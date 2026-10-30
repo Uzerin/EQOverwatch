@@ -52,6 +52,9 @@ public sealed class AppSettings
     /// <summary>How many days of history the Primary DPS log is imported for; 0 means all history.</summary>
     public int HistoricalDaysLimit { get; set; } = DefaultHistoricalDaysLimit;
 
+    /// <summary>The tab that was showing when the app closed, so it opens on the same one next time.</summary>
+    public int LastTabIndex { get; set; }
+
     public const int DefaultHistoricalDaysLimit = 7;
 
     /// <summary>The choices offered for <see cref="HistoricalDaysLimit"/> (0 = all history).</summary>

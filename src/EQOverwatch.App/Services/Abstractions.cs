@@ -85,6 +85,9 @@ public interface IClipboardService
     /// <summary>Replaces the clipboard with plain text.</summary>
     void SetText(string text);
 
+    /// <summary>The plain text on the clipboard, or null when there is none or it cannot be read.</summary>
+    string? GetText() => null;
+
     /// <summary>
     /// Renders the top attackers of <paramref name="encounter"/> as a dark-themed picture, with <paramref name="footer"/> along the
     /// bottom edge, and puts the picture on the clipboard.

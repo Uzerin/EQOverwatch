@@ -462,7 +462,7 @@ public partial class DpsTrackerService : IDpsEventSink
     {
         if (!string.IsNullOrEmpty(death.Source) && _active.TryGetValue(FoeName(death.Source), out CombatEncounter? killerFight))
         {
-            killerFight.AddDeath(death.Target);
+            killerFight.AddDeath(death.Target, death.Timestamp, death.Source ?? string.Empty);
             return true;
         }
 
@@ -471,7 +471,7 @@ public partial class DpsTrackerService : IDpsEventSink
         {
             if (encounter.Involves(death.Target))
             {
-                encounter.AddDeath(death.Target);
+                encounter.AddDeath(death.Target, death.Timestamp, death.Source ?? string.Empty);
                 recorded = true;
             }
         }

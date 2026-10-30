@@ -12,6 +12,7 @@ public sealed class CombatEncounter : ObservableObject
     private readonly List<ParticipantStats> _participants = new();
     private readonly Dictionary<string, DamageTakenStats> _takenByName = new(StringComparer.Ordinal);
     private readonly Dictionary<string, int> _deaths = new(StringComparer.Ordinal);
+    private readonly List<DeathSnapshot> _deathLog = new();
     private readonly List<BossCastSnapshot> _casts = new();
     private readonly Dictionary<string, HealStats> _healers = new(StringComparer.Ordinal);
     private const int MaxCasts = 2000;
@@ -61,7 +62,17 @@ public sealed class CombatEncounter : ObservableObject
     }
 
     /// <summary>A player or pet died during the fight.</summary>
-    internal void AddDeath(string name) => _deaths[name] = _deaths.GetValueOrDefault(name) + 1;
+    internal void AddDeath(string name, DateTime time = default, string killedBy = "")
+    {
+        _deaths[name] = _deaths.GetValueOrDefault(name) + 1;
+        if (_deathLog.Count < 200)
+        {
+            _deathLog.Add(new DeathSnapshot(time, name, killedBy ?? string.Empty));
+        }
+    }
+
+    /// <summary>Each death in order, with the log time and the killer when known.</summary>
+    internal IReadOnlyList<DeathSnapshot> DeathLog => _deathLog;
 
     /// <summary>True when <paramref name="name"/> dealt or took damage in this fight.</summary>
     internal bool Involves(string name) => _byName.ContainsKey(name) || _takenByName.ContainsKey(name);
