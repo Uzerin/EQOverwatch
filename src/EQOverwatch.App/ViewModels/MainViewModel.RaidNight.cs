@@ -80,15 +80,25 @@ public sealed partial class MainViewModel
         _pipeline.Loot.Changed += () => _lootDirty = true;
         _characterData.Changed += () => _toolsDirty = true;
         _raidRoster.Changed += RebuildAttendance;
+        ApplySyncMode(); // start the multi-PC sync chosen when the app was last closed
     }
 
     /// <summary>Called from <see cref="Refresh"/> (about four times a second): rebuilds only what changed.</summary>
     private void RefreshRaidNight()
     {
+        RefreshSyncStatus();
+
         if (_lootDirty)
         {
             _lootDirty = false;
             RebuildLoot();
+        }
+
+        string primaryServer = Logs.PrimaryDpsLog?.ServerName ?? string.Empty;
+        if (!primaryServer.Equals(_lastPrimaryServer, StringComparison.Ordinal))
+        {
+            _lastPrimaryServer = primaryServer;
+            _toolsDirty = true;
         }
 
         if (_toolsDirty)
@@ -697,6 +707,73 @@ public sealed partial class MainViewModel
 
     partial void OnItemSearchTextChanged(string value) => RebuildItemSearch();
 
+    public const string AllServers = "All servers";
+
+    [ObservableProperty]
+    private IReadOnlyList<string> _toolsServers = new[] { AllServers };
+
+    [ObservableProperty]
+    private string? _selectedToolsServer = AllServers;
+
+    private bool _toolsServerPickedByUser;
+    private bool _settingToolsServer;
+    private string _lastPrimaryServer = string.Empty;
+
+    partial void OnSelectedToolsServerChanged(string? value)
+    {
+        if (_settingToolsServer || value is null)
+        {
+            return;
+        }
+
+        _toolsServerPickedByUser = true;
+        RebuildCharacterTools();
+    }
+
+    private string? ToolsServerFilter =>
+        string.IsNullOrEmpty(SelectedToolsServer) || SelectedToolsServer == AllServers ? null : SelectedToolsServer;
+
+    /// <summary>Keeps the server list current and, until you pick one yourself, follows the Primary DPS character's server.</summary>
+    private void SyncToolsServers(IReadOnlyList<CharacterData> characters, IReadOnlyList<SharedBankData> banks)
+    {
+        string[] servers = characters.Select(c => c.Server)
+            .Concat(banks.Select(b => b.Server))
+            .Where(s => s.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(s => s, StringComparer.OrdinalIgnoreCase)
+            .Prepend(AllServers)
+            .ToArray();
+
+        _settingToolsServer = true;
+        try
+        {
+            if (!servers.SequenceEqual(ToolsServers))
+            {
+                ToolsServers = servers;
+            }
+
+            string primaryServer = Logs.PrimaryDpsLog?.ServerName ?? string.Empty;
+            string? wanted = SelectedToolsServer;
+            if (!_toolsServerPickedByUser)
+            {
+                wanted = servers.FirstOrDefault(s => s.Equals(primaryServer, StringComparison.OrdinalIgnoreCase)) ?? AllServers;
+            }
+            else if (wanted is null || !servers.Contains(wanted, StringComparer.OrdinalIgnoreCase))
+            {
+                wanted = AllServers;
+            }
+
+            if (!string.Equals(SelectedToolsServer, wanted, StringComparison.Ordinal))
+            {
+                SelectedToolsServer = wanted;
+            }
+        }
+        finally
+        {
+            _settingToolsServer = false;
+        }
+    }
+
     private void RebuildItemSearch()
     {
         string text = ItemSearchText?.Trim() ?? string.Empty;
@@ -707,22 +784,30 @@ public sealed partial class MainViewModel
             return;
         }
 
-        ItemHits = CharacterPlanner.FindItems(_characterData.All(), _characterData.SharedBanks(), text);
+        string? serverFilter = ToolsServerFilter;
+        ItemHits = CharacterPlanner.FindItems(_characterData.All(), _characterData.SharedBanks(), text, serverFilter);
         ItemSearchStatus = ItemHits.Count == 0
-            ? $"No item matching \"{text}\" in the inventory files read so far."
+            ? $"No item matching \"{text}\" {(serverFilter is null ? "in the inventory files read so far" : "on " + serverFilter)}."
             : $"{ItemHits.Count:N0} match{(ItemHits.Count == 1 ? string.Empty : "es")}.";
     }
 
     private void RebuildCharacterTools()
     {
-        RebuildItemSearch();
-
         IReadOnlyList<CharacterData> characters = _characterData.All();
         IReadOnlyList<SharedBankData> banks = _characterData.SharedBanks();
+        SyncToolsServers(characters, banks);
+        RebuildItemSearch();
+
+        string? serverFilter = ToolsServerFilter;
         var scrolls = new List<ScrollDisplayRow>();
         var shopping = new List<ShoppingDisplayRow>();
         foreach (string server in characters.Select(c => c.Server).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(s => s, StringComparer.OrdinalIgnoreCase))
         {
+            if (serverFilter is not null && !server.Equals(serverFilter, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
             (IReadOnlyList<ScrollPlanRow> carried, IReadOnlyList<ShoppingRow> missing) = CharacterPlanner.Plan(characters, banks, server);
             scrolls.AddRange(carried.Select(s => new ScrollDisplayRow(server, s.Spell, s.HeldBy, s.NeededBy)));
             shopping.AddRange(missing.Select(s => new ShoppingDisplayRow(server, s.Level, s.Spell, s.NeededBy)));
@@ -735,6 +820,21 @@ public sealed partial class MainViewModel
             : $"{scrolls.Count} scroll{(scrolls.Count == 1 ? string.Empty : "s")} you carry that another character needs; " +
               $"{shopping.Count} missing spell{(shopping.Count == 1 ? string.Empty : "s")} nobody has a scroll for.";
     }
+
+    /// <summary>Copies one in-game command so it can be pasted into the game's chat.</summary>
+    [RelayCommand]
+    private void CopyGameCommand(string? command) => CopyText(command ?? string.Empty, "game command", command ?? string.Empty);
+
+    [RelayCommand]
+    private void CopyAllGameCommands() =>
+        CopyText(string.Join(Environment.NewLine, GameCommands), "game commands", "the three /outputfile commands");
+
+    private static readonly string[] GameCommands =
+    {
+        "/outputfile inventory",
+        "/outputfile spellbook",
+        "/outputfile missingspells",
+    };
 
     [RelayCommand]
     private void RefreshCharacterTools()

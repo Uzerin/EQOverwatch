@@ -62,6 +62,13 @@ check off, or run it by hand, under **Settings > Updates**.
 
 ## Changelog
 
+### 1.0.26
+
+- **Several PCs.** Settings has a new "Several PCs" section. Set your main PC to receive, and your other PCs to send, with a pairing code typed into Overwatch. The other PCs find the main PC on your home network and send their `/outputfile` files whenever they change, so every character shows up in Items & Scrolls. Everything is encrypted with the code.
+- **Items & Scrolls server.** A Server box at the top starts on your Primary DPS character's server; pick another server, or All servers, to search those instead. It applies to the item search, the scrolls and the shopping list.
+- **Game commands.** Buttons on Items & Scrolls copy `/outputfile inventory`, `/outputfile spellbook` and `/outputfile missingspells` so you can paste them into the game.
+- **Boss spell damage.** Lines like "a boss hit you for 497 points of magic damage by Judgment." now count as damage taken, with the spell name.
+
 ### 1.0.25
 
 - **Money in the Loot tab.** Your characters' coin splits are read from the log and shown per mob and per character (platinum, gold, silver, copper). Each character is counted separately. The Loot tab also gets a By character view.

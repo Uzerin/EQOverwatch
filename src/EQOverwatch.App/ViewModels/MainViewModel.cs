@@ -70,8 +70,10 @@ public sealed partial class MainViewModel : ObservableObject
         Action<string>? openUrl = null,
         Services.ICharacterDataPresenter? characterDataPresenter = null,
         CharacterDataStore? characterData = null,
-        RaidRosterStore? raidRoster = null)
+        RaidRosterStore? raidRoster = null,
+        string? remoteDataDirectory = null)
     {
+        _remoteDirectory = remoteDataDirectory;
         _raidRoster = raidRoster ?? new RaidRosterStore();
         _characterDataPresenter = characterDataPresenter;
         _characterData = characterData ?? new CharacterDataStore();
@@ -1275,6 +1277,10 @@ public sealed partial class MainViewModel : ObservableObject
             _pipeline.SetAdditionalMonitoredCharacters(AdditionalCharacters);
             HistoricalDaysLimit = settings.HistoricalDaysLimit;
             SelectedMainTab = Math.Max(0, settings.LastTabIndex);
+            SyncModeIndex = SyncModeFromText(settings.SyncMode);
+            SyncCode = settings.SyncCode ?? string.Empty;
+            SyncPcName = string.IsNullOrWhiteSpace(settings.SyncPcName) ? Environment.MachineName : settings.SyncPcName;
+            SyncHostAddress = settings.SyncHostAddress ?? string.Empty;
             IsCooldownTrackerEnabled = settings.IsCooldownTrackerEnabled;
             _pipeline.Cooldowns.IsEnabled = IsCooldownTrackerEnabled;
             CheckForUpdates = settings.CheckForUpdates;
@@ -1393,6 +1399,10 @@ public sealed partial class MainViewModel : ObservableObject
         AdditionalMonitoredCharacters = AdditionalCharacters.ToList(),
         HistoricalDaysLimit = HistoricalDaysLimit,
         LastTabIndex = SelectedMainTab,
+        SyncMode = SyncModeToText(SyncModeIndex),
+        SyncCode = SyncCode,
+        SyncPcName = SyncPcName,
+        SyncHostAddress = SyncHostAddress,
         ChChain = BuildChainSettings(),
         IsCooldownTrackerEnabled = IsCooldownTrackerEnabled,
         CheckForUpdates = CheckForUpdates,
@@ -1485,6 +1495,7 @@ public sealed partial class MainViewModel : ObservableObject
         }
 
         _isShutDown = true;
+        StopSync();
 
         Logs.CollectionChanged -= OnLogsChanged;
         _overlays.PlacementChanged -= OnPlacementChanged;

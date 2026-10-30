@@ -475,4 +475,35 @@ public class RaidNightFeatureTests
         Assert.Equal(("Nasti", Boss), (death.Name, death.KilledBy));
         Assert.Equal(At("11:45:05"), death.Time);
     }
+
+    // ───────────────────────── boss spell damage ─────────────────────────
+
+    [Fact]
+    public void A_boss_spell_landing_on_you_is_damage_from_the_boss()
+    {
+        string line = Line("a Praetorian Medicus hit you for 497 points of magic damage by Judgment.");
+        Assert.True(LogLineFormat.TryParseTimestamp(line, out DateTime ts));
+        Assert.True(CombatLineParser.TryParse(line, ts, "Ream", out CombatEvent e));
+        Assert.Equal(("a Praetorian Medicus", "Ream", 497, "Judgment"), (e.Source, e.Target, e.Amount, e.Detail));
+    }
+
+    [Fact]
+    public void A_boss_spell_on_another_player_is_parsed_too()
+    {
+        string line = Line("a Praetorian Medicus hit Nasti for 120 points of magic damage by Judgment.");
+        Assert.True(LogLineFormat.TryParseTimestamp(line, out DateTime ts));
+        Assert.True(CombatLineParser.TryParse(line, ts, "Ream", out CombatEvent e));
+        Assert.Equal(("a Praetorian Medicus", "Nasti", 120), (e.Source, e.Target, e.Amount));
+    }
+
+    [Fact]
+    public void A_boss_spell_counts_as_damage_taken_in_its_fight()
+    {
+        var tracker = new LiveDpsTracker();
+        tracker.OnCombatEvent(Hit("Stackprime", Boss, 100, "11:45:01"));
+        tracker.OnCombatEvent(new CombatEvent(At("11:45:02"), CombatEventKind.Damage, Boss, "Ream", 497, DamageKind.NonMelee, "Judgment"));
+
+        EncounterSnapshot fight = Assert.Single(tracker.Snapshot.Active);
+        Assert.Equal(497, fight.TotalDamageTaken);
+    }
 }

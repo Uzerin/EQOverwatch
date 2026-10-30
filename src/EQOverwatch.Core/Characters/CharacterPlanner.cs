@@ -17,9 +17,10 @@ public static class CharacterPlanner
     /// <summary>
     /// Every item whose name contains <paramref name="text"/> (case-insensitive) on any character, plus the shared banks.
     /// Items are listed once per character, shared bank items once per server (as character "Shared bank (server)").
+    /// With <paramref name="server"/> only that server's characters and shared bank are searched.
     /// </summary>
     public static IReadOnlyList<ItemHit> FindItems(
-        IEnumerable<CharacterData> characters, IEnumerable<SharedBankData> sharedBanks, string text)
+        IEnumerable<CharacterData> characters, IEnumerable<SharedBankData> sharedBanks, string text, string? server = null)
     {
         ArgumentNullException.ThrowIfNull(characters);
         ArgumentNullException.ThrowIfNull(sharedBanks);
@@ -30,12 +31,18 @@ public static class CharacterPlanner
             return Array.Empty<ItemHit>();
         }
 
+        if (!string.IsNullOrWhiteSpace(server))
+        {
+            characters = characters.Where(c => c.Server.Equals(server, StringComparison.OrdinalIgnoreCase));
+            sharedBanks = sharedBanks.Where(b => b.Server.Equals(server, StringComparison.OrdinalIgnoreCase));
+        }
+
         var hits = new List<ItemHit>();
         foreach (CharacterData character in characters.OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase))
         {
             foreach (InventoryItem item in character.Inventory.Where(i => i.Name.Contains(needle, StringComparison.OrdinalIgnoreCase)))
             {
-                hits.Add(new ItemHit(character.Name, item.Where, item.Name, item.Count));
+                hits.Add(new ItemHit(character.FromPc.Length > 0 ? $"{character.Name} ({character.FromPc})" : character.Name, item.Where, item.Name, item.Count));
             }
         }
 

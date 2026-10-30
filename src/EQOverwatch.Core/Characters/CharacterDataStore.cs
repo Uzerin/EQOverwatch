@@ -13,6 +13,9 @@ public sealed class CharacterData
     /// <summary>"CLR", from the spellbook and missing-spells file names. Empty until one of them has been read.</summary>
     public string ClassCode { get; set; } = string.Empty;
 
+    /// <summary>The name of the other PC this character's files came from, or empty when they were read on this PC.</summary>
+    public string FromPc { get; set; } = string.Empty;
+
     public DateTime? InventoryUtc { get; set; }
     public List<InventoryItem> Inventory { get; set; } = new();
     public List<KeyRingEntry> KeyRing { get; set; } = new();
@@ -176,7 +179,7 @@ public sealed class CharacterDataStore
     /// Reads one output file. Returns false when the name is not an output file, the file cannot be read, or what is stored is
     /// already as new as the file.
     /// </summary>
-    public bool Import(string filePath)
+    public bool Import(string filePath, string? fromPc = null)
     {
         if (!CharacterOutputParser.TryParseFileName(filePath, out OutputFileInfo info))
         {
@@ -267,6 +270,8 @@ public sealed class CharacterDataStore
             {
                 data.ClassCode = info.ClassCode;
             }
+
+            data.FromPc = fromPc ?? string.Empty;
 
             _characters[key] = data;
             saveCharacter = data;

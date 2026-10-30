@@ -55,6 +55,18 @@ public sealed class AppSettings
     /// <summary>The tab that was showing when the app closed, so it opens on the same one next time.</summary>
     public int LastTabIndex { get; set; }
 
+    /// <summary>Multi-PC character sync: "Off", "Host" (this is the main PC) or "Send" (send this PC's files to the main PC).</summary>
+    public string SyncMode { get; set; } = "Off";
+
+    /// <summary>The pairing code shared by the main PC and the PCs that send to it.</summary>
+    public string SyncCode { get; set; } = string.Empty;
+
+    /// <summary>This PC's name as shown on the main PC.</summary>
+    public string SyncPcName { get; set; } = string.Empty;
+
+    /// <summary>The main PC's address, only needed when it cannot be found automatically.</summary>
+    public string SyncHostAddress { get; set; } = string.Empty;
+
     public const int DefaultHistoricalDaysLimit = 7;
 
     /// <summary>The choices offered for <see cref="HistoricalDaysLimit"/> (0 = all history).</summary>

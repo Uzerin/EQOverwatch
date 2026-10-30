@@ -1383,11 +1383,31 @@
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
 
-                    <WrapPanel Grid.Row="0" Grid.ColumnSpan="3" Margin="0,0,0,8">
+                    <StackPanel Grid.Row="0" Grid.ColumnSpan="3" Margin="0,0,0,8">
+                        <WrapPanel>
+                        <TextBlock Style="{StaticResource FieldLabel}" Text="Server"/>
+                        <ComboBox Width="150" Margin="0,0,14,6" ItemsSource="{Binding ToolsServers}" SelectedItem="{Binding SelectedToolsServer, Mode=TwoWay}"
+                                  ToolTip="Starts on the Primary DPS character's server. Pick another server, or All servers, to search those instead."/>
                         <Button Content="Read new files" Margin="0,0,14,6" Command="{Binding RefreshCharacterToolsCommand}"
                                 ToolTip="Reads any new /outputfile files for your characters from the EverQuest folder."/>
                         <TextBlock Style="{StaticResource HintText}" VerticalAlignment="Center" Margin="0,0,0,6" Text="{Binding ScrollPlanStatus}"/>
                     </WrapPanel>
+                        <WrapPanel Margin="0,0,0,4">
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="Game commands" VerticalAlignment="Center"
+                                       ToolTip="Click one to copy it, then paste it into the game's chat on each character."/>
+                            <Button Content="/outputfile inventory" Margin="0,0,8,6" Style="{StaticResource SecondaryButton}"
+                                    Command="{Binding CopyGameCommandCommand}" CommandParameter="/outputfile inventory"/>
+                            <Button Content="/outputfile spellbook" Margin="0,0,8,6" Style="{StaticResource SecondaryButton}"
+                                    Command="{Binding CopyGameCommandCommand}" CommandParameter="/outputfile spellbook"/>
+                            <Button Content="/outputfile missingspells" Margin="0,0,8,6" Style="{StaticResource SecondaryButton}"
+                                    Command="{Binding CopyGameCommandCommand}" CommandParameter="/outputfile missingspells"/>
+                            <Button Content="Copy all three" Margin="0,0,8,6" Style="{StaticResource SecondaryButton}"
+                                    Command="{Binding CopyAllGameCommandsCommand}"
+                                    ToolTip="Puts the three commands on the clipboard, one per line, for pasting into a game macro."/>
+                        </WrapPanel>
+                        <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap"
+                                   Text="Paste one command at a time into the game chat. To cover a character in one click, make a game macro or hotbar button with the three commands on separate lines, then click it on each character."/>
+                    </StackPanel>
 
                     <DockPanel Grid.Row="1" Grid.Column="0">
                         <TextBlock DockPanel.Dock="Top" FontWeight="SemiBold" Margin="0,0,0,6" Text="Find an item on any character"/>
@@ -1464,6 +1484,38 @@
                                 </WrapPanel>
                                 <TextBlock Style="{StaticResource HintText}" Text="{Binding EqFolderStatus}"/>
                                 <TextBlock Style="{StaticResource HintText}" Text="{Binding SpellsStatus}"/>
+                            </StackPanel>
+                        </GroupBox>
+
+                        <GroupBox Header="Several PCs">
+                            <StackPanel Margin="4">
+                                <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,0,0,8"
+                                           Text="Run Overwatch on your other PCs and see all of your characters' inventories and spells on your main PC. The PCs must be on the same home network."/>
+                                <WrapPanel Margin="0,0,0,8">
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="This PC"/>
+                                    <ComboBox Width="280" ItemsSource="{Binding SyncModes}" SelectedIndex="{Binding SyncModeIndex}"/>
+                                </WrapPanel>
+                                <WrapPanel Margin="0,0,0,8">
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Pairing code"
+                                               ToolTip="The main PC makes the code. Type the same code into each of your other PCs."/>
+                                    <TextBox Width="150" VerticalAlignment="Center" Margin="0,0,8,0" Text="{Binding SyncCode, UpdateSourceTrigger=LostFocus}"/>
+                                    <Button Content="New code" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0" Command="{Binding NewSyncCodeCommand}"
+                                            ToolTip="Makes a new code. PCs using the old one are no longer accepted."/>
+                                    <Button Content="Copy" Style="{StaticResource SecondaryButton}" Command="{Binding CopySyncCodeCommand}"/>
+                                </WrapPanel>
+                                <WrapPanel Margin="0,0,0,8">
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="This PC's name"/>
+                                    <TextBox Width="150" VerticalAlignment="Center" Margin="0,0,14,0" Text="{Binding SyncPcName, UpdateSourceTrigger=LostFocus}"/>
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Main PC address"
+                                               ToolTip="Leave empty to find the main PC automatically. Only needed if it is not found."/>
+                                    <TextBox Width="130" VerticalAlignment="Center" Text="{Binding SyncHostAddress, UpdateSourceTrigger=LostFocus}"/>
+                                </WrapPanel>
+                                <WrapPanel Margin="0,0,0,8">
+                                    <Button Content="Send now" Margin="0,0,8,0" Command="{Binding SendCharacterFilesNowCommand}"
+                                            ToolTip="Sends every character file from this PC to the main PC again."/>
+                                    <Button Content="Find main PC" Style="{StaticResource SecondaryButton}" Command="{Binding FindMainPcCommand}"/>
+                                </WrapPanel>
+                                <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" Text="{Binding SyncStatus}"/>
                             </StackPanel>
                         </GroupBox>
 

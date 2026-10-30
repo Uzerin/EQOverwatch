@@ -86,6 +86,20 @@ public static partial class CombatLineParser
                 return true;
             }
 
+            // A spell landing: "a Praetorian Medicus hit you for 497 points of magic damage by Judgment."
+            if (Contains(message, " damage by ") && Contains(message, " points of "))
+            {
+                match = SpellHitRegex().Match(line, start, length);
+                if (match.Success && TryAmount(match, out int spellHit))
+                {
+                    combatEvent = new CombatEvent(timestamp, CombatEventKind.Damage,
+                        Resolve(match.Groups["source"].Value, selfName),
+                        Resolve(match.Groups["target"].Value, selfName),
+                        spellHit, DamageKind.NonMelee, match.Groups["spell"].Value, IsCriticalTag(match));
+                    return true;
+                }
+            }
+
             // Melee and "non-melee" direct hits.
             if (Contains(message, " points of "))
             {
@@ -197,6 +211,12 @@ public static partial class CombatLineParser
         @"^(?<source>.+?) (?<verb>hit|hits|slash|slashes|crush|crushes|pierce|pierces|bash|bashes|kick|kicks|punch|punches|backstab|backstabs|strike|strikes|claw|claws|bite|bites|maul|mauls|gore|gores|slice|slices|rend|rends|slam|slams|smash|smashes|sting|stings|shoot|shoots|frenzy on|frenzies on) (?<target>.+?) for (?<amount>\d+) points? of (?<nonmelee>non-melee )?damage\.(?: \((?<tag>.+)\))?$",
         RegexOptions.CultureInvariant)]
     private static partial Regex DirectDamageRegex();
+
+    // "a Praetorian Medicus hit you for 497 points of magic damage by Judgment."
+    [GeneratedRegex(
+        @"^(?<source>.+?) hit (?<target>.+?) for (?<amount>\d+) points? of (?<type>[a-z]+) damage by (?<spell>.+?)\.(?: \((?<tag>.+)\))?$",
+        RegexOptions.CultureInvariant)]
+    private static partial Regex SpellHitRegex();
 
     [GeneratedRegex(
         @"^(?<target>.+?) was hit by non-melee for (?<amount>\d+) points? of damage\.(?: \((?<tag>.+)\))?$",

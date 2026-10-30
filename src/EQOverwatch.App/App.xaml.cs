@@ -70,7 +70,8 @@ public partial class CompanionApp : Application
             characterDataPresenter: new WpfCharacterDataPresenter(),
             characterData: new CharacterDataStore(Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), AppInfo.SettingsFolderName, "characters")),
-            raidRoster: new RaidRosterStore(Path.Combine(appData, "attendance")));
+            raidRoster: new RaidRosterStore(Path.Combine(appData, "attendance")),
+            remoteDataDirectory: Path.Combine(appData, "remote"));
 
         if (dpsVm is not null)
         {
