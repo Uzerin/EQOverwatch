@@ -36,6 +36,17 @@ public partial class CompanionApp : Application
         var themeManager = new ThemeManagerService();
         themeManager.Apply(ThemePresets.ObsidianSlate);
 
+        // A restore chosen in the last run is applied here, before any setting or data file is read.
+        string dataFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), AppInfo.SettingsFolderName);
+        try
+        {
+            EQOverwatch.Core.Backup.BackupService.ApplyPendingRestore(dataFolder);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Debug.WriteLine($"Restore could not be applied: {ex.Message}");
+        }
+
         _settingsService = new AppSettingsService();
         AppSettings settings = _settingsService.Load();
 
@@ -62,6 +73,8 @@ public partial class CompanionApp : Application
         // Restores logs, triggers, raid timers, spells, timeout, mute, theme and every overlay's bounds / visibility / lock state.
         string appData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), AppInfo.SettingsFolderName);
         _pipeline.Loot.SetStoragePath(Path.Combine(appData, "loot.json"));
+        var bossHistory = new EQOverwatch.Core.History.BossHistoryStore();
+        bossHistory.SetStoragePath(Path.Combine(appData, "bosshistory.json"));
         _http = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
         _viewModel = new MainViewModel(
             _pipeline, _settingsService, settings, new OverlayHost(windows), _audio, new WpfDialogService(), themeManager, new WpfClipboardService(),
@@ -71,7 +84,9 @@ public partial class CompanionApp : Application
             characterData: new CharacterDataStore(Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), AppInfo.SettingsFolderName, "characters")),
             raidRoster: new RaidRosterStore(Path.Combine(appData, "attendance")),
-            remoteDataDirectory: Path.Combine(appData, "remote"));
+            remoteDataDirectory: Path.Combine(appData, "remote"),
+            bossHistory: bossHistory,
+            dataDirectory: appData);
 
         if (dpsVm is not null)
         {
@@ -88,12 +103,20 @@ public partial class CompanionApp : Application
         // Catch the DPS meter up from the Primary DPS log and start live monitoring, so opening the app mid-fight shows the fight.
         _ = _viewModel.StartSessionAsync();
 
+        // Layouts saved for a monitor setup: switch when Windows says the monitors changed (only if the user turned that on).
+        _viewModel.OnDisplayConfigurationChanged();
+        Microsoft.Win32.SystemEvents.DisplaySettingsChanged += OnDisplaySettingsChanged;
+
         // Tell the user when a newer version has been published (does nothing when switched off in Settings; failures are silent).
         _ = _viewModel.StartUpdateCheckAsync();
     }
 
+    private void OnDisplaySettingsChanged(object? sender, EventArgs e) =>
+        Dispatcher.BeginInvoke(new Action(() => _viewModel?.OnDisplayConfigurationChanged()));
+
     protected override void OnExit(ExitEventArgs e)
     {
+        Microsoft.Win32.SystemEvents.DisplaySettingsChanged -= OnDisplaySettingsChanged;
         if (_viewModel is not null)
         {
             _viewModel.Shutdown(); // no-op if the main window's Closing handler already ran it

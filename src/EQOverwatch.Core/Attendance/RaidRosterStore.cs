@@ -168,6 +168,41 @@ public sealed partial class RaidRosterStore
         return added;
     }
 
+    /// <summary>Adds raid records sent by another PC that are not recorded here yet. Returns how many were added.</summary>
+    public int Merge(IEnumerable<RaidAttendance>? records)
+    {
+        int added = 0;
+        foreach (RaidAttendance record in records ?? Enumerable.Empty<RaidAttendance>())
+        {
+            if (string.IsNullOrWhiteSpace(record.FileName) || record.Members.Count == 0
+                || !TryParseFileName(record.FileName, out _, out _)) // only a real dump name, which cannot point at another folder
+            {
+                continue;
+            }
+
+            string key = Path.GetFileNameWithoutExtension(Path.GetFileName(record.FileName));
+            lock (_gate)
+            {
+                if (_records.ContainsKey(key))
+                {
+                    continue;
+                }
+
+                var copy = new RaidAttendance { Server = record.Server, Taken = record.Taken, FileName = key, Members = record.Members.ToList() };
+                _records[key] = copy;
+                Save(copy);
+                added++;
+            }
+        }
+
+        if (added > 0)
+        {
+            Changed?.Invoke();
+        }
+
+        return added;
+    }
+
     /// <summary>Removes one record (and its saved file).</summary>
     public void Remove(RaidAttendance record)
     {

@@ -34,6 +34,41 @@ public sealed class WpfDialogService : IDialogService
         return dialog.ShowDialog(Owner()) == true ? dialog.FileName : null;
     }
 
+    public string? PickBackupSavePath(string suggestedName)
+    {
+        var dialog = new SaveFileDialog
+        {
+            Title = "Save an EQ Overwatch backup",
+            Filter = "EQ Overwatch backup (*.zip)|*.zip",
+            FileName = suggestedName,
+            AddExtension = true,
+            DefaultExt = ".zip",
+            OverwritePrompt = true,
+        };
+
+        return dialog.ShowDialog(Owner()) == true ? dialog.FileName : null;
+    }
+
+    public string? PickBackupFile()
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = "Choose an EQ Overwatch backup to restore",
+            Filter = "EQ Overwatch backup (*.zip)|*.zip",
+            CheckFileExists = true,
+        };
+
+        return dialog.ShowDialog(Owner()) == true ? dialog.FileName : null;
+    }
+
+    public bool Confirm(string title, string message)
+    {
+        MessageBoxResult answer = Owner() is { } owner
+            ? MessageBox.Show(owner, message, title, MessageBoxButton.YesNo, MessageBoxImage.Question)
+            : MessageBox.Show(message, title, MessageBoxButton.YesNo, MessageBoxImage.Question);
+        return answer == MessageBoxResult.Yes;
+    }
+
     public string? PickWavFile()
     {
         var dialog = new OpenFileDialog

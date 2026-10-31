@@ -11,6 +11,7 @@ using EQOverwatch.App.Services;
 using EQOverwatch.Core;
 using EQOverwatch.Core.Attendance;
 using EQOverwatch.Core.Characters;
+using EQOverwatch.Core.History;
 using EQOverwatch.Core.Discovery;
 using EQOverwatch.Core.Export;
 using EQOverwatch.Core.Models;
@@ -71,8 +72,12 @@ public sealed partial class MainViewModel : ObservableObject
         Services.ICharacterDataPresenter? characterDataPresenter = null,
         CharacterDataStore? characterData = null,
         RaidRosterStore? raidRoster = null,
-        string? remoteDataDirectory = null)
+        string? remoteDataDirectory = null,
+        BossHistoryStore? bossHistory = null,
+        string? dataDirectory = null)
     {
+        _bossHistory = bossHistory ?? new BossHistoryStore();
+        _dataDirectory = dataDirectory;
         _remoteDirectory = remoteDataDirectory;
         _raidRoster = raidRoster ?? new RaidRosterStore();
         _characterDataPresenter = characterDataPresenter;
@@ -1281,6 +1286,7 @@ public sealed partial class MainViewModel : ObservableObject
             SyncCode = settings.SyncCode ?? string.Empty;
             SyncPcName = string.IsNullOrWhiteSpace(settings.SyncPcName) ? Environment.MachineName : settings.SyncPcName;
             SyncHostAddress = settings.SyncHostAddress ?? string.Empty;
+            RestoreOverlayProfiles(settings);
             IsCooldownTrackerEnabled = settings.IsCooldownTrackerEnabled;
             _pipeline.Cooldowns.IsEnabled = IsCooldownTrackerEnabled;
             CheckForUpdates = settings.CheckForUpdates;
@@ -1399,6 +1405,8 @@ public sealed partial class MainViewModel : ObservableObject
         AdditionalMonitoredCharacters = AdditionalCharacters.ToList(),
         HistoricalDaysLimit = HistoricalDaysLimit,
         LastTabIndex = SelectedMainTab,
+        OverlayProfiles = _overlayProfiles.ToList(),
+        AutoSwitchOverlayProfiles = AutoSwitchOverlayProfiles,
         SyncMode = SyncModeToText(SyncModeIndex),
         SyncCode = SyncCode,
         SyncPcName = SyncPcName,

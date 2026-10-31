@@ -28,6 +28,10 @@ public sealed class OverlayHost : IOverlayHost
 
     public event EventHandler? PlacementChanged;
 
+    public string DisplaySignature =>
+        FormattableString.Invariant(
+            $"{SystemParameters.VirtualScreenLeft:0},{SystemParameters.VirtualScreenTop:0},{SystemParameters.VirtualScreenWidth:0}x{SystemParameters.VirtualScreenHeight:0}|{SystemParameters.PrimaryScreenWidth:0}x{SystemParameters.PrimaryScreenHeight:0}");
+
     public OverlaySettings Capture(OverlayKind kind)
     {
         OverlayWindowBase window = Get(kind);

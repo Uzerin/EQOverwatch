@@ -66,7 +66,8 @@ public sealed record EncounterSnapshot(
     IReadOnlyList<DamageTakenSnapshot>? DamageTaken = null,
     IReadOnlyList<BossCastSnapshot>? BossCasts = null,
     IReadOnlyList<HealingSnapshot>? Healing = null,
-    IReadOnlyList<DeathSnapshot>? DeathLog = null)
+    IReadOnlyList<DeathSnapshot>? DeathLog = null,
+    bool Killed = false)
 {
     /// <summary>Who died during the fight and when, in order.</summary>
     public IReadOnlyList<DeathSnapshot> DeathRows => DeathLog ?? Array.Empty<DeathSnapshot>();
@@ -135,7 +136,7 @@ public sealed record EncounterSnapshot(
             encounter.DurationSeconds, encounter.TotalDamage, encounter.IsActive,
             Array.AsReadOnly(participants), Array.AsReadOnly(taken),
             Array.AsReadOnly(encounter.Casts.ToArray()), Array.AsReadOnly(healing),
-            Array.AsReadOnly(encounter.DeathLog.ToArray()));
+            Array.AsReadOnly(encounter.DeathLog.ToArray()), encounter.Killed);
     }
 }
 

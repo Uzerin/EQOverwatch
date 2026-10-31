@@ -49,7 +49,26 @@ public partial class MainWindow : Window
         _userTyping = false;
         if (sender is ComboBox combo && combo.Text.Length > 0 && combo.IsKeyboardFocusWithin)
         {
+            bool wasOpen = combo.IsDropDownOpen;
             combo.IsDropDownOpen = true;
+            if (!wasOpen)
+            {
+                // Opening the list highlights the whole text, and the next letter would replace it ("D" then "a" left only "a").
+                // Put the cursor back at the end now, and again once WPF has finished opening the list.
+                PutCursorAtEnd(combo);
+                Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() => PutCursorAtEnd(combo)));
+                Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() => PutCursorAtEnd(combo)));
+            }
+        }
+    }
+
+    private static void PutCursorAtEnd(ComboBox combo)
+    {
+        if (combo.Template?.FindName("PART_EditableTextBox", combo) is TextBox box
+            && box.Text.Length > 0 && box.SelectionLength == box.Text.Length)
+        {
+            box.SelectionStart = box.Text.Length;
+            box.SelectionLength = 0;
         }
     }
 }

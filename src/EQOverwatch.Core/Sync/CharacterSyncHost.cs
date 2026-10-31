@@ -37,6 +37,9 @@ public sealed class CharacterSyncHost : IDisposable
     /// <summary>Raised on a background thread with the sending PC's name and the paths of the files that were saved.</summary>
     public event Action<string, IReadOnlyList<string>>? Received;
 
+    /// <summary>Raised on a background thread with each accepted bundle, so loot, money and raid records can be merged.</summary>
+    public event Action<string, SyncBundle>? BundleReceived;
+
     /// <summary>Raised with a short message for the Settings tab.</summary>
     public event Action<string>? StatusChanged;
 
@@ -178,10 +181,19 @@ public sealed class CharacterSyncHost : IDisposable
                 byte[] reply = SyncProtocol.Encrypt(code, Encoding.UTF8.GetBytes("OK"));
                 await SyncProtocol.WriteFrameAsync(stream, reply, timeout.Token).ConfigureAwait(false);
 
-                if (saved.Count > 0)
+                int extra = (bundle.Loot?.Count ?? 0) + (bundle.Money?.Count ?? 0) + (bundle.Attendance?.Count ?? 0);
+                if (saved.Count > 0 || extra > 0)
                 {
-                    StatusChanged?.Invoke($"Received {saved.Count} file{(saved.Count == 1 ? string.Empty : "s")} from {SafePcName(bundle.Pc)} at {DateTime.Now:HH:mm:ss}.");
-                    Received?.Invoke(SafePcName(bundle.Pc), saved);
+                    StatusChanged?.Invoke(
+                        $"Received {saved.Count} character file{(saved.Count == 1 ? string.Empty : "s")}" +
+                        (extra > 0 ? $" and {extra} loot, money or raid record{(extra == 1 ? string.Empty : "s")}" : string.Empty) +
+                        $" from {SafePcName(bundle.Pc)} at {DateTime.Now:HH:mm:ss}.");
+                    if (saved.Count > 0)
+                    {
+                        Received?.Invoke(SafePcName(bundle.Pc), saved);
+                    }
+
+                    BundleReceived?.Invoke(SafePcName(bundle.Pc), bundle);
                 }
             }
             catch (Exception ex) when (ex is OperationCanceledException or IOException or SocketException or ObjectDisposedException)

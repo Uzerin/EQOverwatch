@@ -10,10 +10,11 @@ namespace EQOverwatch.Core.Loot;
 /// <param name="Time">Local time of the log line.</param>
 /// <param name="RollType">"need", "greed" or empty.</param>
 /// <param name="Roll">The winning roll, or 0 when the item was not rolled for.</param>
-public sealed record LootEntry(DateTime Time, string Looter, string Item, string Mob, string RollType = "", int Roll = 0);
+/// <param name="Server">The game server of the log it was read from; empty for entries saved before this was recorded.</param>
+public sealed record LootEntry(DateTime Time, string Looter, string Item, string Mob, string RollType = "", int Roll = 0, string Server = "");
 
 /// <summary>A money split one of your characters received for a kill, stored as copper (1 sp = 10, 1 gp = 100, 1 pp = 1000).</summary>
-public sealed record MoneyEntry(DateTime Time, string Character, long Copper, string Mob);
+public sealed record MoneyEntry(DateTime Time, string Character, long Copper, string Mob, string Server = "");
 
 /// <summary>A won roll: "Warshield won the need roll on 1 item(s): Mnemonic of Khati Sha with a roll of 377."</summary>
 public sealed record RollWin(string Winner, string RollType, string Item, int Roll);
@@ -230,6 +231,11 @@ public sealed class LootTracker : ITriggerLineSink
     /// <summary>Raised on the pipeline thread after the list changed.</summary>
     public event Action? Changed;
 
+    /// <summary>Gives the game server of a watched character's log, so new entries can be filed under it.</summary>
+    public Func<string, string>? ServerLookup { get; set; }
+
+    private string ServerOf(string character) => ServerLookup?.Invoke(character) ?? string.Empty;
+
     /// <summary>The recorded loot, oldest first, as a snapshot.</summary>
     public IReadOnlyList<LootEntry> Entries
     {
@@ -352,7 +358,7 @@ public sealed class LootTracker : ITriggerLineSink
 
             if (maybeLoot && LootLineParser.TryParseLoot(text, characterName, out string looter, out string item, out string mob))
             {
-                AddLoot(local, looter, item, mob);
+                AddLoot(local, looter, item, mob, ServerOf(characterName));
                 Save();
             }
             else
@@ -374,7 +380,12 @@ public sealed class LootTracker : ITriggerLineSink
         var wins = new List<(RollWin Win, DateTime Time)>();
         var scannedMoney = new List<MoneyEntry>();
         (DateTime Time, long Copper)? pendingSplit = null;
-        string owner = LogFileName.TryParse(Path.GetFileName(path), out string name, out _) ? name : string.Empty;
+        string ownerServer = string.Empty;
+        string owner = LogFileName.TryParse(Path.GetFileName(path), out string name, out string fileServer) ? name : string.Empty;
+        if (owner.Length > 0)
+        {
+            ownerServer = fileServer;
+        }
 
         using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
         using (var reader = new StreamReader(stream))
@@ -407,12 +418,12 @@ public sealed class LootTracker : ITriggerLineSink
                 {
                     if (time - waiting.Time > SplitMobWindow)
                     {
-                        scannedMoney.Add(new MoneyEntry(waiting.Time, owner, waiting.Copper, "(unknown)"));
+                        scannedMoney.Add(new MoneyEntry(waiting.Time, owner, waiting.Copper, "(unknown)", ownerServer));
                         pendingSplit = null;
                     }
                     else if (LootLineParser.TryParseMobLine(message, out string splitMob))
                     {
-                        scannedMoney.Add(new MoneyEntry(waiting.Time, owner, waiting.Copper, splitMob));
+                        scannedMoney.Add(new MoneyEntry(waiting.Time, owner, waiting.Copper, splitMob, ownerServer));
                         pendingSplit = null;
                         continue;
                     }
@@ -422,7 +433,7 @@ public sealed class LootTracker : ITriggerLineSink
                 {
                     if (pendingSplit is { } previous)
                     {
-                        scannedMoney.Add(new MoneyEntry(previous.Time, owner, previous.Copper, "(unknown)"));
+                        scannedMoney.Add(new MoneyEntry(previous.Time, owner, previous.Copper, "(unknown)", ownerServer));
                     }
 
                     pendingSplit = (time, splitCopper);
@@ -439,7 +450,7 @@ public sealed class LootTracker : ITriggerLineSink
                 }
                 else if (LootLineParser.TryParseLoot(message, owner, out string looter, out string item, out string mob))
                 {
-                    LootEntry entry = new(time, looter, item, mob);
+                    LootEntry entry = new(time, looter, item, mob, Server: ownerServer);
                     scanned.Add(Link(entry, wins));
                 }
             }
@@ -447,7 +458,7 @@ public sealed class LootTracker : ITriggerLineSink
 
         if (pendingSplit is { } last)
         {
-            scannedMoney.Add(new MoneyEntry(last.Time, owner, last.Copper, "(unknown)"));
+            scannedMoney.Add(new MoneyEntry(last.Time, owner, last.Copper, "(unknown)", ownerServer));
         }
 
         int added = 0;
@@ -516,6 +527,78 @@ public sealed class LootTracker : ITriggerLineSink
         return added;
     }
 
+    /// <summary>
+    /// Adds loot and money sent by another PC, skipping what is already recorded here (the same looter, item and corpse, or the same
+    /// character and amount, within a few seconds). Returns how many entries were added.
+    /// </summary>
+    public int Merge(IEnumerable<LootEntry>? loot, IEnumerable<MoneyEntry>? money)
+    {
+        int added = 0;
+        lock (_gate)
+        {
+            var used = new HashSet<int>();
+            foreach (LootEntry entry in loot ?? Enumerable.Empty<LootEntry>())
+            {
+                int match = -1;
+                for (int i = 0; i < _entries.Count; i++)
+                {
+                    LootEntry e = _entries[i];
+                    if (!used.Contains(i)
+                        && e.Looter.Equals(entry.Looter, StringComparison.OrdinalIgnoreCase)
+                        && e.Item.Equals(entry.Item, StringComparison.OrdinalIgnoreCase)
+                        && e.Mob.Equals(entry.Mob, StringComparison.OrdinalIgnoreCase)
+                        && (e.Time - entry.Time).Duration() <= SameEventWindow)
+                    {
+                        match = i;
+                        break;
+                    }
+                }
+
+                if (match >= 0)
+                {
+                    used.Add(match);
+                    continue;
+                }
+
+                _entries.Add(entry);
+                added++;
+            }
+
+            int addedLoot = added;
+            foreach (MoneyEntry entry in money ?? Enumerable.Empty<MoneyEntry>())
+            {
+                bool known = _money.Any(m => m.Character.Equals(entry.Character, StringComparison.OrdinalIgnoreCase)
+                                             && m.Copper == entry.Copper
+                                             && (m.Time - entry.Time).Duration() <= SameEventWindow);
+                if (!known)
+                {
+                    _money.Add(entry);
+                    added++;
+                }
+            }
+
+            if (addedLoot > 0)
+            {
+                _entries.Sort((a, b) => a.Time.CompareTo(b.Time));
+                Trim();
+                Save();
+            }
+
+            if (added > addedLoot)
+            {
+                _money.Sort((a, b) => a.Time.CompareTo(b.Time));
+                SaveMoney();
+            }
+        }
+
+        if (added > 0)
+        {
+            Changed?.Invoke();
+        }
+
+        return added;
+    }
+
     // ───────────────────────── money ─────────────────────────
 
     /// <summary>
@@ -566,7 +649,7 @@ public sealed class LootTracker : ITriggerLineSink
 
     private void AddMoney(DateTime time, string character, long copper, string mob)
     {
-        _money.Add(new MoneyEntry(time, character, copper, mob));
+        _money.Add(new MoneyEntry(time, character, copper, mob, ServerOf(character)));
         if (_money.Count > MaxEntries)
         {
             _money.RemoveRange(0, _money.Count - MaxEntries);
@@ -637,9 +720,9 @@ public sealed class LootTracker : ITriggerLineSink
         }
     }
 
-    private void AddLoot(DateTime local, string looter, string item, string mob)
+    private void AddLoot(DateTime local, string looter, string item, string mob, string server)
     {
-        _entries.Add(Link(new LootEntry(local, looter, item, mob), _pendingWins));
+        _entries.Add(Link(new LootEntry(local, looter, item, mob, Server: server), _pendingWins));
         Trim();
     }
 

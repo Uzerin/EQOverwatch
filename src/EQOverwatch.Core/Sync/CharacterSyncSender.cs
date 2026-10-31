@@ -1,8 +1,10 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using EQOverwatch.Core.Attendance;
 using EQOverwatch.Core.Characters;
 using EQOverwatch.Core.Discovery;
+using EQOverwatch.Core.Loot;
 
 namespace EQOverwatch.Core.Sync;
 
@@ -19,19 +21,33 @@ public enum SyncSendResult
 /// </summary>
 public sealed class CharacterSyncSender : IDisposable
 {
+    private const int MaxRecordsPerSend = 5000;
     private static readonly TimeSpan CheckEvery = TimeSpan.FromSeconds(20);
 
     private readonly Func<string?> _eqFolder;
     private readonly Func<string> _code;
     private readonly Func<string> _pcName;
     private readonly Func<string> _manualHost;
+    private readonly Func<IReadOnlyList<LootEntry>>? _loot;
+    private readonly Func<IReadOnlyList<MoneyEntry>>? _money;
+    private readonly Func<IReadOnlyList<RaidAttendance>>? _attendance;
+    private DateTime _lootSentThrough = DateTime.MinValue;
+    private DateTime _moneySentThrough = DateTime.MinValue;
+    private readonly HashSet<string> _attendanceSent = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, DateTime> _sent = new(StringComparer.OrdinalIgnoreCase);
     private readonly SemaphoreSlim _busy = new(1, 1);
     private CancellationTokenSource? _cts;
     private string? _foundHost;
 
-    public CharacterSyncSender(Func<string?> eqFolder, Func<string> code, Func<string> pcName, Func<string> manualHost)
+    public CharacterSyncSender(
+        Func<string?> eqFolder, Func<string> code, Func<string> pcName, Func<string> manualHost,
+        Func<IReadOnlyList<LootEntry>>? loot = null,
+        Func<IReadOnlyList<MoneyEntry>>? money = null,
+        Func<IReadOnlyList<RaidAttendance>>? attendance = null)
     {
+        _loot = loot;
+        _money = money;
+        _attendance = attendance;
         _eqFolder = eqFolder;
         _code = code;
         _pcName = pcName;
@@ -115,6 +131,9 @@ public sealed class CharacterSyncSender : IDisposable
             {
                 _sent.Clear();
                 _foundHost = null;
+                _lootSentThrough = DateTime.MinValue;
+                _moneySentThrough = DateTime.MinValue;
+                _attendanceSent.Clear();
             }
 
             string code = _code();
@@ -125,7 +144,10 @@ public sealed class CharacterSyncSender : IDisposable
             }
 
             List<SyncFile> changed = CollectChanged(_eqFolder(), _sent);
-            if (changed.Count == 0)
+            List<LootEntry> newLoot = _loot?.Invoke().Where(e => e.Time > _lootSentThrough).OrderBy(e => e.Time).Take(MaxRecordsPerSend).ToList() ?? new List<LootEntry>();
+            List<MoneyEntry> newMoney = _money?.Invoke().Where(e => e.Time > _moneySentThrough).OrderBy(e => e.Time).Take(MaxRecordsPerSend).ToList() ?? new List<MoneyEntry>();
+            List<RaidAttendance> newRaids = _attendance?.Invoke().Where(r => !_attendanceSent.Contains(r.FileName)).ToList() ?? new List<RaidAttendance>();
+            if (changed.Count == 0 && newLoot.Count == 0 && newMoney.Count == 0 && newRaids.Count == 0)
             {
                 if (_sent.Count == 0)
                 {
@@ -142,7 +164,7 @@ public sealed class CharacterSyncSender : IDisposable
                 return;
             }
 
-            SyncSendResult result = await SendAsync(host, code, new SyncBundle(_pcName(), changed), ct).ConfigureAwait(false);
+            SyncSendResult result = await SendAsync(host, code, new SyncBundle(_pcName(), changed, newLoot, newMoney, newRaids), ct).ConfigureAwait(false);
             switch (result)
             {
                 case SyncSendResult.Sent:
@@ -151,7 +173,26 @@ public sealed class CharacterSyncSender : IDisposable
                         _sent[file.Name] = file.WrittenUtc;
                     }
 
-                    StatusChanged?.Invoke($"Sent {changed.Count} file{(changed.Count == 1 ? string.Empty : "s")} to {host} at {DateTime.Now:HH:mm:ss}.");
+                    if (newLoot.Count > 0)
+                    {
+                        _lootSentThrough = newLoot.Max(e => e.Time);
+                    }
+
+                    if (newMoney.Count > 0)
+                    {
+                        _moneySentThrough = newMoney.Max(e => e.Time);
+                    }
+
+                    foreach (RaidAttendance raid in newRaids)
+                    {
+                        _attendanceSent.Add(raid.FileName);
+                    }
+
+                    int extra = newLoot.Count + newMoney.Count + newRaids.Count;
+                    StatusChanged?.Invoke(
+                        $"Sent {changed.Count} character file{(changed.Count == 1 ? string.Empty : "s")}" +
+                        (extra > 0 ? $" and {extra} loot, money or raid record{(extra == 1 ? string.Empty : "s")}" : string.Empty) +
+                        $" to {host} at {DateTime.Now:HH:mm:ss}.");
                     break;
                 case SyncSendResult.WrongCode:
                     StatusChanged?.Invoke("The main PC did not accept the pairing code. Check it matches the one shown there.");

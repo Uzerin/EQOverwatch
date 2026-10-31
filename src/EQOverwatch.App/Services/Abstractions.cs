@@ -68,6 +68,15 @@ public interface IDialogService
 
     /// <summary>Picks the EverQuest game folder (or its Logs folder).</summary>
     string? PickEqFolder();
+
+    /// <summary>Asks where to save a backup zip; null when cancelled.</summary>
+    string? PickBackupSavePath(string suggestedName) => null;
+
+    /// <summary>Asks which backup zip to restore; null when cancelled.</summary>
+    string? PickBackupFile() => null;
+
+    /// <summary>Asks a yes/no question.</summary>
+    bool Confirm(string title, string message) => false;
 }
 
 /// <summary>Opens a character's data window and shows plain messages, so view-model logic can be tested without windows.</summary>
@@ -114,4 +123,7 @@ public interface IOverlayHost
 
     /// <summary>Closes every window for good (application shutdown).</summary>
     void CloseAll();
+
+    /// <summary>A short description of the monitor setup (positions and sizes), so a saved layout can be matched to it.</summary>
+    string DisplaySignature => string.Empty;
 }

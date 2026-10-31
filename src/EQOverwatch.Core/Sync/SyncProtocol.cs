@@ -8,8 +8,13 @@ namespace EQOverwatch.Core.Sync;
 /// <summary>One <c>/outputfile</c> file sent from another PC: its name, when it was written, and its text.</summary>
 public sealed record SyncFile(string Name, DateTime WrittenUtc, string Text);
 
-/// <summary>What a PC sends to the main PC: its name and the files that changed.</summary>
-public sealed record SyncBundle(string Pc, List<SyncFile> Files);
+/// <summary>What a PC sends to the main PC: its name, the character files that changed, and any new loot, money and raid records.</summary>
+public sealed record SyncBundle(
+    string Pc,
+    List<SyncFile> Files,
+    List<EQOverwatch.Core.Loot.LootEntry>? Loot = null,
+    List<EQOverwatch.Core.Loot.MoneyEntry>? Money = null,
+    List<EQOverwatch.Core.Attendance.RaidAttendance>? Attendance = null);
 
 /// <summary>
 /// The wire format of the multi-PC character sync. Every message is encrypted with a key made from the pairing code, so a PC that

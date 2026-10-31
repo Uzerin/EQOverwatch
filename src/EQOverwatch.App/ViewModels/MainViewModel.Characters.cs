@@ -19,10 +19,10 @@ public sealed partial class MainViewModel
     /// <summary>"EQ Overwatch".</summary>
     public string AppName => AppInfo.Name;
 
-    /// <summary>"v1.0.26", read from this assembly's version.</summary>
+    /// <summary>"v1.0.27", read from this assembly's version.</summary>
     public string AppVersion { get; } = AppInfo.FormatVersion(typeof(MainViewModel).Assembly);
 
-    /// <summary>"EQ Overwatch v1.0.26": the window title, and the footer of the Discord picture.</summary>
+    /// <summary>"EQ Overwatch v1.0.27": the window title, and the footer of the Discord picture.</summary>
     public string WindowTitle => $"{AppName} {AppVersion}";
 
     // ───────────────────────── EverQuest folder ─────────────────────────
@@ -166,9 +166,23 @@ public sealed partial class MainViewModel
     [ObservableProperty]
     private ObservableCollection<WatchedLogConfig> _sortedCharacters = new();
 
+    private volatile Dictionary<string, string> _serverByCharacter = new(StringComparer.OrdinalIgnoreCase);
+
     private void RebuildSortedCharacters()
     {
-        List<WatchedLogConfig> ordered = Logs.ToList();
+        // The loot tracker asks for a character's server from the pipeline thread, so it reads a copy rather than the live list.
+        var servers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (WatchedLogConfig log in Logs)
+        {
+            servers[log.CharacterName] = log.ServerName;
+        }
+
+        _serverByCharacter = servers;
+
+        string? serverFilter = ToolsServerFilter;
+        List<WatchedLogConfig> ordered = Logs
+            .Where(l => serverFilter is null || l.ServerName.Equals(serverFilter, StringComparison.OrdinalIgnoreCase))
+            .ToList();
         ordered.Sort((a, b) => EqDirectoryScanner.Compare(a.ServerName, a.CharacterName, b.ServerName, b.CharacterName));
         SortedCharacters = new ObservableCollection<WatchedLogConfig>(ordered);
         RefreshCharacterInfo();

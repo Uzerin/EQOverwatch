@@ -290,6 +290,7 @@ public partial class DpsTrackerService : IDpsEventSink
                 case CombatEventKind.Death:
                     if (_active.Remove(combatEvent.Target, out CombatEncounter? dead))
                     {
+                        dead.Killed = true;
                         CloseEncounter(dead, combatEvent.Timestamp);
                         changed = true;
                     }

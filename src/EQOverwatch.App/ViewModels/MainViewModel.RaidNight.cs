@@ -80,6 +80,8 @@ public sealed partial class MainViewModel
         _pipeline.Loot.Changed += () => _lootDirty = true;
         _characterData.Changed += () => _toolsDirty = true;
         _raidRoster.Changed += RebuildAttendance;
+        _pipeline.Loot.ServerLookup = name => _serverByCharacter.TryGetValue(name, out string? server) ? server : string.Empty;
+        InitializeArchive();
         ApplySyncMode(); // start the multi-PC sync chosen when the app was last closed
     }
 
@@ -87,6 +89,7 @@ public sealed partial class MainViewModel
     private void RefreshRaidNight()
     {
         RefreshSyncStatus();
+        RefreshArchive();
 
         if (_lootDirty)
         {
@@ -342,7 +345,10 @@ public sealed partial class MainViewModel
 
     private void RebuildLoot()
     {
-        IReadOnlyList<LootEntry> all = _pipeline.Loot.Entries;
+        string? serverFilter = ToolsServerFilter;
+        IReadOnlyList<LootEntry> all = _pipeline.Loot.Entries
+            .Where(e => serverFilter is null || e.Server.Equals(serverFilter, StringComparison.OrdinalIgnoreCase))
+            .ToList();
         string filter = LootFilter?.Trim() ?? string.Empty;
         List<LootEntry> entries = filter.Length == 0
             ? all.ToList()
@@ -386,7 +392,9 @@ public sealed partial class MainViewModel
                     string.Join(", ", item.Select(e => e.Mob).Distinct(StringComparer.OrdinalIgnoreCase)))))
             .ToList();
 
-        IReadOnlyList<MoneyEntry> allMoney = _pipeline.Loot.Money;
+        IReadOnlyList<MoneyEntry> allMoney = _pipeline.Loot.Money
+            .Where(m => serverFilter is null || m.Server.Equals(serverFilter, StringComparison.OrdinalIgnoreCase))
+            .ToList();
         List<MoneyEntry> money = filter.Length == 0
             ? allMoney.ToList()
             : allMoney.Where(m => m.Mob.Contains(filter, StringComparison.OrdinalIgnoreCase)
@@ -587,7 +595,10 @@ public sealed partial class MainViewModel
 
     private void RebuildAttendance()
     {
-        IReadOnlyList<RaidAttendance> records = _raidRoster.Records();
+        string? attendanceServer = ToolsServerFilter;
+        IReadOnlyList<RaidAttendance> records = _raidRoster.Records()
+            .Where(r => attendanceServer is null || r.Server.Equals(attendanceServer, StringComparison.OrdinalIgnoreCase))
+            .ToList();
         AttendanceRaidRow? selected = SelectedAttendanceRaid;
         AttendanceRaids = records
             .Select(r => new AttendanceRaidRow(r, r.Taken.ToString("ddd MMM d yyyy, HH:mm", CultureInfo.CurrentCulture), r.Server, r.Members.Count))
@@ -727,6 +738,15 @@ public sealed partial class MainViewModel
         }
 
         _toolsServerPickedByUser = true;
+        ApplyServerFilter();
+    }
+
+    /// <summary>Re-filters every tab that shows character, inventory, loot or raid data after the Server box changed.</summary>
+    private void ApplyServerFilter()
+    {
+        RebuildSortedCharacters();
+        RebuildAttendance();
+        RebuildLoot();
         RebuildCharacterTools();
     }
 
@@ -734,11 +754,16 @@ public sealed partial class MainViewModel
         string.IsNullOrEmpty(SelectedToolsServer) || SelectedToolsServer == AllServers ? null : SelectedToolsServer;
 
     /// <summary>Keeps the server list current and, until you pick one yourself, follows the Primary DPS character's server.</summary>
-    private void SyncToolsServers(IReadOnlyList<CharacterData> characters, IReadOnlyList<SharedBankData> banks)
+    private bool SyncToolsServers(IReadOnlyList<CharacterData> characters, IReadOnlyList<SharedBankData> banks)
     {
+        bool selectionChanged = false;
         string[] servers = characters.Select(c => c.Server)
             .Concat(banks.Select(b => b.Server))
-            .Where(s => s.Length > 0)
+            .Concat(Logs.Select(l => l.ServerName))
+            .Concat(_raidRoster.Records().Select(r => r.Server))
+            .Concat(_pipeline.Loot.Entries.Select(e => e.Server))
+            .Where(s => !string.IsNullOrEmpty(s))
+            .Select(s => s.ToLowerInvariant())
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(s => s, StringComparer.OrdinalIgnoreCase)
             .Prepend(AllServers)
@@ -766,12 +791,15 @@ public sealed partial class MainViewModel
             if (!string.Equals(SelectedToolsServer, wanted, StringComparison.Ordinal))
             {
                 SelectedToolsServer = wanted;
+                selectionChanged = true;
             }
         }
         finally
         {
             _settingToolsServer = false;
         }
+
+        return selectionChanged;
     }
 
     private void RebuildItemSearch()
@@ -795,7 +823,14 @@ public sealed partial class MainViewModel
     {
         IReadOnlyList<CharacterData> characters = _characterData.All();
         IReadOnlyList<SharedBankData> banks = _characterData.SharedBanks();
-        SyncToolsServers(characters, banks);
+        if (SyncToolsServers(characters, banks))
+        {
+            // The Server box moved on its own (the Primary DPS character changed): the other tabs follow it.
+            RebuildSortedCharacters();
+            RebuildAttendance();
+            _lootDirty = true;
+        }
+
         RebuildItemSearch();
 
         string? serverFilter = ToolsServerFilter;

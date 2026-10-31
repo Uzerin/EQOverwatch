@@ -55,6 +55,12 @@ public sealed class AppSettings
     /// <summary>The tab that was showing when the app closed, so it opens on the same one next time.</summary>
     public int LastTabIndex { get; set; }
 
+    /// <summary>Saved overlay layouts, each remembered for the monitor setup it was made on.</summary>
+    public List<OverlayProfile> OverlayProfiles { get; set; } = new();
+
+    /// <summary>When true, a saved overlay layout made for the current monitor setup is applied when the monitors change.</summary>
+    public bool AutoSwitchOverlayProfiles { get; set; }
+
     /// <summary>Multi-PC character sync: "Off", "Host" (this is the main PC) or "Send" (send this PC's files to the main PC).</summary>
     public string SyncMode { get; set; } = "Off";
 
@@ -129,6 +135,19 @@ public sealed class WatchedLogSettings
 
     /// <summary>Complete Heal chain position (1-12), or 0 for none.</summary>
     public int ChChainPosition { get; set; }
+}
+
+/// <summary>A named layout of all six overlays, with a description of the monitor setup it was saved on.</summary>
+public sealed class OverlayProfile
+{
+    public string Name { get; set; } = string.Empty;
+    public string DisplaySignature { get; set; } = string.Empty;
+    public OverlaySettings Buffs { get; set; } = OverlaySettings.ForCategory(TimerOverlayCategory.Buffs);
+    public OverlaySettings Debuffs { get; set; } = OverlaySettings.ForCategory(TimerOverlayCategory.Debuffs);
+    public OverlaySettings Songs { get; set; } = OverlaySettings.ForCategory(TimerOverlayCategory.Songs);
+    public OverlaySettings RaidTriggers { get; set; } = OverlaySettings.ForCategory(TimerOverlayCategory.RaidTriggers);
+    public OverlaySettings ChChain { get; set; } = OverlaySettings.ForCategory(TimerOverlayCategory.ChChain);
+    public OverlaySettings Dps { get; set; } = OverlaySettings.DefaultDps;
 }
 
 /// <summary>Bounds, visibility and lock state of one overlay window (device-independent units).</summary>

@@ -121,6 +121,9 @@
                                   ToolTip="Locked overlays are click-through, so the mouse reaches EverQuest. Unlock to move and resize them."/>
                     <ToggleButton Content="Mute audio" IsChecked="{Binding IsAudioMuted}" Margin="0,3,10,3"
                                   ToolTip="Silences every spoken alert and sound."/>
+                    <TextBlock Text="Server" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="{DynamicResource TextMutedBrush}"/>
+                    <ComboBox Width="150" Margin="0,3,14,3" ItemsSource="{Binding ToolsServers}" SelectedItem="{Binding SelectedToolsServer, Mode=TwoWay}"
+                              ToolTip="Filters the Characters, Loot, Attendance and Items &amp; Scrolls tabs. Starts on the Primary DPS character's server; pick another server, or All servers."/>
                     <Button Content="Test overlays" Command="{Binding TestOverlaysCommand}" Style="{StaticResource SecondaryButton}" Margin="0,3,0,3"
                             ToolTip="Sends sample alerts, a bar for each timer overlay and a synthetic encounter."/>
                 </WrapPanel>
@@ -1385,9 +1388,6 @@
 
                     <StackPanel Grid.Row="0" Grid.ColumnSpan="3" Margin="0,0,0,8">
                         <WrapPanel>
-                        <TextBlock Style="{StaticResource FieldLabel}" Text="Server"/>
-                        <ComboBox Width="150" Margin="0,0,14,6" ItemsSource="{Binding ToolsServers}" SelectedItem="{Binding SelectedToolsServer, Mode=TwoWay}"
-                                  ToolTip="Starts on the Primary DPS character's server. Pick another server, or All servers, to search those instead."/>
                         <Button Content="Read new files" Margin="0,0,14,6" Command="{Binding RefreshCharacterToolsCommand}"
                                 ToolTip="Reads any new /outputfile files for your characters from the EverQuest folder."/>
                         <TextBlock Style="{StaticResource HintText}" VerticalAlignment="Center" Margin="0,0,0,6" Text="{Binding ScrollPlanStatus}"/>
@@ -1459,6 +1459,41 @@
                 </Grid>
             </TabItem>
 
+            <!-- ═════════ Boss History ═════════ -->
+            <TabItem Header="Boss History">
+                <Grid Margin="6">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <WrapPanel Grid.Row="0" Margin="0,0,0,8">
+                        <TextBlock Style="{StaticResource FieldLabel}" Text="Fights with"/>
+                        <ComboBox Width="130" Margin="0,0,14,6" ItemsSource="{Binding BossHistorySizes}" SelectedIndex="{Binding BossHistorySizeIndex}"
+                                  ToolTip="Hides small fights, such as trash and solo kills."/>
+                        <TextBlock Style="{StaticResource FieldLabel}" Text="Boss"/>
+                        <TextBox Width="200" Margin="0,0,14,6" VerticalAlignment="Center"
+                                 Text="{Binding BossHistoryFilter, UpdateSourceTrigger=PropertyChanged}"/>
+                        <Button Content="Clear history" Margin="0,0,8,6" Style="{StaticResource SecondaryButton}" Command="{Binding ClearBossHistoryCommand}"
+                                ToolTip="Forgets the saved fights. They come back from your logs the next time history is loaded."/>
+                    </WrapPanel>
+                    <TextBlock Grid.Row="1" Style="{StaticResource HintText}" Margin="0,0,0,8" TextWrapping="Wrap" Text="{Binding BossHistoryStatus}"/>
+                    <DataGrid Grid.Row="2" ItemsSource="{Binding BossHistoryRows}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
+                              HeadersVisibility="Column" GridLinesVisibility="Horizontal">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Boss" Binding="{Binding Boss, Mode=OneWay}" Width="Auto"/>
+                            <DataGridTextColumn Header="Kills" Binding="{Binding Kills, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                            <DataGridTextColumn Header="Attempts" Binding="{Binding Attempts, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                            <DataGridTextColumn Header="Fastest kill" Binding="{Binding Fastest, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                            <DataGridTextColumn Header="Average kill" Binding="{Binding Average, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                            <DataGridTextColumn Header="Best DPS" Binding="{Binding BestDps, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                            <DataGridTextColumn Header="Most players" Binding="{Binding Players, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                            <DataGridTextColumn Header="Last fought" Binding="{Binding LastFought, Mode=OneWay}" Width="Auto"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </TabItem>
+
             <!-- ═════════ Tab 6: Settings ═════════ -->
             <TabItem Header="Settings">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
@@ -1516,6 +1551,39 @@
                                     <Button Content="Find main PC" Style="{StaticResource SecondaryButton}" Command="{Binding FindMainPcCommand}"/>
                                 </WrapPanel>
                                 <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" Text="{Binding SyncStatus}"/>
+                            </StackPanel>
+                        </GroupBox>
+
+                        <GroupBox Header="Overlay layouts">
+                            <StackPanel Margin="4">
+                                <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,0,0,8"
+                                           Text="Save where your overlays are now (position, size, shown and locked), and switch back to it later. Handy when you play on a different monitor setup."/>
+                                <WrapPanel Margin="0,0,0,8">
+                                    <ComboBox Width="190" Margin="0,0,8,0" ItemsSource="{Binding OverlayProfileNames}" SelectedItem="{Binding SelectedOverlayProfile}"/>
+                                    <Button Content="Apply" Margin="0,0,8,0" Command="{Binding ApplyOverlayProfileCommand}"/>
+                                    <Button Content="Delete" Style="{StaticResource SecondaryButton}" Command="{Binding DeleteOverlayProfileCommand}"/>
+                                </WrapPanel>
+                                <WrapPanel Margin="0,0,0,8">
+                                    <TextBox Width="190" Margin="0,0,8,0" VerticalAlignment="Center"
+                                             ToolTip="A name for the layout you have now, for example Two monitors"
+                                             Text="{Binding NewOverlayProfileName, UpdateSourceTrigger=PropertyChanged}"/>
+                                    <Button Content="Save current layout" Style="{StaticResource SecondaryButton}" Command="{Binding SaveOverlayProfileCommand}"/>
+                                </WrapPanel>
+                                <CheckBox Content="Switch automatically when the monitors change" IsChecked="{Binding AutoSwitchOverlayProfiles}" Margin="0,0,0,6"
+                                          ToolTip="Uses the newest saved layout that was made for the monitor setup you have now. Off by default."/>
+                                <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" Text="{Binding OverlayProfileStatus}"/>
+                            </StackPanel>
+                        </GroupBox>
+
+                        <GroupBox Header="Backup &amp; restore">
+                            <StackPanel Margin="4">
+                                <WrapPanel Margin="0,0,0,8">
+                                    <Button Content="Back up…" Margin="0,0,8,0" Command="{Binding ExportBackupCommand}"
+                                            ToolTip="Saves your settings, triggers, loot, attendance, characters and boss history in one zip file."/>
+                                    <Button Content="Restore…" Style="{StaticResource SecondaryButton}" Command="{Binding RestoreBackupCommand}"
+                                            ToolTip="Replaces your data with a backup. It takes effect the next time the app starts."/>
+                                </WrapPanel>
+                                <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" Text="{Binding BackupStatus}"/>
                             </StackPanel>
                         </GroupBox>
 

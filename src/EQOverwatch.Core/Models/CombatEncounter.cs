@@ -32,6 +32,9 @@ public sealed class CombatEncounter : ObservableObject
     public bool IsActive { get; private set; } = true;
     public long TotalDamage { get; private set; }
 
+    /// <summary>True when the log announced the target's death, so the fight ended in a kill rather than fading out.</summary>
+    public bool Killed { get; internal set; }
+
     public double DurationSeconds => Math.Max(0.0, (EndTime - StartTime).TotalSeconds);
 
     /// <summary>Per-player rows, in first-seen order.</summary>

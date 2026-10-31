@@ -62,6 +62,15 @@ check off, or run it by hand, under **Settings > Updates**.
 
 ## Changelog
 
+### 1.0.27
+
+- **One Server box.** A Server box in the top bar filters the Characters, Loot, Attendance and Items & Scrolls tabs. It starts on your Primary DPS character's server and follows it when you change the Primary DPS; pick another server, or All servers, to look at those. Loot and money are now saved with the server they came from (older entries show under All servers only).
+- **More over the PC sync.** Loot, money and raid roster records now travel to the main PC along with the character files, without doubling up drops that both PCs saw.
+- **Boss History tab.** For each boss: kills, attempts, fastest and average kill, best DPS and when you last fought it. Fights are saved as they finish, so the history keeps growing after old log days drop out of the loaded window.
+- **Backup & restore.** Settings has Back up… and Restore… buttons for your settings, triggers, loot, attendance, characters and boss history in one zip file. The pairing code is not included. A restore takes effect the next time the app starts.
+- **Overlay layouts.** Save the position, size, shown and locked state of the six overlays under a name and switch between layouts in Settings. An optional setting (off by default) applies the newest layout made for your monitor setup when the monitors change.
+- The spell search boxes no longer lose the first letter you type.
+
 ### 1.0.26
 
 - **Several PCs.** Settings has a new "Several PCs" section. Set your main PC to receive, and your other PCs to send, with a pairing code typed into Overwatch. The other PCs find the main PC on your home network and send their `/outputfile` files whenever they change, so every character shows up in Items & Scrolls. Everything is encrypted with the code.

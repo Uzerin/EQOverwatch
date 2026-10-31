@@ -95,6 +95,7 @@ public sealed partial class MainViewModel
                 var host = new CharacterSyncHost(folder, () => SyncCode);
                 host.StatusChanged += message => _syncStatusPending = message;
                 host.Received += OnSyncReceived;
+                host.BundleReceived += OnSyncBundle;
                 _syncHost = host;
                 host.Start();
                 break;
@@ -103,7 +104,10 @@ public sealed partial class MainViewModel
                     () => EqFolderPath,
                     () => SyncCode,
                     () => string.IsNullOrWhiteSpace(SyncPcName) ? Environment.MachineName : SyncPcName,
-                    () => SyncHostAddress ?? string.Empty);
+                    () => SyncHostAddress ?? string.Empty,
+                    loot: () => _pipeline.Loot.Entries,
+                    money: () => _pipeline.Loot.Money,
+                    attendance: () => _raidRoster.Records());
                 sender.StatusChanged += message => _syncStatusPending = message;
                 _syncSender = sender;
                 SyncStatus = "Looking for the main PC…";
@@ -132,6 +136,13 @@ public sealed partial class MainViewModel
         {
             _characterData.Import(path, pc);
         }
+    }
+
+    /// <summary>Called on a background thread: merges the loot, money and raid records another PC sent.</summary>
+    private void OnSyncBundle(string pc, SyncBundle bundle)
+    {
+        _pipeline.Loot.Merge(bundle.Loot, bundle.Money);
+        _raidRoster.Merge(bundle.Attendance);
     }
 
     /// <summary>Called from <see cref="Refresh"/>: shows the last message from the sync threads.</summary>
