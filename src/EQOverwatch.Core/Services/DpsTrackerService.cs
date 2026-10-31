@@ -288,7 +288,8 @@ public partial class DpsTrackerService : IDpsEventSink
                     break;
 
                 case CombatEventKind.Death:
-                    if (_active.Remove(combatEvent.Target, out CombatEncounter? dead))
+                    // The slain line capitalises the first letter ("A Praetorian Pius"), the damage lines do not ("a Praetorian Pius").
+                    if (ActiveKey(combatEvent.Target) is { } deadKey && _active.Remove(deadKey, out CombatEncounter? dead))
                     {
                         dead.Killed = true;
                         CloseEncounter(dead, combatEvent.Timestamp);
@@ -324,6 +325,25 @@ public partial class DpsTrackerService : IDpsEventSink
         {
             ObserveHeal(message.ToString());
         }
+    }
+
+    /// <summary>The key of the active fight against <paramref name="name"/>, ignoring capitalisation; null when there is none.</summary>
+    private string? ActiveKey(string name)
+    {
+        if (_active.ContainsKey(name))
+        {
+            return name;
+        }
+
+        foreach (string key in _active.Keys)
+        {
+            if (key.Equals(name, StringComparison.OrdinalIgnoreCase))
+            {
+                return key;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>"Lord Inquisitor Seru's corpse" is still the boss: damage-over-time keeps ticking from it after it dies.</summary>

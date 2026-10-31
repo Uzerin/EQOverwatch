@@ -347,7 +347,7 @@ public sealed partial class MainViewModel
     {
         string? serverFilter = ToolsServerFilter;
         IReadOnlyList<LootEntry> all = _pipeline.Loot.Entries
-            .Where(e => serverFilter is null || e.Server.Equals(serverFilter, StringComparison.OrdinalIgnoreCase))
+            .Where(e => InServer(e.Server, e.Looter, serverFilter))
             .ToList();
         string filter = LootFilter?.Trim() ?? string.Empty;
         List<LootEntry> entries = filter.Length == 0
@@ -393,7 +393,7 @@ public sealed partial class MainViewModel
             .ToList();
 
         IReadOnlyList<MoneyEntry> allMoney = _pipeline.Loot.Money
-            .Where(m => serverFilter is null || m.Server.Equals(serverFilter, StringComparison.OrdinalIgnoreCase))
+            .Where(m => InServer(m.Server, m.Character, serverFilter))
             .ToList();
         List<MoneyEntry> money = filter.Length == 0
             ? allMoney.ToList()
@@ -748,6 +748,25 @@ public sealed partial class MainViewModel
         RebuildAttendance();
         RebuildLoot();
         RebuildCharacterTools();
+    }
+
+    /// <summary>
+    /// True when a record belongs under the chosen server. Records saved before servers were recorded take their character's server;
+    /// when even that is unknown they show under every server rather than vanish.
+    /// </summary>
+    private bool InServer(string server, string character, string? serverFilter)
+    {
+        if (serverFilter is null)
+        {
+            return true;
+        }
+
+        if (server.Length == 0 && !_serverByCharacter.TryGetValue(character, out server!))
+        {
+            return true;
+        }
+
+        return server.Length == 0 || server.Equals(serverFilter, StringComparison.OrdinalIgnoreCase);
     }
 
     private string? ToolsServerFilter =>

@@ -475,6 +475,16 @@ public sealed class LootTracker : ITriggerLineSink
                     _money.Add(money);
                     addedMoney++;
                 }
+                else if (money.Server.Length > 0)
+                {
+                    int old = _money.FindIndex(m => m.Server.Length == 0 && m.Character.Equals(money.Character, StringComparison.OrdinalIgnoreCase)
+                                                    && m.Copper == money.Copper && (m.Time - money.Time).Duration() <= SameEventWindow);
+                    if (old >= 0)
+                    {
+                        _money[old] = _money[old] with { Server = money.Server };
+                        addedMoney++;
+                    }
+                }
             }
 
             if (addedMoney > 0)
@@ -484,6 +494,7 @@ public sealed class LootTracker : ITriggerLineSink
             }
 
             var used = new HashSet<int>();
+            bool filledServer = false;
             foreach (LootEntry entry in scanned)
             {
                 int match = -1;
@@ -504,6 +515,13 @@ public sealed class LootTracker : ITriggerLineSink
                 if (match >= 0)
                 {
                     used.Add(match);
+                    if (_entries[match].Server.Length == 0 && entry.Server.Length > 0)
+                    {
+                        // Saved before servers were recorded: it now learns which server it came from.
+                        _entries[match] = _entries[match] with { Server = entry.Server };
+                        filledServer = true;
+                    }
+
                     continue;
                 }
 
@@ -515,6 +533,10 @@ public sealed class LootTracker : ITriggerLineSink
             {
                 _entries.Sort((a, b) => a.Time.CompareTo(b.Time));
                 Trim();
+                Save();
+            }
+            else if (filledServer)
+            {
                 Save();
             }
         }
@@ -534,6 +556,7 @@ public sealed class LootTracker : ITriggerLineSink
     public int Merge(IEnumerable<LootEntry>? loot, IEnumerable<MoneyEntry>? money)
     {
         int added = 0;
+        bool filledServer = false;
         lock (_gate)
         {
             var used = new HashSet<int>();
@@ -557,6 +580,13 @@ public sealed class LootTracker : ITriggerLineSink
                 if (match >= 0)
                 {
                     used.Add(match);
+                    if (_entries[match].Server.Length == 0 && entry.Server.Length > 0)
+                    {
+                        // Saved before servers were recorded: it now learns which server it came from.
+                        _entries[match] = _entries[match] with { Server = entry.Server };
+                        filledServer = true;
+                    }
+
                     continue;
                 }
 
@@ -581,6 +611,10 @@ public sealed class LootTracker : ITriggerLineSink
             {
                 _entries.Sort((a, b) => a.Time.CompareTo(b.Time));
                 Trim();
+                Save();
+            }
+            else if (filledServer)
+            {
                 Save();
             }
 

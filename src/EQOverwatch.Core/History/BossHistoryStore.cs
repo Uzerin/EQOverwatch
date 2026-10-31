@@ -140,7 +140,7 @@ public sealed class BossHistoryStore
                     g.Count() - kills.Count,
                     kills.Count == 0 ? 0 : kills.Min(f => f.Seconds),
                     kills.Count == 0 ? 0 : kills.Average(f => f.Seconds),
-                    kills.Count == 0 ? 0 : kills.Max(f => f.Seconds > 0 ? f.Damage / f.Seconds : 0),
+                    (kills.Count == 0 ? g.ToList() : kills).Max(f => f.Seconds > 0 ? f.Damage / f.Seconds : 0),
                     g.Max(f => f.Players),
                     g.Max(f => f.Start));
             })

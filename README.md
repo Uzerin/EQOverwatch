@@ -62,6 +62,11 @@ check off, or run it by hand, under **Settings > Updates**.
 
 ## Changelog
 
+### 1.0.29
+
+- **Boss kills are counted.** Kill lines such as "A Praetorian Pius was slain by Pecos!" are now recognised (they were missed before), so Boss History shows kills, kill times and best DPS. Fights already saved as attempts are corrected the next time you read that log. A boss with no kill yet shows your best attempt's DPS. Player deaths in the same wording now show on the Deaths tab too.
+- **Loot shows again.** Loot and money saved before servers were recorded now take their character's server instead of being hidden by the Server box, and reading a log fills in the server on entries that were missing it.
+
 ### 1.0.27
 
 - **One Server box.** A Server box in the top bar filters the Characters, Loot, Attendance and Items & Scrolls tabs. It starts on your Primary DPS character's server and follows it when you change the Primary DPS; pick another server, or All servers, to look at those. Loot and money are now saved with the server they came from (older entries show under All servers only).

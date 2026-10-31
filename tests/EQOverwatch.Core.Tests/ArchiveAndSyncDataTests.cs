@@ -138,6 +138,60 @@ public class ArchiveAndSyncDataTests
     }
 
     [Fact]
+    public void A_real_slain_line_with_a_capital_first_letter_marks_the_kill()
+    {
+        const string logName = "Ream";
+
+        Assert.True(EQOverwatch.Core.Parsing.CombatLineParser.TryParse(
+            "[Wed Oct 21 19:46:21 2026] A Praetorian Pius was slain by Pecos!", At("19:46:21"), logName, out CombatEvent slain));
+        Assert.Equal(CombatEventKind.Death, slain.Kind);
+        Assert.Equal("A Praetorian Pius", slain.Target);
+        Assert.Equal("Pecos", slain.Source);
+
+        var tracker = new LiveDpsTracker();
+        tracker.OnCombatEvent(Hit("Pecos", "a Praetorian Pius", 100, "19:46:10"));
+        tracker.OnCombatEvent(Hit("Pecos", "a Praetorian Pius", 100, "19:46:18"));
+        tracker.OnCombatEvent(slain);
+
+        EncounterSnapshot fight = Assert.Single(tracker.Snapshot.Completed);
+        Assert.Equal("a Praetorian Pius", fight.TargetName);
+        Assert.True(fight.Killed);
+    }
+
+    [Fact]
+    public void Best_dps_falls_back_to_the_best_attempt_when_there_is_no_kill()
+    {
+        var fights = new[] { new BossFight(Boss, new DateTime(2026, 10, 22, 19, 0, 0), 100, 250_000, 30, 1, false) };
+        Assert.Equal(2500, Assert.Single(BossHistoryStore.Summarize(fights)).BestDps);
+    }
+
+    [Fact]
+    public void Loot_saved_without_a_server_learns_it_when_the_log_is_read_again()
+    {
+        string dir = Path.Combine(Path.GetTempPath(), "eqo-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            const string line = "[Wed Oct 21 19:50:00 2026] --Ream has looted a Shiny Thing from a Praetorian Pius's corpse.--\n";
+            string bare = Path.Combine(dir, "plain.txt");
+            File.WriteAllText(bare, line);
+            string named = Path.Combine(dir, "eqlog_Ream_frostreaver.txt");
+            File.WriteAllText(named, line);
+
+            var tracker = new LootTracker();
+            tracker.ScanLog(bare);
+            Assert.Equal(string.Empty, Assert.Single(tracker.Entries).Server);
+
+            Assert.Equal(0, tracker.ScanLog(named)); // nothing new...
+            Assert.Equal("frostreaver", Assert.Single(tracker.Entries).Server, ignoreCase: true); // ...but the server is filled in
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
     public void A_fight_that_fades_out_is_not_a_kill()
     {
         var tracker = new LiveDpsTracker();

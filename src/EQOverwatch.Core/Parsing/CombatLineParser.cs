@@ -258,9 +258,9 @@ public static partial class CombatLineParser
         RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex CritBlastRegex();
 
-    // "a frost giant has been slain by Stackprime!"  /  "You have been slain by a frost giant!"
+    // "a frost giant has been slain by Stackprime!"  /  "You have been slain by a frost giant!"  /  "A Praetorian Pius was slain by Pecos!"
     [GeneratedRegex(
-        @"^(?<target>.+?) (?:has|have) been slain by (?<killer>.+?)!$",
+        @"^(?<target>.+?) (?:(?:has|have) been|was) slain by (?<killer>.+?)!$",
         RegexOptions.CultureInvariant)]
     private static partial Regex SlainByRegex();
 
