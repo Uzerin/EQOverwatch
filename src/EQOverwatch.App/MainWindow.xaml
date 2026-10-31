@@ -221,6 +221,10 @@
                                                     ToolTip="Open the spells this character has not scribed (from /outputfile missingspells)"
                                                     Command="{Binding DataContext.OpenMissingSpellsCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                     CommandParameter="{Binding}"/>
+                                            <Button Content="Forget" Style="{StaticResource SecondaryButton}" Margin="0,1,4,1" Padding="8,3"
+                                                    ToolTip="Forget the inventory, spellbook and missing spells saved for this character"
+                                                    Command="{Binding DataContext.ForgetCharacterDataCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    CommandParameter="{Binding}"/>
                                         </StackPanel>
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>

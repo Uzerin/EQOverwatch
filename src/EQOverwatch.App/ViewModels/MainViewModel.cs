@@ -100,6 +100,7 @@ public sealed partial class MainViewModel : ObservableObject
 
         Restore(settings);
         _characterData.ScanAll(EqFolderPath); // output files written while the app was closed
+        _characterData.PruneMissingFiles(EqFolderPath); // saved data whose output file has since been deleted
         RefreshCharacterInfo();
         InitializeRaidNight();
         _raidRoster.ScanAll(EqFolderPath); // raid roster dumps written while the app was closed

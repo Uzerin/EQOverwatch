@@ -27,6 +27,34 @@ public sealed partial class MainViewModel
     [RelayCommand]
     private void OpenMissingSpells(WatchedLogConfig? log) => OpenCharacterData(log, OutputFileKind.MissingSpells);
 
+    /// <summary>Forgets what is saved for a character (inventory, spellbook, missing spells); it returns if the files are read again.</summary>
+    [RelayCommand]
+    private void ForgetCharacterData(WatchedLogConfig? log)
+    {
+        if (log is null)
+        {
+            return;
+        }
+
+        if (_characterData.Find(log.CharacterName, log.ServerName) is null)
+        {
+            CharacterDataStatus = $"Nothing is saved for {log.CharacterName}.";
+            return;
+        }
+
+        if (!_dialogs.Confirm(
+                "Forget saved data",
+                $"Forget the inventory, spellbook and missing spells saved for {log.CharacterName}? " +
+                "They come back if their /outputfile files are still in your EverQuest folder and are read again."))
+        {
+            return;
+        }
+
+        _characterData.Forget(log.CharacterName, log.ServerName);
+        RefreshCharacterInfo();
+        CharacterDataStatus = $"Forgot the saved data for {log.CharacterName}.";
+    }
+
     private void OpenCharacterData(WatchedLogConfig? log, OutputFileKind kind)
     {
         if (log is null)

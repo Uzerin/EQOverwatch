@@ -62,6 +62,11 @@ check off, or run it by hand, under **Settings > Updates**.
 
 ## Changelog
 
+### 1.0.34
+
+- **Deleted output files are forgotten.** When EQ Overwatch starts it now drops the saved inventory, spellbook and missing spells whose `/outputfile` file is no longer in your EverQuest folder, so deleted files stop showing up in Items & Scrolls. A character with nothing left disappears, and a server's shared bank goes when no inventory for that server remains. Nothing is dropped when the EverQuest folder is not set or cannot be read, and characters sent from another PC are not touched.
+- **Forget button.** The Characters tab has a Forget button that clears what is saved for one character (after asking). It comes back if the files are read again.
+
 ### 1.0.33
 
 - **Spell Casts tab.** In the fight details (next to Healing), every spell the raid began casting during a fight: a By player list in the usual layout (each player with their spells, casts, casts per minute, first and last cast, fizzles), a By spell list with how often each spell was cast and by how many players (handy for Slow, Weaken and the like), and a Timeline with a line for each spell and a tick for every cast. A Spell box narrows all three to spells containing that text, and Copy puts the breakdown on the clipboard. Other players' casts only appear in your log when they are in range of you.

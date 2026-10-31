@@ -218,4 +218,73 @@ public sealed class CharacterDataTests : IDisposable
         Assert.Equal(0, store.Scan(null, "Reamiiv"));
         Assert.Null(store.Find("Broken"));
     }
+
+    // ───────────────────────────── deleted files ─────────────────────────────
+
+    [Fact]
+    public void Saved_data_whose_output_file_was_deleted_is_dropped_by_kind()
+    {
+        string inventory = Write("Reamiiv_frostreaver-Inventory", null, InventoryLines);
+        string book = Write("Reamiiv_frostreaver-CLR-Spellbook", null, "1\tCourage", "2\tStun");
+        var store = new CharacterDataStore(_store);
+        store.ScanAll(_game);
+        Assert.NotNull(store.Find("Reamiiv")?.InventoryUtc);
+
+        File.Delete(inventory);
+        Assert.Equal(2, store.PruneMissingFiles(_game)); // the inventory, and the shared bank that came with it
+
+        CharacterData? data = store.Find("Reamiiv");
+        Assert.NotNull(data);
+        Assert.Null(data!.InventoryUtc);
+        Assert.Empty(data.Inventory);
+        Assert.NotNull(data.SpellbookUtc);
+        Assert.Empty(store.SharedBanks());
+
+        // With every file gone the folder only counts as a game folder if it looks like one.
+        File.Delete(book);
+        Assert.Equal(0, store.PruneMissingFiles(_game));
+        Assert.NotNull(store.Find("Reamiiv"));
+
+        File.WriteAllText(Path.Combine(_game, "eqgame.exe"), string.Empty);
+        store.PruneMissingFiles(_game);
+        Assert.Null(store.Find("Reamiiv"));
+
+        // and it stays gone after a restart
+        Assert.Null(new CharacterDataStore(_store).Find("Reamiiv"));
+    }
+
+    [Fact]
+    public void Nothing_is_dropped_when_the_game_folder_is_unreachable_or_not_a_game_folder()
+    {
+        Write("Reamiiv_frostreaver-CLR-Spellbook", null, "1\tCourage");
+        var store = new CharacterDataStore(_store);
+        store.ScanAll(_game);
+
+        Assert.Equal(0, store.PruneMissingFiles(Path.Combine(_dir, "unplugged")));
+        Assert.Equal(0, store.PruneMissingFiles(null));
+
+        string empty = Path.Combine(_dir, "elsewhere"); // exists, holds no output files and is not an EverQuest folder
+        Directory.CreateDirectory(empty);
+        Assert.Equal(0, store.PruneMissingFiles(empty));
+        Assert.NotNull(store.Find("Reamiiv")?.SpellbookUtc);
+    }
+
+    [Fact]
+    public void Data_from_another_PC_is_left_alone_and_forget_removes_one_character()
+    {
+        string theirs = Write("Oodles_frostreaver-CLR-Spellbook", null, "1\tCourage");
+        var store = new CharacterDataStore(_store);
+        Assert.True(store.Import(theirs, "LAPTOP"));
+        Write("Reamiiv_frostreaver-CLR-Spellbook", null, "1\tCourage");
+        store.ScanAll(_game);
+        File.Delete(theirs);
+
+        store.PruneMissingFiles(_game);
+        Assert.NotNull(store.Find("Oodles")); // came from LAPTOP, not this folder
+
+        Assert.True(store.Forget("Oodles", "frostreaver"));
+        Assert.Null(store.Find("Oodles"));
+        Assert.False(store.Forget("Oodles", "frostreaver"));
+        Assert.NotNull(store.Find("Reamiiv"));
+    }
 }

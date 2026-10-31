@@ -176,6 +176,170 @@ public sealed class CharacterDataStore
     }
 
     /// <summary>
+    /// Drops what is saved from output files that are no longer in the game folder: per kind (inventory, spellbook, missing spells),
+    /// and a character left with nothing is forgotten. Characters whose files came from another PC are left alone, and nothing is
+    /// removed when the folder is not set, cannot be listed, or does not look like a game folder. Returns how many parts were dropped.
+    /// </summary>
+    public int PruneMissingFiles(string? eqFolder)
+    {
+        string folder = EqDirectoryScanner.Normalize(eqFolder);
+        if (folder.Length == 0 || !Directory.Exists(folder))
+        {
+            return 0;
+        }
+
+        var present = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            foreach (string file in Directory.EnumerateFiles(folder, "*_*-*"))
+            {
+                if (CharacterOutputParser.TryParseFileName(file, out OutputFileInfo info))
+                {
+                    present.Add(PresenceKey(info.Name, info.Server, info.Kind));
+                }
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return 0; // a folder that cannot be listed says nothing about its files
+        }
+
+        if (present.Count == 0 && !LooksLikeGameFolder(folder))
+        {
+            return 0; // probably the wrong folder rather than one with every file deleted
+        }
+
+        int dropped = 0;
+        var toSave = new List<CharacterData>();
+        var toDelete = new List<string>();
+        var sharedToDelete = new List<SharedBankData>();
+        lock (_gate)
+        {
+            foreach (CharacterData data in _characters.Values.Where(c => c.FromPc.Length == 0).ToList())
+            {
+                bool changed = false;
+                if (data.InventoryUtc is not null && !present.Contains(PresenceKey(data.Name, data.Server, OutputFileKind.Inventory)))
+                {
+                    data.Inventory = new List<InventoryItem>();
+                    data.KeyRing = new List<KeyRingEntry>();
+                    data.InventoryUtc = null;
+                    changed = true;
+                    dropped++;
+                }
+
+                if (data.SpellbookUtc is not null && !present.Contains(PresenceKey(data.Name, data.Server, OutputFileKind.Spellbook)))
+                {
+                    data.Spellbook = new List<SpellListEntry>();
+                    data.SpellbookUtc = null;
+                    changed = true;
+                    dropped++;
+                }
+
+                if (data.MissingUtc is not null && !present.Contains(PresenceKey(data.Name, data.Server, OutputFileKind.MissingSpells)))
+                {
+                    data.Missing = new List<SpellListEntry>();
+                    data.MissingUtc = null;
+                    changed = true;
+                    dropped++;
+                }
+
+                if (!changed)
+                {
+                    continue;
+                }
+
+                if (data.NewestUtc is null)
+                {
+                    _characters.Remove(Key(data.Name, data.Server));
+                    toDelete.Add($"{Key(data.Name, data.Server)}.json");
+                }
+                else
+                {
+                    toSave.Add(data);
+                }
+            }
+
+            // A server's shared bank comes from inventory files: when none is left for the server, the bank goes too.
+            foreach (SharedBankData bank in _shared.Values.ToList())
+            {
+                bool stillHeld = _characters.Values.Any(c => c.InventoryUtc is not null && c.Server.Equals(bank.Server, StringComparison.OrdinalIgnoreCase));
+                if (!stillHeld)
+                {
+                    _shared.Remove(bank.Server);
+                    sharedToDelete.Add(bank);
+                    dropped++;
+                }
+            }
+        }
+
+        foreach (CharacterData data in toSave)
+        {
+            Save(data);
+        }
+
+        foreach (string file in toDelete)
+        {
+            Remove(file);
+        }
+
+        foreach (SharedBankData bank in sharedToDelete)
+        {
+            Remove($"{SharedPrefix}{bank.Server}.json");
+        }
+
+        if (dropped > 0)
+        {
+            Changed?.Invoke();
+        }
+
+        return dropped;
+    }
+
+    /// <summary>Forgets everything saved for one character. It comes back if its files are read again. Returns false when none was saved.</summary>
+    public bool Forget(string name, string server)
+    {
+        bool removed;
+        lock (_gate)
+        {
+            removed = _characters.Remove(Key(name, server));
+        }
+
+        if (!removed)
+        {
+            return false;
+        }
+
+        Remove($"{Key(name, server)}.json");
+        Changed?.Invoke();
+        return true;
+    }
+
+    private static string PresenceKey(string name, string server, OutputFileKind kind) => $"{name}|{server}|{kind}";
+
+    private static bool LooksLikeGameFolder(string folder) =>
+        Directory.Exists(EqDirectoryScanner.GetLogsFolder(folder))
+        || EqDirectoryScanner.HasSpellsFile(folder)
+        || File.Exists(Path.Combine(folder, "eqgame.exe"))
+        || File.Exists(Path.Combine(folder, "eqclient.ini"));
+
+    private void Remove(string fileName)
+    {
+        if (_directory is null)
+        {
+            return;
+        }
+
+        try
+        {
+            File.Delete(Path.Combine(_directory, fileName));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // It is read again (and dropped again) next start.
+        }
+    }
+
+    /// <summary>
     /// Reads one output file. Returns false when the name is not an output file, the file cannot be read, or what is stored is
     /// already as new as the file.
     /// </summary>
