@@ -159,6 +159,63 @@ public class ArchiveAndSyncDataTests
     }
 
     [Fact]
+    public void A_capitalised_spelling_of_the_mob_is_the_same_fight_and_is_marked_killed()
+    {
+        var tracker = new LiveDpsTracker();
+        tracker.OnCombatEvent(Hit("Pecos", "a Praetorian Pius", 100, "19:46:10"));
+        tracker.OnCombatEvent(Hit("Pecos", "A Praetorian Pius", 100, "19:46:14")); // e.g. a damage-over-time line starting the sentence
+        tracker.OnCombatEvent(Death("A Praetorian Pius", "Pecos", "19:46:18"));
+
+        EncounterSnapshot fight = Assert.Single(tracker.Snapshot.Completed);
+        Assert.Empty(tracker.Snapshot.Active);
+        Assert.True(fight.Killed);
+        Assert.Equal(200, fight.TotalDamage);
+    }
+
+    [Fact]
+    public void A_kill_replaces_older_pieces_of_the_same_fight_whatever_the_capitals()
+    {
+        var store = new BossHistoryStore();
+        DateTime start = new(2026, 10, 23, 19, 46, 0);
+        // As an older build saved one fight: an "a" piece and an "A" piece, neither a kill.
+        store.Record(new[]
+        {
+            Snap("a Praetorian Pius", start, 20, killed: false),
+            Snap("A Praetorian Pius", start.AddSeconds(4), 14, killed: false),
+        });
+        Assert.Single(BossHistoryStore.Summarize(store.Fights(), 1));
+
+        store.Record(new[] { Snap("a Praetorian Pius", start, 20, killed: true) });
+
+        BossSummary summary = Assert.Single(BossHistoryStore.Summarize(store.Fights(), 1));
+        Assert.Equal(1, summary.Kills);
+        Assert.Equal(0, summary.Attempts);
+
+        // A shorter read that sees no death must not undo the kill.
+        store.Record(new[] { Snap("a Praetorian Pius", start, 12, killed: false) });
+        Assert.Equal(1, Assert.Single(BossHistoryStore.Summarize(store.Fights(), 1)).Kills);
+    }
+
+    private static EncounterSnapshot Snap(string boss, DateTime start, int seconds, bool killed)
+    {
+        var tracker = new LiveDpsTracker();
+        tracker.BeginBatch();
+        for (int t = 0; t < seconds; t += 5) // a hit at least every 5 s, so the fight does not time out
+        {
+            tracker.OnCombatEvent(new CombatEvent(start.AddSeconds(t), CombatEventKind.Damage, "Pecos", boss, 100, DamageKind.Melee, "hit"));
+        }
+
+        tracker.OnCombatEvent(new CombatEvent(start.AddSeconds(seconds), CombatEventKind.Damage, "Pecos", boss, 100, DamageKind.Melee, "hit"));
+        if (killed)
+        {
+            tracker.OnCombatEvent(new CombatEvent(start.AddSeconds(seconds), CombatEventKind.Death, "Pecos", boss, 0, DamageKind.None, null));
+        }
+
+        tracker.EndBatch();
+        return tracker.Snapshot.Completed[0];
+    }
+
+    [Fact]
     public void Best_dps_falls_back_to_the_best_attempt_when_there_is_no_kill()
     {
         var fights = new[] { new BossFight(Boss, new DateTime(2026, 10, 22, 19, 0, 0), 100, 250_000, 30, 1, false) };

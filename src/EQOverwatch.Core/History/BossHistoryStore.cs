@@ -26,6 +26,7 @@ public sealed class BossHistoryStore
 {
     private const int MaxFights = 20_000;
     private const double MinSeconds = 5.0;
+    private const double OverlapSlackSeconds = 8.0;
 
     private readonly object _gate = new();
     private readonly Dictionary<string, BossFight> _fights = new(StringComparer.OrdinalIgnoreCase);
@@ -75,9 +76,28 @@ public sealed class BossHistoryStore
                     s.TargetName, s.StartTime, s.DurationSeconds, s.TotalDamage,
                     s.Participants.Count, s.DeathRows.Count, s.Killed);
                 string key = Key(fight);
-                if (_fights.TryGetValue(key, out BossFight? existing) && existing.Killed == fight.Killed)
+                if (_fights.TryGetValue(key, out BossFight? same) && same == fight)
                 {
                     continue;
+                }
+
+                // The same boss in the same stretch of time (names compared without regard to capitals) is one fight. Older builds
+                // could save a single fight in pieces, and a log read again should replace them rather than sit beside them.
+                double end = fight.Seconds + OverlapSlackSeconds;
+                List<string> overlapping = _fights
+                    .Where(f => f.Value.Boss.Equals(fight.Boss, StringComparison.OrdinalIgnoreCase)
+                                && f.Value.Start <= fight.Start.AddSeconds(end)
+                                && f.Value.Start.AddSeconds(f.Value.Seconds + OverlapSlackSeconds) >= fight.Start)
+                    .Select(f => f.Key)
+                    .ToList();
+                if (!fight.Killed && overlapping.Any(k => _fights[k].Killed))
+                {
+                    continue; // a partial read must not undo a kill already on record
+                }
+
+                foreach (string old in overlapping)
+                {
+                    _fights.Remove(old);
                 }
 
                 _fights[key] = fight;

@@ -88,11 +88,11 @@ public partial class DpsTrackerService : IDpsEventSink
     private readonly object _gate = new();
     private readonly DpsTrackerOptions _options;
     private readonly PlayerRoster? _roster;
-    private readonly Dictionary<string, CombatEncounter> _active = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, CombatEncounter> _active = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<EncounterSnapshot> _completed = new();
     private readonly HashSet<string> _seedPlayers = new(StringComparer.Ordinal);
-    private readonly HashSet<string> _confirmedPlayers = new(StringComparer.Ordinal);
-    private readonly HashSet<string> _confirmedNpcs = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _confirmedPlayers = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _confirmedNpcs = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, DateTime> _pendingCrits = new(StringComparer.Ordinal);
 
     /// <summary>A critical announcement applies to the attacker's next damage line only if it follows within this long.</summary>
@@ -102,7 +102,7 @@ public partial class DpsTrackerService : IDpsEventSink
     /// <summary>Casts by a mob that no one has hit yet are kept this long, so a boss that casts before the pull still gets them.</summary>
     private static readonly TimeSpan PendingCastWindow = TimeSpan.FromSeconds(20);
     private const int MaxPendingCastNames = 32;
-    private readonly Dictionary<string, List<BossCastSnapshot>> _recentCasts = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, List<BossCastSnapshot>> _recentCasts = new(StringComparer.OrdinalIgnoreCase);
     private string _logOwner = string.Empty;
     private bool _keepActiveOnEndBatch;
 
@@ -593,11 +593,28 @@ public partial class DpsTrackerService : IDpsEventSink
         return source == NameKind.Player && target == NameKind.Npc;
     }
 
+    /// <summary>
+    /// Lines that start a sentence capitalise the mob's article ("A Praetorian Pius has taken 100 damage"), others do not
+    /// ("You slash a Praetorian Pius"). Fights are kept under the lower-case form so both spellings are one fight.
+    /// </summary>
+    private static string LowerArticle(string name)
+    {
+        foreach (string article in new[] { "A ", "An ", "The " })
+        {
+            if (name.StartsWith(article, StringComparison.Ordinal))
+            {
+                return char.ToLowerInvariant(name[0]) + name[1..];
+            }
+        }
+
+        return name;
+    }
+
     private CombatEncounter GetOrStart(string target, DateTime timestamp)
     {
         if (!_active.TryGetValue(target, out CombatEncounter? encounter))
         {
-            encounter = new CombatEncounter(_nextId++, target, timestamp);
+            encounter = new CombatEncounter(_nextId++, LowerArticle(target), timestamp);
             _active.Add(target, encounter);
 
             if (_recentCasts.Remove(target, out List<BossCastSnapshot>? earlier))

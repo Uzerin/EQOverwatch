@@ -62,6 +62,10 @@ check off, or run it by hand, under **Settings > Updates**.
 
 ## Changelog
 
+### 1.0.32
+
+- **Boss names ignore capital letters.** A mob such as "a Praetorian Pius" is the same fight whether the log prints "A Praetorian Pius" or "a Praetorian Pius", so its kill is counted. In Boss History, a fight that an older version saved in pieces is replaced by the whole fight the next time you read that log, and a shorter read never undoes a kill already recorded.
+
 ### 1.0.29
 
 - **Boss kills are counted.** Kill lines such as "A Praetorian Pius was slain by Pecos!" are now recognised (they were missed before), so Boss History shows kills, kill times and best DPS. Fights already saved as attempts are corrected the next time you read that log. A boss with no kill yet shows your best attempt's DPS. Player deaths in the same wording now show on the Deaths tab too.
