@@ -9,8 +9,8 @@ using EQOverwatch.Core.Theming;
 namespace EQOverwatch.App.Services;
 
 /// <summary>
-/// Draws the "Copy Image for Discord" picture: the encounter summary, a table of every attacker (Total, SDPS, Max Hit, Max Crit,
-/// Crit %) and the product footer, in the active theme's colors. Rendered at twice the layout size so it stays sharp when Discord
+/// Draws the "Copy Image for Discord" picture: the encounter summary, then three sections stacked top to bottom with every character
+/// in each: damage dealt (Total, SDPS, Max Hit, Max Crit, Crit %), tanking (damage taken), healing, and the product footer, in the active theme's colors. Rendered at twice the layout size so it stays sharp when Discord
 /// scales it. Call on the UI thread.
 /// </summary>
 public static class EncounterImageRenderer
@@ -38,7 +38,9 @@ public static class EncounterImageRenderer
         IReadOnlyList<EncounterExportRow> rows = EncounterExport.BuildRows(encounter, topCount);
         IReadOnlyList<DamageTakenSnapshot> taken = encounter.TakenRows;
         double takenHeight = taken.Count == 0 ? 0 : SectionHeight + TableHeaderHeight + (taken.Count * RowHeight);
-        double height = HeaderHeight + TableHeaderHeight + (Math.Max(1, rows.Count) * RowHeight) + takenHeight + FooterHeight;
+        IReadOnlyList<HealingSnapshot> healing = encounter.HealingRows;
+        double healingHeight = healing.Count == 0 ? 0 : SectionHeight + TableHeaderHeight + (healing.Count * RowHeight);
+        double height = HeaderHeight + TableHeaderHeight + (Math.Max(1, rows.Count) * RowHeight) + takenHeight + healingHeight + FooterHeight;
 
         Brush window = Solid(palette.WindowBg);
         Brush card = Solid(palette.CardBg);
@@ -47,6 +49,7 @@ public static class EncounterImageRenderer
         Brush muted = MixBrush(palette.TextPrimary, palette.WindowBg, 0.45);
         Brush barFill = WithOpacity(palette.Accent, 0.38);
         Brush takenFill = WithOpacity(TakenColor, 0.38);
+        Brush healFill = WithOpacity(HealingColor, 0.38);
 
         var visual = new DrawingVisual();
         using (DrawingContext dc = visual.RenderOpen())
@@ -89,7 +92,7 @@ public static class EncounterImageRenderer
             {
                 // Damage taken: what the fight's target did to the group, below the damage dealt.
                 y += 10;
-                Draw(dc, $"Damage taken from {encounter.TargetName}", Bold, 16, text, Padding + 6, y, 440, TextAlignment.Left);
+                Draw(dc, $"Tanking: damage taken from {encounter.TargetName}", Bold, 16, text, Padding + 6, y, 440, TextAlignment.Left);
                 Draw(dc, $"{encounter.TotalDamageTaken.ToString("N0", CultureInfo.InvariantCulture)} total", Regular, 13, muted,
                     Width - Padding - 220, y + 2, 220, TextAlignment.Right);
                 y += SectionHeight - 10;
@@ -116,6 +119,44 @@ public static class EncounterImageRenderer
                         t.PercentOfTotal.ToString("0.0", CultureInfo.InvariantCulture) + "%",
                         t.Hits.ToString("N0", CultureInfo.InvariantCulture),
                         t.MaxHit.ToString("N0", CultureInfo.InvariantCulture),
+                    }, y, Regular, 14, text);
+                    y += RowHeight;
+                }
+            }
+
+            if (healing.Count > 0)
+            {
+                // Healing: every healer, below the tanking section.
+                y += 10;
+                long healTotal = healing.Sum(h => h.Effective);
+                Draw(dc, "Healing", Bold, 16, text, Padding + 6, y, 440, TextAlignment.Left);
+                Draw(dc, $"{healTotal.ToString("N0", CultureInfo.InvariantCulture)} total", Regular, 13, muted,
+                    Width - Padding - 220, y + 2, 220, TextAlignment.Right);
+                y += SectionHeight - 10;
+
+                DrawHealRow(dc, new[] { "#", "Name", "Healed", "% of total", "HPS", "Heals", "Max Heal" }, y, Bold, 12, muted);
+                y += TableHeaderHeight;
+                dc.DrawRectangle(Solid(palette.TextPrimary, 0x30), null, new Rect(Padding, y - 2, Width - (2 * Padding), 1));
+
+                long topHeal = healing.Max(h => h.Effective);
+                for (int i = 0; i < healing.Count; i++)
+                {
+                    HealingSnapshot h = healing[i];
+                    double barWidth = topHeal > 0 ? (Width - (2 * Padding)) * ((double)h.Effective / topHeal) : 0;
+                    if (barWidth > 0)
+                    {
+                        dc.DrawRoundedRectangle(healFill, null, new Rect(Padding, y + 2, barWidth, RowHeight - 4), 5, 5);
+                    }
+
+                    DrawHealRow(dc, new[]
+                    {
+                        (i + 1).ToString(CultureInfo.InvariantCulture),
+                        h.Name,
+                        h.Effective.ToString("N0", CultureInfo.InvariantCulture),
+                        (healTotal > 0 ? 100.0 * h.Effective / healTotal : 0).ToString("0.0", CultureInfo.InvariantCulture) + "%",
+                        Math.Round(h.Hps).ToString("N0", CultureInfo.InvariantCulture),
+                        h.Heals.ToString("N0", CultureInfo.InvariantCulture),
+                        h.MaxHeal.ToString("N0", CultureInfo.InvariantCulture),
                     }, y, Regular, 14, text);
                     y += RowHeight;
                 }
@@ -156,18 +197,28 @@ public static class EncounterImageRenderer
     /// <summary>Warm color for the damage-taken bars, so they read apart from the damage-dealt bars.</summary>
     private const string TakenColor = "#E5845C";
 
-    private static void DrawTakenRow(DrawingContext dc, IReadOnlyList<string> cells, double y, Typeface face, double size, Brush brush)
-    {
-        // # (right-aligned), Name (left, wide), then four right-aligned number columns.
-        Draw(dc, cells[0], face, size, brush, Padding, y + 4, ColumnRight[0] - Padding, TextAlignment.Right);
-        Draw(dc, cells[1], face, size, brush, 62, y + 4, 290, TextAlignment.Left);
+    /// <summary>Green for the healing bars.</summary>
+    private const string HealingColor = "#5CC98A";
 
-        double[] rights = { 0, 0, 400, 490, 580, 655 };
-        double left = 352;
-        for (int i = 2; i < cells.Count; i++)
+    private static void DrawTakenRow(DrawingContext dc, IReadOnlyList<string> cells, double y, Typeface face, double size, Brush brush) =>
+        DrawNumberRow(dc, cells, y, face, size, brush, 300, new[] { 400.0, 490, 580, 655 });
+
+    private static void DrawHealRow(DrawingContext dc, IReadOnlyList<string> cells, double y, Typeface face, double size, Brush brush) =>
+        DrawNumberRow(dc, cells, y, face, size, brush, 240, new[] { 335.0, 425, 515, 610, 716 });
+
+    /// <summary># (right-aligned), Name (left, as wide as the first number column allows), then right-aligned number columns.</summary>
+    private static void DrawNumberRow(
+        DrawingContext dc, IReadOnlyList<string> cells, double y, Typeface face, double size, Brush brush, double numbersLeft, double[] rights)
+    {
+        Draw(dc, cells[0], face, size, brush, Padding, y + 4, ColumnRight[0] - Padding, TextAlignment.Right);
+        Draw(dc, cells[1], face, size, brush, 62, y + 4, numbersLeft - 62 - 4, TextAlignment.Left);
+
+        double left = numbersLeft;
+        for (int i = 2; i < cells.Count && i - 2 < rights.Length; i++)
         {
-            Draw(dc, cells[i], face, size, brush, left, y + 4, rights[i] - left, TextAlignment.Right);
-            left = rights[i];
+            double right = rights[i - 2];
+            Draw(dc, cells[i], face, size, brush, left, y + 4, right - left, TextAlignment.Right);
+            left = right;
         }
     }
 

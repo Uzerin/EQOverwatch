@@ -104,6 +104,9 @@ public partial class DpsTrackerService : IDpsEventSink
     private const int MaxPendingCastNames = 32;
     private readonly Dictionary<string, List<BossCastSnapshot>> _recentCasts = new(StringComparer.OrdinalIgnoreCase);
     private string _logOwner = string.Empty;
+    private readonly List<PlayerCastSnapshot> _recentPlayerCasts = new();
+    private static readonly TimeSpan PlayerCastLead = TimeSpan.FromSeconds(10);
+    private const int MaxRecentPlayerCasts = 300;
     private bool _keepActiveOnEndBatch;
 
     private IReadOnlyList<EncounterSnapshot> _completedView = Array.AsReadOnly(Array.Empty<EncounterSnapshot>());
@@ -316,7 +319,15 @@ public partial class DpsTrackerService : IDpsEventSink
         _roster?.Observe(message);
 
         // Boss casts and heals are not combat events, so they arrive here with the log clock set by the line's own timestamp.
-        if (message.IndexOf(" begins casting ", StringComparison.Ordinal) > 0
+        if (message.StartsWith("You begin casting ", StringComparison.Ordinal) && message.EndsWith(".", StringComparison.Ordinal))
+        {
+            ObserveCast(message.ToString());
+        }
+        else if (message.Equals("Your spell fizzles!", StringComparison.Ordinal) || message.Equals("Your spell is interrupted.", StringComparison.Ordinal))
+        {
+            ObserveOwnCastFailed();
+        }
+        else if (message.IndexOf(" begins casting ", StringComparison.Ordinal) > 0
             || message.IndexOf(" begins to cast a spell. <", StringComparison.Ordinal) > 0)
         {
             ObserveCast(message.ToString());
@@ -355,7 +366,12 @@ public partial class DpsTrackerService : IDpsEventSink
         string caster;
         string spell;
         int newForm = message.IndexOf(" begins casting ", StringComparison.Ordinal);
-        if (newForm > 0 && message.EndsWith('.'))
+        if (message.StartsWith("You begin casting ", StringComparison.Ordinal) && message.EndsWith('.'))
+        {
+            caster = "You";
+            spell = message["You begin casting ".Length..^1];
+        }
+        else if (newForm > 0 && message.EndsWith('.'))
         {
             caster = message[..newForm];
             spell = message[(newForm + " begins casting ".Length)..^1];
@@ -373,13 +389,24 @@ public partial class DpsTrackerService : IDpsEventSink
             spell = message[(oldForm + oldMarker.Length)..^1];
         }
 
-        if (caster.Length == 0 || spell.Length == 0 || caster.Equals("You", StringComparison.OrdinalIgnoreCase))
+        if (caster.Length == 0 || spell.Length == 0)
         {
             return;
         }
 
         lock (_gate)
         {
+            if (caster.Equals("You", StringComparison.OrdinalIgnoreCase))
+            {
+                if (_logOwner.Length == 0)
+                {
+                    return;
+                }
+
+                RecordPlayerCast(_logOwner, spell);
+                return;
+            }
+
             if (_active.TryGetValue(caster, out CombatEncounter? fight))
             {
                 fight.AddCast(_logClock, spell);
@@ -389,6 +416,8 @@ public partial class DpsTrackerService : IDpsEventSink
 
             if (Classify(caster) != NameKind.Npc)
             {
+                // A player or pet (or a name not yet known either way): a spell cast in the raid.
+                RecordPlayerCast(caster, spell);
                 return;
             }
 
@@ -404,6 +433,60 @@ public partial class DpsTrackerService : IDpsEventSink
 
             list.RemoveAll(c => _logClock - c.Time > PendingCastWindow);
             list.Add(new BossCastSnapshot(_logClock, spell));
+        }
+    }
+
+    /// <summary>Files a player's cast under every fight in progress, and keeps it briefly for a fight that starts just after.</summary>
+    private void RecordPlayerCast(string caster, string spell)
+    {
+        var cast = new PlayerCastSnapshot(_logClock, caster, spell);
+        _recentPlayerCasts.RemoveAll(c => _logClock - c.Time > PlayerCastLead);
+        if (_recentPlayerCasts.Count >= MaxRecentPlayerCasts)
+        {
+            _recentPlayerCasts.RemoveAt(0);
+        }
+
+        _recentPlayerCasts.Add(cast);
+
+        if (_active.Count == 0)
+        {
+            return;
+        }
+
+        foreach (CombatEncounter encounter in _active.Values)
+        {
+            encounter.AddPlayerCast(cast);
+        }
+
+        Publish();
+    }
+
+    /// <summary>"Your spell fizzles!" / "Your spell is interrupted.": the log owner's latest cast did not go off.</summary>
+    private void ObserveOwnCastFailed()
+    {
+        lock (_gate)
+        {
+            if (_logOwner.Length == 0)
+            {
+                return;
+            }
+
+            DateTime notBefore = _logClock - TimeSpan.FromSeconds(15);
+            int i = _recentPlayerCasts.FindLastIndex(c => c.Caster.Equals(_logOwner, StringComparison.OrdinalIgnoreCase) && !c.Failed);
+            if (i >= 0)
+            {
+                _recentPlayerCasts[i] = _recentPlayerCasts[i] with { Failed = true };
+            }
+
+            foreach (CombatEncounter encounter in _active.Values)
+            {
+                encounter.FailLastCast(_logOwner, notBefore);
+            }
+
+            if (_active.Count > 0)
+            {
+                Publish();
+            }
         }
     }
 
@@ -617,6 +700,11 @@ public partial class DpsTrackerService : IDpsEventSink
             encounter = new CombatEncounter(_nextId++, LowerArticle(target), timestamp);
             _active.Add(target, encounter);
 
+            foreach (PlayerCastSnapshot early in _recentPlayerCasts.Where(c => timestamp - c.Time <= PlayerCastLead))
+            {
+                encounter.AddPlayerCast(early);
+            }
+
             if (_recentCasts.Remove(target, out List<BossCastSnapshot>? earlier))
             {
                 foreach (BossCastSnapshot cast in earlier.Where(c => timestamp - c.Time <= PendingCastWindow))
@@ -698,6 +786,7 @@ public partial class DpsTrackerService : IDpsEventSink
 
         _pendingCrits.Clear();
         _recentCasts.Clear();
+        _recentPlayerCasts.Clear();
         _confirmedNpcs.Clear();
         _confirmedPlayers.Clear();
         foreach (string name in _seedPlayers)

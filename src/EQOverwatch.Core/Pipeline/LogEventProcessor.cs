@@ -65,6 +65,14 @@ public static class LogEventProcessor
                     dpsSink.OnLogClock(timestamp);
                     if (evt.Line.Length > LogLineFormat.MessageOffset)
                     {
+                        // "You ..." lines (your own casts and heals) belong to the log's character.
+                        if (evt.CharacterName.Length > 0
+                            && (evt.Line.AsSpan(LogLineFormat.MessageOffset).StartsWith("You begin casting ", StringComparison.Ordinal)
+                                || evt.Line.AsSpan(LogLineFormat.MessageOffset).StartsWith("You healed ", StringComparison.Ordinal)))
+                        {
+                            dpsSink.OnLogOwner(evt.CharacterName);
+                        }
+
                         dpsSink.OnNonCombatMessage(evt.Line.AsSpan(LogLineFormat.MessageOffset));
                     }
                 }

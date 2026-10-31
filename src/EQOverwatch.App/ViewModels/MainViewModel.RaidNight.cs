@@ -149,6 +149,7 @@ public sealed partial class MainViewModel
 
     private void UpdateEncounterDetails(EncounterSnapshot? encounter)
     {
+        UpdateSpellCasts(encounter);
         if (encounter is null)
         {
             BossAbilityRows = Array.Empty<BossAbilityDisplayRow>();

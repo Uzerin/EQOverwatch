@@ -15,7 +15,9 @@ public sealed class CombatEncounter : ObservableObject
     private readonly List<DeathSnapshot> _deathLog = new();
     private readonly List<BossCastSnapshot> _casts = new();
     private readonly Dictionary<string, HealStats> _healers = new(StringComparer.Ordinal);
+    private readonly List<PlayerCastSnapshot> _playerCasts = new();
     private const int MaxCasts = 2000;
+    private const int MaxPlayerCasts = 20_000;
 
     public CombatEncounter(int id, string targetName, DateTime startTime)
     {
@@ -91,6 +93,37 @@ public sealed class CombatEncounter : ObservableObject
             _casts.Add(new BossCastSnapshot(timestamp, spell));
         }
     }
+
+    /// <summary>A player or pet began casting a spell during the fight.</summary>
+    internal void AddPlayerCast(PlayerCastSnapshot cast)
+    {
+        if (_playerCasts.Count < MaxPlayerCasts)
+        {
+            _playerCasts.Add(cast);
+        }
+    }
+
+    /// <summary>Marks <paramref name="caster"/>'s latest cast no earlier than <paramref name="notBefore"/> as having failed.</summary>
+    internal void FailLastCast(string caster, DateTime notBefore)
+    {
+        for (int i = _playerCasts.Count - 1; i >= 0; i--)
+        {
+            PlayerCastSnapshot cast = _playerCasts[i];
+            if (cast.Time < notBefore)
+            {
+                return;
+            }
+
+            if (cast.Caster.Equals(caster, StringComparison.OrdinalIgnoreCase))
+            {
+                _playerCasts[i] = cast with { Failed = true };
+                return;
+            }
+        }
+    }
+
+    /// <summary>Spells players began casting, in log order.</summary>
+    internal IReadOnlyList<PlayerCastSnapshot> PlayerCasts => _playerCasts;
 
     /// <summary>Spells the fight's target cast, in log order.</summary>
     internal IReadOnlyList<BossCastSnapshot> Casts => _casts;

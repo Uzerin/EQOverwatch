@@ -40,6 +40,9 @@ public sealed record DamageTakenSnapshot(
 /// <summary>A spell a boss started casting, at log-clock time.</summary>
 public sealed record BossCastSnapshot(DateTime Time, string Spell);
 
+/// <summary>A spell a player (or pet) began casting during a fight; <see cref="Failed"/> when the log showed it fizzle or be interrupted.</summary>
+public sealed record PlayerCastSnapshot(DateTime Time, string Caster, string Spell, bool Failed = false);
+
 /// <summary>A player or pet that died during a fight; <see cref="KilledBy"/> is empty when the log did not say.</summary>
 public sealed record DeathSnapshot(DateTime Time, string Name, string KilledBy);
 
@@ -67,8 +70,12 @@ public sealed record EncounterSnapshot(
     IReadOnlyList<BossCastSnapshot>? BossCasts = null,
     IReadOnlyList<HealingSnapshot>? Healing = null,
     IReadOnlyList<DeathSnapshot>? DeathLog = null,
-    bool Killed = false)
+    bool Killed = false,
+    IReadOnlyList<PlayerCastSnapshot>? PlayerCasts = null)
 {
+    /// <summary>Every spell the raid began casting during the fight, in log order.</summary>
+    public IReadOnlyList<PlayerCastSnapshot> PlayerCastRows => PlayerCasts ?? Array.Empty<PlayerCastSnapshot>();
+
     /// <summary>Who died during the fight and when, in order.</summary>
     public IReadOnlyList<DeathSnapshot> DeathRows => DeathLog ?? Array.Empty<DeathSnapshot>();
 
@@ -136,7 +143,8 @@ public sealed record EncounterSnapshot(
             encounter.DurationSeconds, encounter.TotalDamage, encounter.IsActive,
             Array.AsReadOnly(participants), Array.AsReadOnly(taken),
             Array.AsReadOnly(encounter.Casts.ToArray()), Array.AsReadOnly(healing),
-            Array.AsReadOnly(encounter.DeathLog.ToArray()), encounter.Killed);
+            Array.AsReadOnly(encounter.DeathLog.ToArray()), encounter.Killed,
+            Array.AsReadOnly(encounter.PlayerCasts.ToArray()));
     }
 }
 

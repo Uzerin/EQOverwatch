@@ -62,6 +62,11 @@ check off, or run it by hand, under **Settings > Updates**.
 
 ## Changelog
 
+### 1.0.33
+
+- **Spell Casts tab.** In the fight details (next to Healing), every spell the raid began casting during a fight: a By player list in the usual layout (each player with their spells, casts, casts per minute, first and last cast, fizzles), a By spell list with how often each spell was cast and by how many players (handy for Slow, Weaken and the like), and a Timeline with a line for each spell and a tick for every cast. A Spell box narrows all three to spells containing that text, and Copy puts the breakdown on the clipboard. Other players' casts only appear in your log when they are in range of you.
+- **Discord picture.** The picture now carries three sections, top to bottom: damage, tanking (damage taken) and healing, with every character in each.
+
 ### 1.0.32
 
 - **Boss names ignore capital letters.** A mob such as "a Praetorian Pius" is the same fight whether the log prints "A Praetorian Pius" or "a Praetorian Pius", so its kill is counted. In Boss History, a fight that an older version saved in pieces is replaced by the whole fight the next time you read that log, and a shorter read never undoes a kill already recorded.
