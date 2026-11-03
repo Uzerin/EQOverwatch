@@ -286,4 +286,22 @@ public class RosterTests
         Assert.Equal(16, EqClass.Names.Count);
         Assert.Equal(16, EqClass.Names.Select(EqClass.Abbreviate).Distinct().Count());
     }
+
+    [Fact]
+    public void Forgetting_all_pets_keeps_the_players()
+    {
+        var roster = new PlayerRoster();
+        roster.LearnPet("Gabnik", "Oodles");
+        roster.LearnPet("Rex", "Pecos");
+        int changes = 0;
+        roster.Changed += () => changes++;
+
+        Assert.Equal(2, roster.ForgetAllPets());
+
+        Assert.Equal(1, changes);
+        Assert.True(roster.IsVerifiedPlayer("Oodles"));
+        Assert.False(roster.IsPet("Gabnik"));
+        Assert.Equal(0, roster.ForgetAllPets()); // nothing left: no change is reported
+        Assert.Equal(1, changes);
+    }
 }

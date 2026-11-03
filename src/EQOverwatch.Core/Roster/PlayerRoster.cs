@@ -185,6 +185,24 @@ public sealed class PlayerRoster : ITriggerLineSink
         return changed;
     }
 
+    /// <summary>Forgets every pet, leaving the players alone. Returns how many pets were forgotten.</summary>
+    public int ForgetAllPets()
+    {
+        int count;
+        lock (_gate)
+        {
+            count = _pets.Count;
+            _pets.Clear();
+        }
+
+        if (count > 0)
+        {
+            Changed?.Invoke();
+        }
+
+        return count;
+    }
+
     public void Clear()
     {
         bool changed;

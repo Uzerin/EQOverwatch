@@ -1660,6 +1660,81 @@
                 </Grid>
             </TabItem>
 
+            <!-- ═════════ Players & Pets ═════════ -->
+            <TabItem Header="Players &amp; Pets">
+                <Grid Margin="6">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0" TextWrapping="Wrap" Style="{StaticResource HintText}" Margin="0,0,0,8"
+                               Text="Classes come from /who. To link a pet to its owner, target the pet and type /pet leader; the pet answers &quot;My leader is Name.&quot; and the app remembers it."/>
+                    <CheckBox Grid.Row="1" Content="Count a pet's damage under its owner" IsChecked="{Binding MergePetDamage}" Margin="0,0,0,8"
+                              ToolTip="Applies to fights parsed from now on. Off lists each pet on its own row."/>
+                    <TextBlock Grid.Row="2" Text="{Binding RosterSummary}" Style="{StaticResource HintText}" Margin="0,0,0,8" TextWrapping="Wrap"/>
+                    <Grid Grid.Row="3">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" MinWidth="320"/>
+                            <ColumnDefinition Width="14"/>
+                            <ColumnDefinition Width="*" MinWidth="320"/>
+                        </Grid.ColumnDefinitions>
+
+                        <Grid Grid.Column="0">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <DockPanel Grid.Row="0" Margin="0,0,0,8" LastChildFill="True">
+                                <TextBlock DockPanel.Dock="Left" Style="{StaticResource FieldLabel}" Text="Players"/>
+                                <TextBox Margin="0,0,0,6" VerticalAlignment="Center" Text="{Binding PlayerSearch, UpdateSourceTrigger=PropertyChanged}"
+                                         ToolTip="Type part of a name to narrow the list."/>
+                            </DockPanel>
+                            <DataGrid Grid.Row="1" ItemsSource="{Binding RosterPlayers}" AutoGenerateColumns="False"
+                                      CanUserAddRows="False" IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                                      HorizontalScrollBarVisibility="Auto">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Player" Binding="{Binding Name}" Width="*" MinWidth="120"/>
+                                    <DataGridTextColumn Header="Level" Binding="{Binding LevelText, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                    <DataGridTextColumn Header="Class" Binding="{Binding Class}" Width="Auto"/>
+                                    <DataGridTextColumn Header="Pets" Binding="{Binding Pets}" Width="Auto"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Grid>
+
+                        <Grid Grid.Column="2">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <DockPanel Grid.Row="0" Margin="0,0,0,8" LastChildFill="False">
+                                <Button DockPanel.Dock="Right" Content="Forget all pets" Command="{Binding ForgetAllPetsCommand}" Style="{StaticResource SecondaryButton}"
+                                        ToolTip="Clears the pet list. Pets are learned again from /pet leader lines."/>
+                                <TextBlock DockPanel.Dock="Left" Style="{StaticResource FieldLabel}" Text="Pets" VerticalAlignment="Center"/>
+                            </DockPanel>
+                            <DataGrid Grid.Row="1" ItemsSource="{Binding RosterPets}" AutoGenerateColumns="False"
+                                      CanUserAddRows="False" IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                                      HorizontalScrollBarVisibility="Auto">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Pet" Binding="{Binding Pet}" Width="*" MinWidth="120"/>
+                                    <DataGridTextColumn Header="Owner" Binding="{Binding Owner}" Width="*" MinWidth="120"/>
+                                    <DataGridTemplateColumn Width="Auto">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <Button Content="Forget" Style="{StaticResource SecondaryButton}"
+                                                        Command="{Binding DataContext.ForgetPetCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                        CommandParameter="{Binding}"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Grid>
+                    </Grid>
+                </Grid>
+            </TabItem>
+
             <!-- ═════════ Tab 6: Settings ═════════ -->
             <TabItem Header="Settings">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
@@ -1885,53 +1960,6 @@
                             </StackPanel>
                         </GroupBox>
 
-
-                        <GroupBox Header="Players &amp; pets">
-                            <StackPanel Margin="4">
-                                <TextBlock TextWrapping="Wrap" Style="{StaticResource HintText}" Margin="0,0,0,6"
-                                           Text="Classes come from /who. To link a pet to its owner, target the pet and type /pet leader; the pet answers &quot;My leader is Name.&quot; and the app remembers it."/>
-                                <CheckBox Content="Count a pet's damage under its owner" IsChecked="{Binding MergePetDamage}" Margin="0,0,0,6"
-                                          ToolTip="Applies to fights parsed from now on. Off lists each pet on its own row."/>
-                                <TextBlock Text="{Binding RosterSummary}" Style="{StaticResource HintText}" Margin="0,0,0,6"/>
-                                <StackPanel>
-                                    <DataGrid Height="150" ItemsSource="{Binding RosterPlayers}" AutoGenerateColumns="False"
-                                              CanUserAddRows="False" IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal">
-                                        <DataGrid.Columns>
-                                            <DataGridTextColumn Header="Player" Binding="{Binding Name}" Width="*"/>
-                                            <DataGridTextColumn Header="Level" Binding="{Binding LevelText, Mode=OneWay}" Width="56"/>
-                                            <DataGridTextColumn Header="Class" Binding="{Binding Class}" Width="110"/>
-                                            <DataGridTemplateColumn Width="70">
-                                                <DataGridTemplateColumn.CellTemplate>
-                                                    <DataTemplate>
-                                                        <Button Content="Forget" Style="{StaticResource SecondaryButton}"
-                                                                Command="{Binding DataContext.ForgetPlayerCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                                CommandParameter="{Binding}"/>
-                                                    </DataTemplate>
-                                                </DataGridTemplateColumn.CellTemplate>
-                                            </DataGridTemplateColumn>
-                                        </DataGrid.Columns>
-                                    </DataGrid>
-                                    <DataGrid Height="120" Margin="0,8,0,0" ItemsSource="{Binding RosterPets}" AutoGenerateColumns="False"
-                                              CanUserAddRows="False" IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal">
-                                        <DataGrid.Columns>
-                                            <DataGridTextColumn Header="Pet" Binding="{Binding Pet}" Width="*"/>
-                                            <DataGridTextColumn Header="Owner" Binding="{Binding Owner}" Width="*"/>
-                                            <DataGridTemplateColumn Width="70">
-                                                <DataGridTemplateColumn.CellTemplate>
-                                                    <DataTemplate>
-                                                        <Button Content="Forget" Style="{StaticResource SecondaryButton}"
-                                                                Command="{Binding DataContext.ForgetPetCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                                CommandParameter="{Binding}"/>
-                                                    </DataTemplate>
-                                                </DataGridTemplateColumn.CellTemplate>
-                                            </DataGridTemplateColumn>
-                                        </DataGrid.Columns>
-                                    </DataGrid>
-                                </StackPanel>
-                                <Button Content="Forget everyone" Command="{Binding ClearRosterCommand}" Style="{StaticResource SecondaryButton}"
-                                        HorizontalAlignment="Left" Margin="0,8,0,0"/>
-                            </StackPanel>
-                        </GroupBox>
 
                         <GroupBox Header="Updates">
                             <StackPanel Margin="4">

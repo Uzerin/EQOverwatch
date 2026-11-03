@@ -93,6 +93,25 @@ public partial class MainViewModelTests
     }
 
     [Fact]
+    public void The_players_search_narrows_the_list_and_the_summary_says_so()
+    {
+        using var h = new Harness();
+        h.Pipeline.Roster.LearnPet("Gabnik", "Oodles");
+        h.Pipeline.Roster.LearnPet("Rex", "Pecos");
+        h.Vm.Refresh();
+        Assert.Equal(2, h.Vm.RosterPlayers.Count);
+
+        h.Vm.PlayerSearch = "OOD";
+
+        Assert.Equal("Oodles", Assert.Single(h.Vm.RosterPlayers).Name);
+        Assert.Equal(2, h.Vm.RosterPets.Count); // the search is for players only
+        Assert.Contains("Showing 1", h.Vm.RosterSummary);
+
+        h.Vm.PlayerSearch = string.Empty;
+        Assert.Equal(2, h.Vm.RosterPlayers.Count);
+    }
+
+    [Fact]
     public void The_pet_damage_switch_reaches_the_roster_and_is_saved()
     {
         using var h = new Harness();

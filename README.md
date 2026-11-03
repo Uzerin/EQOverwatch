@@ -62,6 +62,12 @@ check off, or run it by hand, under **Settings > Updates**.
 
 ## Changelog
 
+### 1.0.38
+
+- **Players & Pets has its own tab.** The verified players and pets moved out of Settings into a tab of their own, with the two lists side by side and filling the window, so they are easy to scroll. The pet damage switch moved with them.
+- **Search the players.** A box above the players list narrows it to names that contain what you type.
+- **Forgetting.** Players no longer have a Forget button. Each pet has a Forget button, and Forget all pets clears the pet list. Both ask first, and a pet is learned again the next time a `/pet leader` line names it.
+
 ### 1.0.37
 
 - **Tells are read aloud.** When someone sends a tell to a character you are watching, such as `Catiua tells you, 'I SEE YOUUUUUU'`, Overwatch says "Catiua tells Stackprimeiiv: I SEE YOUUUUUU", naming the character it was sent to. It uses the same voice, volume and Mute audio switch as trigger audio. Turn it off with Read tells aloud in the Tells box on the Settings tab. It works for every character log you watch, speaks only new tells (not ones from history you read in), cuts a message off at 200 characters, and skips an exact repeat of the same tell within two seconds.
