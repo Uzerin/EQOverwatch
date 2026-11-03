@@ -18,6 +18,9 @@ public sealed class AppSettings
     public List<TriggerRule> Triggers { get; set; } = new();
     public double EncounterTimeoutSeconds { get; set; } = DefaultEncounterTimeoutSeconds;
     public bool IsAudioMuted { get; set; }
+
+    /// <summary>Speak incoming tells aloud (on by default).</summary>
+    public bool ReadTellsAloud { get; set; } = true;
     public OverlaySettings BuffsOverlay { get; set; } = OverlaySettings.ForCategory(TimerOverlayCategory.Buffs);
     public OverlaySettings DebuffsOverlay { get; set; } = OverlaySettings.ForCategory(TimerOverlayCategory.Debuffs);
     public OverlaySettings SongsOverlay { get; set; } = OverlaySettings.ForCategory(TimerOverlayCategory.Songs);

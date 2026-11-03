@@ -62,6 +62,10 @@ check off, or run it by hand, under **Settings > Updates**.
 
 ## Changelog
 
+### 1.0.37
+
+- **Tells are read aloud.** When someone sends a tell to a character you are watching, such as `Catiua tells you, 'I SEE YOUUUUUU'`, Overwatch says "Catiua tells Stackprimeiiv: I SEE YOUUUUUU", naming the character it was sent to. It uses the same voice, volume and Mute audio switch as trigger audio. Turn it off with Read tells aloud in the Tells box on the Settings tab. It works for every character log you watch, speaks only new tells (not ones from history you read in), cuts a message off at 200 characters, and skips an exact repeat of the same tell within two seconds.
+
 ### 1.0.36
 
 - **Max Hit is the biggest non-crit hit.** On the DPS parse, in the Discord picture and in the exports, Max Hit leaves out critical hits. Max Crit still shows the biggest crit.

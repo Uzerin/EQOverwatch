@@ -36,6 +36,7 @@ public sealed class CompanionPipeline : IAsyncDisposable
         Abilities = new AbilityTrackerService(Triggers);
         SharedTriggers = new SharedTriggerScanner();
         Loot = new LootTracker();
+        Tells = new TellReaderService(Triggers);
         HistoricalDps = new HistoricalDpsTracker(inactivityTimeout, Roster);
 
         Triggers.Error += RaiseError;
@@ -43,7 +44,7 @@ public sealed class CompanionPipeline : IAsyncDisposable
 
         // Every sink sees every line of every trigger-enabled log. Historical imports use none of them.
         var triggerSinks = new CompositeTriggerSink(
-            new ITriggerLineSink[] { Triggers, Buffs, RaidBosses, ChChain, Cooldowns, Abilities, SharedTriggers, Roster, Loot }, RaiseError);
+            new ITriggerLineSink[] { Triggers, Buffs, RaidBosses, ChChain, Cooldowns, Abilities, SharedTriggers, Roster, Loot, Tells }, RaiseError);
         _monitor = new LiveLogMonitor(Logs, triggerSinks, LiveDps, RaiseError);
         _monitor.TailError += (config, ex) => TailError?.Invoke(config, ex);
     }
@@ -71,6 +72,9 @@ public sealed class CompanionPipeline : IAsyncDisposable
 
     /// <summary>Loot and the rolls won for it, collected from every trigger-enabled log.</summary>
     public LootTracker Loot { get; }
+
+    /// <summary>Speaks incoming tells aloud.</summary>
+    public TellReaderService Tells { get; }
 
     /// <summary>Spots <c>{EQO:...}</c> shared triggers in chat.</summary>
     public SharedTriggerScanner SharedTriggers { get; }

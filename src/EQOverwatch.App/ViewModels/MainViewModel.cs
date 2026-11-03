@@ -167,6 +167,10 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private bool _isAudioMuted;
 
+    /// <summary>Speaks "Name tells Character: message" for every tell sent to a watched character.</summary>
+    [ObservableProperty]
+    private bool _readTellsAloud = true;
+
     [ObservableProperty]
     private string _statusMessage = string.Empty;
 
@@ -208,6 +212,15 @@ public sealed partial class MainViewModel : ObservableObject
 
         _overlays.SetVisible(kind, visible);
         RequestSave();
+    }
+
+    partial void OnReadTellsAloudChanged(bool value)
+    {
+        _pipeline.Tells.IsEnabled = value;
+        if (!_restoring)
+        {
+            RequestSave();
+        }
     }
 
     partial void OnIsAudioMutedChanged(bool value)
@@ -1318,6 +1331,8 @@ public sealed partial class MainViewModel : ObservableObject
 
             IsAudioMuted = settings.IsAudioMuted;
             _audio.IsEnabled = !settings.IsAudioMuted;
+            ReadTellsAloud = settings.ReadTellsAloud;
+            _pipeline.Tells.IsEnabled = settings.ReadTellsAloud;
 
             EncounterTimeoutSeconds = settings.EncounterTimeoutSeconds;
             _pipeline.EncounterTimeout = TimeSpan.FromSeconds(EncounterTimeoutSeconds);
@@ -1393,6 +1408,7 @@ public sealed partial class MainViewModel : ObservableObject
         Triggers = Rules.Select(r => r.ToRule()).ToList(),
         EncounterTimeoutSeconds = EncounterTimeoutSeconds,
         IsAudioMuted = IsAudioMuted,
+        ReadTellsAloud = ReadTellsAloud,
         BuffsOverlay = _overlays.Capture(OverlayKind.Buffs),
         DebuffsOverlay = _overlays.Capture(OverlayKind.Debuffs),
         SongsOverlay = _overlays.Capture(OverlayKind.Songs),

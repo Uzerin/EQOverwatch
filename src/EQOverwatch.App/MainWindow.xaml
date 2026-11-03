@@ -1786,6 +1786,15 @@
                             </StackPanel>
                         </GroupBox>
 
+                        <GroupBox Header="Tells">
+                            <StackPanel>
+                                <CheckBox Content="Read tells aloud" Margin="0,2,0,6" IsChecked="{Binding ReadTellsAloud}"
+                                          ToolTip="Speaks 'Name tells Character: message' when anyone sends a tell to a character you are watching."/>
+                                <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap"
+                                           Text="Uses the same voice, volume and Mute audio switch as trigger audio. Only new tells are spoken, from every character log you watch. Messages longer than 200 characters are cut off."/>
+                            </StackPanel>
+                        </GroupBox>
+
                         <GroupBox Header="Cleric CH chain">
                             <Grid Margin="4">
                                 <Grid.ColumnDefinitions>
