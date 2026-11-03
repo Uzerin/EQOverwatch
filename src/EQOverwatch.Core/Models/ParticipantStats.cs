@@ -23,6 +23,9 @@ public sealed class ParticipantStats : ObservableObject
     public int Misses { get; private set; }
     public int MaxHit { get; private set; }
 
+    /// <summary>Largest hit that was not a critical hit or blast (0 when every hit was a crit). This is the "Max Hit" the parse shows.</summary>
+    public int MaxNonCritHit { get; private set; }
+
     /// <summary>Largest hit that was announced as a critical hit or blast.</summary>
     public int MaxCritHit { get; private set; }
 
@@ -63,6 +66,10 @@ public sealed class ParticipantStats : ObservableObject
             {
                 MaxCritHit = amount;
             }
+        }
+        else if (amount > MaxNonCritHit)
+        {
+            MaxNonCritHit = amount;
         }
 
         Touch(timestamp);

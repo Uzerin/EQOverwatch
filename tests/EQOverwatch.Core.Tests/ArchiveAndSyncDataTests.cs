@@ -216,6 +216,183 @@ public class ArchiveAndSyncDataTests
     }
 
     [Fact]
+    public void The_kill_report_lists_kills_fastest_first_and_sets_attempts_aside()
+    {
+        var fights = new[]
+        {
+            new BossFight(Boss, new DateTime(2026, 10, 9, 20, 22, 0), 330, 3_980_000, 21, 3, true),
+            new BossFight(Boss, new DateTime(2026, 10, 16, 20, 5, 0), 192, 3_410_000, 24, 0, true),
+            new BossFight("a Praetorian Pius", new DateTime(2026, 10, 16, 20, 40, 0), 100, 2_000_000, 24, 0, true), // another boss
+            new BossFight("LORD INQUISITOR SERU", new DateTime(2026, 10, 9, 21, 2, 0), 72, 500_000, 20, 4, false),
+            new BossFight(Boss, new DateTime(2026, 10, 2, 20, 14, 0), 245, 3_620_000, 4, 2, true), // a small fight the filter hides
+        };
+
+        BossKillReport report = BossHistoryStore.KillReport(fights, Boss, minPlayers: 6);
+
+        Assert.Equal(new[] { 16, 9 }, report.Kills.Select(k => k.Start.Day)); // fastest first (3:12, then 5:30)
+        Assert.Single(report.Attempts);
+        Assert.Equal(192, report.FastestSeconds);
+        Assert.Equal(261, report.AverageSeconds);
+        Assert.Equal(3_410_000 / 192.0, report.BestDps, 3);
+
+        BossKillReport none = BossHistoryStore.KillReport(fights, "nobody", 1);
+        Assert.Empty(none.Kills);
+        Assert.Equal(0, none.BestDps);
+    }
+
+    [Fact]
+    public void Kills_are_sorted_from_the_fastest_clear_time_to_the_slowest_whatever_the_date()
+    {
+        var fights = new[]
+        {
+            new BossFight(Boss, new DateTime(2026, 10, 2, 20, 0, 0), 400, 4_000_000, 24, 0, true), // oldest, slowest
+            new BossFight(Boss, new DateTime(2026, 10, 9, 20, 0, 0), 200, 4_000_000, 24, 0, true), // fastest
+            new BossFight(Boss, new DateTime(2026, 10, 16, 20, 0, 0), 300, 4_000_000, 24, 0, true), // newest
+        };
+
+        BossKillReport report = BossHistoryStore.KillReport(fights, Boss, 1);
+
+        Assert.Equal(new[] { 200.0, 300.0, 400.0 }, report.Kills.Select(k => k.Seconds));
+    }
+
+    [Fact]
+    public void Fights_are_tagged_with_the_log_they_came_from_and_two_characters_logs_stay_apart()
+    {
+        var store = new BossHistoryStore();
+        DateTime start = new(2026, 10, 23, 20, 0, 0);
+
+        Assert.Equal(1, store.Record(new[] { Snap("a Praetorian Pius", start, 20, killed: true) }, "Pecos", "frostreaver"));
+        Assert.Equal(1, store.Record(new[] { Snap("a Praetorian Pius", start, 20, killed: true) }, "Oodles", "frostreaver"));
+        Assert.Equal(2, store.Fights().Count); // the same fight seen from two logs
+
+        Assert.Equal(0, store.Record(new[] { Snap("a Praetorian Pius", start, 20, killed: true) }, "Pecos", "frostreaver")); // read again: no change
+        Assert.Equal(2, store.Fights().Count);
+
+        Assert.Single(BossHistoryStore.ForLog(store.Fights(), "Pecos", "frostreaver"));
+        Assert.Single(BossHistoryStore.ForLog(store.Fights(), "oodles", "FROSTREAVER")); // capitals do not matter
+        Assert.Empty(BossHistoryStore.ForLog(store.Fights(), "Nobody", "frostreaver"));
+        Assert.Equal(2, BossHistoryStore.ForLog(store.Fights(), null, null).Count);
+    }
+
+    [Fact]
+    public void A_fight_saved_by_an_older_build_counts_for_every_log_until_that_log_is_read_again()
+    {
+        var store = new BossHistoryStore();
+        DateTime start = new(2026, 10, 23, 20, 0, 0);
+        store.Record(new[] { Snap("a Praetorian Pius", start, 20, killed: true) }); // no character: how older builds saved it
+
+        Assert.Single(BossHistoryStore.ForLog(store.Fights(), "Pecos", "frostreaver"));
+        Assert.Single(BossHistoryStore.ForLog(store.Fights(), "Oodles", "frostreaver"));
+
+        store.Record(new[] { Snap("a Praetorian Pius", start, 20, killed: true) }, "Pecos", "frostreaver");
+
+        BossFight only = Assert.Single(store.Fights()); // Pecos's log replaced the untagged copy
+        Assert.Equal("Pecos", only.Character);
+        Assert.Empty(BossHistoryStore.ForLog(store.Fights(), "Oodles", "frostreaver"));
+    }
+
+    [Fact]
+    public void The_character_and_server_tag_survives_saving_and_loading()
+    {
+        string path = Path.Combine(Path.GetTempPath(), "eqo-boss-" + Guid.NewGuid().ToString("N") + ".json");
+        try
+        {
+            var first = new BossHistoryStore();
+            first.SetStoragePath(path);
+            first.Record(new[] { Snap("a Praetorian Pius", new DateTime(2026, 10, 23, 20, 0, 0), 20, killed: true) }, "Pecos", "frostreaver");
+
+            var second = new BossHistoryStore();
+            second.SetStoragePath(path);
+            BossFight fight = Assert.Single(second.Fights());
+            Assert.Equal("Pecos", fight.Character);
+            Assert.Equal("frostreaver", fight.Server);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void The_mob_list_covers_every_log_but_the_figures_come_only_from_the_loaded_one()
+    {
+        var all = new[]
+        {
+            new BossFight("a Praetorian Pius", new DateTime(2026, 10, 23, 20, 0, 0), 200, 4_000_000, 24, 0, true, "Pecos", "frostreaver"),
+            new BossFight("Lord Inquisitor Seru", new DateTime(2026, 10, 24, 20, 0, 0), 300, 4_000_000, 24, 0, true, "Oodles", "frostreaver"),
+            new BossFight("a small thing", new DateTime(2026, 10, 24, 21, 0, 0), 30, 1_000, 2, 0, true, "Oodles", "frostreaver"), // below the size filter
+        };
+
+        IReadOnlyList<BossFight> loaded = BossHistoryStore.ForLog(all, "Pecos", "frostreaver");
+        IReadOnlyList<BossSummary> rows = BossHistoryStore.SummarizeMobs(all, loaded, 6);
+
+        Assert.Equal(new[] { "a Praetorian Pius", "Lord Inquisitor Seru" }, rows.Select(r => r.Boss));
+        Assert.Equal(1, rows[0].Kills);
+        Assert.Equal(0, rows[1].Kills); // fought only in another character's log
+        Assert.Equal(0, rows[1].Attempts);
+    }
+
+    [Fact]
+    public void Con_lines_with_a_level_give_the_mob_and_its_level()
+    {
+        Assert.True(EQOverwatch.Core.Parsing.ConLineParser.TryParse(
+            "A Praetorian Pius scowls at you, ready to attack -- looks like he would wipe the floor with you! (Lvl: 62)", out string mob, out int level));
+        Assert.Equal("a Praetorian Pius", mob);
+        Assert.Equal(62, level);
+
+        Assert.True(EQOverwatch.Core.Parsing.ConLineParser.TryParse(
+            "Lord Inquisitor Seru regards you indifferently -- what would you like your tombstone to say? (Lvl: 65)", out mob, out level));
+        Assert.Equal("Lord Inquisitor Seru", mob);
+        Assert.Equal(65, level);
+
+        Assert.False(EQOverwatch.Core.Parsing.ConLineParser.TryParse("You slash a frost giant for 100 points of damage.", out _, out _));
+        Assert.False(EQOverwatch.Core.Parsing.ConLineParser.TryParse("Pecos tells you, 'see you at 8 (Lvl: 62)'", out _, out _));
+    }
+
+    [Fact]
+    public void Mob_levels_keep_the_lowest_and_highest_seen_ignoring_capitals_and_survive_a_restart()
+    {
+        string path = Path.Combine(Path.GetTempPath(), "eqo-levels-" + Guid.NewGuid().ToString("N") + ".json");
+        try
+        {
+            var store = new MobLevelStore();
+            store.SetStoragePath(path);
+            Assert.True(store.Observe("a Praetorian Pius", 62));
+            Assert.True(store.Observe("A PRAETORIAN PIUS", 60));
+            Assert.True(store.Observe("a praetorian pius", 64));
+            Assert.False(store.Observe("a Praetorian Pius", 63)); // inside the range already
+
+            MobLevels range = store.Find("a Praetorian Pius")!;
+            Assert.Equal(60, range.Lowest);
+            Assert.Equal(64, range.Highest);
+            Assert.Null(store.Find("nobody"));
+
+            var again = new MobLevelStore();
+            again.SetStoragePath(path);
+            MobLevels loaded = again.Find("A PRAETORIAN PIUS")!;
+            Assert.Equal(60, loaded.Lowest);
+            Assert.Equal(64, loaded.Highest);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void The_tracker_reports_the_level_on_a_con_line_it_reads()
+    {
+        var tracker = new LiveDpsTracker();
+        var seen = new List<(string Mob, int Level)>();
+        tracker.MobLevelSeen = (mob, level) => seen.Add((mob, level));
+
+        tracker.OnNonCombatMessage("A Praetorian Pius scowls at you, ready to attack -- looks like he would wipe the floor with you! (Lvl: 62)");
+        tracker.OnNonCombatMessage("You say, 'hello (Lvl: 3)'");
+
+        Assert.Equal(("a Praetorian Pius", 62), Assert.Single(seen));
+    }
+
+    [Fact]
     public void Best_dps_falls_back_to_the_best_attempt_when_there_is_no_kill()
     {
         var fights = new[] { new BossFight(Boss, new DateTime(2026, 10, 22, 19, 0, 0), 100, 250_000, 30, 1, false) };

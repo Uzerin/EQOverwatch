@@ -167,6 +167,26 @@ public class CriticalHitTests
     }
 
     [Fact]
+    public void Max_hit_in_the_parse_leaves_out_critical_hits()
+    {
+        var tracker = new LiveDpsTracker();
+        tracker.OnCombatEvent(Crit("Stackprime", 900, "11:45:01"));
+        tracker.OnCombatEvent(Hit("Stackprime", Giant, 900, "11:45:01"));
+        tracker.OnCombatEvent(Hit("Stackprime", Giant, 100, "11:45:02"));
+        tracker.OnCombatEvent(Hit("Stackprime", Giant, 150, "11:45:03"));
+
+        ParticipantSnapshot p = Only(tracker);
+        Assert.Equal(900, p.MaxHit); // the biggest hit of any kind
+        Assert.Equal(900, p.MaxCritHit);
+        Assert.Equal(150, p.MaxHitNoCrit); // what the parse shows as Max Hit
+
+        var onlyCrits = new LiveDpsTracker();
+        onlyCrits.OnCombatEvent(Crit("Stackprime", 700, "11:45:01"));
+        onlyCrits.OnCombatEvent(Hit("Stackprime", Giant, 700, "11:45:01"));
+        Assert.Equal(0, Only(onlyCrits).MaxHitNoCrit);
+    }
+
+    [Fact]
     public void Damage_on_the_same_second_is_a_crit_and_the_announcement_is_consumed_once()
     {
         var tracker = new LiveDpsTracker();

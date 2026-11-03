@@ -136,7 +136,7 @@ public sealed partial class ParticipantRowViewModel : ObservableObject
         DamagePercent = participant.PercentOfGroupDamage;
         ScaledDps = participant.ScaledDps;
         Dps = participant.Dps;
-        MaxHit = participant.MaxHit;
+        MaxHit = participant.MaxHitNoCrit; // the parse's "Max hit" leaves out critical hits; Max crit has its own column
         Hits = participant.Hits;
         Misses = participant.Misses;
         HitRatePercent = participant.HitRate * 100.0;

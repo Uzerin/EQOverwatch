@@ -1116,7 +1116,7 @@ public partial class MainViewModelTests
         ParticipantRowViewModel row = Assert.Single(h.Vm.Participants);
         Assert.Equal(900, row.MaxCritHit);
         Assert.Equal(25.0, row.CritRatePercent, 3); // 1 crit in 4 hits
-        Assert.Equal(900, row.MaxHit);
+        Assert.Equal(100, row.MaxHit); // Max hit leaves out the 900 crit
     }
 
     // ───────────────────────────── phase 6: spell categories & the raid boss builder ─────────────────────────────

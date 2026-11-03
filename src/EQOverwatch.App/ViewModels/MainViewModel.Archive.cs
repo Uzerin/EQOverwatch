@@ -7,12 +7,21 @@ using EQOverwatch.App.Services;
 using EQOverwatch.Core.Backup;
 using EQOverwatch.Core.History;
 using EQOverwatch.Core.Models;
+using EQOverwatch.Core.Parsing;
 using EQOverwatch.Core.Settings;
 
 namespace EQOverwatch.App.ViewModels;
 
-/// <summary>One boss on the Boss History tab.</summary>
-public sealed record BossHistoryRow(string Boss, int Kills, int Attempts, string Fastest, string Average, string BestDps, int Players, string LastFought);
+/// <summary>One kill in the list beside the mob table. <see cref="IsFastest"/> and <see cref="IsBestDps"/> mark the standouts.</summary>
+public sealed record BossKillRow(
+    int Number, string Started, string ClearTime, string Dps, int Players, int Deaths, string Damage, bool IsFastest, bool IsBestDps);
+
+/// <summary>
+/// One mob on the Mob History tab. The mob and its level range are the same whichever log is loaded; the rest of the row is the loaded
+/// (Primary DPS) character's own record against it.
+/// </summary>
+public sealed record BossHistoryRow(
+    string Boss, string HighestLevel, string LowestLevel, int Kills, int Attempts, string Fastest, string Average, string BestDps, int Players, string LastFought);
 
 // Boss kill history, backup and restore, and saved overlay layouts.
 public sealed partial class MainViewModel
@@ -20,6 +29,9 @@ public sealed partial class MainViewModel
     private static readonly TimeSpan BossHistoryEvery = TimeSpan.FromSeconds(5);
 
     private readonly BossHistoryStore _bossHistory;
+    private readonly MobLevelStore _mobLevels;
+    private string? _historicalCharacter;
+    private string? _historicalServer;
     private string? _dataDirectory;
     private long _bossLiveVersion = -1;
     private long _bossHistoricalVersion = -1;
@@ -30,6 +42,7 @@ public sealed partial class MainViewModel
     private void InitializeArchive()
     {
         _bossHistory.Changed += () => _bossHistoryDirty = true;
+        _mobLevels.Changed += () => _bossHistoryDirty = true;
         RebuildProfileNames();
     }
 
@@ -42,11 +55,19 @@ public sealed partial class MainViewModel
             _lastBossHistoryCheck = now;
             DpsSnapshot live = _pipeline.LiveDps.Snapshot;
             DpsSnapshot imported = _pipeline.HistoricalDps.Snapshot;
-            if (live.Version != _bossLiveVersion || imported.Version != _bossHistoricalVersion)
+            if (live.Version != _bossLiveVersion)
             {
+                // Live and caught-up fights come from the Primary DPS character's log; each fight is filed under that character and server
+                // (kept in the background, never shown).
                 _bossLiveVersion = live.Version;
+                WatchedLogConfig? primary = Logs.PrimaryDpsLog;
+                _bossHistory.Record(live.Completed, primary?.CharacterName, primary?.ServerName);
+            }
+
+            if (imported.Version != _bossHistoricalVersion)
+            {
                 _bossHistoricalVersion = imported.Version;
-                _bossHistory.Record(live.Completed.Concat(imported.Completed));
+                _bossHistory.Record(imported.Completed, _historicalCharacter, _historicalServer);
             }
         }
 
@@ -57,7 +78,29 @@ public sealed partial class MainViewModel
         }
     }
 
-    // ───────────────────────── boss history ─────────────────────────
+    // ───────────────────────── mob history ─────────────────────────
+
+    /// <summary>Remembers whose log a manual import reads, so the fights it produces are filed under that character and server.</summary>
+    private void NoteHistoricalSource(string path)
+    {
+        if (LogFileName.TryParse(path, out string character, out string server))
+        {
+            _historicalCharacter = character;
+            _historicalServer = server;
+        }
+        else
+        {
+            _historicalCharacter = Path.GetFileNameWithoutExtension(path);
+            _historicalServer = null;
+        }
+    }
+
+    /// <summary>The fights of the loaded log: the Primary DPS character's own, or every fight when no character is chosen.</summary>
+    private IReadOnlyList<BossFight> LoadedLogFights()
+    {
+        WatchedLogConfig? primary = Logs.PrimaryDpsLog;
+        return BossHistoryStore.ForLog(_bossHistory.Fights(), primary?.CharacterName, primary?.ServerName);
+    }
 
     public IReadOnlyList<string> BossHistorySizes { get; } = new[] { "Any size", "6+ players", "12+ players", "24+ players" };
 
@@ -73,6 +116,35 @@ public sealed partial class MainViewModel
     [ObservableProperty]
     private string _bossHistoryStatus = "No finished fights recorded yet.";
 
+    /// <summary>The mob whose kills are listed beside the table; kept when the table is rebuilt.</summary>
+    [ObservableProperty]
+    private BossHistoryRow? _selectedBossHistoryRow;
+
+    [ObservableProperty]
+    private IReadOnlyList<BossKillRow> _bossKillRows = Array.Empty<BossKillRow>();
+
+    [ObservableProperty]
+    private string _bossKillsTitle = "Select a mob to see its kills";
+
+    [ObservableProperty]
+    private string _bossKillsHint = string.Empty;
+
+    [ObservableProperty]
+    private string _bossAttemptsLine = string.Empty;
+
+    private string? _selectedBossName;
+    private BossKillReport? _bossKillReport;
+
+    partial void OnSelectedBossHistoryRowChanged(BossHistoryRow? value)
+    {
+        if (value is not null)
+        {
+            _selectedBossName = value.Boss;
+        }
+
+        RebuildBossKills();
+    }
+
     partial void OnBossHistorySizeIndexChanged(int value) => RebuildBossHistory();
 
     partial void OnBossHistoryFilterChanged(string value) => RebuildBossHistory();
@@ -82,23 +154,148 @@ public sealed partial class MainViewModel
     private void RebuildBossHistory()
     {
         IReadOnlyList<BossFight> fights = _bossHistory.Fights();
+        IReadOnlyList<BossFight> loaded = LoadedLogFights();
         string filter = BossHistoryFilter?.Trim() ?? string.Empty;
-        BossHistoryRow[] rows = BossHistoryStore.Summarize(fights, BossHistoryMinPlayers)
+        BossHistoryRow[] rows = BossHistoryStore.SummarizeMobs(fights, loaded, BossHistoryMinPlayers)
             .Where(s => filter.Length == 0 || s.Boss.Contains(filter, StringComparison.OrdinalIgnoreCase))
-            .Select(s => new BossHistoryRow(
-                s.Boss, s.Kills, s.Attempts,
-                BossHistoryStore.FormatDuration(s.FastestSeconds),
-                BossHistoryStore.FormatDuration(s.AverageSeconds),
-                s.BestDps > 0 ? s.BestDps.ToString("N0", CultureInfo.CurrentCulture) : "—",
-                s.MostPlayers,
-                s.LastFought.ToString("MMM d", CultureInfo.CurrentCulture)))
+            .Select(s =>
+            {
+                MobLevels? levels = _mobLevels.Find(s.Boss);
+                return new BossHistoryRow(
+                    s.Boss,
+                    levels is null ? "—" : levels.Highest.ToString(CultureInfo.CurrentCulture),
+                    levels is null ? "—" : levels.Lowest.ToString(CultureInfo.CurrentCulture),
+                    s.Kills, s.Attempts,
+                    BossHistoryStore.FormatDuration(s.FastestSeconds),
+                    BossHistoryStore.FormatDuration(s.AverageSeconds),
+                    s.BestDps > 0 ? s.BestDps.ToString("N0", CultureInfo.CurrentCulture) : "—",
+                    s.MostPlayers,
+                    s.LastFought == default ? "—" : s.LastFought.ToString("MMM d", CultureInfo.CurrentCulture));
+            })
             .ToArray();
         BossHistoryRows = rows;
+        SelectedBossHistoryRow = _selectedBossName is null
+            ? null
+            : rows.FirstOrDefault(r => r.Boss.Equals(_selectedBossName, StringComparison.OrdinalIgnoreCase));
+        RebuildBossKills();
 
+        WatchedLogConfig? primaryLog = Logs.PrimaryDpsLog;
         BossHistoryStatus = fights.Count == 0
             ? "No finished fights recorded yet. Fights are added as they finish, and from the history you load in Settings."
-            : $"{rows.Length:N0} boss{(rows.Length == 1 ? string.Empty : "es")} from {fights.Count:N0} recorded fight{(fights.Count == 1 ? string.Empty : "s")}. " +
-              "An attempt is a fight that ended without the boss dying.";
+            : $"{rows.Length:N0} mob{(rows.Length == 1 ? string.Empty : "s")} from {fights.Count:N0} recorded fight{(fights.Count == 1 ? string.Empty : "s")}. " +
+              "The mobs and their levels cover every log; the kills, times and DPS are " +
+              (primaryLog is null ? "from every log." : $"{primaryLog.CharacterName}'s (the Primary DPS character). ") +
+              "An attempt is a fight that ended without the mob dying.";
+    }
+
+    /// <summary>Lists every kill of the selected mob from the loaded log, fastest first, and sums up the attempts that did not end in one.</summary>
+    private void RebuildBossKills()
+    {
+        BossHistoryRow? selected = SelectedBossHistoryRow;
+        if (selected is null)
+        {
+            _bossKillReport = null;
+            BossKillRows = Array.Empty<BossKillRow>();
+            BossKillsTitle = "Select a mob to see its kills";
+            BossKillsHint = string.Empty;
+            BossAttemptsLine = string.Empty;
+            return;
+        }
+
+        BossKillReport report = BossHistoryStore.KillReport(LoadedLogFights(), selected.Boss, BossHistoryMinPlayers);
+        _bossKillReport = report;
+
+        double fastest = report.FastestSeconds;
+        double bestDps = report.BestDps;
+        bool several = report.Kills.Count > 1;
+        BossKillRows = report.Kills
+            .Select((k, i) => new BossKillRow(
+                i + 1,
+                k.Start.ToString("MMM d, h:mm tt", CultureInfo.CurrentCulture),
+                BossHistoryStore.FormatDuration(k.Seconds),
+                Math.Round(k.Dps).ToString("N0", CultureInfo.CurrentCulture),
+                k.Players,
+                k.Deaths,
+                k.Damage.ToString("N0", CultureInfo.CurrentCulture),
+                several && Math.Abs(k.Seconds - fastest) < 0.001,
+                several && Math.Abs(k.Dps - bestDps) < 0.001))
+            .ToArray();
+
+        BossKillsTitle = $"Kills of {report.Boss}";
+        BossKillsHint = report.Kills.Count == 0
+            ? "No kills recorded yet."
+            : "Only kills Overwatch has saved are listed; read older logs with Read a log file… to add earlier kills.";
+        BossAttemptsLine = AttemptsLine(report.Attempts);
+    }
+
+    /// <summary>"2 attempts without a kill: Oct 9, 9:02 PM (1:12) and Oct 2, 8:05 PM (0:48)"; empty when there were none.</summary>
+    public static string AttemptsLine(IReadOnlyList<BossFight> attempts)
+    {
+        const int Shown = 5;
+        if (attempts.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        string[] items = attempts
+            .Take(Shown)
+            .Select(a => $"{a.Start.ToString("MMM d, h:mm tt", CultureInfo.CurrentCulture)} ({BossHistoryStore.FormatDuration(a.Seconds)})")
+            .ToArray();
+        string list = attempts.Count > Shown
+            ? string.Join(", ", items) + $", and {attempts.Count - Shown} more"
+            : items.Length == 1 ? items[0] : string.Join(", ", items[..^1]) + " and " + items[^1];
+        return $"{attempts.Count} attempt{(attempts.Count == 1 ? string.Empty : "s")} without a kill: {list}";
+    }
+
+    [RelayCommand]
+    private void CopyBossKills()
+    {
+        BossKillReport? report = _bossKillReport;
+        if (report is null || report.Kills.Count == 0)
+        {
+            StatusMessage = "Select a mob with kills first.";
+            return;
+        }
+
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
+            $"{report.Boss}: {report.Kills.Count} kill{(report.Kills.Count == 1 ? string.Empty : "s")}, fastest {BossHistoryStore.FormatDuration(report.FastestSeconds)}, average {BossHistoryStore.FormatDuration(report.AverageSeconds)}, best DPS {Math.Round(report.BestDps):N0}"));
+        foreach (BossFight kill in report.Kills)
+        {
+            sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
+                $"{kill.Start:MMM d, h:mm tt}  {BossHistoryStore.FormatDuration(kill.Seconds)}  {Math.Round(kill.Dps):N0} DPS  {kill.Players} players  {kill.Deaths} deaths"));
+        }
+
+        try
+        {
+            _clipboard.SetText(sb.ToString().TrimEnd());
+            StatusMessage = $"Copied the {report.Kills.Count} kill{(report.Kills.Count == 1 ? string.Empty : "s")} of {report.Boss}.";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = "Could not copy the kills: " + ex.Message;
+        }
+    }
+
+    [RelayCommand]
+    private void CopyBossKillsImage()
+    {
+        BossKillReport? report = _bossKillReport;
+        if (report is null || report.Kills.Count == 0)
+        {
+            StatusMessage = "Select a mob with kills first.";
+            return;
+        }
+
+        try
+        {
+            _clipboard.SetBossKillsImage(report, ActivePalette, WindowTitle);
+            StatusMessage = $"Copied a picture of all {report.Kills.Count} kill{(report.Kills.Count == 1 ? string.Empty : "s")} of {report.Boss}. Paste it into Discord.";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"The picture could not be copied: {ex.Message}";
+        }
     }
 
     [RelayCommand]
@@ -111,7 +308,7 @@ public sealed partial class MainViewModel
     // ───────────────────────── backup and restore ─────────────────────────
 
     [ObservableProperty]
-    private string _backupStatus = "Saves your settings, triggers, loot, attendance, characters and boss history in one file.";
+    private string _backupStatus = "Saves your settings, triggers, loot, attendance, characters and mob history in one file.";
 
     [RelayCommand]
     private void ExportBackup()
@@ -158,7 +355,7 @@ public sealed partial class MainViewModel
 
         if (!_dialogs.Confirm(
                 "Restore backup",
-                "This replaces your settings, triggers, loot, attendance, characters and boss history with the ones in the backup. " +
+                "This replaces your settings, triggers, loot, attendance, characters and mob history with the ones in the backup. " +
                 "It takes effect the next time EQ Overwatch starts. Continue?"))
         {
             return;

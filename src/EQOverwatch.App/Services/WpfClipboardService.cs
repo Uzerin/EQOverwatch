@@ -40,6 +40,12 @@ public sealed class WpfClipboardService : IClipboardService
         Retry(() => Clipboard.SetImage(image));
     }
 
+    public void SetBossKillsImage(EQOverwatch.Core.History.BossKillReport report, ThemePalette palette, string footer)
+    {
+        var image = BossKillsImageRenderer.Render(report, palette, footer);
+        Retry(() => Clipboard.SetImage(image));
+    }
+
     private static void Retry(Action write)
     {
         for (int attempt = 1; ; attempt++)

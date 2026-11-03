@@ -19,10 +19,14 @@ public sealed record ParticipantSnapshot(
     int CritHitCount = 0,
     double CritRatePercent = 0.0,
     string Class = "",
-    int Deaths = 0)
+    int Deaths = 0,
+    int MaxNonCritHit = -1)
 {
     /// <summary>The name, followed by " (Deaths: 2)" when the player died during the fight.</summary>
     public string DisplayName => Deaths > 0 ? $"{Name} (Deaths: {Deaths})" : Name;
+
+    /// <summary>The largest hit that was not a critical hit: the figure shown as "Max Hit". Falls back to <see cref="MaxHit"/> when it was not recorded.</summary>
+    public int MaxHitNoCrit => MaxNonCritHit >= 0 ? MaxNonCritHit : MaxHit;
 }
 
 /// <summary>Damage one player or pet took from the fight's target.</summary>
@@ -115,7 +119,7 @@ public sealed record EncounterSnapshot(
         ParticipantSnapshot[] participants = encounter.ParticipantStats
             .Select(p => new ParticipantSnapshot(
                 p.Name, p.TotalDamage, p.PercentOfGroupDamage, p.Dps, p.ScaledDps, p.MaxHit, p.Hits, p.Misses, p.HitRate,
-                p.MaxCritHit, p.CritHitCount, p.CritRatePercent, Deaths: encounter.DeathsOf(p.Name)))
+                p.MaxCritHit, p.CritHitCount, p.CritRatePercent, Deaths: encounter.DeathsOf(p.Name), MaxNonCritHit: p.MaxNonCritHit))
             .OrderByDescending(p => p.TotalDamage)
             .ThenBy(p => p.Name, StringComparer.Ordinal)
             .ToArray();

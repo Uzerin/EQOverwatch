@@ -51,7 +51,7 @@ public static class EncounterExport
                 p.Name,
                 p.TotalDamage.ToString("N0", CultureInfo.InvariantCulture),
                 Math.Round(p.ScaledDps).ToString("N0", CultureInfo.InvariantCulture),
-                p.MaxHit.ToString("N0", CultureInfo.InvariantCulture),
+                p.MaxHitNoCrit.ToString("N0", CultureInfo.InvariantCulture),
                 hasCrits ? p.MaxCritHit.ToString("N0", CultureInfo.InvariantCulture) : "-",
                 hasCrits ? p.CritRatePercent.ToString("0.0", CultureInfo.InvariantCulture) + "%" : "-",
                 best > 0 ? (double)p.TotalDamage / best : 0.0,

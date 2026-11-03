@@ -74,9 +74,11 @@ public sealed partial class MainViewModel : ObservableObject
         RaidRosterStore? raidRoster = null,
         string? remoteDataDirectory = null,
         BossHistoryStore? bossHistory = null,
-        string? dataDirectory = null)
+        string? dataDirectory = null,
+        MobLevelStore? mobLevels = null)
     {
         _bossHistory = bossHistory ?? new BossHistoryStore();
+        _mobLevels = mobLevels ?? new MobLevelStore();
         _dataDirectory = dataDirectory;
         _remoteDirectory = remoteDataDirectory;
         _raidRoster = raidRoster ?? new RaidRosterStore();
@@ -92,6 +94,8 @@ public sealed partial class MainViewModel : ObservableObject
         _themeService = themeService ?? throw new ArgumentNullException(nameof(themeService));
         _clipboard = clipboard ?? throw new ArgumentNullException(nameof(clipboard));
         _clock = clock ?? (() => DateTime.Now); // log timestamps are in the PC's local time
+        _pipeline.LiveDps.MobLevelSeen = (mob, level) => _mobLevels.Observe(mob, level); // /consider lines feed the shared level ranges
+        _pipeline.HistoricalDps.MobLevelSeen = (mob, level) => _mobLevels.Observe(mob, level);
         ArgumentNullException.ThrowIfNull(settings);
 
         PendingSharedTriggers.CollectionChanged += (_, _) => OnPendingSharedChanged();
@@ -549,6 +553,7 @@ public sealed partial class MainViewModel : ObservableObject
     {
         using var cts = new CancellationTokenSource();
         _importCts = cts;
+        NoteHistoricalSource(path); // the fights this import produces are filed under this log's character
         IsImporting = true;
         ImportProgress = 0;
         ImportStatus = startStatus;
@@ -1454,6 +1459,7 @@ public sealed partial class MainViewModel : ObservableObject
             // The list only shows fights the Primary DPS character saw: drop the previous character's fights, then load the new one's.
             _pipeline.LiveDps.Reset();
             _pipeline.HistoricalDps.Reset();
+            _bossHistoryDirty = true; // Mob History shows the new Primary DPS character's figures
             QueueAutoImport(); // a newly chosen Primary DPS character gets its recent history loaded
         }
 

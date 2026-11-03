@@ -1535,8 +1535,8 @@
                 </Grid>
             </TabItem>
 
-            <!-- ═════════ Boss History ═════════ -->
-            <TabItem Header="Boss History">
+            <!-- ═════════ Mob History ═════════ -->
+            <TabItem Header="Mob History">
                 <Grid Margin="6">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -1547,26 +1547,116 @@
                         <TextBlock Style="{StaticResource FieldLabel}" Text="Fights with"/>
                         <ComboBox Width="130" Margin="0,0,14,6" ItemsSource="{Binding BossHistorySizes}" SelectedIndex="{Binding BossHistorySizeIndex}"
                                   ToolTip="Hides small fights, such as trash and solo kills."/>
-                        <TextBlock Style="{StaticResource FieldLabel}" Text="Boss"/>
+                        <TextBlock Style="{StaticResource FieldLabel}" Text="Mob"/>
                         <TextBox Width="200" Margin="0,0,14,6" VerticalAlignment="Center"
                                  Text="{Binding BossHistoryFilter, UpdateSourceTrigger=PropertyChanged}"/>
                         <Button Content="Clear history" Margin="0,0,8,6" Style="{StaticResource SecondaryButton}" Command="{Binding ClearBossHistoryCommand}"
                                 ToolTip="Forgets the saved fights. They come back from your logs the next time history is loaded."/>
                     </WrapPanel>
                     <TextBlock Grid.Row="1" Style="{StaticResource HintText}" Margin="0,0,0,8" TextWrapping="Wrap" Text="{Binding BossHistoryStatus}"/>
-                    <DataGrid Grid.Row="2" ItemsSource="{Binding BossHistoryRows}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
-                              HeadersVisibility="Column" GridLinesVisibility="Horizontal">
-                        <DataGrid.Columns>
-                            <DataGridTextColumn Header="Boss" Binding="{Binding Boss, Mode=OneWay}" Width="Auto"/>
-                            <DataGridTextColumn Header="Kills" Binding="{Binding Kills, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
-                            <DataGridTextColumn Header="Attempts" Binding="{Binding Attempts, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
-                            <DataGridTextColumn Header="Fastest kill" Binding="{Binding Fastest, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
-                            <DataGridTextColumn Header="Average kill" Binding="{Binding Average, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
-                            <DataGridTextColumn Header="Best DPS" Binding="{Binding BestDps, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
-                            <DataGridTextColumn Header="Most players" Binding="{Binding Players, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
-                            <DataGridTextColumn Header="Last fought" Binding="{Binding LastFought, Mode=OneWay}" Width="Auto"/>
-                        </DataGrid.Columns>
-                    </DataGrid>
+                    <Grid Grid.Row="2">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" MinWidth="320"/>
+                            <ColumnDefinition Width="14"/>
+                            <ColumnDefinition Width="*" MinWidth="320"/>
+                        </Grid.ColumnDefinitions>
+
+                        <DataGrid Grid.Column="0" ItemsSource="{Binding BossHistoryRows}" SelectedItem="{Binding SelectedBossHistoryRow, Mode=TwoWay}"
+                                  AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" SelectionMode="Single"
+                                  HeadersVisibility="Column" GridLinesVisibility="Horizontal" HorizontalScrollBarVisibility="Auto">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Mob" Binding="{Binding Boss, Mode=OneWay}" Width="*" MinWidth="140"/>
+                                <DataGridTextColumn Header="Highest Level" Binding="{Binding HighestLevel, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                <DataGridTextColumn Header="Lowest Level" Binding="{Binding LowestLevel, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                <DataGridTextColumn Header="Kills" Binding="{Binding Kills, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                <DataGridTextColumn Header="Attempts" Binding="{Binding Attempts, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                <DataGridTextColumn Header="Fastest kill" Binding="{Binding Fastest, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                <DataGridTextColumn Header="Average kill" Binding="{Binding Average, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                <DataGridTextColumn Header="Best DPS" Binding="{Binding BestDps, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                <DataGridTextColumn Header="Most players" Binding="{Binding Players, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                <DataGridTextColumn Header="Last fought" Binding="{Binding LastFought, Mode=OneWay}" Width="Auto"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                        <!-- the kills of the selected boss -->
+                        <Grid Grid.Column="2">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <DockPanel Grid.Row="0" Margin="0,0,0,8" LastChildFill="False">
+                                <Button DockPanel.Dock="Right" Content="Copy Image for Discord" Command="{Binding CopyBossKillsImageCommand}"
+                                        ToolTip="Copies a picture of every kill of this boss. Paste it into Discord."/>
+                                <Button DockPanel.Dock="Right" Content="Copy list" Command="{Binding CopyBossKillsCommand}" Style="{StaticResource SecondaryButton}"
+                                        Margin="0,0,8,0"/>
+                                <TextBlock DockPanel.Dock="Left" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                           Text="{Binding BossKillsTitle}"/>
+                            </DockPanel>
+                            <DataGrid Grid.Row="1" ItemsSource="{Binding BossKillRows}"
+                                      AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
+                                      HeadersVisibility="Column" GridLinesVisibility="Horizontal" HorizontalScrollBarVisibility="Auto">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="#" Binding="{Binding Number, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                    <DataGridTextColumn Header="Started" Binding="{Binding Started, Mode=OneWay}" Width="Auto"/>
+                                    <DataGridTemplateColumn Header="Clear time" Width="Auto">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding ClearTime}" HorizontalAlignment="Right" Margin="6,0">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsFastest}" Value="True">
+                                                                    <Setter Property="Foreground" Value="#7EE0A1"/>
+                                                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTemplateColumn Header="DPS" Width="Auto">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding Dps}" HorizontalAlignment="Right" Margin="6,0">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsBestDps}" Value="True">
+                                                                    <Setter Property="Foreground" Value="#F5C46B"/>
+                                                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTextColumn Header="Players" Binding="{Binding Players, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                    <DataGridTextColumn Header="Deaths" Binding="{Binding Deaths, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                    <DataGridTextColumn Header="Damage" Binding="{Binding Damage, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                            <StackPanel Grid.Row="2" Margin="0,8,0,0">
+                                <TextBlock Margin="0,0,0,6" TextWrapping="Wrap" FontWeight="SemiBold" Text="{Binding BossAttemptsLine}">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding BossAttemptsLine}" Value="">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                                <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" Text="{Binding BossKillsHint}"/>
+                            </StackPanel>
+                        </Grid>
+                    </Grid>
                 </Grid>
             </TabItem>
 
@@ -1655,7 +1745,7 @@
                             <StackPanel Margin="4">
                                 <WrapPanel Margin="0,0,0,8">
                                     <Button Content="Back up…" Margin="0,0,8,0" Command="{Binding ExportBackupCommand}"
-                                            ToolTip="Saves your settings, triggers, loot, attendance, characters and boss history in one zip file."/>
+                                            ToolTip="Saves your settings, triggers, loot, attendance, characters and mob history in one zip file."/>
                                     <Button Content="Restore…" Style="{StaticResource SecondaryButton}" Command="{Binding RestoreBackupCommand}"
                                             ToolTip="Replaces your data with a backup. It takes effect the next time the app starts."/>
                                 </WrapPanel>

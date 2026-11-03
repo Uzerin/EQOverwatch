@@ -62,6 +62,19 @@ check off, or run it by hand, under **Settings > Updates**.
 
 ## Changelog
 
+### 1.0.36
+
+- **Max Hit is the biggest non-crit hit.** On the DPS parse, in the Discord picture and in the exports, Max Hit leaves out critical hits. Max Crit still shows the biggest crit.
+- **The Discord picture of a fight has two halves.** The DPS table is on the left. Tanking, Healing and Deaths are stacked on the right, and every character is still listed. Deaths show who died, when in the fight, and who killed them, or "No deaths".
+- **Boss History is now Mob History.** The tab and its "Boss" column are renamed, and the two tables share the width evenly.
+- **Highest Level and Lowest Level.** Two columns next to each mob show the highest and lowest level your `/consider` lines have shown for it, such as `(Lvl: 62)`. The mob names and levels are remembered across every log. A mob you have never considered shows a dash.
+- **Mob History follows the Primary DPS character.** Kills, attempts, times and DPS come from that character's log, so reading every character's log builds each one's own record. Each saved fight keeps its character and server in the background; the tab never shows them. Fights saved by older versions count for every character until that log is read again.
+- **The kills list is fastest first.** The list beside the table, Copy list and the Discord picture of every kill run from the fastest clear time to the slowest.
+
+### 1.0.35
+
+- **Boss History shows each boss's kills.** Click a boss and its kills appear beside the table, newest first, with the start time, clear time, DPS, players, deaths and damage of each. The fastest kill and the best DPS are highlighted. A line under the list sums up the attempts that did not end in a kill. Copy list puts the kills on the clipboard as text, and Copy Image for Discord makes a picture of every kill of that boss.
+
 ### 1.0.34
 
 - **Deleted output files are forgotten.** When EQ Overwatch starts it now drops the saved inventory, spellbook and missing spells whose `/outputfile` file is no longer in your EverQuest folder, so deleted files stop showing up in Items & Scrolls. A character with nothing left disappears, and a server's shared bank goes when no inventory for that server remains. Nothing is dropped when the EverQuest folder is not set or cannot be read, and characters sent from another PC are not touched.

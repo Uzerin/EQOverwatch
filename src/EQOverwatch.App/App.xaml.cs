@@ -75,6 +75,8 @@ public partial class CompanionApp : Application
         _pipeline.Loot.SetStoragePath(Path.Combine(appData, "loot.json"));
         var bossHistory = new EQOverwatch.Core.History.BossHistoryStore();
         bossHistory.SetStoragePath(Path.Combine(appData, "bosshistory.json"));
+        var mobLevels = new EQOverwatch.Core.History.MobLevelStore();
+        mobLevels.SetStoragePath(Path.Combine(appData, "moblevels.json"));
         _http = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
         _viewModel = new MainViewModel(
             _pipeline, _settingsService, settings, new OverlayHost(windows), _audio, new WpfDialogService(), themeManager, new WpfClipboardService(),
@@ -86,6 +88,7 @@ public partial class CompanionApp : Application
             raidRoster: new RaidRosterStore(Path.Combine(appData, "attendance")),
             remoteDataDirectory: Path.Combine(appData, "remote"),
             bossHistory: bossHistory,
+            mobLevels: mobLevels,
             dataDirectory: appData);
 
         if (dpsVm is not null)

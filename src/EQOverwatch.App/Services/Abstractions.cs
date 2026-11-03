@@ -102,6 +102,11 @@ public interface IClipboardService
     /// bottom edge, and puts the picture on the clipboard.
     /// </summary>
     void SetEncounterImage(EncounterSnapshot encounter, ThemePalette palette, string footer, int topCount);
+
+    /// <summary>Puts a picture of every kill of a boss on the clipboard, in the active theme with <paramref name="footer"/> along the bottom.</summary>
+    void SetBossKillsImage(EQOverwatch.Core.History.BossKillReport report, ThemePalette palette, string footer)
+    {
+    }
 }
 
 /// <summary>The overlay windows as seen by the main view model.</summary>

@@ -313,10 +313,20 @@ public partial class DpsTrackerService : IDpsEventSink
         }
     }
 
+    /// <summary>Called with the mob's name and level for every /consider line that shows one, while a log is tailed, imported or caught up.</summary>
+    public Action<string, int>? MobLevelSeen { get; set; }
+
     /// <summary>Lets the roster learn from /who and /pet leader lines, including while a log is imported or caught up.</summary>
     public void OnNonCombatMessage(ReadOnlySpan<char> message)
     {
         _roster?.Observe(message);
+
+        // /consider lines that show a level ("... (Lvl: 62)") feed the shared mob level ranges.
+        Action<string, int>? levelSeen = MobLevelSeen;
+        if (levelSeen is not null && EQOverwatch.Core.Parsing.ConLineParser.TryParse(message, out string conMob, out int conLevel))
+        {
+            levelSeen(conMob, conLevel);
+        }
 
         // Boss casts and heals are not combat events, so they arrive here with the log clock set by the line's own timestamp.
         if (message.StartsWith("You begin casting ", StringComparison.Ordinal) && message.EndsWith(".", StringComparison.Ordinal))
