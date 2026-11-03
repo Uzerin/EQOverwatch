@@ -1695,7 +1695,7 @@
                                       CanUserAddRows="False" IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal"
                                       HorizontalScrollBarVisibility="Auto">
                                 <DataGrid.Columns>
-                                    <DataGridTextColumn Header="Player" Binding="{Binding Name}" Width="*" MinWidth="120"/>
+                                    <DataGridTextColumn Header="Player" Binding="{Binding Name}" Width="Auto"/>
                                     <DataGridTextColumn Header="Level" Binding="{Binding LevelText, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                                     <DataGridTextColumn Header="Class" Binding="{Binding Class}" Width="Auto"/>
                                     <DataGridTextColumn Header="Pets" Binding="{Binding Pets}" Width="Auto"/>
@@ -1717,8 +1717,8 @@
                                       CanUserAddRows="False" IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal"
                                       HorizontalScrollBarVisibility="Auto">
                                 <DataGrid.Columns>
-                                    <DataGridTextColumn Header="Pet" Binding="{Binding Pet}" Width="*" MinWidth="120"/>
-                                    <DataGridTextColumn Header="Owner" Binding="{Binding Owner}" Width="*" MinWidth="120"/>
+                                    <DataGridTextColumn Header="Pet" Binding="{Binding Pet}" Width="Auto"/>
+                                    <DataGridTextColumn Header="Owner" Binding="{Binding Owner}" Width="Auto"/>
                                     <DataGridTemplateColumn Width="Auto">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>

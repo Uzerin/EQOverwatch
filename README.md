@@ -65,6 +65,7 @@ check off, or run it by hand, under **Settings > Updates**.
 ### 1.0.38
 
 - **Players & Pets has its own tab.** The verified players and pets moved out of Settings into a tab of their own, with the two lists side by side and filling the window, so they are easy to scroll. The pet damage switch moved with them.
+- **Columns fit their contents.** The columns in both tables are as wide as the names in them.
 - **Search the players.** A box above the players list narrows it to names that contain what you type.
 - **Forgetting.** Players no longer have a Forget button. Each pet has a Forget button, and Forget all pets clears the pet list. Both ask first, and a pet is learned again the next time a `/pet leader` line names it.
 
