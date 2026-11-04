@@ -62,7 +62,7 @@ check off, or run it by hand, under **Settings > Updates**.
 
 ## Changelog
 
-### 1.0.38
+### 1.0.39
 
 - **Players & Pets has its own tab.** The verified players and pets moved out of Settings into a tab of their own, with the two lists side by side and filling the window, so they are easy to scroll. The pet damage switch moved with them.
 - **Columns fit their contents.** The columns in both tables are as wide as the names in them.
