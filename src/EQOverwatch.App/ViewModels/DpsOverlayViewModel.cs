@@ -29,8 +29,18 @@ public sealed partial class DpsRowViewModel : ObservableObject
     [ObservableProperty]
     private double _fill;
 
-    public void Update(int rank, ParticipantSnapshot participant, long topDamage)
+    /// <summary>True for one of the user's own characters (drawn in gold).</summary>
+    [ObservableProperty]
+    private bool _isMine;
+
+    /// <summary>True for the first of the user's characters listed below the top rows (draws a dashed line above it).</summary>
+    [ObservableProperty]
+    private bool _startsMineSection;
+
+    public void Update(int rank, ParticipantSnapshot participant, long topDamage, bool isMine = false, bool startsMineSection = false)
     {
+        IsMine = isMine;
+        StartsMineSection = startsMineSection;
         RankName = $"{rank}. {participant.Name}";
         ClassText = participant.Class;
         SdpsText = OverlayFormat.Compact((long)Math.Round(participant.ScaledDps));
@@ -47,18 +57,22 @@ public sealed partial class DpsRowViewModel : ObservableObject
 public sealed partial class DpsOverlayViewModel : ObservableObject
 {
     public const string IdleTitle = "Waiting for combat…";
-    public const int MaxRows = 8;
+    /// <summary>How many of the highest damage dealers are always shown.</summary>
+    public const int MaxRows = 5;
 
     private readonly Func<DpsSnapshot> _source;
     private long _lastVersion = -1;
 
     private readonly Func<string, string>? _classOf;
+    private readonly Func<string, bool>? _isMine;
 
     /// <param name="classOf">Looks up a name's class label ("WAR", "Pet", or empty); null shows no classes.</param>
-    public DpsOverlayViewModel(Func<DpsSnapshot> source, Func<string, string>? classOf = null)
+    /// <param name="isMine">True for the user's own characters: they are shown (with their real rank) even when outside the top rows.</param>
+    public DpsOverlayViewModel(Func<DpsSnapshot> source, Func<string, string>? classOf = null, Func<string, bool>? isMine = null)
     {
         _source = source ?? throw new ArgumentNullException(nameof(source));
         _classOf = classOf;
+        _isMine = isMine;
     }
 
     [ObservableProperty]
@@ -142,25 +156,40 @@ public sealed partial class DpsOverlayViewModel : ObservableObject
         GroupDpsText = OverlayFormat.Compact((long)Math.Round(encounter.TotalDamage / Math.Max(1.0, encounter.DurationSeconds)));
         IsLive = encounter.IsActive;
 
-        ParticipantSnapshot[] top = encounter.Participants
+        ParticipantSnapshot[] ranked = encounter.Participants
             .OrderByDescending(p => p.TotalDamage)
             .ThenBy(p => p.Name, StringComparer.Ordinal)
-            .Take(MaxRows)
             .ToArray();
 
-        long topDamage = top.Length > 0 ? top[0].TotalDamage : 0;
+        // The top rows, then every one of the user's own characters that is doing damage, with its real rank.
+        var shown = new List<(int Rank, ParticipantSnapshot Participant, bool Mine, bool Starts)>();
+        for (int i = 0; i < ranked.Length; i++)
+        {
+            bool mine = ranked[i].TotalDamage > 0 && _isMine?.Invoke(ranked[i].Name) == true;
+            if (i < MaxRows)
+            {
+                shown.Add((i + 1, ranked[i], mine, false));
+            }
+            else if (mine)
+            {
+                bool first = shown.Count <= MaxRows; // the first one below the top rows starts the "mine" section
+                shown.Add((i + 1, ranked[i], true, first));
+            }
+        }
 
-        for (int i = 0; i < top.Length; i++)
+        long topDamage = ranked.Length > 0 ? ranked[0].TotalDamage : 0;
+
+        for (int i = 0; i < shown.Count; i++)
         {
             if (i >= Rows.Count)
             {
                 Rows.Add(new DpsRowViewModel());
             }
 
-            Rows[i].Update(i + 1, top[i], topDamage);
+            Rows[i].Update(shown[i].Rank, shown[i].Participant, topDamage, shown[i].Mine, shown[i].Starts);
         }
 
-        while (Rows.Count > top.Length)
+        while (Rows.Count > shown.Count)
         {
             Rows.RemoveAt(Rows.Count - 1);
         }

@@ -25,6 +25,27 @@ public sealed class AppSettings
     /// <summary>Milliseconds between a chain cue for your cleric and the auto-click. Whether it is on is never saved: it starts off.</summary>
     public int AutoClickDelayMilliseconds { get; set; }
 
+    /// <summary>
+    /// The zones where the game does not tick buffs, so buff and debuff bars stop while a character is in one. Null means the built-in list;
+    /// an empty list means no zone stops them.
+    /// </summary>
+    public List<string>? NonCombatZones { get; set; }
+
+    /// <summary>When true, a finished boss fight is posted to the Discord webhook below. Off by default.</summary>
+    public bool DiscordAutoPostEnabled { get; set; }
+
+    /// <summary>The Discord channel's webhook address. Kept on this PC only: left out of backups and never synced.</summary>
+    public string DiscordWebhookUrl { get; set; } = string.Empty;
+
+    /// <summary>Post fights that ended without a kill as well.</summary>
+    public bool DiscordPostWipes { get; set; }
+
+    /// <summary>Shortest fight, in seconds, that is posted.</summary>
+    public int DiscordMinSeconds { get; set; } = 30;
+
+    /// <summary>Fewest attackers a posted fight must have.</summary>
+    public int DiscordMinPlayers { get; set; } = 6;
+
     /// <summary>Minutes without a chain cue after which the auto-click switches itself off (1 to 120).</summary>
     public int AutoClickIdleMinutes { get; set; } = 5;
 

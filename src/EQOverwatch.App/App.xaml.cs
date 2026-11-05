@@ -27,6 +27,7 @@ public partial class CompanionApp : Application
     private AudioNotificationService? _audio;
     private MainViewModel? _viewModel;
     private HttpClient? _http;
+    private HttpClient? _discordHttp;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -65,7 +66,7 @@ public partial class CompanionApp : Application
             }
             else
             {
-                dpsVm = new DpsOverlayViewModel(() => _pipeline.LiveDps.Snapshot, _pipeline.Roster.GetClassLabel);
+                dpsVm = new DpsOverlayViewModel(() => _pipeline.LiveDps.Snapshot, _pipeline.Roster.GetClassLabel, _pipeline.IsMonitoredCharacter);
                 windows[kind] = new DpsOverlayWindow(dpsVm);
             }
         }
@@ -73,11 +74,13 @@ public partial class CompanionApp : Application
         // Restores logs, triggers, raid timers, spells, timeout, mute, theme and every overlay's bounds / visibility / lock state.
         string appData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), AppInfo.SettingsFolderName);
         _pipeline.Loot.SetStoragePath(Path.Combine(appData, "loot.json"));
+        _pipeline.TimerPause.SetStoragePath(Path.Combine(appData, "bufftimers.json")); // puts back the buff and debuff bars of the last run
         var bossHistory = new EQOverwatch.Core.History.BossHistoryStore();
         bossHistory.SetStoragePath(Path.Combine(appData, "bosshistory.json"));
         var mobLevels = new EQOverwatch.Core.History.MobLevelStore();
         mobLevels.SetStoragePath(Path.Combine(appData, "moblevels.json"));
         _http = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+        _discordHttp = new HttpClient { Timeout = TimeSpan.FromSeconds(40) };
         _viewModel = new MainViewModel(
             _pipeline, _settingsService, settings, new OverlayHost(windows), _audio, new WpfDialogService(), themeManager, new WpfClipboardService(),
             updateChecker: new GitHubUpdateChecker(_http),
@@ -90,6 +93,8 @@ public partial class CompanionApp : Application
             bossHistory: bossHistory,
             mobLevels: mobLevels,
             clickSender: new EQOverwatch.App.Interop.Win32InputClicker(),
+            discordPoster: new EQOverwatch.Core.Services.DiscordWebhookPoster(_discordHttp!),
+            renderEncounterPng: (encounter, palette, footer) => EQOverwatch.App.Services.EncounterImageRenderer.RenderPng(encounter, palette, footer),
             dataDirectory: appData);
 
         if (dpsVm is not null)

@@ -77,11 +77,29 @@
                 <ItemsControl ItemsSource="{Binding Rows}" Focusable="False">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate DataType="{x:Type vm:DpsRowViewModel}">
-                            <Grid Height="20" Margin="0,1">
+                            <Grid Height="20">
+                                <Grid.Style>
+                                    <Style TargetType="Grid">
+                                        <Setter Property="Margin" Value="0,1"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding StartsMineSection}" Value="True">
+                                                <Setter Property="Margin" Value="0,7,0,1"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Grid.Style>
                                 <Border Background="{DynamicResource BarBackBrush}" CornerRadius="3"/>
-                                <Border Background="{DynamicResource DpsFillBrush}"
-                                        CornerRadius="3"
-                                        RenderTransformOrigin="0,0.5">
+                                <Border CornerRadius="3" RenderTransformOrigin="0,0.5">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Background" Value="{DynamicResource DpsFillBrush}"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsMine}" Value="True">
+                                                    <Setter Property="Background" Value="#B3D9A441"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
                                     <Border.RenderTransform>
                                         <ScaleTransform ScaleX="{Binding Fill}"/>
                                     </Border.RenderTransform>

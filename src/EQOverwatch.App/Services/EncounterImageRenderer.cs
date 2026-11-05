@@ -34,6 +34,17 @@ public static class EncounterImageRenderer
     // Column left edges (name is left-aligned; the numbers are right-aligned to the next edge).
     private static readonly double[] ColumnRight = { 52, 0, 0, 400, 490, 580, 655, 716 };
 
+    /// <summary>The picture as PNG bytes (for posting to Discord). Call on the UI thread.</summary>
+    public static byte[] RenderPng(EncounterSnapshot encounter, ThemePalette palette, string footer, int topCount = EncounterExport.AllAttackers)
+    {
+        BitmapSource image = Render(encounter, palette, footer, topCount);
+        var encoder = new PngBitmapEncoder();
+        encoder.Frames.Add(BitmapFrame.Create(image));
+        using var stream = new System.IO.MemoryStream();
+        encoder.Save(stream);
+        return stream.ToArray();
+    }
+
     public static BitmapSource Render(EncounterSnapshot encounter, ThemePalette palette, string footer, int topCount = EncounterExport.AllAttackers)
     {
         ArgumentNullException.ThrowIfNull(encounter);

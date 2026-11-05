@@ -62,6 +62,17 @@ check off, or run it by hand, under **Settings > Updates**.
 
 ## Changelog
 
+### 1.0.43
+
+- **DPS overlay shows the top 5 and your characters.** The overlay lists the five highest damage dealers, then any of your own characters that are doing damage, even when they are far down the ranking. Their rows keep their real rank, are drawn in gold and sit below a gap. A character already in the top 5 is not listed twice.
+- **Discord auto-post.** A new "Discord auto-post" box on the Settings tab posts the picture from Copy Image for Discord, with a line such as "Praetorian Pius killed in 3:42", to one channel's webhook when a boss fight ends. It is off by default. Choose whether wipes are posted too, the fewest players and the shortest fight. Only fights that have just ended from your Primary DPS log are posted, so each fight goes out once and old logs never post. "Send test post" checks the address. The webhook address is hidden in the box, stays on this PC and is left out of backups.
+- **Per-boss trend.** On the Mob History tab, the kills panel shows how the boss's clear times have gone: the latest kill against the first, the recent kills against the earlier ones with the change in raid DPS, and a row of bars with one bar per kill, oldest first.
+- **Buff and debuff uptime.** A new Uptime tab in the encounter details shows how long each spell on your Spells & Songs list was up during the fight and what share of the fight that was. Debuffs landing on the mob you are fighting are counted too (they still get no timer bar).
+- **Buff and debuff bars stop in safe zones.** While a character is in the Plane of Knowledge, Guild Lobby, Guild Hall, the Bazaar or the Nexus, its buff and debuff bars stop counting down (the game does not tick buffs there) and carry on when it leaves, with the time they stopped for given back. The zone list is on the Settings tab and can be edited. Songs are not stopped, and a character that dies loses its bars.
+- **Buff and debuff bars follow logging out and in.** When a character camps out, its bars are hidden from the overlays and stopped. They return, with the time they had left, when the character logs in again. A camp counts as a logout when "prepare your camp" is not followed by "You abandon your preparations to camp" within 33 seconds.
+- **Bars survive closing Overwatch.** The bars of every character are saved and put back at the next start. Bars that were running keep their end time (the game kept counting while the app was closed), and bars that were stopped keep their time left. The file is not part of backups.
+- **Loot search.** The Loot tab's Filter is now a Search: every word has to be found in the item, the looter or the mob ("seru sword"), a phrase in quotes stays together, and a range box limits it to the last 7, 30 or 90 days. When the search finds a single item, the status line says how often it was looted and who got it last.
+
 ### 1.0.42
 
 - **Tidier Auto-click box.** The checkbox and the toggle hotkey are now on the top line, and the click delay and auto-off time are on the second line.

@@ -13,6 +13,9 @@ using EQOverwatch.Core.Settings;
 namespace EQOverwatch.App.ViewModels;
 
 /// <summary>One kill in the list beside the mob table. <see cref="IsFastest"/> and <see cref="IsBestDps"/> mark the standouts.</summary>
+/// <summary>One bar of the kill-time trend: how tall to draw it and what it says when hovered.</summary>
+public sealed record BossTrendBar(double Height, string Tip);
+
 public sealed record BossKillRow(
     int Number, string Started, string ClearTime, string Dps, int Players, int Deaths, string Damage, bool IsFastest, bool IsBestDps);
 
@@ -62,6 +65,7 @@ public sealed partial class MainViewModel
                 _bossLiveVersion = live.Version;
                 WatchedLogConfig? primary = Logs.PrimaryDpsLog;
                 _bossHistory.Record(live.Completed, primary?.CharacterName, primary?.ServerName);
+                PostFinishedFightsToDiscord(live);
             }
 
             if (imported.Version != _bossHistoricalVersion)
@@ -132,6 +136,13 @@ public sealed partial class MainViewModel
     [ObservableProperty]
     private string _bossAttemptsLine = string.Empty;
 
+    [ObservableProperty]
+    private string _bossTrendLine = string.Empty;
+
+    /// <summary>One bar per kill, oldest first; a shorter bar is a faster kill.</summary>
+    [ObservableProperty]
+    private IReadOnlyList<BossTrendBar> _bossTrendBars = Array.Empty<BossTrendBar>();
+
     private string? _selectedBossName;
     private BossKillReport? _bossKillReport;
 
@@ -199,6 +210,8 @@ public sealed partial class MainViewModel
             BossKillsTitle = "Select a mob to see its kills";
             BossKillsHint = string.Empty;
             BossAttemptsLine = string.Empty;
+            BossTrendLine = string.Empty;
+            BossTrendBars = Array.Empty<BossTrendBar>();
             return;
         }
 
@@ -226,6 +239,27 @@ public sealed partial class MainViewModel
             ? "No kills recorded yet."
             : "Only kills Overwatch has saved are listed; read older logs with Read a log file… to add earlier kills.";
         BossAttemptsLine = AttemptsLine(report.Attempts);
+        ShowBossTrend(BossHistoryStore.Trend(report.Kills));
+    }
+
+    private void ShowBossTrend(BossTrend? trend)
+    {
+        if (trend is null || trend.Kills < 2)
+        {
+            BossTrendLine = string.Empty;
+            BossTrendBars = Array.Empty<BossTrendBar>();
+            return;
+        }
+
+        const int MaxBars = 30;
+        IReadOnlyList<BossFight> shown = trend.Chronological.Count > MaxBars ? trend.Chronological.Skip(trend.Chronological.Count - MaxBars).ToList() : trend.Chronological;
+        double slowest = shown.Max(k => k.Seconds);
+        BossTrendBars = shown
+            .Select(k => new BossTrendBar(
+                Math.Max(4.0, 40.0 * (slowest > 0 ? k.Seconds / slowest : 0)),
+                $"{k.Start.ToString("MMM d, h:mm tt", CultureInfo.CurrentCulture)}: {BossHistoryStore.FormatDuration(k.Seconds)}, {Math.Round(k.Dps):N0} DPS"))
+            .ToArray();
+        BossTrendLine = trend.Describe();
     }
 
     /// <summary>"2 attempts without a kill: Oct 9, 9:02 PM (1:12) and Oct 2, 8:05 PM (0:48)"; empty when there were none.</summary>

@@ -29,7 +29,11 @@ public partial class MainWindow : Window
         _refreshTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = RefreshInterval };
         _refreshTimer.Tick += (_, _) => _viewModel.Refresh();
 
-        Loaded += (_, _) => _refreshTimer.Start();
+        Loaded += (_, _) =>
+        {
+            _refreshTimer.Start();
+            DiscordUrlBox.Password = _viewModel.DiscordWebhookUrl; // a password box cannot be bound, so it is filled in by hand
+        };
         SourceInitialized += (_, _) =>
         {
             // The hotkey that switches the CH auto-click on and off works from any program.
@@ -46,6 +50,8 @@ public partial class MainWindow : Window
             _viewModel.Shutdown();
         };
     }
+
+    private void DiscordUrlBox_PasswordChanged(object sender, RoutedEventArgs e) => _viewModel.DiscordWebhookUrl = DiscordUrlBox.Password;
 
     private void RegisterAutoClickHotkey()
     {

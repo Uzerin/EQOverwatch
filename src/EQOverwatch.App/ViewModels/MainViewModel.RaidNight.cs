@@ -19,6 +19,8 @@ namespace EQOverwatch.App.ViewModels;
 public sealed record BossAbilityDisplayRow(string Spell, int Casts, string Every, string Times);
 
 /// <summary>One healer of the selected fight.</summary>
+public sealed record UptimeDisplayRow(string Spell, string Target, string Up, string Percent);
+
 public sealed record HealingDisplayRow(int Rank, string Name, long Effective, double Hps, double OverhealPercent, int Heals, int MaxHeal, string TopSpell);
 
 /// <summary>One death of the selected fight, with how far into the fight it happened.</summary>
@@ -142,6 +144,12 @@ public sealed partial class MainViewModel
     private IReadOnlyList<DeathDisplayRow> _deathRows = Array.Empty<DeathDisplayRow>();
 
     [ObservableProperty]
+    private IReadOnlyList<UptimeDisplayRow> _uptimeRows = Array.Empty<UptimeDisplayRow>();
+
+    [ObservableProperty]
+    private string _uptimeSummary = string.Empty;
+
+    [ObservableProperty]
     private string _bossAbilitySummary = string.Empty;
 
     [ObservableProperty]
@@ -157,8 +165,25 @@ public sealed partial class MainViewModel
             DeathRows = Array.Empty<DeathDisplayRow>();
             BossAbilitySummary = string.Empty;
             HealingSummary = string.Empty;
+            UptimeRows = Array.Empty<UptimeDisplayRow>();
+            UptimeSummary = string.Empty;
             return;
         }
+
+        UptimeDisplayRow[] uptime = _pipeline.Uptime.Uptime(encounter)
+            .Select(u => new UptimeDisplayRow(
+                u.Spell, u.Target,
+                $"{(int)u.Seconds / 60}:{(int)u.Seconds % 60:00}",
+                u.Percent.ToString("0", CultureInfo.CurrentCulture) + "%"))
+            .ToArray();
+        if (!uptime.SequenceEqual(UptimeRows))
+        {
+            UptimeRows = uptime;
+        }
+
+        UptimeSummary = uptime.Length == 0
+            ? "No tracked buff or debuff was seen during this fight. Uptime covers the spells on your Spells & Songs list, from fights watched live."
+            : $"How long each tracked spell was up during this {(int)encounter.DurationSeconds / 60}:{(int)encounter.DurationSeconds % 60:00} fight. A debuff on the mob counts from when it lands until it runs out.";
 
         BossAbilityDisplayRow[] abilities = BossAbilityTimeline.Build(encounter)
             .Select(a => new BossAbilityDisplayRow(a.Spell, a.Casts, a.EveryText, a.TimesText))
@@ -344,18 +369,27 @@ public sealed partial class MainViewModel
 
     partial void OnLootFilterChanged(string value) => RebuildLoot();
 
+    /// <summary>How far back the loot list looks: all time, 7, 30 or 90 days.</summary>
+    public IReadOnlyList<string> LootRanges { get; } = LootSearch.RangeNames;
+
+    [ObservableProperty]
+    private int _lootRangeIndex;
+
+    partial void OnLootRangeIndexChanged(int value) => RebuildLoot();
+
     private void RebuildLoot()
     {
         string? serverFilter = ToolsServerFilter;
+        int rangeDays = LootRangeIndex >= 0 && LootRangeIndex < LootSearch.RangeDays.Length ? LootSearch.RangeDays[LootRangeIndex] : 0;
+        DateTime now = _clock();
         IReadOnlyList<LootEntry> all = _pipeline.Loot.Entries
-            .Where(e => InServer(e.Server, e.Looter, serverFilter))
+            .Where(e => InServer(e.Server, e.Looter, serverFilter) && LootSearch.InRange(e.Time, now, rangeDays))
             .ToList();
         string filter = LootFilter?.Trim() ?? string.Empty;
-        List<LootEntry> entries = filter.Length == 0
+        IReadOnlyList<string> terms = LootSearch.Terms(filter);
+        List<LootEntry> entries = terms.Count == 0
             ? all.ToList()
-            : all.Where(e => e.Item.Contains(filter, StringComparison.OrdinalIgnoreCase)
-                             || e.Looter.Contains(filter, StringComparison.OrdinalIgnoreCase)
-                             || e.Mob.Contains(filter, StringComparison.OrdinalIgnoreCase)).ToList();
+            : all.Where(e => LootSearch.Matches(e, terms)).ToList();
 
         LootLineRows = entries
             .OrderByDescending(e => e.Time)
@@ -394,12 +428,12 @@ public sealed partial class MainViewModel
             .ToList();
 
         IReadOnlyList<MoneyEntry> allMoney = _pipeline.Loot.Money
-            .Where(m => InServer(m.Server, m.Character, serverFilter))
+            .Where(m => InServer(m.Server, m.Character, serverFilter) && LootSearch.InRange(m.Time, now, rangeDays))
             .ToList();
-        List<MoneyEntry> money = filter.Length == 0
+        List<MoneyEntry> money = terms.Count == 0
             ? allMoney.ToList()
-            : allMoney.Where(m => m.Mob.Contains(filter, StringComparison.OrdinalIgnoreCase)
-                                  || m.Character.Contains(filter, StringComparison.OrdinalIgnoreCase)).ToList();
+            : allMoney.Where(m => terms.All(t => m.Mob.Contains(t, StringComparison.OrdinalIgnoreCase)
+                                                 || m.Character.Contains(t, StringComparison.OrdinalIgnoreCase))).ToList();
 
         MoneyMobRows = money
             .GroupBy(m => m.Mob, StringComparer.OrdinalIgnoreCase)
@@ -428,7 +462,8 @@ public sealed partial class MainViewModel
             : $" Money received by your characters: {LootLineParser.FormatCopper(allMoney.Sum(m => m.Copper))} from {allMoney.Count:N0} split{(allMoney.Count == 1 ? string.Empty : "s")}.";
         LootStatus = all.Count == 0 && allMoney.Count == 0
             ? "No loot seen yet. It is collected from every watched log that has triggers turned on."
-            : $"{entries.Count:N0} of {all.Count:N0} item{(all.Count == 1 ? string.Empty : "s")} looted.{moneyNote}";
+            : $"{entries.Count:N0} of {all.Count:N0} item{(all.Count == 1 ? string.Empty : "s")} looted.{moneyNote}" +
+              (LootSearch.LastLootedLine(entries) is { Length: > 0 } lastLine && terms.Count > 0 ? " " + lastLine : string.Empty);
     }
 
     /// <summary>"Nasti, Warshield (2)": who looted the items, with a count when someone got more than one.</summary>

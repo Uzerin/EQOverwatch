@@ -28,6 +28,51 @@ public sealed record BossFight(
 public sealed record BossKillReport(
     string Boss, IReadOnlyList<BossFight> Kills, IReadOnlyList<BossFight> Attempts, double FastestSeconds, double AverageSeconds, double BestDps);
 
+/// <summary>
+/// How a boss's kills have gone over time. The recent kills are the latest half of the kills (at most five); the earlier ones are the
+/// kills before them. Times are in seconds; DPS is the raid's damage per second.
+/// </summary>
+public sealed record BossTrend(
+    int Kills, IReadOnlyList<BossFight> Chronological, double FirstSeconds, double LatestSeconds,
+    int RecentCount, double RecentAverageSeconds, double EarlierAverageSeconds, double RecentDps, double EarlierDps)
+{
+    /// <summary>True when there are enough kills to compare recent ones with earlier ones.</summary>
+    public bool CanCompare => Kills >= 3;
+
+    /// <summary>One sentence about the trend, such as "Latest kill 2:58, 0:24 faster than the first (3:22). The last 3 kills averaged 3:01 against 3:15 before, raid DPS up 6%."</summary>
+    public string Describe()
+    {
+        string latest = BossHistoryStore.FormatDuration(LatestSeconds);
+        string first = BossHistoryStore.FormatDuration(FirstSeconds);
+        double change = FirstSeconds - LatestSeconds;
+        string versusFirst = Math.Abs(change) < 1
+            ? $"about the same as the first ({first})"
+            : $"{BossHistoryStore.FormatDuration(Math.Abs(change))} {(change > 0 ? "faster" : "slower")} than the first ({first})";
+        string text = $"Latest kill {latest}, {versusFirst}.";
+        if (!CanCompare)
+        {
+            return text;
+        }
+
+        string recent = BossHistoryStore.FormatDuration(RecentAverageSeconds);
+        string earlier = BossHistoryStore.FormatDuration(EarlierAverageSeconds);
+        text += $" The last {RecentCount} kills averaged {recent} against {earlier} before";
+        if (EarlierDps > 0 && RecentDps > 0)
+        {
+            double percent = (RecentDps - EarlierDps) / EarlierDps * 100.0;
+            text += Math.Abs(percent) < 1
+                ? ", raid DPS about the same."
+                : string.Create(CultureInfo.InvariantCulture, $", raid DPS {(percent > 0 ? "up" : "down")} {Math.Abs(percent):0}%.");
+        }
+        else
+        {
+            text += ".";
+        }
+
+        return text;
+    }
+}
+
 /// <summary>One row of the boss history: how a boss has gone.</summary>
 public sealed record BossSummary(
     string Boss, int Kills, int Attempts, double FastestSeconds, double AverageSeconds, double BestDps, int MostPlayers, DateTime LastFought);
@@ -252,6 +297,24 @@ public sealed class BossHistoryStore
             kills.Count == 0 ? 0 : kills.Min(f => f.Seconds),
             kills.Count == 0 ? 0 : kills.Average(f => f.Seconds),
             kills.Count == 0 ? 0 : kills.Max(f => f.Dps));
+    }
+
+    /// <summary>The trend of <paramref name="kills"/> (in any order), or null when there are none.</summary>
+    public static BossTrend? Trend(IEnumerable<BossFight> kills)
+    {
+        List<BossFight> ordered = kills.Where(k => k.Killed).OrderBy(k => k.Start).ToList();
+        if (ordered.Count == 0)
+        {
+            return null;
+        }
+
+        int recentCount = Math.Min(5, (ordered.Count + 1) / 2);
+        List<BossFight> recent = ordered.Skip(ordered.Count - recentCount).ToList();
+        List<BossFight> earlier = ordered.Take(ordered.Count - recentCount).ToList();
+        return new BossTrend(
+            ordered.Count, ordered, ordered[0].Seconds, ordered[^1].Seconds, recentCount,
+            recent.Average(k => k.Seconds), earlier.Count == 0 ? 0 : earlier.Average(k => k.Seconds),
+            recent.Average(k => k.Dps), earlier.Count == 0 ? 0 : earlier.Average(k => k.Dps));
     }
 
     /// <summary>"3:07" for 187 seconds; "—" for none.</summary>

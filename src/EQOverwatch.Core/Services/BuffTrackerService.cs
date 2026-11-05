@@ -170,6 +170,20 @@ public sealed class BuffTrackerService : ITriggerLineSink
         Rebuild();
     }
 
+    /// <summary>Raised when a tracked spell lands on someone: target, spell name, base duration in seconds, and when the line was received.</summary>
+    public event Action<string, string, int, DateTime>? Landed;
+
+    /// <summary>Raised when a tracked spell's fade line is seen: the character, the spell name and when the line was received.</summary>
+    public event Action<string, string, DateTime>? Faded;
+
+    private Func<string, bool>? _bystanderProbe;
+
+    /// <summary>
+    /// Lets a landing on someone who is not a monitored character still count for <see cref="Landed"/> (no bar is started for it).
+    /// Used so debuffs landing on the mob being fought are seen. Called only for tracked spells' landing lines.
+    /// </summary>
+    public void SetBystanderProbe(Func<string, bool>? probe) => Volatile.Write(ref _bystanderProbe, probe);
+
     /// <summary>How many bars this service has started since it was created (for the tracker tab's "is it working?" line).</summary>
     public long TimersStarted => Interlocked.Read(ref _timersStarted);
 
@@ -189,7 +203,7 @@ public sealed class BuffTrackerService : ITriggerLineSink
             return;
         }
 
-        if (TryHandleFade(state, characterName, message))
+        if (TryHandleFade(state, characterName, message, receivedUtc))
         {
             return;
         }
@@ -313,7 +327,7 @@ public sealed class BuffTrackerService : ITriggerLineSink
 
     // ───────────────────────── step 3: early fade ─────────────────────────
 
-    private bool TryHandleFade(TrackedState state, string characterName, ReadOnlySpan<char> message)
+    private bool TryHandleFade(TrackedState state, string characterName, ReadOnlySpan<char> message, DateTime now)
     {
         if (!state.FadeLengths.Contains(message.Length))
         {
@@ -325,24 +339,25 @@ public sealed class BuffTrackerService : ITriggerLineSink
 
         if (state.ByFade.TryGetValue(text, out SpellInfo[]? exact))
         {
-            CancelAll(exact, characterName);
+            CancelAll(exact, characterName, now);
             handled = true;
         }
 
         if (text.StartsWith(YourPrefix, StringComparison.Ordinal) && state.ByFade.TryGetValue(text[YourPrefix.Length..], out SpellInfo[]? afterYour))
         {
-            CancelAll(afterYour, characterName);
+            CancelAll(afterYour, characterName, now);
             handled = true;
         }
 
         return handled;
     }
 
-    private void CancelAll(SpellInfo[] spells, string characterName)
+    private void CancelAll(SpellInfo[] spells, string characterName, DateTime now)
     {
         foreach (SpellInfo spell in spells)
         {
             _timers.CancelTimer(TimerSourceId, characterName, Label(characterName, spell));
+            Faded?.Invoke(characterName, spell.Name, now);
         }
     }
 
@@ -352,6 +367,7 @@ public sealed class BuffTrackerService : ITriggerLineSink
     {
         SpellInfo[]? candidates = null;
         string target = characterName;
+        bool bystander = false;
 
         if (state.YouLengths.Contains(message.Length))
         {
@@ -379,7 +395,12 @@ public sealed class BuffTrackerService : ITriggerLineSink
 
                 if (Volatile.Read(ref _allowedTargets) is { } allowed && !allowed.Contains(target))
                 {
-                    return; // a bystander, not one of the characters being monitored
+                    if (Volatile.Read(ref _bystanderProbe)?.Invoke(target) != true)
+                    {
+                        return; // a bystander, not one of the characters being monitored
+                    }
+
+                    bystander = true; // the mob being fought: seen for uptime, but it gets no bar
                 }
 
                 break;
@@ -416,9 +437,14 @@ public sealed class BuffTrackerService : ITriggerLineSink
         }
 
         string label = Label(target, spell);
-        _timers.StartTimer(TimerSourceId, TimerSourceName, target, label, spell.BaseDurationSeconds, now, category);
-        Interlocked.Increment(ref _timersStarted);
-        Volatile.Write(ref _lastStarted, label);
+        if (!bystander)
+        {
+            _timers.StartTimer(TimerSourceId, TimerSourceName, target, label, spell.BaseDurationSeconds, now, category);
+            Interlocked.Increment(ref _timersStarted);
+            Volatile.Write(ref _lastStarted, label);
+        }
+
+        Landed?.Invoke(target, spell.Name, spell.BaseDurationSeconds, now);
     }
 
     /// <summary>A pending cast from the same log decides; otherwise the longest-lasting tracked candidate (they are pre-sorted).</summary>

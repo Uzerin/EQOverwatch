@@ -27,6 +27,10 @@ public sealed class CompanionPipeline : IAsyncDisposable
         Triggers = new TriggerEngineService();
         Spells = new SpellDatabaseService();
         Buffs = new BuffTrackerService(Spells, Triggers);
+        Uptime = new BuffUptimeTracker(Buffs);
+        TimerPause = new TimerPauseService(Triggers);
+        // A tracked debuff landing on the mob being fought counts for uptime (it gets no bar of its own).
+        Buffs.SetBystanderProbe(name => LiveDps.Snapshot.Active.Any(e => string.Equals(e.TargetName, name, StringComparison.OrdinalIgnoreCase)));
         Roster = new PlayerRoster();
         LiveDps = new LiveDpsTracker(inactivityTimeout, roster: Roster);
         LiveDpsTracker liveDps = LiveDps;
@@ -45,7 +49,7 @@ public sealed class CompanionPipeline : IAsyncDisposable
 
         // Every sink sees every line of every trigger-enabled log. Historical imports use none of them.
         var triggerSinks = new CompositeTriggerSink(
-            new ITriggerLineSink[] { Triggers, Buffs, RaidBosses, ChChain, Cooldowns, Abilities, SharedTriggers, Roster, Loot, Tells }, RaiseError);
+            new ITriggerLineSink[] { Triggers, Buffs, TimerPause, RaidBosses, ChChain, Cooldowns, Abilities, SharedTriggers, Roster, Loot, Tells }, RaiseError);
         _monitor = new LiveLogMonitor(Logs, triggerSinks, LiveDps, RaiseError);
         _monitor.TailError += (config, ex) => TailError?.Invoke(config, ex);
     }
@@ -58,6 +62,12 @@ public sealed class CompanionPipeline : IAsyncDisposable
 
     /// <summary>Starts and cancels countdown bars for the user's tracked buffs, songs and DoTs.</summary>
     public BuffTrackerService Buffs { get; }
+
+    /// <summary>Stops buff and debuff bars in safe zones and while a character is logged out, and keeps them across restarts.</summary>
+    public TimerPauseService TimerPause { get; }
+
+    /// <summary>How long tracked buffs and debuffs were up during each fight.</summary>
+    public BuffUptimeTracker Uptime { get; }
 
     /// <summary>Recast countdowns for raid boss abilities.</summary>
     public RaidBossTimerService RaidBosses { get; }
@@ -220,6 +230,11 @@ public sealed class CompanionPipeline : IAsyncDisposable
         }
     }
 
+    private HashSet<string> _monitoredSet = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>True when <paramref name="name"/> is one of the characters this app monitors ("my characters").</summary>
+    public bool IsMonitoredCharacter(string name) => Volatile.Read(ref _monitoredSet).Contains(name);
+
     /// <summary>Replaces the additional monitored characters and re-registers everyone.</summary>
     public void SetAdditionalMonitoredCharacters(IEnumerable<string> names)
     {
@@ -246,6 +261,7 @@ public sealed class CompanionPipeline : IAsyncDisposable
             HistoricalDps.AddKnownPlayer(name);
         }
 
+        Volatile.Write(ref _monitoredSet, new HashSet<string>(everyone, StringComparer.OrdinalIgnoreCase));
         Buffs.SetAllowedTargets(everyone);
         Abilities.SetMonitoredCharacters(everyone);
     }

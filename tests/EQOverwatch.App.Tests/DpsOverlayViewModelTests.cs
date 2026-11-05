@@ -85,7 +85,7 @@ public class DpsOverlayViewModelTests
     }
 
     [Fact]
-    public void Limits_the_list_to_the_top_eight_participants()
+    public void Limits_the_list_to_the_top_five_participants()
     {
         string[] names = { "Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot", "Golf", "Hotel", "India", "Juliet" };
         var tracker = new LiveDpsTracker();
@@ -99,7 +99,7 @@ public class DpsOverlayViewModelTests
 
         Assert.Equal(DpsOverlayViewModel.MaxRows, vm.Rows.Count);
         Assert.Equal("1. Alpha", vm.Rows[0].RankName);
-        Assert.Equal("8. Hotel", vm.Rows[7].RankName);
+        Assert.Equal("5. Echo", vm.Rows[4].RankName);
     }
 
     [Fact]
@@ -123,5 +123,39 @@ public class DpsOverlayViewModelTests
         Assert.Same(row, vm.Rows[0]);
         Assert.Equal("1K", row.TotalText);
         Assert.Equal(2, vm.Rows.Count);
+    }
+
+    [Fact]
+    public void Own_characters_below_the_top_five_are_added_with_their_real_rank()
+    {
+        string[] names = { "Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot", "Golf", "Hotel", "India", "Juliet" };
+        var tracker = new LiveDpsTracker();
+        for (int i = 0; i < names.Length; i++)
+        {
+            tracker.OnCombatEvent(Hit(names[i], Giant, 1000 - i * 10, 1));
+        }
+
+        var mine = new HashSet<string> { "Golf", "Juliet", "Bravo" };
+        var vm = new DpsOverlayViewModel(() => tracker.Snapshot, null, mine.Contains);
+        vm.Tick();
+
+        Assert.Equal(new[] { "1. Alpha", "2. Bravo", "3. Charlie", "4. Delta", "5. Echo", "7. Golf", "10. Juliet" }, vm.Rows.Select(r => r.RankName));
+        Assert.Equal(new[] { false, true, false, false, false, true, true }, vm.Rows.Select(r => r.IsMine));
+        Assert.Equal(new[] { false, false, false, false, false, true, false }, vm.Rows.Select(r => r.StartsMineSection));
+    }
+
+    [Fact]
+    public void Own_characters_inside_the_top_five_are_not_listed_twice()
+    {
+        var tracker = new LiveDpsTracker();
+        tracker.OnCombatEvent(Hit("Stackprime", Giant, 1000, 1));
+        tracker.OnCombatEvent(Hit("Oodles", Giant, 500, 2));
+        var vm = new DpsOverlayViewModel(() => tracker.Snapshot, null, n => n == "Stackprime");
+        vm.Tick();
+
+        Assert.Equal(2, vm.Rows.Count);
+        Assert.True(vm.Rows[0].IsMine);
+        Assert.False(vm.Rows[1].IsMine);
+        Assert.All(vm.Rows, r => Assert.False(r.StartsMineSection));
     }
 }

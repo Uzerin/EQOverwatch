@@ -76,7 +76,9 @@ public sealed partial class MainViewModel : ObservableObject
         BossHistoryStore? bossHistory = null,
         string? dataDirectory = null,
         MobLevelStore? mobLevels = null,
-        IClickSender? clickSender = null)
+        IClickSender? clickSender = null,
+        IDiscordPoster? discordPoster = null,
+        Func<EncounterSnapshot, ThemePalette, string, byte[]>? renderEncounterPng = null)
     {
         _bossHistory = bossHistory ?? new BossHistoryStore();
         _mobLevels = mobLevels ?? new MobLevelStore();
@@ -109,6 +111,7 @@ public sealed partial class MainViewModel : ObservableObject
         _pipeline.Roster.Changed += OnRosterChanged;
 
         Restore(settings);
+        ConfigureDiscord(discordPoster, renderEncounterPng);
         _characterData.ScanAll(EqFolderPath); // output files written while the app was closed
         _characterData.PruneMissingFiles(EqFolderPath); // saved data whose output file has since been deleted
         RefreshCharacterInfo();
@@ -783,6 +786,7 @@ public sealed partial class MainViewModel : ObservableObject
         UpdateKnownMobs();
         DrainRosterChanges();
         SyncAutoClick();
+        _pipeline.TimerPause.Tick(DateTime.UtcNow);
         RefreshRaidNight();
 
         DpsSnapshot live = _pipeline.LiveDps.Snapshot;
@@ -1343,6 +1347,12 @@ public sealed partial class MainViewModel : ObservableObject
             AutoClickDelayMilliseconds = settings.AutoClickDelayMilliseconds; // whether it is on is never restored: it starts off
             AutoClickIdleMinutes = settings.AutoClickIdleMinutes <= 0 ? AutoClickService.DefaultIdleMinutes : settings.AutoClickIdleMinutes;
             AutoClickHotkey = string.IsNullOrWhiteSpace(settings.AutoClickHotkey) ? AutoClickService.DefaultHotkey : settings.AutoClickHotkey;
+            SafeZonesText = string.Join(Environment.NewLine, settings.NonCombatZones ?? TimerPauseService.DefaultSafeZones.ToList());
+            DiscordPostEnabled = settings.DiscordAutoPostEnabled;
+            DiscordWebhookUrl = settings.DiscordWebhookUrl ?? string.Empty;
+            DiscordPostWipes = settings.DiscordPostWipes;
+            DiscordMinSeconds = settings.DiscordMinSeconds;
+            DiscordMinPlayers = settings.DiscordMinPlayers <= 0 ? DiscordAutoPostSelector.DefaultMinPlayers : settings.DiscordMinPlayers;
 
             EncounterTimeoutSeconds = settings.EncounterTimeoutSeconds;
             _pipeline.EncounterTimeout = TimeSpan.FromSeconds(EncounterTimeoutSeconds);
@@ -1421,6 +1431,12 @@ public sealed partial class MainViewModel : ObservableObject
         ReadTellsAloud = ReadTellsAloud,
         AutoClickDelayMilliseconds = AutoClickDelayMilliseconds,
         AutoClickIdleMinutes = AutoClickIdleMinutes,
+        NonCombatZones = SafeZoneList(),
+        DiscordAutoPostEnabled = DiscordPostEnabled,
+        DiscordWebhookUrl = DiscordWebhookUrl.Trim(),
+        DiscordPostWipes = DiscordPostWipes,
+        DiscordMinSeconds = DiscordMinSeconds,
+        DiscordMinPlayers = DiscordMinPlayers,
         AutoClickHotkey = AutoClickHotkey,
         BuffsOverlay = _overlays.Capture(OverlayKind.Buffs),
         DebuffsOverlay = _overlays.Capture(OverlayKind.Debuffs),
@@ -1539,6 +1555,7 @@ public sealed partial class MainViewModel : ObservableObject
         }
 
         _isShutDown = true;
+        _pipeline.TimerPause.Save();
         StopSync();
 
         Logs.CollectionChanged -= OnLogsChanged;

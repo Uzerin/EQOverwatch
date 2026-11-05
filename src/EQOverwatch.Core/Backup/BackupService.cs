@@ -123,7 +123,7 @@ public static class BackupService
             return 0;
         }
 
-        string? currentCode = ReadSyncCode(Path.Combine(dataDirectory, SettingsFile));
+        Dictionary<string, string> currentSecrets = ReadSecrets(Path.Combine(dataDirectory, SettingsFile));
         int count = 0;
         foreach (string file in Directory.EnumerateFiles(pending, "*", SearchOption.AllDirectories))
         {
@@ -134,36 +134,54 @@ public static class BackupService
             count++;
         }
 
-        if (!string.IsNullOrEmpty(currentCode))
+        foreach ((string key, string value) in currentSecrets)
         {
-            RestoreSyncCode(Path.Combine(dataDirectory, SettingsFile), currentCode);
+            if (!string.IsNullOrEmpty(value))
+            {
+                RestoreSecret(Path.Combine(dataDirectory, SettingsFile), key, value);
+            }
         }
 
         Directory.Delete(pending, recursive: true);
         return count;
     }
 
-    /// <summary>The settings JSON with the pairing code blanked.</summary>
-    public static string ScrubSecrets(string settingsJson) => SetSyncCode(settingsJson, string.Empty) ?? settingsJson;
+    /// <summary>The settings that never travel in a backup: the pairing code and the Discord webhook address.</summary>
+    private static readonly string[] SecretKeys = { "SyncCode", "DiscordWebhookUrl" };
+
+    /// <summary>The settings JSON with the pairing code and the Discord webhook address blanked.</summary>
+    public static string ScrubSecrets(string settingsJson)
+    {
+        string result = settingsJson;
+        foreach (string key in SecretKeys)
+        {
+            result = SetSecret(result, key, string.Empty) ?? result;
+        }
+
+        return result;
+    }
 
     private static bool IsSkipped(string relativePath)
     {
         string normalized = relativePath.Replace('\\', '/');
         return normalized.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase)
+            || normalized.Equals("bufftimers.json", StringComparison.OrdinalIgnoreCase) // running bars belong to this moment, not to a backup
             || SkippedFolders.Any(f => normalized.StartsWith(f + "/", StringComparison.OrdinalIgnoreCase));
     }
 
-    private static string? ReadSyncCode(string settingsPath)
+    private static Dictionary<string, string> ReadSecrets(string settingsPath)
     {
+        var found = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         try
         {
             if (File.Exists(settingsPath) && JsonNode.Parse(File.ReadAllText(settingsPath)) is JsonObject obj)
             {
                 foreach (KeyValuePair<string, JsonNode?> pair in obj)
                 {
-                    if (pair.Key.Equals("SyncCode", StringComparison.OrdinalIgnoreCase))
+                    if (SecretKeys.Contains(pair.Key, StringComparer.OrdinalIgnoreCase) && pair.Value is JsonValue value
+                        && value.TryGetValue(out string? text) && !string.IsNullOrEmpty(text))
                     {
-                        return pair.Value?.GetValue<string>();
+                        found[pair.Key] = text;
                     }
                 }
             }
@@ -172,14 +190,14 @@ public static class BackupService
         {
         }
 
-        return null;
+        return found;
     }
 
-    private static void RestoreSyncCode(string settingsPath, string code)
+    private static void RestoreSecret(string settingsPath, string key, string value)
     {
         try
         {
-            string? updated = SetSyncCode(File.ReadAllText(settingsPath), code);
+            string? updated = SetSecret(File.ReadAllText(settingsPath), key, value);
             if (updated is not null)
             {
                 File.WriteAllText(settingsPath, updated);
@@ -190,7 +208,7 @@ public static class BackupService
         }
     }
 
-    private static string? SetSyncCode(string json, string code)
+    private static string? SetSecret(string json, string key, string code)
     {
         try
         {
@@ -199,7 +217,7 @@ public static class BackupService
                 return null;
             }
 
-            string? name = obj.Select(p => p.Key).FirstOrDefault(k => k.Equals("SyncCode", StringComparison.OrdinalIgnoreCase));
+            string? name = obj.Select(p => p.Key).FirstOrDefault(k => k.Equals(key, StringComparison.OrdinalIgnoreCase));
             if (name is null)
             {
                 return json;

@@ -1151,6 +1151,22 @@
                                         </DataGrid>
                                     </DockPanel>
                                 </TabItem>
+                                <TabItem Header="Uptime">
+                                    <DockPanel Margin="0,6,0,0">
+                                        <TextBlock DockPanel.Dock="Top" FontWeight="SemiBold" Margin="0,0,0,8" TextWrapping="Wrap"
+                                                   Text="{Binding UptimeSummary}"/>
+                                        <DataGrid ItemsSource="{Binding UptimeRows}"
+                                                  AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
+                                                  HeadersVisibility="Column" GridLinesVisibility="Horizontal" HorizontalScrollBarVisibility="Auto">
+                                            <DataGrid.Columns>
+                                                <DataGridTextColumn Header="Spell" Binding="{Binding Spell, Mode=OneWay}" Width="Auto"/>
+                                                <DataGridTextColumn Header="On" Binding="{Binding Target, Mode=OneWay}" Width="Auto"/>
+                                                <DataGridTextColumn Header="Up for" Binding="{Binding Up, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                                <DataGridTextColumn Header="% of fight" Binding="{Binding Percent, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                            </DataGrid.Columns>
+                                        </DataGrid>
+                                    </DockPanel>
+                                </TabItem>
                                 <TabItem Header="Spell casts">
                                     <Grid Margin="0,6,0,0">
                                         <Grid.RowDefinitions>
@@ -1239,10 +1255,12 @@
 
                     <WrapPanel Grid.Row="0" Margin="0,0,0,8">
                         <ComboBox Width="170" Margin="0,0,10,6" ItemsSource="{Binding LootViews}" SelectedIndex="{Binding LootViewIndex}"/>
-                        <TextBlock Style="{StaticResource FieldLabel}" Text="Filter"/>
-                        <TextBox Width="200" Margin="0,0,14,6" VerticalAlignment="Center"
-                                 ToolTip="Shows only loot whose item, looter or mob contains this text."
+                        <TextBlock Style="{StaticResource FieldLabel}" Text="Search"/>
+                        <TextBox Width="220" Margin="0,0,10,6" VerticalAlignment="Center"
+                                 ToolTip="Every word has to be found in the item, the looter or the mob, so &quot;seru sword&quot; finds swords from Seru. Put a phrase in quotes to keep it together."
                                  Text="{Binding LootFilter, UpdateSourceTrigger=PropertyChanged}"/>
+                        <ComboBox Width="130" Margin="0,0,14,6" ItemsSource="{Binding LootRanges}" SelectedIndex="{Binding LootRangeIndex}"
+                                  ToolTip="How far back to look."/>
                         <Button Content="Read Primary DPS log" Margin="0,0,8,6" Command="{Binding ScanLootFromPrimaryLogCommand}"
                                 ToolTip="Adds the loot from the Primary DPS character's log (the number of days set in Settings)."/>
                         <Button Content="Read a log file…" Margin="0,0,8,6" Style="{StaticResource SecondaryButton}" Command="{Binding ScanLootLogCommand}"/>
@@ -1653,6 +1671,33 @@
                                         </Style>
                                     </TextBlock.Style>
                                 </TextBlock>
+                                <StackPanel Margin="0,0,0,6">
+                                    <StackPanel.Style>
+                                        <Style TargetType="StackPanel">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding BossTrendLine}" Value="">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </StackPanel.Style>
+                                    <TextBlock TextWrapping="Wrap" FontWeight="SemiBold" Margin="0,0,0,4" Text="{Binding BossTrendLine}"/>
+                                    <ItemsControl ItemsSource="{Binding BossTrendBars}" Height="44" Focusable="False"
+                                                  ToolTip="Clear time of each kill, oldest on the left. A shorter bar is a faster kill.">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom"/>
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Width="12" Margin="0,0,3,0" VerticalAlignment="Bottom" CornerRadius="2"
+                                                        Height="{Binding Height}" ToolTip="{Binding Tip}" Background="{DynamicResource DpsFillBrush}"/>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
                                 <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" Text="{Binding BossKillsHint}"/>
                             </StackPanel>
                         </Grid>
@@ -1908,6 +1953,48 @@
                                 <TextBlock Grid.Row="4" Grid.ColumnSpan="3" Style="{StaticResource HintText}" Margin="0,8,0,0"
                                            Text="When another cleric says your position tag together with the cue (for example &quot;3-3-3 CAST NOW!&quot;; any letter case) and you have not begun casting Complete Heal within the threshold, a flashing &quot;CAST CH NOW!&quot; banner and a spoken alarm repeat every second until you do. Pick your position on the Characters tab."/>
                             </Grid>
+                        </GroupBox>
+
+                        <GroupBox Header="Buff timers in safe zones">
+                            <StackPanel Margin="4">
+                                <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,0,0,6"
+                                           Text="The game does not tick buffs and debuffs while a character is in one of these zones, so their bars stop and carry on when the character leaves. One zone per line; a leading &quot;The&quot; and capitals do not matter. A character that dies loses its bars, and a character that logs out has its bars hidden and stopped until it logs in again."/>
+                                <TextBox Height="96" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" TextWrapping="NoWrap"
+                                         Text="{Binding SafeZonesText, UpdateSourceTrigger=LostFocus}"/>
+                                <Button Content="Reset to the built-in list" HorizontalAlignment="Left" Margin="0,6,0,0" Padding="10,2"
+                                        Style="{StaticResource SecondaryButton}" Command="{Binding ResetSafeZonesCommand}"/>
+                            </StackPanel>
+                        </GroupBox>
+
+                        <GroupBox Header="Discord auto-post">
+                            <StackPanel Margin="4">
+                                <WrapPanel>
+                                    <CheckBox Content="Post finished boss fights to Discord" Margin="0,2,32,8" VerticalAlignment="Center"
+                                              IsChecked="{Binding DiscordPostEnabled}"
+                                              ToolTip="Sends the same picture as Copy Image for Discord to your channel when a fight ends. Off until you turn it on."/>
+                                    <CheckBox Content="Post wipes too" Margin="0,2,0,8" VerticalAlignment="Center" IsChecked="{Binding DiscordPostWipes}"
+                                              ToolTip="Also post fights that ended without the mob dying."/>
+                                </WrapPanel>
+                                <WrapPanel>
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Webhook address"
+                                               ToolTip="In Discord: channel settings, Integrations, Webhooks, New Webhook, Copy Webhook URL. It stays on this PC and is left out of backups."/>
+                                    <PasswordBox x:Name="DiscordUrlBox" Width="360" Margin="0,0,8,6" VerticalAlignment="Center" PasswordChanged="DiscordUrlBox_PasswordChanged"/>
+                                    <Button Content="Send test post" Margin="0,0,0,6" Padding="10,2" Command="{Binding SendDiscordTestCommand}"/>
+                                </WrapPanel>
+                                <WrapPanel>
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Fewest players"
+                                               ToolTip="A fight needs at least this many attackers to be posted."/>
+                                    <TextBox Width="60" Margin="0,0,32,6" VerticalAlignment="Center"
+                                             Text="{Binding DiscordMinPlayers, UpdateSourceTrigger=LostFocus}"/>
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Shortest fight (seconds)"
+                                               ToolTip="A fight needs to last at least this long to be posted."/>
+                                    <TextBox Width="60" Margin="0,0,0,6" VerticalAlignment="Center"
+                                             Text="{Binding DiscordMinSeconds, UpdateSourceTrigger=LostFocus}"/>
+                                </WrapPanel>
+                                <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,0,0,4" Text="{Binding DiscordStatus}"/>
+                                <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap"
+                                           Text="Fights come from your Primary DPS log, so each one is posted once. Only fights that have just ended are posted, never old ones read from a log. Anyone who has the webhook address can post to your channel, so keep it private."/>
+                            </StackPanel>
                         </GroupBox>
 
                         <GroupBox Header="Auto-click on my CH turn">

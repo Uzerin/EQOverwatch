@@ -37,8 +37,11 @@ public sealed class TriggerEngineService : ITriggerLineSink
 
     private readonly record struct TimerKey(Guid TriggerId, string Character, TimerKind Kind, string Text);
 
+    private readonly record struct PauseState(DateTime At, bool Hidden, bool IncludeSongs);
+
     private readonly object _gate = new();
     private readonly Dictionary<TimerKey, ActiveTimerSnapshot> _timers = new();
+    private readonly Dictionary<(Guid Source, string Subject), PauseState> _paused = new();
     private CompiledTrigger[] _compiled = Array.Empty<CompiledTrigger>();
     private TriggerSnapshot _snapshot = TriggerSnapshot.Empty;
     private long _version;
@@ -107,10 +110,180 @@ public sealed class TriggerEngineService : ITriggerLineSink
         {
             PruneLocked(nowUtc);
             var key = new TimerKey(sourceId, subject, TimerKind.Countdown, label);
-            _timers[key] = new ActiveTimerSnapshot(
+            ActiveTimerSnapshot timer = new(
                 ++_nextTimerId, sourceId, sourceName, subject, TimerKind.Countdown, label,
                 nowUtc, nowUtc.AddSeconds(durationSeconds), durationSeconds, category);
+            if (_paused.TryGetValue((sourceId, subject.ToLowerInvariant()), out PauseState pause) && (pause.IncludeSongs || category != TimerOverlayCategory.Songs))
+            {
+                timer = timer with { PausedUtc = nowUtc, Hidden = pause.Hidden }; // started while the character's clock is stopped
+            }
+
+            _timers[key] = timer;
             PublishLocked();
+        }
+    }
+
+    /// <summary>
+    /// Whether <paramref name="timer"/> belongs to the subject (a character) of a pause request: same source, same name (capitals ignored),
+    /// and a countdown bar.
+    /// </summary>
+    private static bool IsSubjectBar(ActiveTimerSnapshot timer, Guid sourceId, string subject) =>
+        timer.TriggerId == sourceId && timer.Kind == TimerKind.Countdown
+        && string.Equals(timer.CharacterName, subject, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Stops the clock of every bar of <paramref name="subject"/> from <paramref name="sourceId"/> (bars started later while it is stopped
+    /// start stopped too). <paramref name="hidden"/> also keeps the bars off the overlays. Bars in the Songs overlay are left running
+    /// unless <paramref name="includeSongs"/> is true. Calling it again changes the hidden and songs settings and keeps the original stop time.
+    /// </summary>
+    public void PauseSubject(Guid sourceId, string subject, DateTime nowUtc, bool hidden, bool includeSongs)
+    {
+        if (string.IsNullOrWhiteSpace(subject))
+        {
+            return;
+        }
+
+        lock (_gate)
+        {
+            var key = (sourceId, subject.Trim().ToLowerInvariant());
+            DateTime at = _paused.TryGetValue(key, out PauseState existing) ? existing.At : nowUtc;
+            _paused[key] = new PauseState(at, hidden, includeSongs);
+            foreach (TimerKey timerKey in _timers.Keys.ToList())
+            {
+                ActiveTimerSnapshot timer = _timers[timerKey];
+                if (!IsSubjectBar(timer, sourceId, subject.Trim()))
+                {
+                    continue;
+                }
+
+                bool applies = includeSongs || timer.Category != TimerOverlayCategory.Songs;
+                _timers[timerKey] = applies
+                    ? timer with { PausedUtc = timer.PausedUtc ?? nowUtc, Hidden = hidden }
+                    : timer;
+            }
+
+            PublishLocked();
+        }
+    }
+
+    /// <summary>Starts the clock again for the bars <see cref="PauseSubject"/> stopped: each one gets back the time it was stopped for.</summary>
+    public void ResumeSubject(Guid sourceId, string subject, DateTime nowUtc)
+    {
+        if (string.IsNullOrWhiteSpace(subject))
+        {
+            return;
+        }
+
+        lock (_gate)
+        {
+            _paused.Remove((sourceId, subject.Trim().ToLowerInvariant()));
+            foreach (TimerKey timerKey in _timers.Keys.ToList())
+            {
+                ActiveTimerSnapshot timer = _timers[timerKey];
+                if (!IsSubjectBar(timer, sourceId, subject.Trim()) || timer.PausedUtc is not { } pausedAt)
+                {
+                    continue;
+                }
+
+                TimeSpan stopped = nowUtc > pausedAt ? nowUtc - pausedAt : TimeSpan.Zero;
+                _timers[timerKey] = timer with
+                {
+                    StartedUtc = timer.StartedUtc + stopped,
+                    ExpiresUtc = timer.ExpiresUtc + stopped,
+                    PausedUtc = null,
+                    Hidden = false,
+                };
+            }
+
+            PublishLocked();
+        }
+    }
+
+    /// <summary>Removes every bar of <paramref name="subject"/> from <paramref name="sourceId"/> (a character who died loses their buffs). Returns how many.</summary>
+    public int CancelSubject(Guid sourceId, string subject)
+    {
+        if (string.IsNullOrWhiteSpace(subject))
+        {
+            return 0;
+        }
+
+        lock (_gate)
+        {
+            List<TimerKey> doomed = _timers
+                .Where(p => IsSubjectBar(p.Value, sourceId, subject.Trim()))
+                .Select(p => p.Key)
+                .ToList();
+            foreach (TimerKey key in doomed)
+            {
+                _timers.Remove(key);
+            }
+
+            if (doomed.Count > 0)
+            {
+                PublishLocked();
+            }
+
+            return doomed.Count;
+        }
+    }
+
+    /// <summary>True when <paramref name="subject"/>'s bars from <paramref name="sourceId"/> are stopped right now.</summary>
+    public bool IsSubjectPaused(Guid sourceId, string subject)
+    {
+        lock (_gate)
+        {
+            return _paused.ContainsKey((sourceId, subject.Trim().ToLowerInvariant()));
+        }
+    }
+
+    /// <summary>The bars of <paramref name="sourceId"/> as they are now, for saving to disk.</summary>
+    public IReadOnlyList<ActiveTimerSnapshot> BarsOf(Guid sourceId)
+    {
+        lock (_gate)
+        {
+            return _timers.Values.Where(t => t.TriggerId == sourceId && t.Kind == TimerKind.Countdown).OrderBy(t => t.Id).ToList();
+        }
+    }
+
+    /// <summary>
+    /// Puts back a bar saved by an earlier run. A bar that was running keeps its end time (the game's clock kept going); a bar that was
+    /// stopped keeps the time it had left and stays stopped until <see cref="ResumeSubject"/>. A bar that has run out is dropped.
+    /// </summary>
+    public bool RestoreBar(ActiveTimerSnapshot saved, DateTime nowUtc)
+    {
+        ArgumentNullException.ThrowIfNull(saved);
+        ActiveTimerSnapshot bar = saved;
+        if (saved.PausedUtc is { } pausedAt)
+        {
+            double left = Math.Max(0.0, (saved.ExpiresUtc - pausedAt).TotalSeconds);
+            if (left <= 0)
+            {
+                return false;
+            }
+
+            DateTime expires = nowUtc.AddSeconds(left);
+            bar = saved with { ExpiresUtc = expires, StartedUtc = expires.AddSeconds(-saved.DurationSeconds), PausedUtc = nowUtc };
+        }
+        else if (saved.ExpiresUtc <= nowUtc)
+        {
+            return false;
+        }
+
+        lock (_gate)
+        {
+            _timers[new TimerKey(bar.TriggerId, bar.CharacterName, TimerKind.Countdown, bar.Text)] = bar with { Id = ++_nextTimerId };
+            PublishLocked();
+        }
+
+        return true;
+    }
+
+    /// <summary>Marks a subject as stopped without a bar yet (used when saved state is put back).</summary>
+    public void RestorePausedSubject(Guid sourceId, string subject, DateTime nowUtc, bool hidden, bool includeSongs)
+    {
+        lock (_gate)
+        {
+            _paused[(sourceId, subject.Trim().ToLowerInvariant())] = new PauseState(nowUtc, hidden, includeSongs);
         }
     }
 

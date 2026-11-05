@@ -191,11 +191,19 @@ public sealed record ActiveTimerSnapshot(
     DateTime StartedUtc,
     DateTime ExpiresUtc,
     double DurationSeconds,
-    TimerOverlayCategory Category = TimerOverlayCategory.RaidTriggers)
+    TimerOverlayCategory Category = TimerOverlayCategory.RaidTriggers,
+    DateTime? PausedUtc = null,
+    bool Hidden = false)
 {
-    public bool IsExpired(DateTime nowUtc) => nowUtc >= ExpiresUtc;
+    /// <summary>The moment the bar's clock reads: <paramref name="nowUtc"/>, or the instant it was paused at while it is paused.</summary>
+    private DateTime ClockAt(DateTime nowUtc) => PausedUtc is { } paused && paused < nowUtc ? paused : nowUtc;
 
-    public double RemainingSeconds(DateTime nowUtc) => Math.Max(0.0, (ExpiresUtc - nowUtc).TotalSeconds);
+    /// <summary>True while the bar's clock is stopped (the character is in a safe zone or logged out).</summary>
+    public bool IsPaused => PausedUtc is not null;
+
+    public bool IsExpired(DateTime nowUtc) => ClockAt(nowUtc) >= ExpiresUtc;
+
+    public double RemainingSeconds(DateTime nowUtc) => Math.Max(0.0, (ExpiresUtc - ClockAt(nowUtc)).TotalSeconds);
 
     /// <summary>1.0 when just started, 0.0 when expired. Drives the bar width.</summary>
     public double FractionRemaining(DateTime nowUtc) =>
@@ -206,11 +214,11 @@ public sealed record TriggerSnapshot(long Version, IReadOnlyList<ActiveTimerSnap
 {
     public static readonly TriggerSnapshot Empty = new(0, Array.AsReadOnly(Array.Empty<ActiveTimerSnapshot>()));
 
-    /// <summary>Timers still running at <paramref name="nowUtc"/>. The engine only prunes when a trigger fires, so filter here.</summary>
+    /// <summary>Timers still running at <paramref name="nowUtc"/>. The engine only prunes when a trigger fires, so filter here. Hidden bars (a logged-out character's) are left out.</summary>
     public IReadOnlyList<ActiveTimerSnapshot> GetActive(DateTime nowUtc) =>
-        Timers.Where(t => !t.IsExpired(nowUtc)).ToArray();
+        Timers.Where(t => !t.Hidden && !t.IsExpired(nowUtc)).ToArray();
 
     /// <summary>Running timers of one overlay category (what that category's overlay window shows).</summary>
     public IReadOnlyList<ActiveTimerSnapshot> GetActive(DateTime nowUtc, TimerOverlayCategory category) =>
-        Timers.Where(t => t.Category == category && !t.IsExpired(nowUtc)).ToArray();
+        Timers.Where(t => t.Category == category && !t.Hidden && !t.IsExpired(nowUtc)).ToArray();
 }
