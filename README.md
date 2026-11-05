@@ -62,6 +62,10 @@ check off, or run it by hand, under **Settings > Updates**.
 
 ## Changelog
 
+### 1.0.42
+
+- **Tidier Auto-click box.** The checkbox and the toggle hotkey are now on the top line, and the click delay and auto-off time are on the second line.
+
 ### 1.0.41
 
 - **Set the auto-click's auto-off time.** A new "Auto-off after (minutes)" box sits in the Auto-click box on the Settings tab, from 1 to 120 minutes (5 by default). The click switches itself off after that long with no chain cue for your position, and every cue starts the count again. The status line shows the time you set.

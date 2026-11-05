@@ -1912,21 +1912,23 @@
 
                         <GroupBox Header="Auto-click on my CH turn">
                             <StackPanel Margin="4">
-                                <CheckBox Content="Auto-click on my CH turn" Margin="0,2,0,8" IsChecked="{Binding AutoClickEnabled}"
-                                          ToolTip="Clicks the left mouse button where the pointer is when the chain cues your position, only while EverQuest is the window in front."/>
+                                <WrapPanel>
+                                    <CheckBox Content="Auto-click on my CH turn" Margin="0,2,32,8" VerticalAlignment="Center" IsChecked="{Binding AutoClickEnabled}"
+                                              ToolTip="Clicks the left mouse button where the pointer is when the chain cues your position, only while EverQuest is the window in front."/>
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Toggle hotkey"
+                                               ToolTip="Works from any program. Use Ctrl, Alt or Shift plus a key, such as Ctrl+Alt+F9."/>
+                                    <TextBox Width="130" Margin="0,0,0,8" VerticalAlignment="Center"
+                                             Text="{Binding AutoClickHotkey, UpdateSourceTrigger=LostFocus}"/>
+                                </WrapPanel>
                                 <WrapPanel>
                                     <TextBlock Style="{StaticResource FieldLabel}" Text="Click delay (milliseconds)"
                                                ToolTip="How long after the cue the click is made. 0 to 5000."/>
-                                    <TextBox Width="70" Margin="0,0,16,6" VerticalAlignment="Center"
+                                    <TextBox Width="70" Margin="0,0,32,6" VerticalAlignment="Center"
                                              Text="{Binding AutoClickDelayMilliseconds, UpdateSourceTrigger=LostFocus}"/>
                                     <TextBlock Style="{StaticResource FieldLabel}" Text="Auto-off after (minutes)"
                                                ToolTip="The click switches itself off after this many minutes with no chain cue for your position. Every cue starts the count again. 1 to 120."/>
-                                    <TextBox Width="60" Margin="0,0,16,6" VerticalAlignment="Center"
+                                    <TextBox Width="60" Margin="0,0,0,6" VerticalAlignment="Center"
                                              Text="{Binding AutoClickIdleMinutes, UpdateSourceTrigger=LostFocus}"/>
-                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Toggle hotkey"
-                                               ToolTip="Works from any program. Use Ctrl, Alt or Shift plus a key, such as Ctrl+Alt+F9."/>
-                                    <TextBox Width="130" Margin="0,0,0,6" VerticalAlignment="Center"
-                                             Text="{Binding AutoClickHotkey, UpdateSourceTrigger=LostFocus}"/>
                                 </WrapPanel>
                                 <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,0,0,4" Text="{Binding AutoClickStatus}"/>
                                 <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,0,0,4" Text="{Binding AutoClickHotkeyNote}"/>
