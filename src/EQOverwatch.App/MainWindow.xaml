@@ -1910,6 +1910,27 @@
                             </Grid>
                         </GroupBox>
 
+                        <GroupBox Header="Auto-click on my CH turn">
+                            <StackPanel Margin="4">
+                                <CheckBox Content="Auto-click on my CH turn" Margin="0,2,0,8" IsChecked="{Binding AutoClickEnabled}"
+                                          ToolTip="Clicks the left mouse button where the pointer is when the chain cues your position, only while EverQuest is the window in front."/>
+                                <WrapPanel>
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Click delay (milliseconds)"
+                                               ToolTip="How long after the cue the click is made. 0 to 5000."/>
+                                    <TextBox Width="70" Margin="0,0,16,6" VerticalAlignment="Center"
+                                             Text="{Binding AutoClickDelayMilliseconds, UpdateSourceTrigger=LostFocus}"/>
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Toggle hotkey"
+                                               ToolTip="Works from any program. Use Ctrl, Alt or Shift plus a key, such as Ctrl+Alt+F9."/>
+                                    <TextBox Width="130" Margin="0,0,0,6" VerticalAlignment="Center"
+                                             Text="{Binding AutoClickHotkey, UpdateSourceTrigger=LostFocus}"/>
+                                </WrapPanel>
+                                <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,0,0,4" Text="{Binding AutoClickStatus}"/>
+                                <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,0,0,4" Text="{Binding AutoClickHotkeyNote}"/>
+                                <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap"
+                                           Text="Park the mouse pointer on your Complete Heal button. When another cleric says your position tag with the cue (the same cue as the late-cast alarm) the app presses the left mouse button once, after the delay. It does nothing inside the game client, only a mouse click, and it never clicks unless EverQuest is the window in front. It is always off when the app starts. Check your server's rules on automation before using it."/>
+                            </StackPanel>
+                        </GroupBox>
+
                         <GroupBox Header="Theme &amp; colors">
                             <StackPanel Margin="4">
                                 <WrapPanel Margin="0,0,0,10">

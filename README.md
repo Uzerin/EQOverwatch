@@ -62,6 +62,10 @@ check off, or run it by hand, under **Settings > Updates**.
 
 ## Changelog
 
+### 1.0.40
+
+- **Auto-click on your CH turn.** An optional switch on the Settings tab. When another cleric says your position tag with the cue (the same cue as the late-cast alarm), the app presses the left mouse button once where the pointer is, after a delay you set, so you can park the pointer on your Complete Heal button. It does nothing inside the game client, and it clicks only while EverQuest (`eqgame.exe`) is the window in front. It is always off when the app starts, a global hotkey (Ctrl+Alt+F9 unless you change it) switches it on and off with a spoken "Auto click on" or "Auto click off", it makes at most ten clicks a minute, and it switches itself off after five minutes with no cue. Check your server's rules on automation before using it.
+
 ### 1.0.39
 
 - **Players & Pets has its own tab.** The verified players and pets moved out of Settings into a tab of their own, with the two lists side by side and filling the window, so they are easy to scroll. The pet damage switch moved with them.

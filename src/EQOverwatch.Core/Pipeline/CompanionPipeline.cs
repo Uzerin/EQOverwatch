@@ -37,6 +37,7 @@ public sealed class CompanionPipeline : IAsyncDisposable
         SharedTriggers = new SharedTriggerScanner();
         Loot = new LootTracker();
         Tells = new TellReaderService(Triggers);
+        AutoClick = new AutoClickService(ChChain, Triggers);
         HistoricalDps = new HistoricalDpsTracker(inactivityTimeout, Roster);
 
         Triggers.Error += RaiseError;
@@ -72,6 +73,9 @@ public sealed class CompanionPipeline : IAsyncDisposable
 
     /// <summary>Loot and the rolls won for it, collected from every trigger-enabled log.</summary>
     public LootTracker Loot { get; }
+
+    /// <summary>Clicks the mouse on your cleric's turn in the chain, while EverQuest is the window in front. Off until switched on.</summary>
+    public AutoClickService AutoClick { get; }
 
     /// <summary>Speaks incoming tells aloud.</summary>
     public TellReaderService Tells { get; }
@@ -185,6 +189,7 @@ public sealed class CompanionPipeline : IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         await StopLiveAsync().ConfigureAwait(false);
+        AutoClick.Dispose();
         RaidBosses.Dispose();
         ChChain.Dispose();
     }

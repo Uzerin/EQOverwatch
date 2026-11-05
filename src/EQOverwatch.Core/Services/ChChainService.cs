@@ -84,6 +84,12 @@ public sealed class ChChainService : ITriggerLineSink, IDisposable
         }
     }
 
+    /// <summary>
+    /// Raised with the character's name and the instant the cue was read, each time a cue names the chain position one of your
+    /// characters holds. The same cue read from several characters' logs raises it once per log.
+    /// </summary>
+    public event Action<string, DateTime>? CueReceived;
+
     /// <summary>True: bars, cues and the alarm go to the CH Chain overlay. False: they go to the Buffs overlay.</summary>
     public bool UseChChainOverlay
     {
@@ -333,6 +339,7 @@ public sealed class ChChainService : ITriggerLineSink, IDisposable
     /// <summary>Every character holding the cued slot is now expected to start casting.</summary>
     private void HandleCue(int slot, DateTime now)
     {
+        List<string>? cued = null;
         lock (_gate)
         {
             double threshold = _settings.LateThresholdSeconds;
@@ -350,6 +357,24 @@ public sealed class ChChainService : ITriggerLineSink, IDisposable
                 state.AlarmDueUtc = now.AddSeconds(threshold);
                 state.NextAlarmUtc = state.AlarmDueUtc;
                 state.DeadlineUtc = now.AddSeconds(AlarmWindowSeconds);
+                (cued ??= new List<string>()).Add(assignment.Key);
+            }
+        }
+
+        if (cued is null)
+        {
+            return;
+        }
+
+        foreach (string character in cued)
+        {
+            try
+            {
+                CueReceived?.Invoke(character, now);
+            }
+            catch (Exception)
+            {
+                // a listener's failure must not stop the chain alarm
             }
         }
     }

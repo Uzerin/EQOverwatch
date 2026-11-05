@@ -89,6 +89,7 @@ public partial class CompanionApp : Application
             remoteDataDirectory: Path.Combine(appData, "remote"),
             bossHistory: bossHistory,
             mobLevels: mobLevels,
+            clickSender: new EQOverwatch.App.Interop.Win32InputClicker(),
             dataDirectory: appData);
 
         if (dpsVm is not null)

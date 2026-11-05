@@ -75,7 +75,8 @@ public sealed partial class MainViewModel : ObservableObject
         string? remoteDataDirectory = null,
         BossHistoryStore? bossHistory = null,
         string? dataDirectory = null,
-        MobLevelStore? mobLevels = null)
+        MobLevelStore? mobLevels = null,
+        IClickSender? clickSender = null)
     {
         _bossHistory = bossHistory ?? new BossHistoryStore();
         _mobLevels = mobLevels ?? new MobLevelStore();
@@ -94,6 +95,11 @@ public sealed partial class MainViewModel : ObservableObject
         _themeService = themeService ?? throw new ArgumentNullException(nameof(themeService));
         _clipboard = clipboard ?? throw new ArgumentNullException(nameof(clipboard));
         _clock = clock ?? (() => DateTime.Now); // log timestamps are in the PC's local time
+        if (clickSender is not null)
+        {
+            _pipeline.AutoClick.Sender = clickSender;
+        }
+
         _pipeline.LiveDps.MobLevelSeen = (mob, level) => _mobLevels.Observe(mob, level); // /consider lines feed the shared level ranges
         _pipeline.HistoricalDps.MobLevelSeen = (mob, level) => _mobLevels.Observe(mob, level);
         ArgumentNullException.ThrowIfNull(settings);
@@ -776,6 +782,7 @@ public sealed partial class MainViewModel : ObservableObject
         UpdateAbilityActivity();
         UpdateKnownMobs();
         DrainRosterChanges();
+        SyncAutoClick();
         RefreshRaidNight();
 
         DpsSnapshot live = _pipeline.LiveDps.Snapshot;
@@ -1333,6 +1340,8 @@ public sealed partial class MainViewModel : ObservableObject
             _audio.IsEnabled = !settings.IsAudioMuted;
             ReadTellsAloud = settings.ReadTellsAloud;
             _pipeline.Tells.IsEnabled = settings.ReadTellsAloud;
+            AutoClickDelayMilliseconds = settings.AutoClickDelayMilliseconds; // whether it is on is never restored: it starts off
+            AutoClickHotkey = string.IsNullOrWhiteSpace(settings.AutoClickHotkey) ? AutoClickService.DefaultHotkey : settings.AutoClickHotkey;
 
             EncounterTimeoutSeconds = settings.EncounterTimeoutSeconds;
             _pipeline.EncounterTimeout = TimeSpan.FromSeconds(EncounterTimeoutSeconds);
@@ -1409,6 +1418,8 @@ public sealed partial class MainViewModel : ObservableObject
         EncounterTimeoutSeconds = EncounterTimeoutSeconds,
         IsAudioMuted = IsAudioMuted,
         ReadTellsAloud = ReadTellsAloud,
+        AutoClickDelayMilliseconds = AutoClickDelayMilliseconds,
+        AutoClickHotkey = AutoClickHotkey,
         BuffsOverlay = _overlays.Capture(OverlayKind.Buffs),
         DebuffsOverlay = _overlays.Capture(OverlayKind.Debuffs),
         SongsOverlay = _overlays.Capture(OverlayKind.Songs),

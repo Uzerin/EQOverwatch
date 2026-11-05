@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
+using EQOverwatch.App.Interop;
 using EQOverwatch.App.ViewModels;
 
 namespace EQOverwatch.App;
@@ -16,6 +17,7 @@ public partial class MainWindow : Window
     private readonly MainViewModel _viewModel;
     private readonly DispatcherTimer _refreshTimer;
     private bool _userTyping;
+    private GlobalHotkey? _hotkey;
 
     public MainWindow(MainViewModel viewModel)
     {
@@ -28,11 +30,37 @@ public partial class MainWindow : Window
         _refreshTimer.Tick += (_, _) => _viewModel.Refresh();
 
         Loaded += (_, _) => _refreshTimer.Start();
+        SourceInitialized += (_, _) =>
+        {
+            // The hotkey that switches the CH auto-click on and off works from any program.
+            _hotkey = new GlobalHotkey(this, id: 0x4551);
+            _hotkey.Pressed += _viewModel.ToggleAutoClick;
+            _viewModel.AutoClickHotkeyChanged += RegisterAutoClickHotkey;
+            RegisterAutoClickHotkey();
+        };
         Closing += (_, _) =>
         {
             _refreshTimer.Stop();
+            _viewModel.AutoClickHotkeyChanged -= RegisterAutoClickHotkey;
+            _hotkey?.Dispose();
             _viewModel.Shutdown();
         };
+    }
+
+    private void RegisterAutoClickHotkey()
+    {
+        if (_hotkey is null)
+        {
+            return;
+        }
+
+        bool ok = HotkeyParser.TryParse(_viewModel.AutoClickHotkey, out uint modifiers, out uint key) && _hotkey.Register(modifiers, key);
+        if (!ok)
+        {
+            _hotkey.Unregister();
+        }
+
+        _viewModel.ReportAutoClickHotkey(ok);
     }
 
     /// <summary>Remembers that the next text change in a search box comes from the keyboard, not from picking an item.</summary>

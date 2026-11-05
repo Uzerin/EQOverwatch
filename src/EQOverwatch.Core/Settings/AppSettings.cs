@@ -21,6 +21,12 @@ public sealed class AppSettings
 
     /// <summary>Speak incoming tells aloud (on by default).</summary>
     public bool ReadTellsAloud { get; set; } = true;
+
+    /// <summary>Milliseconds between a chain cue for your cleric and the auto-click. Whether it is on is never saved: it starts off.</summary>
+    public int AutoClickDelayMilliseconds { get; set; }
+
+    /// <summary>The global hotkey that switches the auto-click on and off, such as "Ctrl+Alt+F9".</summary>
+    public string AutoClickHotkey { get; set; } = "Ctrl+Alt+F9";
     public OverlaySettings BuffsOverlay { get; set; } = OverlaySettings.ForCategory(TimerOverlayCategory.Buffs);
     public OverlaySettings DebuffsOverlay { get; set; } = OverlaySettings.ForCategory(TimerOverlayCategory.Debuffs);
     public OverlaySettings SongsOverlay { get; set; } = OverlaySettings.ForCategory(TimerOverlayCategory.Songs);
