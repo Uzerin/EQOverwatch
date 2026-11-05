@@ -1341,6 +1341,7 @@ public sealed partial class MainViewModel : ObservableObject
             ReadTellsAloud = settings.ReadTellsAloud;
             _pipeline.Tells.IsEnabled = settings.ReadTellsAloud;
             AutoClickDelayMilliseconds = settings.AutoClickDelayMilliseconds; // whether it is on is never restored: it starts off
+            AutoClickIdleMinutes = settings.AutoClickIdleMinutes <= 0 ? AutoClickService.DefaultIdleMinutes : settings.AutoClickIdleMinutes;
             AutoClickHotkey = string.IsNullOrWhiteSpace(settings.AutoClickHotkey) ? AutoClickService.DefaultHotkey : settings.AutoClickHotkey;
 
             EncounterTimeoutSeconds = settings.EncounterTimeoutSeconds;
@@ -1419,6 +1420,7 @@ public sealed partial class MainViewModel : ObservableObject
         IsAudioMuted = IsAudioMuted,
         ReadTellsAloud = ReadTellsAloud,
         AutoClickDelayMilliseconds = AutoClickDelayMilliseconds,
+        AutoClickIdleMinutes = AutoClickIdleMinutes,
         AutoClickHotkey = AutoClickHotkey,
         BuffsOverlay = _overlays.Capture(OverlayKind.Buffs),
         DebuffsOverlay = _overlays.Capture(OverlayKind.Debuffs),

@@ -62,9 +62,13 @@ check off, or run it by hand, under **Settings > Updates**.
 
 ## Changelog
 
+### 1.0.41
+
+- **Set the auto-click's auto-off time.** A new "Auto-off after (minutes)" box sits in the Auto-click box on the Settings tab, from 1 to 120 minutes (5 by default). The click switches itself off after that long with no chain cue for your position, and every cue starts the count again. The status line shows the time you set.
+
 ### 1.0.40
 
-- **Auto-click on your CH turn.** An optional switch on the Settings tab. When another cleric says your position tag with the cue (the same cue as the late-cast alarm), the app presses the left mouse button once where the pointer is, after a delay you set, so you can park the pointer on your Complete Heal button. It does nothing inside the game client, and it clicks only while EverQuest (`eqgame.exe`) is the window in front. It is always off when the app starts, a global hotkey (Ctrl+Alt+F9 unless you change it) switches it on and off with a spoken "Auto click on" or "Auto click off", it makes at most ten clicks a minute, and it switches itself off after five minutes with no cue. Check your server's rules on automation before using it.
+- **Auto-click on your CH turn.** An optional switch on the Settings tab. When another cleric says your position tag with the cue (the same cue as the late-cast alarm), the app presses the left mouse button once where the pointer is, after a delay you set, so you can park the pointer on your Complete Heal button. It does nothing inside the game client, and it clicks only while EverQuest (`eqgame.exe`) is the window in front. It is always off when the app starts, a global hotkey (Ctrl+Alt+F9 unless you change it) switches it on and off with a spoken "Auto click on" or "Auto click off", it makes at most ten clicks a minute, and it switches itself off after a quiet time you set (five minutes by default) with no cue. Check your server's rules on automation before using it.
 
 ### 1.0.39
 

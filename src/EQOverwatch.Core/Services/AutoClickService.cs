@@ -15,7 +15,7 @@ public interface IClickSender
 /// <summary>
 /// Clicks the mouse once when it is your cleric's turn in the Complete Heal chain. It is for a hotbar button you have parked the
 /// pointer on. It touches nothing inside the game client: it only presses the left mouse button, and only while EverQuest is the
-/// window in front. It is <b>off</b> every time the app starts, and switches itself off after <see cref="IdleDisarmAfter"/> with no cue.
+/// window in front. It is <b>off</b> every time the app starts, and switches itself off after <see cref="IdleMinutes"/> minutes with no cue.
 /// <para>
 /// <b>When.</b> A turn is the chain cue for a position one of your characters holds (see <see cref="ChChainService"/>). The click is
 /// made <see cref="DelayMilliseconds"/> after the cue. The same cue read from several characters' logs, or repeated within a few
@@ -28,8 +28,11 @@ public sealed class AutoClickService : IDisposable
     public const int MaxDelayMilliseconds = 5000;
     public const int MaxClicksPerMinute = 10;
 
-    /// <summary>Armed, but no chain cue for this long: the chain is over, so the click switches itself off.</summary>
-    public static readonly TimeSpan IdleDisarmAfter = TimeSpan.FromMinutes(5);
+    /// <summary>The default time without a chain cue after which the click switches itself off, in minutes.</summary>
+    public const int DefaultIdleMinutes = 5;
+
+    public const int MinIdleMinutes = 1;
+    public const int MaxIdleMinutes = 120;
 
     private static readonly Guid SourceId = new("a3d7f1c2-6b84-4e09-8c5d-1f2e9b7a4d60");
     private static readonly TimeSpan SameTurnWindow = TimeSpan.FromSeconds(4);
@@ -43,6 +46,7 @@ public sealed class AutoClickService : IDisposable
     private IClickSender? _sender;
     private bool _armed;
     private int _delayMilliseconds;
+    private int _idleMinutes = DefaultIdleMinutes;
     private DateTime _lastActivityUtc;
     private DateTime? _lastCueUtc;
     private DateTime? _pendingDueUtc;
@@ -85,6 +89,16 @@ public sealed class AutoClickService : IDisposable
     {
         get { lock (_gate) { return _delayMilliseconds; } }
         set { lock (_gate) { _delayMilliseconds = Math.Clamp(value, 0, MaxDelayMilliseconds); } }
+    }
+
+    /// <summary>
+    /// Armed, but no chain cue for this many minutes: the chain is over, so the click switches itself off. Each cue starts the count
+    /// again. Kept between <see cref="MinIdleMinutes"/> and <see cref="MaxIdleMinutes"/>; there is no "never".
+    /// </summary>
+    public int IdleMinutes
+    {
+        get { lock (_gate) { return _idleMinutes; } }
+        set { lock (_gate) { _idleMinutes = Math.Clamp(value, MinIdleMinutes, MaxIdleMinutes); } }
     }
 
     /// <summary>Clicks made since the app started.</summary>
@@ -165,7 +179,7 @@ public sealed class AutoClickService : IDisposable
                 return;
             }
 
-            if (nowUtc - _lastActivityUtc >= IdleDisarmAfter)
+            if (nowUtc - _lastActivityUtc >= TimeSpan.FromMinutes(_idleMinutes))
             {
                 disarm = true;
             }

@@ -14,6 +14,10 @@ public sealed partial class MainViewModel
     [ObservableProperty]
     private int _autoClickDelayMilliseconds;
 
+    /// <summary>Minutes without a chain cue after which the click switches itself off.</summary>
+    [ObservableProperty]
+    private int _autoClickIdleMinutes = AutoClickService.DefaultIdleMinutes;
+
     /// <summary>The global hotkey that switches the click on and off.</summary>
     [ObservableProperty]
     private string _autoClickHotkey = AutoClickService.DefaultHotkey;
@@ -43,6 +47,23 @@ public sealed partial class MainViewModel
         }
 
         _pipeline.AutoClick.DelayMilliseconds = clamped;
+        if (!_restoring)
+        {
+            RequestSave();
+        }
+    }
+
+    partial void OnAutoClickIdleMinutesChanged(int value)
+    {
+        int clamped = Math.Clamp(value, AutoClickService.MinIdleMinutes, AutoClickService.MaxIdleMinutes);
+        if (clamped != value)
+        {
+            AutoClickIdleMinutes = clamped;
+            return;
+        }
+
+        _pipeline.AutoClick.IdleMinutes = clamped;
+        UpdateAutoClickStatus();
         if (!_restoring)
         {
             RequestSave();
@@ -84,7 +105,7 @@ public sealed partial class MainViewModel
         AutoClickService click = _pipeline.AutoClick;
         AutoClickStatus = click.IsArmed
             ? $"On. Clicks once per turn at the mouse pointer while EverQuest is the window in front. {click.Clicks:N0} click(s) so far, {click.Skipped:N0} turn(s) skipped. " +
-              "It switches itself off after five minutes with no chain cue."
+              $"It switches itself off after {AutoClickIdleMinutes:N0} minute(s) with no chain cue."
             : "Off.";
     }
 }

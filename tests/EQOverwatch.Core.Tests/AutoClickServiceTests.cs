@@ -185,6 +185,37 @@ public sealed class AutoClickServiceTests : IDisposable
     }
 
     [Fact]
+    public void The_auto_off_time_is_the_one_that_was_set()
+    {
+        _click.IdleMinutes = 30;
+        _click.SetArmed(true);
+
+        _click.Tick(T0.AddMinutes(29));
+        Assert.True(_click.IsArmed);
+
+        _click.Tick(T0.AddMinutes(30).AddSeconds(1));
+        Assert.False(_click.IsArmed);
+
+        _click.IdleMinutes = 1;
+        _click.SetArmed(true);
+        _click.Tick(T0.AddMinutes(1).AddSeconds(1));
+        Assert.False(_click.IsArmed);
+    }
+
+    [Fact]
+    public void The_auto_off_time_is_kept_between_one_and_a_hundred_twenty_minutes_and_defaults_to_five()
+    {
+        Assert.Equal(AutoClickService.DefaultIdleMinutes, _click.IdleMinutes);
+        Assert.Equal(5, AutoClickService.DefaultIdleMinutes);
+
+        _click.IdleMinutes = 0;
+        Assert.Equal(1, _click.IdleMinutes);
+
+        _click.IdleMinutes = 100_000;
+        Assert.Equal(120, _click.IdleMinutes);
+    }
+
+    [Fact]
     public void A_cue_keeps_it_from_switching_off_while_the_chain_is_running()
     {
         _click.SetArmed(true);
