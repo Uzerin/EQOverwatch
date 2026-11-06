@@ -90,6 +90,7 @@ public sealed partial class MainViewModel : ObservableObject
         _updateChecker = updateChecker;
         _openUrl = openUrl;
         _pipeline = pipeline ?? throw new ArgumentNullException(nameof(pipeline));
+        _pipeline.Buffs.SetDurationProvider(CasterDurationFor);
         _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
         _overlays = overlays ?? throw new ArgumentNullException(nameof(overlays));
         _audio = audio ?? throw new ArgumentNullException(nameof(audio));
@@ -1348,6 +1349,7 @@ public sealed partial class MainViewModel : ObservableObject
             AutoClickIdleMinutes = settings.AutoClickIdleMinutes <= 0 ? AutoClickService.DefaultIdleMinutes : settings.AutoClickIdleMinutes;
             AutoClickHotkey = string.IsNullOrWhiteSpace(settings.AutoClickHotkey) ? AutoClickService.DefaultHotkey : settings.AutoClickHotkey;
             SafeZonesText = string.Join(Environment.NewLine, settings.NonCombatZones ?? TimerPauseService.DefaultSafeZones.ToList());
+            RestoreDurationProfiles(settings.DurationProfiles);
             DiscordPostEnabled = settings.DiscordAutoPostEnabled;
             DiscordWebhookUrl = settings.DiscordWebhookUrl ?? string.Empty;
             DiscordPostWipes = settings.DiscordPostWipes;
@@ -1432,6 +1434,7 @@ public sealed partial class MainViewModel : ObservableObject
         AutoClickDelayMilliseconds = AutoClickDelayMilliseconds,
         AutoClickIdleMinutes = AutoClickIdleMinutes,
         NonCombatZones = SafeZoneList(),
+        DurationProfiles = DurationProfileSettings(),
         DiscordAutoPostEnabled = DiscordPostEnabled,
         DiscordWebhookUrl = DiscordWebhookUrl.Trim(),
         DiscordPostWipes = DiscordPostWipes,

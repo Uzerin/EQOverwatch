@@ -62,6 +62,11 @@ check off, or run it by hand, under **Settings > Updates**.
 
 ## Changelog
 
+### 1.0.44
+
+- **Focus effects and AA duration.** A new "Focus Effects" button on each character's line on the Characters tab opens the character window on its Focus Effects tab. Pick a buff duration focus and a debuff/DoT duration focus from lists built from your `spells_us.txt` (None by default), and type the total spell-duration percentage shown in your AA window (Alt+V). The focus percentage and the AA percentage add together. Buff, debuff and DoT bars, and the uptime tab, then use the longer time, but only for spells that character casts itself (it must see "You begin casting"). Songs are never extended. Each focus counts only on spells up to its level, and its bonus shrinks for higher-level spells, skips spells shorter than the focus allows and spells with effects the focus excludes. Choices are saved per character. This needs the newer split `spells_us.txt` (with `spells_us_str.txt`).
+- Tidied two build warnings.
+
 ### 1.0.43
 
 - **DPS overlay shows the top 5 and your characters.** The overlay lists the five highest damage dealers, then any of your own characters that are doing damage, even when they are far down the ranking. Their rows keep their real rank, are drawn in gold and sit below a gap. A character already in the top 5 is not listed twice.

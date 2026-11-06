@@ -29,11 +29,11 @@ public sealed class CompanionPipeline : IAsyncDisposable
         Buffs = new BuffTrackerService(Spells, Triggers);
         Uptime = new BuffUptimeTracker(Buffs);
         TimerPause = new TimerPauseService(Triggers);
-        // A tracked debuff landing on the mob being fought counts for uptime (it gets no bar of its own).
-        Buffs.SetBystanderProbe(name => LiveDps.Snapshot.Active.Any(e => string.Equals(e.TargetName, name, StringComparison.OrdinalIgnoreCase)));
         Roster = new PlayerRoster();
         LiveDps = new LiveDpsTracker(inactivityTimeout, roster: Roster);
         LiveDpsTracker liveDps = LiveDps;
+        // A tracked debuff landing on the mob being fought counts for uptime (it gets no bar of its own).
+        Buffs.SetBystanderProbe(name => liveDps.Snapshot.Active.Any(e => string.Equals(e.TargetName, name, StringComparison.OrdinalIgnoreCase)));
         RaidBosses = new RaidBossTimerService(Triggers, () => liveDps.Snapshot);
         ChChain = new ChChainService(Triggers);
         Cooldowns = new CooldownTrackerService(Triggers);

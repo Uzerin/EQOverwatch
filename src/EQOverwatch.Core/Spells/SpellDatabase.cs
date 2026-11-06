@@ -22,7 +22,9 @@ public sealed record SpellInfo(
     int DurationFormula,
     int MaxDurationTicks,
     int BaseDurationSeconds,
-    TimerOverlayCategory Category = TimerOverlayCategory.Buffs)
+    TimerOverlayCategory Category = TimerOverlayCategory.Buffs,
+    IReadOnlyList<int>? ClassLevels = null,
+    IReadOnlyList<int>? EffectIds = null)
 {
     /// <summary><see cref="CastOnOther"/> without surrounding whitespace: the text a log line ends with.</summary>
     public string CastOnOtherSuffix => CastOnOther.Trim();
@@ -57,6 +59,7 @@ public sealed class SpellDatabase
 
     private readonly Dictionary<int, SpellInfo> _byId = new();
     private readonly Dictionary<int, SpellDefinition> _definitionsById = new();
+    private readonly Dictionary<int, DurationFocus> _fociById = new();
     private readonly Dictionary<string, SpellInfo> _byName = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, SpellInfo[]> _byCastOnYou;
     private readonly Dictionary<string, SpellInfo[]> _byCastOnOther;
@@ -69,9 +72,22 @@ public sealed class SpellDatabase
         IEnumerable<SpellInfo> spells,
         int casterLevel,
         IEnumerable<SpellDefinition>? definitions = null,
-        IEnumerable<AbilityInfo>? abilities = null)
+        IEnumerable<AbilityInfo>? abilities = null,
+        IEnumerable<DurationFocus>? foci = null)
     {
         CasterLevel = casterLevel;
+
+        var fociList = new List<DurationFocus>(foci ?? Enumerable.Empty<DurationFocus>());
+        fociList.Sort(static (a, b) =>
+        {
+            int byName = StringComparer.OrdinalIgnoreCase.Compare(a.Name, b.Name);
+            return byName != 0 ? byName : a.SpellId.CompareTo(b.SpellId);
+        });
+        DurationFoci = fociList;
+        foreach (DurationFocus focus in fociList)
+        {
+            _fociById[focus.SpellId] = focus;
+        }
 
         // One entry per name (several ranks share one): the one with the longest recast, then the lowest id.
         var abilityByName = new Dictionary<string, AbilityInfo>(StringComparer.OrdinalIgnoreCase);
@@ -151,6 +167,11 @@ public sealed class SpellDatabase
     /// ordered by name. Only the split spell-file layout carries the recast time; the list is empty otherwise.
     /// </summary>
     public IReadOnlyList<AbilityInfo> Abilities { get; }
+
+    /// <summary>Every spell-duration focus in the file, ordered by name. Empty unless the split layout (which carries effects) was loaded.</summary>
+    public IReadOnlyList<DurationFocus> DurationFoci { get; }
+
+    public DurationFocus? FindFocus(int spellId) => _fociById.GetValueOrDefault(spellId);
 
     public int Count => Spells.Count;
 

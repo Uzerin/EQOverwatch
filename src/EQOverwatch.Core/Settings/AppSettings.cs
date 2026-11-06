@@ -31,6 +31,9 @@ public sealed class AppSettings
     /// </summary>
     public List<string>? NonCombatZones { get; set; }
 
+    /// <summary>Each character's duration focus choices and AA percentage (Focus Effects window). Characters not listed have none.</summary>
+    public List<DurationProfileSetting>? DurationProfiles { get; set; }
+
     /// <summary>When true, a finished boss fight is posted to the Discord webhook below. Off by default.</summary>
     public bool DiscordAutoPostEnabled { get; set; }
 
@@ -157,6 +160,20 @@ public sealed class AppSettings
     public const int DefaultCasterLevelValue = 60;
     public const int MinCasterLevel = 1;
     public const int MaxCasterLevel = 125;
+}
+
+public sealed class DurationProfileSetting
+{
+    public string CharacterName { get; set; } = string.Empty;
+    public string ServerName { get; set; } = string.Empty;
+
+    /// <summary>Spell id of the chosen beneficial duration focus, or null for None.</summary>
+    public int? BeneficialFocusId { get; set; }
+
+    public int? DetrimentalFocusId { get; set; }
+
+    /// <summary>The total spell-duration percentage shown in the AA window, 0-100.</summary>
+    public int AaPercent { get; set; }
 }
 
 public sealed class WatchedLogSettings

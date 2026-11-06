@@ -24,6 +24,7 @@ public sealed partial class CharacterDataViewModel : ObservableObject
     public const int SpellbookTab = 1;
     public const int MissingSpellsTab = 2;
     public const int KeyRingTab = 3;
+    public const int FocusTab = 4;
 
     private const string ScrollPrefix = "Spell: ";
     private const string None = "—";
@@ -33,8 +34,10 @@ public sealed partial class CharacterDataViewModel : ObservableObject
     private readonly Func<string> _classLabel;
 
     public CharacterDataViewModel(
-        CharacterDataStore store, Func<string?> eqFolder, string characterName, string serverName, Func<string> classLabel, int tab)
+        CharacterDataStore store, Func<string?> eqFolder, string characterName, string serverName, Func<string> classLabel, int tab,
+        FocusEffectsViewModel? focus = null)
     {
+        Focus = focus;
         _store = store ?? throw new ArgumentNullException(nameof(store));
         _eqFolder = eqFolder ?? throw new ArgumentNullException(nameof(eqFolder));
         _classLabel = classLabel ?? throw new ArgumentNullException(nameof(classLabel));
@@ -45,6 +48,9 @@ public sealed partial class CharacterDataViewModel : ObservableObject
     }
 
     public string CharacterName { get; }
+
+    /// <summary>The Focus Effects tab's data; null only in tests.</summary>
+    public FocusEffectsViewModel? Focus { get; }
 
     public string ServerName { get; }
 

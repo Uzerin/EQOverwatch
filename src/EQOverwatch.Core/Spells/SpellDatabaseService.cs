@@ -127,10 +127,11 @@ public sealed class SpellDatabaseService
         int bardColumn = split ? SplitBardLevel : LegacyBardLevel;
         int requiredColumn = split ? SplitMaxTicks : Math.Max(LegacyMaxTicks, LegacySpellFades);
 
-        var columns = new ColumnReader(Math.Max(goodEffectColumn, bardColumn));
+        var columns = new ColumnReader(Math.Max(goodEffectColumn, bardColumn + 8));
         var recasts = new Dictionary<int, (string Name, int Seconds)>();
         var kept = new Dictionary<int, SpellInfo>();
         var definitions = new Dictionary<int, SpellDefinition>();
+        var foci = new List<DurationFocus>();
         int rowsRead = 0, skipped = 0, malformed = 0;
 
         using (var reader = new StreamReader(fullPath, Encoding.Latin1, detectEncodingFromByteOrderMarks: false, bufferSize: 1 << 16))
@@ -169,6 +170,25 @@ public sealed class SpellDatabaseService
                     recasts[id] = (name, recastMs / 1000);
                 }
 
+                // The split layout ends each row with its effects; a duration focus is a row with effect 128.
+                List<SpellEffects.Effect>? effects = null;
+                if (split)
+                {
+                    int lastCaret = line.LastIndexOf('^');
+                    if (lastCaret >= 0 && lastCaret < line.Length - 1)
+                    {
+                        ReadOnlySpan<char> tail = line.AsSpan(lastCaret + 1);
+                        if (tail.Contains('|'))
+                        {
+                            effects = SpellEffects.Parse(tail);
+                            if (name.Length > 0 && SpellEffects.ToFocus(id, name, effects) is { } focus)
+                            {
+                                foci.Add(focus);
+                            }
+                        }
+                    }
+                }
+
                 if (formula == PermanentFormula)
                 {
                     skipped++;
@@ -187,7 +207,14 @@ public sealed class SpellDatabaseService
                     columns.TryInt(bardColumn, out int bardLevel) ? bardLevel : null,
                     columns.TryInt(goodEffectColumn, out int goodEffect) ? goodEffect : null);
 
-                kept[id] = new SpellInfo(id, name, castOnYou, castOnOther, fades, castTimeMs, formula, maxTicks, seconds, category);
+                int[] classLevels = new int[16];
+                for (int c = 0; c < 16; c++)
+                {
+                    classLevels[c] = columns.TryInt(bardColumn - 7 + c, out int cl) ? cl : 255;
+                }
+
+                int[]? effectIds = effects is { Count: > 0 } ? effects.Select(e => e.Spa).Distinct().ToArray() : null;
+                kept[id] = new SpellInfo(id, name, castOnYou, castOnOther, fades, castTimeMs, formula, maxTicks, seconds, category, classLevels, effectIds);
             }
         }
 
@@ -204,7 +231,7 @@ public sealed class SpellDatabaseService
 
         IEnumerable<AbilityInfo> abilities = recasts.Select(r =>
             new AbilityInfo(r.Key, r.Value.Name, r.Value.Seconds, kept.TryGetValue(r.Key, out SpellInfo? lasting) ? lasting.BaseDurationSeconds : 0));
-        var database = new SpellDatabase(kept.Values, casterLevel, definitions.Values, abilities);
+        var database = new SpellDatabase(kept.Values, casterLevel, definitions.Values, abilities, foci);
         Volatile.Write(ref _database, database);
         DatabaseChanged?.Invoke();
 

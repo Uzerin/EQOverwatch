@@ -260,7 +260,7 @@ public sealed class TimerPauseTests : IDisposable
         ActiveTimerSnapshot clarity = snapshot.Timers.Single(t => t.Text == "Oodles: Clarity");
         Assert.True(clarity.Hidden);
         Assert.Equal(550, clarity.RemainingSeconds(T0.AddHours(3)), 3); // stopped at the 50 second mark
-        Assert.Empty(snapshot.GetActive(T0.AddSeconds(210), TimerOverlayCategory.Buffs).Where(t => t.CharacterName == "Oodles"));
+        Assert.DoesNotContain(snapshot.GetActive(T0.AddSeconds(210), TimerOverlayCategory.Buffs), t => t.CharacterName == "Oodles");
 
         pause2.OnLine("Oodles", "Welcome to EverQuest!", T0.AddSeconds(300));
         Assert.Contains(engine2.Snapshot.GetActive(T0.AddSeconds(301)), t => t.Text == "Oodles: Clarity");

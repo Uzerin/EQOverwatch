@@ -51,7 +51,7 @@ public sealed class BuffTrackerService : ITriggerLineSink
     private const int MaxPendingCasts = 64;
     private const int MinSuffixLength = 3;
 
-    private sealed record PendingCast(SpellInfo Spell, string ObservedBy, DateTime ExpiresUtc, bool IsSinging);
+    private sealed record PendingCast(SpellInfo Spell, string ObservedBy, DateTime ExpiresUtc, bool IsSinging, bool Mine = false);
 
     private sealed record SuffixGroup(string Suffix, SpellInfo[] Spells);
 
@@ -217,6 +217,7 @@ public sealed class BuffTrackerService : ITriggerLineSink
     {
         ReadOnlySpan<char> spellName;
         bool isSinging = false;
+        bool mine = message.StartsWith(YouBeginCasting, StringComparison.Ordinal);
 
         if (message.StartsWith(YouBeginCasting, StringComparison.Ordinal))
         {
@@ -246,7 +247,7 @@ public sealed class BuffTrackerService : ITriggerLineSink
             lock (_gate)
             {
                 PurgeExpiredLocked(now);
-                _pending.Add(new PendingCast(spell, observedBy, now.AddMilliseconds(spell.CastTimeMs) + PendingCastGrace, isSinging));
+                _pending.Add(new PendingCast(spell, observedBy, now.AddMilliseconds(spell.CastTimeMs) + PendingCastGrace, isSinging, mine));
                 if (_pending.Count > MaxPendingCasts)
                 {
                     _pending.RemoveAt(0);
@@ -412,7 +413,7 @@ public sealed class BuffTrackerService : ITriggerLineSink
             return;
         }
 
-        (SpellInfo spell, bool wasSung) = Resolve(candidates, characterName, now);
+        (SpellInfo spell, bool wasSung, bool mine) = Resolve(candidates, characterName, now);
 
         // The user's overlay choice wins. Without one, a spell announced with "sing" and short enough to be a song belongs in the
         // Songs overlay even if the file's class columns say otherwise.
@@ -436,19 +437,37 @@ public sealed class BuffTrackerService : ITriggerLineSink
             return;
         }
 
+        // Focus and AA bonuses apply only to spells this monitored character cast.
+        int seconds = mine ? ExtendedSeconds(spell, characterName) : spell.BaseDurationSeconds;
         string label = Label(target, spell);
         if (!bystander)
         {
-            _timers.StartTimer(TimerSourceId, TimerSourceName, target, label, spell.BaseDurationSeconds, now, category);
+            _timers.StartTimer(TimerSourceId, TimerSourceName, target, label, seconds, now, category);
             Interlocked.Increment(ref _timersStarted);
             Volatile.Write(ref _lastStarted, label);
         }
 
-        Landed?.Invoke(target, spell.Name, spell.BaseDurationSeconds, now);
+        Landed?.Invoke(target, spell.Name, seconds, now);
+    }
+
+    private Func<string, CasterDuration?>? _durationProvider;
+
+    /// <summary>
+    /// Tells the tracker each monitored character's class and duration profile (null for none), so buffs, debuffs and DoTs that
+    /// character casts get their focus and AA bonuses.
+    /// </summary>
+    public void SetDurationProvider(Func<string, CasterDuration?>? provider) => Volatile.Write(ref _durationProvider, provider);
+
+    private int ExtendedSeconds(SpellInfo spell, string caster)
+    {
+        CasterDuration? duration = Volatile.Read(ref _durationProvider)?.Invoke(caster);
+        return duration is null
+            ? spell.BaseDurationSeconds
+            : DurationCalculator.Seconds(spell, duration.ClassIndex, duration.Profile, _spells.Database);
     }
 
     /// <summary>A pending cast from the same log decides; otherwise the longest-lasting tracked candidate (they are pre-sorted).</summary>
-    private (SpellInfo Spell, bool WasSung) Resolve(SpellInfo[] candidates, string observedBy, DateTime now)
+    private (SpellInfo Spell, bool WasSung, bool Mine) Resolve(SpellInfo[] candidates, string observedBy, DateTime now)
     {
         lock (_gate)
         {
@@ -467,13 +486,13 @@ public sealed class BuffTrackerService : ITriggerLineSink
                     if (candidate.SpellId == pending.Spell.SpellId)
                     {
                         _pending.RemoveAt(i);
-                        return (candidate, pending.IsSinging);
+                        return (candidate, pending.IsSinging, pending.Mine);
                     }
                 }
             }
         }
 
-        return (candidates[0], false);
+        return (candidates[0], false, false);
     }
 
     // ───────────────────────── state ─────────────────────────
@@ -570,3 +589,6 @@ public sealed class BuffTrackerService : ITriggerLineSink
     private static SpellInfo[] Sorted(IEnumerable<SpellInfo> spells) =>
         spells.OrderByDescending(s => s.BaseDurationSeconds).ThenBy(s => s.SpellId).ToArray();
 }
+
+/// <summary>A caster's class (index into the sixteen classes, -1 unknown) and duration choices.</summary>
+public sealed record CasterDuration(int ClassIndex, DurationProfile Profile);
