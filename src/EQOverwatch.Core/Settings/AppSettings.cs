@@ -141,6 +141,9 @@ public sealed class AppSettings
     /// <summary>Ask GitHub for a newer version when the app opens.</summary>
     public bool CheckForUpdates { get; set; } = true;
 
+    /// <summary>Hours between checks for a newer version while the app stays open. 0 checks only when the app opens.</summary>
+    public int UpdateCheckHours { get; set; } = 4;
+
     /// <summary>A version ("v1.0.12") the user chose to skip: it is not announced again (a newer one still is).</summary>
     public string SkippedUpdateVersion { get; set; } = string.Empty;
 

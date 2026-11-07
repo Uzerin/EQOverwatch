@@ -488,6 +488,10 @@ public sealed partial class MainViewModel : ObservableObject
     /// <summary>What the selected fight's target did to the group, most damage first.</summary>
     public ObservableCollection<DamageTakenRowViewModel> DamageTaken { get; } = new();
 
+    /// <summary>The selected fight's DPS-over-time lines (null when it was too short to graph).</summary>
+    [ObservableProperty]
+    private DpsTimeline? _encounterTimeline;
+
     [ObservableProperty]
     private string _damageTakenSummary = string.Empty;
 
@@ -790,6 +794,7 @@ public sealed partial class MainViewModel : ObservableObject
         _pipeline.TimerPause.Tick(DateTime.UtcNow);
         RefreshRaidNight();
         ApplyOverlayFade();
+        _ = TickUpdateCheck(DateTime.UtcNow);
 
         DpsSnapshot live = _pipeline.LiveDps.Snapshot;
         DpsSnapshot imported = _pipeline.HistoricalDps.Snapshot;
@@ -894,6 +899,7 @@ public sealed partial class MainViewModel : ObservableObject
             Participants.Clear();
             DamageTaken.Clear();
             DamageTakenSummary = string.Empty;
+            EncounterTimeline = null;
             UpdateEncounterDetails(null);
             EncounterSummary = NoEncounterText;
             return;
@@ -929,6 +935,11 @@ public sealed partial class MainViewModel : ObservableObject
         }
 
         DamageTakenSummary = $"Damage taken from {encounter.TargetName}: {encounter.TotalDamageTaken:N0}";
+        if (!Equals(EncounterTimeline, encounter.Timeline))
+        {
+            EncounterTimeline = encounter.Timeline;
+        }
+
         UpdateEncounterDetails(encounter);
 
         while (Participants.Count > ranked.Count)
@@ -1322,6 +1333,7 @@ public sealed partial class MainViewModel : ObservableObject
             IsCooldownTrackerEnabled = settings.IsCooldownTrackerEnabled;
             _pipeline.Cooldowns.IsEnabled = IsCooldownTrackerEnabled;
             CheckForUpdates = settings.CheckForUpdates;
+            UpdateCheckHours = settings.UpdateCheckHours;
             _skippedUpdateVersion = settings.SkippedUpdateVersion ?? string.Empty;
 
             ChChainSettings chain = (settings.ChChain ?? new ChChainSettings()).Sanitized();
@@ -1475,6 +1487,7 @@ public sealed partial class MainViewModel : ObservableObject
         ChChain = BuildChainSettings(),
         IsCooldownTrackerEnabled = IsCooldownTrackerEnabled,
         CheckForUpdates = CheckForUpdates,
+        UpdateCheckHours = UpdateCheckHours,
         SkippedUpdateVersion = _skippedUpdateVersion,
     };
 

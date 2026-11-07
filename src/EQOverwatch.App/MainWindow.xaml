@@ -1109,10 +1109,22 @@
                                                             ElementStyle="{StaticResource NumericCell}"/>
                                         <DataGridTextColumn Header="Hits" Binding="{Binding Hits, StringFormat=N0}" Width="Auto"
                                                             ElementStyle="{StaticResource NumericCell}"/>
+                                        <DataGridTextColumn Header="Avoided" Binding="{Binding Avoided, StringFormat=N0}" Width="Auto"
+                                                            ElementStyle="{StaticResource NumericCell}"/>
+                                        <DataGridTextColumn Header="Avoid %" Binding="{Binding AvoidPercent, StringFormat={}{0:0.0}%}" Width="Auto"
+                                                            ElementStyle="{StaticResource NumericCell}"/>
                                         <DataGridTextColumn Header="Max hit" Binding="{Binding MaxHit, StringFormat=N0}" Width="Auto"
                                                             ElementStyle="{StaticResource NumericCell}"/>
                                     </DataGrid.Columns>
                                 </DataGrid>
+                                    </DockPanel>
+                                </TabItem>
+
+                                <TabItem Header="Graph">
+                                    <DockPanel Margin="0,6,0,0">
+                                        <TextBlock DockPanel.Dock="Top" FontWeight="SemiBold" Margin="0,0,0,8" TextWrapping="Wrap"
+                                                   Text="Damage per second through the fight: the whole group (thick line) and the top five damage dealers."/>
+                                        <ctl:DpsGraphControl Timeline="{Binding EncounterTimeline}" MinHeight="220"/>
                                     </DockPanel>
                                 </TabItem>
 
@@ -2117,6 +2129,11 @@
                         <GroupBox Header="Updates">
                             <StackPanel Margin="4">
                                 <CheckBox Content="Check for a newer version when the app opens" IsChecked="{Binding CheckForUpdates}" Margin="0,0,0,6"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                    <TextBlock Text="Check again while running every (hours)" VerticalAlignment="Center" Margin="0,0,8,0"
+                                               ToolTip="How often the app looks for a newer version while it stays open. 0 checks only when the app opens."/>
+                                    <TextBox Width="50" Text="{Binding UpdateCheckHours, UpdateSourceTrigger=PropertyChanged}"/>
+                                </StackPanel>
                                 <WrapPanel>
                                     <Button Content="Check now" Command="{Binding CheckUpdatesNowCommand}" Style="{StaticResource SecondaryButton}" Margin="0,0,12,0"/>
                                     <TextBlock VerticalAlignment="Center" Style="{StaticResource HintText}" Text="{Binding UpdateStatus}"/>

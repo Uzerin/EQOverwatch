@@ -312,6 +312,13 @@ public partial class DpsTrackerService : IDpsEventSink
                     changed = true;
                     break;
 
+                case CombatEventKind.Miss when _active.TryGetValue(FoeName(combatEvent.Source), out CombatEncounter? missingFoe)
+                                               && Classify(combatEvent.Target) != NameKind.Npc:
+                    // The fight's target swung at a player or pet and missed: the player avoided the attack.
+                    missingFoe.AddAvoided(combatEvent.Target);
+                    changed = true;
+                    break;
+
                 case CombatEventKind.Death:
                     // The slain line capitalises the first letter ("A Praetorian Pius"), the damage lines do not ("a Praetorian Pius").
                     if (ActiveKey(combatEvent.Target) is { } deadKey && _active.Remove(deadKey, out CombatEncounter? dead))

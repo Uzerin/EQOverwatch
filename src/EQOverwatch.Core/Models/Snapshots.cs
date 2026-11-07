@@ -37,9 +37,13 @@ public sealed record DamageTakenSnapshot(
     double PercentOfTotal,
     int Hits,
     int MaxHit,
-    int Deaths = 0)
+    int Deaths = 0,
+    int Avoided = 0)
 {
     public string DisplayName => Deaths > 0 ? $"{Name} (Deaths: {Deaths})" : Name;
+
+    /// <summary>Share of the target's attacks on this player that missed, in percent.</summary>
+    public double AvoidPercent => Hits + Avoided > 0 ? 100.0 * Avoided / (Hits + Avoided) : 0.0;
 }
 
 /// <summary>A spell a boss started casting, at log-clock time.</summary>
@@ -82,7 +86,8 @@ public sealed record EncounterSnapshot(
     IReadOnlyList<HealingSnapshot>? Healing = null,
     IReadOnlyList<DeathSnapshot>? DeathLog = null,
     bool Killed = false,
-    IReadOnlyList<PlayerCastSnapshot>? PlayerCasts = null)
+    IReadOnlyList<PlayerCastSnapshot>? PlayerCasts = null,
+    DpsTimeline? Timeline = null)
 {
     /// <summary>Every spell the raid began casting during the fight, in log order.</summary>
     public IReadOnlyList<PlayerCastSnapshot> PlayerCastRows => PlayerCasts ?? Array.Empty<PlayerCastSnapshot>();
@@ -134,7 +139,7 @@ public sealed record EncounterSnapshot(
         long takenTotal = encounter.TotalDamageTaken;
         DamageTakenSnapshot[] taken = encounter.TakenStats
             .Select(t => new DamageTakenSnapshot(
-                t.Name, t.TotalDamage, takenTotal > 0 ? 100.0 * t.TotalDamage / takenTotal : 0.0, t.Hits, t.MaxHit, encounter.DeathsOf(t.Name)))
+                t.Name, t.TotalDamage, takenTotal > 0 ? 100.0 * t.TotalDamage / takenTotal : 0.0, t.Hits, t.MaxHit, encounter.DeathsOf(t.Name), t.Avoided))
             .OrderByDescending(t => t.TotalDamage)
             .ThenBy(t => t.Name, StringComparer.Ordinal)
             .ToArray();
@@ -155,7 +160,7 @@ public sealed record EncounterSnapshot(
             Array.AsReadOnly(participants), Array.AsReadOnly(taken),
             Array.AsReadOnly(encounter.Casts.ToArray()), Array.AsReadOnly(healing),
             Array.AsReadOnly(encounter.DeathLog.ToArray()), encounter.Killed,
-            Array.AsReadOnly(encounter.PlayerCasts.ToArray()));
+            Array.AsReadOnly(encounter.PlayerCasts.ToArray()), encounter.BuildTimeline());
     }
 }
 

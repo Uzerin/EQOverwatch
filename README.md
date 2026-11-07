@@ -62,6 +62,14 @@ check off, or run it by hand, under **Settings > Updates**.
 
 ## Changelog
 
+### 1.0.48
+
+- **DPS over time graph.** The Encounter DPS tab has a new Graph tab, and the Discord picture has a "DPS over time" section under the right-hand tables. It plots damage per second through the fight: the whole group as a thick line plus lines for the top five damage dealers. Fights shorter than a few seconds have no graph.
+- **Tank avoidance.** Attacks the fight's target makes on a player or pet that miss (dodged, parried, blocked, riposted and the like) are counted. The tanking table in the picture and the Damage taken tab have new Avoided and Avoid % columns.
+- **Overheal % in the Discord picture.** The Healing table has an Overheal % column (the Healing tab already had it).
+- **Update checks while running.** The app looks for a newer version again every few hours while it stays open (Settings, Updates: default 4 hours, 0 = only when the app opens). A version you already saw or skipped does not bring the banner back. The Install update confirmation now shows the release notes.
+- **Test cleanup fix.** A test that sometimes failed because a temporary settings file was still being written now waits and retries.
+
 ### 1.0.47
 
 - **Misses and hit rate in the Discord picture.** The DPS table has two new columns after Hits: Misses (attacks that missed, including dodges, parries and the like) and Hit Rate (hits out of all attempts). A pet's hits and misses count with its owner when pet damage is merged.

@@ -16,6 +16,7 @@ public sealed class CombatEncounter : ObservableObject
     private readonly List<BossCastSnapshot> _casts = new();
     private readonly Dictionary<string, HealStats> _healers = new(StringComparer.Ordinal);
     private readonly List<PlayerCastSnapshot> _playerCasts = new();
+    private readonly TimelineRecorder _timeline = new();
     private const int MaxCasts = 2000;
     private const int MaxPlayerCasts = 20_000;
 
@@ -49,6 +50,7 @@ public sealed class CombatEncounter : ObservableObject
     internal void AddDamage(DateTime timestamp, string source, int amount, bool isCritical = false, AttackType attack = AttackType.Hit)
     {
         GetOrAdd(source).RecordHit(timestamp, amount, isCritical, attack);
+        _timeline.Record(source, (int)(timestamp - StartTime).TotalSeconds, amount);
         TotalDamage += amount;
         Touch(timestamp);
     }
@@ -65,6 +67,24 @@ public sealed class CombatEncounter : ObservableObject
         stats.Record(amount);
         TotalDamageTaken += amount;
     }
+
+    /// <summary>The fight's target attacked <paramref name="victim"/> and missed (the victim dodged, parried, blocked...).</summary>
+    internal void AddAvoided(string victim)
+    {
+        if (!_takenByName.TryGetValue(victim, out DamageTakenStats? stats))
+        {
+            stats = new DamageTakenStats(victim);
+            _takenByName.Add(victim, stats);
+        }
+
+        stats.RecordAvoid();
+    }
+
+    /// <summary>Damage per second across the fight for the group and the <see cref="DpsTimeline.MaxPlayers"/> top dealers, or null when too short.</summary>
+    internal DpsTimeline? BuildTimeline() =>
+        _timeline.Build(
+            DurationSeconds,
+            _participants.OrderByDescending(p => p.TotalDamage).ThenBy(p => p.Name, StringComparer.Ordinal).Select(p => p.Name).ToArray());
 
     /// <summary>A player or pet died during the fight.</summary>
     internal void AddDeath(string name, DateTime time = default, string killedBy = "")

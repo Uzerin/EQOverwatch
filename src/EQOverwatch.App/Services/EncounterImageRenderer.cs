@@ -28,6 +28,7 @@ public static class EncounterImageRenderer
     private const double SectionHeight = 40;
     private const double SectionGap = 10;
     private const double TitleHeight = SectionHeight - SectionGap;
+    private const double GraphPlotHeight = 150;
 
     private static readonly Typeface Regular = new("Segoe UI");
     private static readonly Typeface Bold = new(new FontFamily("Segoe UI"), FontStyles.Normal, FontWeights.SemiBold, FontStretches.Normal);
@@ -69,23 +70,26 @@ public static class EncounterImageRenderer
 
         long healTotal = healing.Sum(h => h.Effective);
         Table? takenTable = taken.Count == 0 ? null : new Table(
-            new[] { "#", "Name", "Taken", "% of total", "Hits", "Max Hit" },
-            new[] { false, false, true, true, true, true }, flexColumn: 1,
+            new[] { "#", "Name", "Taken", "% of total", "Hits", "Avoided", "Avoid %", "Max Hit" },
+            new[] { false, false, true, true, true, true, true, true }, flexColumn: 1,
             taken.Select((t, i) => new[]
             {
                 (i + 1).ToString(CultureInfo.InvariantCulture), t.DisplayName, t.TotalDamage.ToString("N0", CultureInfo.InvariantCulture),
                 t.PercentOfTotal.ToString("0.0", CultureInfo.InvariantCulture) + "%", t.Hits.ToString("N0", CultureInfo.InvariantCulture),
+                t.Avoided.ToString("N0", CultureInfo.InvariantCulture),
+                t.Hits + t.Avoided > 0 ? t.AvoidPercent.ToString("0.0", CultureInfo.InvariantCulture) + "%" : "-",
                 t.MaxHit.ToString("N0", CultureInfo.InvariantCulture),
             }).ToList());
 
         Table? healTable = healing.Count == 0 ? null : new Table(
-            new[] { "#", "Name", "Healed", "% of total", "HPS", "Crit %", "Max Heal" },
-            new[] { false, false, true, true, true, true, true }, flexColumn: 1,
+            new[] { "#", "Name", "Healed", "% of total", "HPS", "Overheal %", "Crit %", "Max Heal" },
+            new[] { false, false, true, true, true, true, true, true }, flexColumn: 1,
             healing.Select((h, i) => new[]
             {
                 (i + 1).ToString(CultureInfo.InvariantCulture), h.Name, h.Effective.ToString("N0", CultureInfo.InvariantCulture),
                 (healTotal > 0 ? 100.0 * h.Effective / healTotal : 0).ToString("0.0", CultureInfo.InvariantCulture) + "%",
                 Math.Round(h.Hps).ToString("N0", CultureInfo.InvariantCulture),
+                h.OverhealPercent.ToString("0.0", CultureInfo.InvariantCulture) + "%",
                 h.CritHeals > 0 ? h.CritHealPercent.ToString("0.0", CultureInfo.InvariantCulture) + "%" : "-",
                 h.MaxHeal.ToString("N0", CultureInfo.InvariantCulture),
             }).ToList());
@@ -143,6 +147,13 @@ public static class EncounterImageRenderer
         }
 
         rightHeight += TitleHeight + (deaths.Count == 0 ? RowHeight : TableHeaderHeight + (deaths.Count * RowHeight));
+        DpsTimeline? timeline = encounter.Timeline;
+        double graphHeight = timeline is null ? 0 : DpsGraph.TotalHeight(timeline, rightContent, GraphPlotHeight, Scale);
+        if (timeline is not null)
+        {
+            rightHeight += SectionGap + TitleHeight + graphHeight;
+        }
+
         double height = HeaderHeight + Math.Max(leftHeight, rightHeight) + FooterHeight;
 
         Brush window = Solid(palette.WindowBg);
@@ -286,6 +297,14 @@ public static class EncounterImageRenderer
                     deathTable.DrawRow(dc, i, ry, text);
                     ry += RowHeight;
                 }
+            }
+
+            if (timeline is not null)
+            {
+                ry += SectionGap;
+                DrawTitle(dc, "DPS over time", "group + top " + timeline.Players.Count.ToString(CultureInfo.InvariantCulture), rightContent, ry, text, muted, Bold);
+                ry += SectionHeight - SectionGap;
+                DpsGraph.Draw(dc, timeline, new Rect(Padding, ry, rightContent, graphHeight), GraphPlotHeight, text, muted, line, text, Scale);
             }
 
             dc.Pop();

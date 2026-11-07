@@ -142,6 +142,11 @@ internal sealed class DamageTakenStats
     public int Hits { get; private set; }
     public int MaxHit { get; private set; }
 
+    /// <summary>Attacks from the fight's target that missed this player (dodged, parried, blocked, riposted...).</summary>
+    public int Avoided { get; private set; }
+
+    public void RecordAvoid() => Avoided++;
+
     public void Record(int amount)
     {
         Hits++;

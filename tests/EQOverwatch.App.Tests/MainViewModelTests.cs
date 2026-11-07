@@ -229,7 +229,36 @@ public partial class MainViewModelTests
             Vm.SessionStartTask.GetAwaiter().GetResult();
             Vm.UpdateCheckTask.GetAwaiter().GetResult();
             Vm.Shutdown(); // idempotent
-            Directory.Delete(_dir, recursive: true);
+            DeleteWithRetry(_dir);
+        }
+
+        /// <summary>The settings writer may still be finishing a save when the test ends; wait briefly and try again rather than fail the test.</summary>
+        private static void DeleteWithRetry(string dir)
+        {
+            for (int attempt = 1; ; attempt++)
+            {
+                try
+                {
+                    Directory.Delete(dir, recursive: true);
+                    return;
+                }
+                catch (IOException) when (attempt < 10)
+                {
+                    Thread.Sleep(100 * attempt);
+                }
+                catch (UnauthorizedAccessException) when (attempt < 10)
+                {
+                    Thread.Sleep(100 * attempt);
+                }
+                catch (DirectoryNotFoundException)
+                {
+                    return;
+                }
+                catch (Exception) when (attempt >= 10)
+                {
+                    return; // a temp folder that will not delete is not a test failure
+                }
+            }
         }
     }
 

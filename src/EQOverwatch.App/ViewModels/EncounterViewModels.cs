@@ -169,6 +169,12 @@ public sealed partial class DamageTakenRowViewModel : ObservableObject
     [ObservableProperty]
     private int _maxHit;
 
+    [ObservableProperty]
+    private int _avoided;
+
+    [ObservableProperty]
+    private double _avoidPercent;
+
     /// <summary>Damage relative to the player who took the most (0 to 1): the length of the bar.</summary>
     [ObservableProperty]
     private double _barFraction;
@@ -189,6 +195,8 @@ public sealed partial class DamageTakenRowViewModel : ObservableObject
         PercentOfTotal = taken.PercentOfTotal;
         Hits = taken.Hits;
         MaxHit = taken.MaxHit;
+        Avoided = taken.Avoided;
+        AvoidPercent = taken.AvoidPercent;
         BarFraction = topDamage > 0 ? (double)taken.TotalDamage / topDamage : 0.0;
     }
 }

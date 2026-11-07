@@ -100,7 +100,19 @@ public sealed partial class MainViewModel
         $"Install {AppName} {version} now?\n\n" +
         $"{AppName} will close, replace EQOverwatch.exe in this folder:\n{UpdateInstallFolder}\nand start again.\n\n" +
         "Your settings and saved buff timers are kept. The download is checked against the SHA-256 checksum published with the release, " +
-        "and nothing is installed if it does not match.";
+        "and nothing is installed if it does not match." + NotesForConfirmation();
+
+    private string NotesForConfirmation()
+    {
+        string notes = _latestNotes.Trim();
+        if (notes.Length == 0)
+        {
+            return string.Empty;
+        }
+
+        const int max = 700;
+        return "\n\nWhat's new:\n" + (notes.Length > max ? notes[..max].TrimEnd() + "…" : notes);
+    }
 
     [RelayCommand(CanExecute = nameof(CanInstallUpdate))]
     private async Task InstallUpdate()
@@ -147,6 +159,45 @@ public sealed partial class MainViewModel
     /// <summary>Completes when the last update check has finished.</summary>
     public Task UpdateCheckTask { get; private set; } = Task.CompletedTask;
 
+    /// <summary>Hours between checks while the app stays open; 0 checks only at launch.</summary>
+    [ObservableProperty]
+    private int _updateCheckHours = 4;
+
+    private DateTime _nextUpdateCheckUtc = DateTime.MinValue;
+    private string _announcedVersion = string.Empty;
+    private string _latestNotes = string.Empty;
+
+    partial void OnUpdateCheckHoursChanged(int value)
+    {
+        int clamped = Math.Clamp(value, 0, 168);
+        if (clamped != value)
+        {
+            UpdateCheckHours = clamped;
+            return;
+        }
+
+        if (!_restoring)
+        {
+            RequestSave();
+        }
+    }
+
+    /// <summary>
+    /// Called on every refresh: when <see cref="UpdateCheckHours"/> have passed since the last check, looks again for a newer version
+    /// (a version already announced, or skipped, does not bring the banner back). Returns the check's task, or a completed one when none was due.
+    /// </summary>
+    public Task TickUpdateCheck(DateTime nowUtc)
+    {
+        if (_updateChecker is null || !CheckForUpdates || UpdateCheckHours <= 0 || _nextUpdateCheckUtc == DateTime.MinValue
+            || nowUtc < _nextUpdateCheckUtc || !UpdateCheckTask.IsCompleted)
+        {
+            return Task.CompletedTask;
+        }
+
+        _nextUpdateCheckUtc = nowUtc.AddHours(UpdateCheckHours);
+        return UpdateCheckTask = RunUpdateCheckAsync(manual: false, background: true);
+    }
+
     partial void OnCheckForUpdatesChanged(bool value)
     {
         if (!_restoring)
@@ -156,19 +207,26 @@ public sealed partial class MainViewModel
     }
 
     /// <summary>The check done once when the app opens (does nothing when update checks are switched off).</summary>
-    public Task StartUpdateCheckAsync() => UpdateCheckTask = RunUpdateCheckAsync(manual: false);
+    public Task StartUpdateCheckAsync()
+    {
+        _nextUpdateCheckUtc = DateTime.UtcNow.AddHours(Math.Max(1, UpdateCheckHours));
+        return UpdateCheckTask = RunUpdateCheckAsync(manual: false);
+    }
 
     [RelayCommand]
     private Task CheckUpdatesNow() => UpdateCheckTask = RunUpdateCheckAsync(manual: true);
 
-    private async Task RunUpdateCheckAsync(bool manual)
+    private async Task RunUpdateCheckAsync(bool manual, bool background = false)
     {
         if (_updateChecker is null || (!manual && !CheckForUpdates))
         {
             return;
         }
 
-        UpdateStatus = "Checking for updates…";
+        if (!background)
+        {
+            UpdateStatus = "Checking for updates…";
+        }
         UpdateCheckResult result;
         try
         {
@@ -186,8 +244,10 @@ public sealed partial class MainViewModel
                 _latestVersion = result.LatestVersion;
                 _updateUrl = result.Url;
                 _updateAssets = result.Assets;
+                _latestNotes = result.Notes ?? string.Empty;
                 RefreshInstallState();
-                bool skipped = !manual && result.LatestVersion.Equals(_skippedUpdateVersion, StringComparison.OrdinalIgnoreCase);
+                bool skipped = !manual && (result.LatestVersion.Equals(_skippedUpdateVersion, StringComparison.OrdinalIgnoreCase)
+                                           || (background && result.LatestVersion.Equals(_announcedVersion, StringComparison.OrdinalIgnoreCase)));
                 UpdateStatus = skipped
                     ? $"{result.LatestVersion} is available (you chose to skip it)."
                     : $"{result.LatestVersion} is available.";
@@ -195,6 +255,7 @@ public sealed partial class MainViewModel
                 {
                     UpdateMessage = $"{AppName} {result.LatestVersion} is available (you have {AppVersion}).";
                     UpdateNotes = result.Notes;
+                    _announcedVersion = result.LatestVersion;
                     IsUpdateAvailable = true;
                 }
 
@@ -209,7 +270,10 @@ public sealed partial class MainViewModel
                 break;
 
             default:
-                UpdateStatus = $"Could not check for updates: {result.Error}";
+                if (!background)
+                {
+                    UpdateStatus = $"Could not check for updates: {result.Error}";
+                }
                 break;
         }
     }

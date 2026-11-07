@@ -131,4 +131,63 @@ public partial class MainViewModelTests
         again.Vm.CheckForUpdates = true; // any change saves the settings
         Assert.Equal("v9.0.1", again.Saved().SkippedUpdateVersion);
     }
+
+    [Fact]
+    public async Task The_app_checks_again_while_running_after_the_chosen_hours_and_does_not_repeat_the_banner()
+    {
+        using var h = new Harness();
+        h.Updates.Result = Newer();
+        await h.Vm.StartUpdateCheckAsync();
+        Assert.Equal(1, h.Updates.Calls);
+        Assert.Equal(4, h.Vm.UpdateCheckHours);
+
+        await h.Vm.TickUpdateCheck(DateTime.UtcNow.AddHours(1));
+        Assert.Equal(1, h.Updates.Calls); // too soon
+
+        h.Vm.DismissUpdateCommand.Execute(null);
+        await h.Vm.TickUpdateCheck(DateTime.UtcNow.AddHours(5));
+        Assert.Equal(2, h.Updates.Calls);
+        Assert.False(h.Vm.IsUpdateAvailable); // already announced this session
+
+        h.Updates.Result = Newer("v9.0.2");
+        await h.Vm.TickUpdateCheck(DateTime.UtcNow.AddHours(10));
+        Assert.True(h.Vm.IsUpdateAvailable); // a newer one is announced
+        Assert.Contains("v9.0.2", h.Vm.UpdateMessage);
+    }
+
+    [Fact]
+    public async Task Zero_hours_checks_only_at_launch_and_the_setting_is_saved()
+    {
+        using var h = new Harness((s, _) => s.UpdateCheckHours = 0);
+        Assert.Equal(0, h.Vm.UpdateCheckHours);
+        await h.Vm.StartUpdateCheckAsync();
+        await h.Vm.TickUpdateCheck(DateTime.UtcNow.AddDays(3));
+        Assert.Equal(1, h.Updates.Calls);
+
+        h.Vm.UpdateCheckHours = 6;
+        Assert.Equal(6, h.Saved().UpdateCheckHours);
+        h.Vm.UpdateCheckHours = 100000;
+        Assert.Equal(168, h.Vm.UpdateCheckHours);
+    }
+
+    [Fact]
+    public async Task A_skipped_version_stays_skipped_on_the_repeat_check()
+    {
+        using var h = new Harness();
+        h.Updates.Result = Newer();
+        await h.Vm.StartUpdateCheckAsync();
+        h.Vm.SkipUpdateVersionCommand.Execute(null);
+
+        await h.Vm.TickUpdateCheck(DateTime.UtcNow.AddHours(5));
+        Assert.False(h.Vm.IsUpdateAvailable);
+    }
+
+    [Fact]
+    public async Task The_install_confirmation_shows_the_release_notes()
+    {
+        using var h = new Harness();
+        h.Updates.Result = Newer();
+        await h.Vm.StartUpdateCheckAsync();
+        Assert.Contains("What's new:\nAdds AA & Disc timers.", h.Vm.InstallConfirmationText("v9.0.1"));
+    }
 }
