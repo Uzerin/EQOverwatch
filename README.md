@@ -62,6 +62,10 @@ check off, or run it by hand, under **Settings > Updates**.
 
 ## Changelog
 
+### 1.0.49
+
+- **Full-width graph in the Discord picture.** The DPS over time graph now runs across the whole picture, directly under the mob's name and above the tables, and is a little taller.
+
 ### 1.0.48
 
 - **DPS over time graph.** The Encounter DPS tab has a new Graph tab, and the Discord picture has a "DPS over time" section under the right-hand tables. It plots damage per second through the fight: the whole group as a thick line plus lines for the top five damage dealers. Fights shorter than a few seconds have no graph.

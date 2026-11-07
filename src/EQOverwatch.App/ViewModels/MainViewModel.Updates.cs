@@ -254,7 +254,7 @@ public sealed partial class MainViewModel
                 if (!skipped)
                 {
                     UpdateMessage = $"{AppName} {result.LatestVersion} is available (you have {AppVersion}).";
-                    UpdateNotes = result.Notes;
+                    UpdateNotes = result.Notes ?? string.Empty;
                     _announcedVersion = result.LatestVersion;
                     IsUpdateAvailable = true;
                 }

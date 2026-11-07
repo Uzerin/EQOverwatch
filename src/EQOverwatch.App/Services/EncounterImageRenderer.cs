@@ -28,7 +28,7 @@ public static class EncounterImageRenderer
     private const double SectionHeight = 40;
     private const double SectionGap = 10;
     private const double TitleHeight = SectionHeight - SectionGap;
-    private const double GraphPlotHeight = 150;
+    private const double GraphPlotHeight = 170;
 
     private static readonly Typeface Regular = new("Segoe UI");
     private static readonly Typeface Bold = new(new FontFamily("Segoe UI"), FontStyles.Normal, FontWeights.SemiBold, FontStretches.Normal);
@@ -147,14 +147,13 @@ public static class EncounterImageRenderer
         }
 
         rightHeight += TitleHeight + (deaths.Count == 0 ? RowHeight : TableHeaderHeight + (deaths.Count * RowHeight));
+        // The graph runs the full width of the picture, between the mob's name and the tables.
         DpsTimeline? timeline = encounter.Timeline;
-        double graphHeight = timeline is null ? 0 : DpsGraph.TotalHeight(timeline, rightContent, GraphPlotHeight, Scale);
-        if (timeline is not null)
-        {
-            rightHeight += SectionGap + TitleHeight + graphHeight;
-        }
-
-        double height = HeaderHeight + Math.Max(leftHeight, rightHeight) + FooterHeight;
+        double graphWidth = width - (2 * Padding);
+        double graphHeight = timeline is null ? 0 : DpsGraph.TotalHeight(timeline, graphWidth, GraphPlotHeight, Scale);
+        double graphBlock = timeline is null ? 0 : TitleHeight + graphHeight + SectionGap;
+        double bodyTop = HeaderHeight + graphBlock;
+        double height = bodyTop + Math.Max(leftHeight, rightHeight) + FooterHeight;
 
         Brush window = Solid(palette.WindowBg);
         Brush card = Solid(palette.CardBg);
@@ -176,11 +175,17 @@ public static class EncounterImageRenderer
             Draw(dc, encounter.TargetName, Bold, 22, text, Padding + 6, 20, width - (2 * Padding) - 6, TextAlignment.Left);
             Draw(dc, SummaryLine(encounter), Regular, 13, muted, Padding + 6, 52, width - (2 * Padding) - 6, TextAlignment.Left);
 
+            if (timeline is not null)
+            {
+                DrawTitle(dc, "DPS over time", "group + top " + timeline.Players.Count.ToString(CultureInfo.InvariantCulture), graphWidth, HeaderHeight, text, muted, Bold);
+                DpsGraph.Draw(dc, timeline, new Rect(Padding, HeaderHeight + TitleHeight, graphWidth, graphHeight), GraphPlotHeight, text, muted, line, text, Scale);
+            }
+
             // a thin divider between the halves
-            dc.DrawRectangle(Solid(palette.TextPrimary, 0x20), null, new Rect(leftHalf - 0.5, HeaderHeight + 4, 1, Math.Max(0, height - HeaderHeight - FooterHeight - 4)));
+            dc.DrawRectangle(Solid(palette.TextPrimary, 0x20), null, new Rect(leftHalf - 0.5, bodyTop + 4, 1, Math.Max(0, height - bodyTop - FooterHeight - 4)));
 
             // ── left half: damage dealt ──
-            double y = HeaderHeight;
+            double y = bodyTop;
             DrawTitle(dc, "DPS", dpsTotalText, leftContent, y, text, muted, Bold);
             y += SectionHeight - SectionGap;
 
@@ -224,7 +229,7 @@ public static class EncounterImageRenderer
 
             // ── right half: tanking, healing, deaths ──
             dc.PushTransform(new TranslateTransform(leftHalf, 0));
-            double ry = HeaderHeight;
+            double ry = bodyTop;
 
             if (takenTable is not null)
             {
@@ -297,14 +302,6 @@ public static class EncounterImageRenderer
                     deathTable.DrawRow(dc, i, ry, text);
                     ry += RowHeight;
                 }
-            }
-
-            if (timeline is not null)
-            {
-                ry += SectionGap;
-                DrawTitle(dc, "DPS over time", "group + top " + timeline.Players.Count.ToString(CultureInfo.InvariantCulture), rightContent, ry, text, muted, Bold);
-                ry += SectionHeight - SectionGap;
-                DpsGraph.Draw(dc, timeline, new Rect(Padding, ry, rightContent, graphHeight), GraphPlotHeight, text, muted, line, text, Scale);
             }
 
             dc.Pop();
