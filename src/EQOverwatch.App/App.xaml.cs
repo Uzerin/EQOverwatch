@@ -28,6 +28,7 @@ public partial class CompanionApp : Application
     private MainViewModel? _viewModel;
     private HttpClient? _http;
     private HttpClient? _discordHttp;
+    private HttpClient? _updateHttp;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -104,6 +105,23 @@ public partial class CompanionApp : Application
             dpsVm.CopyChatRequested += encounter => vm.CopyChat(encounter);
             dpsVm.CopyImageRequested += encounter => vm.CopyImage(encounter);
         }
+
+        // Install update: a long timeout for the download, and a restart that starts the new exe once the old one has saved and swapped.
+        _updateHttp = new HttpClient { Timeout = TimeSpan.FromMinutes(10) };
+        _updateHttp.DefaultRequestHeaders.UserAgent.ParseAdd(AppInfo.SettingsFolderName);
+        string? exePath = Environment.ProcessPath;
+        if (!string.IsNullOrEmpty(exePath))
+        {
+            EQOverwatch.Core.Updates.UpdateSwapper.CleanUp(exePath); // the leftovers of the last update
+        }
+
+        _viewModel.ConfigureUpdateInstall(
+            new EQOverwatch.Core.Updates.UpdateInstaller(_updateHttp), exePath,
+            exe =>
+            {
+                Process.Start(new ProcessStartInfo(exe) { UseShellExecute = true, WorkingDirectory = Path.GetDirectoryName(exe) ?? string.Empty });
+                Shutdown();
+            });
 
         var main = new MainWindow(_viewModel);
         MainWindow = main; // closing it ends the app (ShutdownMode=OnMainWindowClose)

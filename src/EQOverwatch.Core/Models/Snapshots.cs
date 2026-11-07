@@ -20,7 +20,8 @@ public sealed record ParticipantSnapshot(
     double CritRatePercent = 0.0,
     string Class = "",
     int Deaths = 0,
-    int MaxNonCritHit = -1)
+    int MaxNonCritHit = -1,
+    IReadOnlyList<AttackSlice>? Attacks = null)
 {
     /// <summary>The name, followed by " (Deaths: 2)" when the player died during the fight.</summary>
     public string DisplayName => Deaths > 0 ? $"{Name} (Deaths: {Deaths})" : Name;
@@ -59,7 +60,13 @@ public sealed record HealingSnapshot(
     int Heals,
     int MaxHeal,
     double Hps,
-    string TopSpell);
+    string TopSpell,
+    long CritEffective = 0,
+    int CritHeals = 0)
+{
+    /// <summary>Critical heals' share of the effective healing, in percent.</summary>
+    public double CritHealPercent => Effective > 0 ? 100.0 * CritEffective / Effective : 0.0;
+}
 
 public sealed record EncounterSnapshot(
     int Id,
@@ -119,7 +126,7 @@ public sealed record EncounterSnapshot(
         ParticipantSnapshot[] participants = encounter.ParticipantStats
             .Select(p => new ParticipantSnapshot(
                 p.Name, p.TotalDamage, p.PercentOfGroupDamage, p.Dps, p.ScaledDps, p.MaxHit, p.Hits, p.Misses, p.HitRate,
-                p.MaxCritHit, p.CritHitCount, p.CritRatePercent, Deaths: encounter.DeathsOf(p.Name), MaxNonCritHit: p.MaxNonCritHit))
+                p.MaxCritHit, p.CritHitCount, p.CritRatePercent, Deaths: encounter.DeathsOf(p.Name), MaxNonCritHit: p.MaxNonCritHit, Attacks: p.AttackSlices()))
             .OrderByDescending(p => p.TotalDamage)
             .ThenBy(p => p.Name, StringComparer.Ordinal)
             .ToArray();
@@ -137,7 +144,7 @@ public sealed record EncounterSnapshot(
             .Select(h => new HealingSnapshot(
                 h.Name, h.Effective, h.Overheal,
                 h.Effective + h.Overheal > 0 ? 100.0 * h.Overheal / (h.Effective + h.Overheal) : 0.0,
-                h.Heals, h.MaxHeal, h.Effective / seconds, h.TopSpell))
+                h.Heals, h.MaxHeal, h.Effective / seconds, h.TopSpell, h.CritEffective, h.CritHeals))
             .OrderByDescending(h => h.Effective)
             .ThenBy(h => h.Name, StringComparer.Ordinal)
             .ToArray();

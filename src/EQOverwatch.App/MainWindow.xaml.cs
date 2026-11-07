@@ -19,12 +19,34 @@ public partial class MainWindow : Window
     private bool _userTyping;
     private GlobalHotkey? _hotkey;
 
+    private ColorsWindow? _colorsWindow;
+
+    private void OpenColorsWindow()
+    {
+        if (_colorsWindow is null)
+        {
+            _colorsWindow = new ColorsWindow(_viewModel) { Owner = this };
+            _colorsWindow.Closed += (_, _) => _colorsWindow = null;
+            _colorsWindow.Show();
+        }
+        else
+        {
+            if (_colorsWindow.WindowState == WindowState.Minimized)
+            {
+                _colorsWindow.WindowState = WindowState.Normal;
+            }
+
+            _colorsWindow.Activate();
+        }
+    }
+
     public MainWindow(MainViewModel viewModel)
     {
         InitializeComponent();
 
         _viewModel = viewModel;
         DataContext = viewModel;
+        viewModel.ShowColorsRequested += OpenColorsWindow;
 
         _refreshTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = RefreshInterval };
         _refreshTimer.Tick += (_, _) => _viewModel.Refresh();

@@ -126,6 +126,11 @@ public interface IOverlayHost
 
     void SetVisible(OverlayKind kind, bool visible);
 
+    /// <summary>Sets how opaque an overlay is (0 to 1) without changing whether it counts as shown.</summary>
+    void SetOpacity(OverlayKind kind, double opacity)
+    {
+    }
+
     /// <summary>Closes every window for good (application shutdown).</summary>
     void CloseAll();
 

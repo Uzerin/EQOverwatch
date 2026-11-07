@@ -789,6 +789,7 @@ public sealed partial class MainViewModel : ObservableObject
         SyncAutoClick();
         _pipeline.TimerPause.Tick(DateTime.UtcNow);
         RefreshRaidNight();
+        ApplyOverlayFade();
 
         DpsSnapshot live = _pipeline.LiveDps.Snapshot;
         DpsSnapshot imported = _pipeline.HistoricalDps.Snapshot;
@@ -1350,6 +1351,9 @@ public sealed partial class MainViewModel : ObservableObject
             AutoClickHotkey = string.IsNullOrWhiteSpace(settings.AutoClickHotkey) ? AutoClickService.DefaultHotkey : settings.AutoClickHotkey;
             SafeZonesText = string.Join(Environment.NewLine, settings.NonCombatZones ?? TimerPauseService.DefaultSafeZones.ToList());
             RestoreDurationProfiles(settings.DurationProfiles);
+            OverlayIdlePercent = settings.OverlayIdlePercent;
+            DpsHideSeconds = settings.DpsHideSeconds;
+            RestoreAttackColors(settings.AttackColors);
             DiscordPostEnabled = settings.DiscordAutoPostEnabled;
             DiscordWebhookUrl = settings.DiscordWebhookUrl ?? string.Empty;
             DiscordPostWipes = settings.DiscordPostWipes;
@@ -1435,6 +1439,9 @@ public sealed partial class MainViewModel : ObservableObject
         AutoClickIdleMinutes = AutoClickIdleMinutes,
         NonCombatZones = SafeZoneList(),
         DurationProfiles = DurationProfileSettings(),
+        OverlayIdlePercent = OverlayIdlePercent,
+        DpsHideSeconds = DpsHideSeconds,
+        AttackColors = AttackColorSettings(),
         DiscordAutoPostEnabled = DiscordPostEnabled,
         DiscordWebhookUrl = DiscordWebhookUrl.Trim(),
         DiscordPostWipes = DiscordPostWipes,

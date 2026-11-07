@@ -1,6 +1,8 @@
+using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using EQOverwatch.Core;
+using EQOverwatch.Core.Models;
 using EQOverwatch.Core.Updates;
 
 namespace EQOverwatch.App.ViewModels;
@@ -31,6 +33,116 @@ public sealed partial class MainViewModel
     /// <summary>Check for a newer version when the app opens.</summary>
     [ObservableProperty]
     private bool _checkForUpdates = true;
+
+    private IUpdateInstaller? _updateInstaller;
+    private string _installExePath = string.Empty;
+    private Action<string>? _restartApp;
+    private UpdateAssets? _updateAssets;
+
+    /// <summary>
+    /// Switches on the "Install update" button. <paramref name="exePath"/> is the running EQOverwatch.exe; <paramref name="restart"/> starts it
+    /// again and ends this process (it is only called after the new exe is in place and settings are saved).
+    /// </summary>
+    public void ConfigureUpdateInstall(IUpdateInstaller installer, string? exePath, Action<string> restart)
+    {
+        _updateInstaller = installer;
+        _restartApp = restart;
+        _installExePath = !string.IsNullOrWhiteSpace(exePath)
+                          && Path.GetFileName(exePath).Equals(UpdateInstaller.ExeName, StringComparison.OrdinalIgnoreCase)
+            ? exePath
+            : string.Empty;
+        RefreshInstallState();
+    }
+
+    /// <summary>The folder EQOverwatch.exe runs from, which an install would replace the exe in (empty when it cannot be installed).</summary>
+    public string UpdateInstallFolder => _installExePath.Length == 0 ? string.Empty : Path.GetDirectoryName(_installExePath) ?? string.Empty;
+
+    /// <summary>True when the new release can be installed from the app: it carries a checksum and this is the real exe.</summary>
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(InstallUpdateCommand))]
+    private bool _updateCanInstall;
+
+    /// <summary>True while a combat line has been seen in the last few seconds. The install is not offered then.</summary>
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(InstallUpdateCommand))]
+    private bool _isInCombat;
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(InstallUpdateCommand))]
+    private bool _isInstallingUpdate;
+
+    /// <summary>"Not available during combat" or the install progress; empty otherwise.</summary>
+    [ObservableProperty]
+    private string _updateInstallHint = string.Empty;
+
+    partial void OnIsInCombatChanged(bool value) => RefreshInstallHint();
+
+    partial void OnIsInstallingUpdateChanged(bool value) => RefreshInstallHint();
+
+    private void RefreshInstallState()
+    {
+        UpdateCanInstall = _updateAssets is not null && _updateInstaller is not null && _installExePath.Length > 0;
+        OnPropertyChanged(nameof(UpdateInstallFolder));
+    }
+
+    private void RefreshInstallHint()
+    {
+        if (!IsInstallingUpdate)
+        {
+            UpdateInstallHint = IsInCombat && UpdateCanInstall ? "Installing is not available during combat." : string.Empty;
+        }
+    }
+
+    private bool CanInstallUpdate() => UpdateCanInstall && !IsInCombat && !IsInstallingUpdate;
+
+    /// <summary>The confirmation text: which version, which folder, and what will happen.</summary>
+    public string InstallConfirmationText(string version) =>
+        $"Install {AppName} {version} now?\n\n" +
+        $"{AppName} will close, replace EQOverwatch.exe in this folder:\n{UpdateInstallFolder}\nand start again.\n\n" +
+        "Your settings and saved buff timers are kept. The download is checked against the SHA-256 checksum published with the release, " +
+        "and nothing is installed if it does not match.";
+
+    [RelayCommand(CanExecute = nameof(CanInstallUpdate))]
+    private async Task InstallUpdate()
+    {
+        if (_updateInstaller is null || _updateAssets is null || _installExePath.Length == 0 || IsInCombat)
+        {
+            return;
+        }
+
+        if (!_dialogs.Confirm($"Install {_latestVersion}", InstallConfirmationText(_latestVersion)))
+        {
+            return;
+        }
+
+        IsInstallingUpdate = true;
+        string staging = Path.Combine(UpdateInstallFolder, UpdateSwapper.StagingFolderName);
+        try
+        {
+            var progress = new Progress<string>(text => UpdateInstallHint = text);
+            string newExe = await _updateInstaller.PrepareAsync(_updateAssets, staging, progress, CancellationToken.None);
+
+            if (IsInCombat)
+            {
+                throw new UpdateInstallException("A fight started while the update was downloading, so it was not installed. Try again after the fight.");
+            }
+
+            UpdateSwapper.Swap(_installExePath, newExe);
+        }
+        catch (UpdateInstallException ex)
+        {
+            UpdateStatus = ex.Message;
+            StatusMessage = ex.Message;
+            UpdateInstallHint = ex.Message;
+            IsInstallingUpdate = false;
+            return;
+        }
+
+        // The new exe is in place: save everything, then start it. Nothing runs after the restart call.
+        UpdateInstallHint = "Restarting…";
+        Shutdown();
+        _restartApp?.Invoke(_installExePath);
+    }
 
     /// <summary>Completes when the last update check has finished.</summary>
     public Task UpdateCheckTask { get; private set; } = Task.CompletedTask;
@@ -73,6 +185,8 @@ public sealed partial class MainViewModel
             case UpdateCheckStatus.UpdateAvailable:
                 _latestVersion = result.LatestVersion;
                 _updateUrl = result.Url;
+                _updateAssets = result.Assets;
+                RefreshInstallState();
                 bool skipped = !manual && result.LatestVersion.Equals(_skippedUpdateVersion, StringComparison.OrdinalIgnoreCase);
                 UpdateStatus = skipped
                     ? $"{result.LatestVersion} is available (you chose to skip it)."

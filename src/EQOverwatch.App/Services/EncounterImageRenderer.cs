@@ -35,9 +35,9 @@ public static class EncounterImageRenderer
     private static readonly double[] ColumnRight = { 52, 0, 0, 400, 490, 580, 655, 716 };
 
     /// <summary>The picture as PNG bytes (for posting to Discord). Call on the UI thread.</summary>
-    public static byte[] RenderPng(EncounterSnapshot encounter, ThemePalette palette, string footer, int topCount = EncounterExport.AllAttackers)
+    public static byte[] RenderPng(EncounterSnapshot encounter, ThemePalette palette, string footer, int topCount = EncounterExport.AllAttackers, AttackColorScheme? colors = null)
     {
-        BitmapSource image = Render(encounter, palette, footer, topCount);
+        BitmapSource image = Render(encounter, palette, footer, topCount, colors);
         var encoder = new PngBitmapEncoder();
         encoder.Frames.Add(BitmapFrame.Create(image));
         using var stream = new System.IO.MemoryStream();
@@ -45,7 +45,7 @@ public static class EncounterImageRenderer
         return stream.ToArray();
     }
 
-    public static BitmapSource Render(EncounterSnapshot encounter, ThemePalette palette, string footer, int topCount = EncounterExport.AllAttackers)
+    public static BitmapSource Render(EncounterSnapshot encounter, ThemePalette palette, string footer, int topCount = EncounterExport.AllAttackers, AttackColorScheme? colors = null)
     {
         ArgumentNullException.ThrowIfNull(encounter);
         ArgumentNullException.ThrowIfNull(palette);
@@ -55,7 +55,13 @@ public static class EncounterImageRenderer
         IReadOnlyList<HealingSnapshot> healing = encounter.HealingRows;
         IReadOnlyList<DeathSnapshot> deaths = encounter.DeathRows;
 
-        double leftHeight = TitleHeight + TableHeaderHeight + (Math.Max(1, rows.Count) * RowHeight);
+        colors ??= AttackColorScheme.Current;
+        IReadOnlyList<AttackType> legend = AttackTypes.All
+            .Where(t => rows.Any(r => r.Attacks is { } a && a.Any(x => x.Type == t && x.Total > 0)))
+            .ToList();
+        double legendHeight = legend.Count == 0 ? 0 : LegendCaptionHeight + (Math.Ceiling(legend.Count / (double)LegendPerLine) * LegendLineHeight) + 6;
+
+        double leftHeight = TitleHeight + TableHeaderHeight + (Math.Max(1, rows.Count) * RowHeight) + legendHeight;
         double rightHeight = 0;
         if (taken.Count > 0)
         {
@@ -77,7 +83,6 @@ public static class EncounterImageRenderer
         Brush muted = MixBrush(palette.TextPrimary, palette.WindowBg, 0.45);
         Brush barFill = WithOpacity(palette.Accent, 0.38);
         Brush takenFill = WithOpacity(TakenColor, 0.38);
-        Brush healFill = WithOpacity(HealingColor, 0.38);
         Brush line = Solid(palette.TextPrimary, 0x30);
         double contentWidth = HalfWidth - (2 * Padding);
 
@@ -111,7 +116,7 @@ public static class EncounterImageRenderer
                 double barWidth = contentWidth * Math.Clamp(row.Fill, 0, 1);
                 if (barWidth > 0)
                 {
-                    dc.DrawRoundedRectangle(barFill, null, new Rect(Padding, y + 2, barWidth, RowHeight - 4), 5, 5);
+                    DrawDamageBar(dc, new Rect(Padding, y + 2, barWidth, RowHeight - 4), row.Attacks, colors, barFill);
                 }
 
                 DrawRow(dc, new[] { row.Rank.ToString(CultureInfo.InvariantCulture), row.DisplayName, row.Class, row.Total, row.Sdps, row.MaxHit, row.MaxCrit, row.CritPercent },
@@ -122,6 +127,22 @@ public static class EncounterImageRenderer
             if (rows.Count == 0)
             {
                 Draw(dc, "No attackers recorded.", Regular, 14, muted, Padding + 6, y + 4, 400, TextAlignment.Left);
+            }
+
+            if (legend.Count > 0)
+            {
+                y += 4;
+                Draw(dc, "Bar colors: each attack type's color is for regular hits, the lighter shade is crits.", Regular, 12, muted,
+                    Padding + 6, y, contentWidth, TextAlignment.Left);
+                y += LegendCaptionHeight;
+                for (int i = 0; i < legend.Count; i++)
+                {
+                    double x = Padding + 6 + ((i % LegendPerLine) * LegendEntryWidth);
+                    double ly = y + ((i / LegendPerLine) * LegendLineHeight);
+                    dc.DrawRoundedRectangle(Solid(colors.Normal(legend[i])), null, new Rect(x, ly + 4, 12, 12), 3, 3);
+                    dc.DrawRoundedRectangle(Solid(colors.Crit(legend[i])), null, new Rect(x + 14, ly + 4, 12, 12), 3, 3);
+                    Draw(dc, AttackTypes.Label(legend[i]), Regular, 12, text, x + 32, ly + 2, LegendEntryWidth - 36, TextAlignment.Left);
+                }
             }
 
             // ── right half: tanking, healing, deaths ──
@@ -168,12 +189,12 @@ public static class EncounterImageRenderer
             if (healing.Count > 0)
             {
                 long healTotal = healing.Sum(h => h.Effective);
-                Draw(dc, "Healing", Bold, 16, text, Padding + 6, ry, 440, TextAlignment.Left);
+                Draw(dc, healing.Any(h => h.CritHeals > 0) ? "Healing  (lighter shade = critical heals)" : "Healing", Bold, 16, text, Padding + 6, ry, 440, TextAlignment.Left);
                 Draw(dc, $"{healTotal.ToString("N0", CultureInfo.InvariantCulture)} total", Regular, 13, muted,
                     HalfWidth - Padding - 220, ry + 2, 220, TextAlignment.Right);
                 ry += SectionHeight - SectionGap;
 
-                DrawHealRow(dc, new[] { "#", "Name", "Healed", "% of total", "HPS", "Heals", "Max Heal" }, ry, Bold, 12, muted);
+                DrawHealRow(dc, new[] { "#", "Name", "Healed", "% of total", "HPS", "Crit %", "Max Heal" }, ry, Bold, 12, muted);
                 ry += TableHeaderHeight;
                 dc.DrawRectangle(line, null, new Rect(Padding, ry - 2, contentWidth, 1));
 
@@ -184,7 +205,8 @@ public static class EncounterImageRenderer
                     double barWidth = topHeal > 0 ? contentWidth * ((double)h.Effective / topHeal) : 0;
                     if (barWidth > 0)
                     {
-                        dc.DrawRoundedRectangle(healFill, null, new Rect(Padding, ry + 2, barWidth, RowHeight - 4), 5, 5);
+                        DrawSegments(dc, new Rect(Padding, ry + 2, barWidth, RowHeight - 4),
+                            new[] { (h.Effective - h.CritEffective, colors.Healing), (h.CritEffective, colors.HealingCrit) });
                     }
 
                     DrawHealRow(dc, new[]
@@ -194,7 +216,7 @@ public static class EncounterImageRenderer
                         h.Effective.ToString("N0", CultureInfo.InvariantCulture),
                         (healTotal > 0 ? 100.0 * h.Effective / healTotal : 0).ToString("0.0", CultureInfo.InvariantCulture) + "%",
                         Math.Round(h.Hps).ToString("N0", CultureInfo.InvariantCulture),
-                        h.Heals.ToString("N0", CultureInfo.InvariantCulture),
+                        h.CritHeals > 0 ? h.CritHealPercent.ToString("0.0", CultureInfo.InvariantCulture) + "%" : "-",
                         h.MaxHeal.ToString("N0", CultureInfo.InvariantCulture),
                     }, ry, Regular, 14, text);
                     ry += RowHeight;
@@ -246,6 +268,99 @@ public static class EncounterImageRenderer
         return bitmap;
     }
 
+    private const double LegendCaptionHeight = 22;
+    private const double LegendLineHeight = 22;
+    private const int LegendPerLine = 5;
+    private const double LegendEntryWidth = 136;
+
+    /// <summary>
+    /// A player's damage bar. With a per-attack breakdown it is cut into segments, a regular and a lighter crit shade for each attack
+    /// type, widths in proportion to the damage; without one it is the plain accent bar.
+    /// </summary>
+    private static void DrawDamageBar(DrawingContext dc, Rect bar, IReadOnlyList<AttackSlice>? attacks, AttackColorScheme colors, Brush plain)
+    {
+        long total = attacks?.Sum(a => a.Total) ?? 0;
+        if (attacks is null || total <= 0)
+        {
+            dc.DrawRoundedRectangle(plain, null, bar, 5, 5);
+            return;
+        }
+
+        var parts = new List<(long Damage, string Hex)>();
+        foreach (AttackSlice slice in attacks.OrderBy(a => a.Type))
+        {
+            parts.Add((slice.Normal, colors.Normal(slice.Type)));
+            parts.Add((slice.Crit, colors.Crit(slice.Type)));
+        }
+
+        DrawSegments(dc, bar, parts);
+    }
+
+    /// <summary>A rounded bar cut into colored segments whose widths follow the amounts (empty ones are skipped).</summary>
+    private static void DrawSegments(DrawingContext dc, Rect bar, IReadOnlyList<(long Amount, string Hex)> parts)
+    {
+        long total = parts.Sum(p => Math.Max(0, p.Amount));
+        if (total <= 0)
+        {
+            return;
+        }
+
+        dc.PushClip(new RectangleGeometry(bar, 5, 5));
+        double x = bar.X;
+        foreach ((long amount, string hex) in parts)
+        {
+            if (amount <= 0)
+            {
+                continue;
+            }
+
+            double width = bar.Width * amount / total;
+            dc.DrawRectangle(Solid(hex, 0xB0), null, new Rect(x, bar.Y, width + 0.5, bar.Height));
+            x += width;
+        }
+
+        dc.Pop();
+    }
+
+    /// <summary>The picture of a made-up fight in the given colors, for the Colors window's preview.</summary>
+    public static BitmapSource RenderPreview(AttackColorScheme colors, ThemePalette palette, string footer)
+    {
+        static ParticipantSnapshot Player(string name, string cls, params (AttackType Type, long Normal, long Crit)[] attacks)
+        {
+            AttackSlice[] slices = attacks.Select(a => new AttackSlice(a.Type, a.Normal, a.Crit)).ToArray();
+            long total = slices.Sum(a => a.Total);
+            return new ParticipantSnapshot(
+                name, total, 0, total / 200.0, total / 200.0, 9000, 400, 20, 0.95, 14000, 60, 15.0, cls, 0, 8000, slices);
+        }
+
+        ParticipantSnapshot[] players =
+        {
+            Player("Stackprime", "BER", (AttackType.Slash, 610000, 240000), (AttackType.Frenzy, 180000, 90000), (AttackType.Kick, 40000, 12000)),
+            Player("Ream", "ROG", (AttackType.Backstab, 350000, 230000), (AttackType.Pierce, 300000, 70000), (AttackType.Hit, 20000, 0)),
+            Player("Oodles", "MNK", (AttackType.HandToHand, 420000, 160000), (AttackType.Kick, 210000, 95000), (AttackType.Hit, 30000, 0)),
+            Player("Trickster", "RNG", (AttackType.Archery, 380000, 210000), (AttackType.Slash, 120000, 30000), (AttackType.Pet, 90000, 20000)),
+            Player("Wuzzle", "MAG", (AttackType.Spell, 420000, 100000), (AttackType.Pet, 260000, 70000)),
+            Player("Gruk", "WAR", (AttackType.Crush, 240000, 60000), (AttackType.Bash, 50000, 10000), (AttackType.OtherMelee, 25000, 0)),
+        };
+
+        long sum = players.Sum(p => p.TotalDamage);
+        ParticipantSnapshot[] participants = players
+            .Select(p => p with { PercentOfGroupDamage = 100.0 * p.TotalDamage / sum })
+            .OrderByDescending(p => p.TotalDamage)
+            .ToArray();
+
+        HealingSnapshot[] healing =
+        {
+            new("Pallas", 201000, 40000, 16.6, 120, 5200, 985, "Complete Heal", 70000, 14),
+            new("Brell", 100500, 30000, 23.0, 200, 1800, 493, "Celestial Elixir", 12000, 6),
+        };
+
+        DateTime start = new(2026, 1, 1, 21, 0, 0);
+        var encounter = new EncounterSnapshot(
+            0, "Sample fight", start, start.AddSeconds(204), 204, sum, false, participants, null, null, healing, null, true);
+        return Render(encounter, palette, footer, EncounterExport.AllAttackers, colors);
+    }
+
     private static string SummaryLine(EncounterSnapshot encounter) =>
         $"{encounter.StartTime:yyyy-MM-dd HH:mm:ss}   •   {EncounterExport.FormatDuration(encounter.DurationSeconds)}   •   " +
         $"{encounter.TotalDamage.ToString("N0", CultureInfo.InvariantCulture)} damage   •   " +
@@ -269,9 +384,6 @@ public static class EncounterImageRenderer
 
     /// <summary>Warm color for the damage-taken bars, so they read apart from the damage-dealt bars.</summary>
     private const string TakenColor = "#E5845C";
-
-    /// <summary>Green for the healing bars.</summary>
-    private const string HealingColor = "#5CC98A";
 
     private static void DrawTakenRow(DrawingContext dc, IReadOnlyList<string> cells, double y, Typeface face, double size, Brush brush) =>
         DrawNumberRow(dc, cells, y, face, size, brush, 300, new[] { 400.0, 490, 580, 655 });

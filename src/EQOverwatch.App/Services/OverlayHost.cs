@@ -94,6 +94,16 @@ public sealed class OverlayHost : IOverlayHost
         }
     }
 
+    public void SetOpacity(OverlayKind kind, double opacity)
+    {
+        OverlayWindowBase window = Get(kind);
+        double value = Math.Clamp(opacity, 0.0, 1.0);
+        if (Math.Abs(window.Opacity - value) > 0.001)
+        {
+            window.Opacity = value;
+        }
+    }
+
     public void CloseAll()
     {
         foreach (OverlayWindowBase window in _windows.Values)

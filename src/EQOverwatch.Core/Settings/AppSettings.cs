@@ -34,6 +34,15 @@ public sealed class AppSettings
     /// <summary>Each character's duration focus choices and AA percentage (Focus Effects window). Characters not listed have none.</summary>
     public List<DurationProfileSetting>? DurationProfiles { get; set; }
 
+    /// <summary>How visible every overlay is (10-100 percent) while no combat has been seen for a few seconds. 100 means no fading.</summary>
+    public int OverlayIdlePercent { get; set; } = 100;
+
+    /// <summary>Seconds without a combat line before the DPS overlay goes away; 0 keeps it up.</summary>
+    public int DpsHideSeconds { get; set; } = OverlayFade.DefaultDpsHideSeconds;
+
+    /// <summary>Hex color per attack type name (see <see cref="AttackType"/>); missing types use the default.</summary>
+    public Dictionary<string, string>? AttackColors { get; set; }
+
     /// <summary>When true, a finished boss fight is posted to the Discord webhook below. Off by default.</summary>
     public bool DiscordAutoPostEnabled { get; set; }
 

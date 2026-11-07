@@ -46,9 +46,9 @@ public sealed class CombatEncounter : ObservableObject
     public string DisplayName =>
         $"{TargetName} — {StartTime:HH:mm:ss} ({DurationSeconds:0}s, {TotalDamage:N0} dmg){(IsActive ? " • live" : string.Empty)}";
 
-    internal void AddDamage(DateTime timestamp, string source, int amount, bool isCritical = false)
+    internal void AddDamage(DateTime timestamp, string source, int amount, bool isCritical = false, AttackType attack = AttackType.Hit)
     {
-        GetOrAdd(source).RecordHit(timestamp, amount, isCritical);
+        GetOrAdd(source).RecordHit(timestamp, amount, isCritical, attack);
         TotalDamage += amount;
         Touch(timestamp);
     }
@@ -129,7 +129,7 @@ public sealed class CombatEncounter : ObservableObject
     internal IReadOnlyList<BossCastSnapshot> Casts => _casts;
 
     /// <summary>A heal landed during the fight. <paramref name="possible"/> is what the spell could have healed.</summary>
-    internal void AddHeal(string healer, string spell, int actual, int possible)
+    internal void AddHeal(string healer, string spell, int actual, int possible, bool isCritical = false)
     {
         if (!_healers.TryGetValue(healer, out HealStats? stats))
         {
@@ -137,7 +137,7 @@ public sealed class CombatEncounter : ObservableObject
             _healers.Add(healer, stats);
         }
 
-        stats.Record(spell, actual, possible);
+        stats.Record(spell, actual, possible, isCritical);
     }
 
     internal IReadOnlyCollection<HealStats> Healers => _healers.Values;

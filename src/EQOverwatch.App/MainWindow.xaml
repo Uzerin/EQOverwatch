@@ -137,12 +137,26 @@
                 Background="{DynamicResource SelectedBgBrush}" BorderBrush="{DynamicResource AccentBrush}">
             <DockPanel>
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,0,0">
-                    <Button Content="Download" Margin="0,0,8,0" Command="{Binding OpenUpdateCommand}"/>
+                    <Button Content="Install update" Margin="0,0,8,0" Command="{Binding InstallUpdateCommand}"
+                            ToolTip="Downloads the new version, checks it against its published checksum, replaces EQOverwatch.exe and restarts. Not available during combat.">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding UpdateCanInstall}" Value="True">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                    <Button Content="Release page" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0" Command="{Binding OpenUpdateCommand}"/>
                     <Button Content="Later" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0" Command="{Binding DismissUpdateCommand}"/>
                     <Button Content="Skip this version" Style="{StaticResource SecondaryButton}" Command="{Binding SkipUpdateVersionCommand}"/>
                 </StackPanel>
                 <StackPanel VerticalAlignment="Center">
                     <TextBlock FontWeight="SemiBold" TextWrapping="Wrap" Text="{Binding UpdateMessage}"/>
+                    <TextBlock Style="{StaticResource HintText}" Text="{Binding UpdateInstallHint}"/>
                     <TextBlock Style="{StaticResource HintText}" Text="{Binding UpdateNotes}" MaxHeight="64"/>
                 </StackPanel>
             </DockPanel>
@@ -966,8 +980,10 @@
                         <WrapPanel HorizontalAlignment="Left">
                             <Button Content="[ Copy Top 12 for EQ Chat ]" Command="{Binding CopyTop12ForChatCommand}" Margin="0,0,8,0"
                                     ToolTip="Copies the selected fight and its top 12 attackers as text for EverQuest chat."/>
-                            <Button Content="[ Copy Image for Discord ]" Command="{Binding CopyImageForDiscordCommand}"
+                            <Button Content="[ Copy Image for Discord ]" Command="{Binding CopyImageForDiscordCommand}" Margin="0,0,8,0"
                                     ToolTip="Copies the selected fight as one picture with the damage dealt and the damage taken, ready to paste into Discord."/>
+                            <Button Content="Colors..." Command="{Binding OpenColorsCommand}" Style="{StaticResource SecondaryButton}"
+                                    ToolTip="Choose the colors of each attack type, pets and healing in the Discord picture, with a preview."/>
                         </WrapPanel>
                     </DockPanel>
 
@@ -1967,6 +1983,25 @@
                                          Text="{Binding SafeZonesText, UpdateSourceTrigger=LostFocus}"/>
                                 <Button Content="Reset to the built-in list" HorizontalAlignment="Left" Margin="0,6,0,0" Padding="10,2"
                                         Style="{StaticResource SecondaryButton}" Command="{Binding ResetSafeZonesCommand}"/>
+                            </StackPanel>
+                        </GroupBox>
+
+                        <GroupBox Header="Overlay fading">
+                            <StackPanel Margin="4">
+                                <WrapPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,2,32,6">
+                                        <TextBlock Text="Overlays out of combat (% visible)" VerticalAlignment="Center" Margin="0,0,8,0"
+                                                   ToolTip="How see-through every overlay gets when no combat line has been seen for 10 seconds. 100 = no fading. The overlays are always fully shown while unlocked."/>
+                                        <TextBox Width="50" Text="{Binding OverlayIdlePercent, UpdateSourceTrigger=PropertyChanged}"/>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,2,0,6">
+                                        <TextBlock Text="Hide DPS overlay after (seconds)" VerticalAlignment="Center" Margin="0,0,8,0"
+                                                   ToolTip="The DPS overlay goes away when no combat line has been seen for this long, and comes back with the next one. 0 keeps it up."/>
+                                        <TextBox Width="50" Text="{Binding DpsHideSeconds, UpdateSourceTrigger=PropertyChanged}"/>
+                                    </StackPanel>
+                                </WrapPanel>
+                                <TextBlock Style="{StaticResource HintText}"
+                                           Text="The colors of the Discord picture are on the Encounter DPS tab (Colors...)."/>
                             </StackPanel>
                         </GroupBox>
 

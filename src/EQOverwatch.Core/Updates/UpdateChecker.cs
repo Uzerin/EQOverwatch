@@ -21,8 +21,12 @@ public enum UpdateCheckStatus
 /// <param name="LatestVersion">"v1.0.12": the newest release's version (empty when unknown).</param>
 /// <param name="Url">The release page to send the user to.</param>
 /// <param name="Notes">The start of the release notes (may be empty).</param>
+/// <param name="Assets">The release's zip and its SHA-256 file, when the release carries both; null when it cannot be installed from the app.</param>
 public sealed record UpdateCheckResult(
-    UpdateCheckStatus Status, string LatestVersion = "", string Url = "", string Notes = "", string Error = "");
+    UpdateCheckStatus Status, string LatestVersion = "", string Url = "", string Notes = "", string Error = "", UpdateAssets? Assets = null);
+
+/// <summary>The files an in-app install needs: the zip holding <c>EQOverwatch.exe</c> and the file with the zip's SHA-256 hash.</summary>
+public sealed record UpdateAssets(string ZipName, string ZipUrl, string HashUrl);
 
 public interface IUpdateChecker
 {
@@ -78,6 +82,36 @@ public sealed class GitHubUpdateChecker : IUpdateChecker
         _repository = repository;
     }
 
+    /// <summary>The release's win-x64 zip and the "&lt;zip&gt;.sha256" file next to it, or null when either is missing.</summary>
+    internal static UpdateAssets? FindAssets(JsonElement release)
+    {
+        if (!release.TryGetProperty("assets", out JsonElement assets) || assets.ValueKind != JsonValueKind.Array)
+        {
+            return null;
+        }
+
+        var urls = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (JsonElement asset in assets.EnumerateArray())
+        {
+            string? name = asset.TryGetProperty("name", out JsonElement n) ? n.GetString() : null;
+            string? link = asset.TryGetProperty("browser_download_url", out JsonElement u) ? u.GetString() : null;
+            if (!string.IsNullOrEmpty(name) && !string.IsNullOrEmpty(link))
+            {
+                urls[name] = link;
+            }
+        }
+
+        foreach ((string name, string link) in urls)
+        {
+            if (name.EndsWith("-win-x64.zip", StringComparison.OrdinalIgnoreCase) && urls.TryGetValue(name + ".sha256", out string? hashLink))
+            {
+                return new UpdateAssets(name, link, hashLink);
+            }
+        }
+
+        return null;
+    }
+
     public async Task<UpdateCheckResult> CheckAsync(string currentVersion, CancellationToken cancellationToken = default)
     {
         if (!VersionText.TryParse(currentVersion, out Version current))
@@ -127,7 +161,7 @@ public sealed class GitHubUpdateChecker : IUpdateChecker
             }
 
             return latest > current
-                ? new UpdateCheckResult(UpdateCheckStatus.UpdateAvailable, VersionText.Format(latest), url, notes)
+                ? new UpdateCheckResult(UpdateCheckStatus.UpdateAvailable, VersionText.Format(latest), url, notes, Assets: FindAssets(root))
                 : new UpdateCheckResult(UpdateCheckStatus.UpToDate, VersionText.Format(latest), url, notes);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

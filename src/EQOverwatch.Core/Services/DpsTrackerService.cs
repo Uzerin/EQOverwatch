@@ -115,6 +115,20 @@ public partial class DpsTrackerService : IDpsEventSink
     private long _version;
     private int _nextId = 1;
     private int _batchDepth;
+    private long _lastCombatTicks;
+
+    /// <summary>Wall-clock source for <see cref="LastCombatUtc"/> (replaceable in tests).</summary>
+    public Func<DateTime> WallClock { get; set; } = () => DateTime.UtcNow;
+
+    /// <summary>When the last live combat line of any kind (hit, miss, death) arrived, or null if none has.</summary>
+    public DateTime? LastCombatUtc
+    {
+        get
+        {
+            long ticks = Interlocked.Read(ref _lastCombatTicks);
+            return ticks == 0 ? null : new DateTime(ticks, DateTimeKind.Utc);
+        }
+    }
     private DateTime _logClock;
     private TimeSpan _inactivityTimeout;
 
@@ -256,6 +270,11 @@ public partial class DpsTrackerService : IDpsEventSink
     {
         lock (_gate)
         {
+            if (_batchDepth == 0)
+            {
+                Interlocked.Exchange(ref _lastCombatTicks, WallClock().Ticks); // live lines only: a history import must not look like a fight in progress
+            }
+
             bool changed = AdvanceClock(combatEvent.Timestamp);
 
             switch (combatEvent.Kind)
@@ -271,7 +290,10 @@ public partial class DpsTrackerService : IDpsEventSink
                     if (IsAttack(combatEvent))
                     {
                         GetOrStart(combatEvent.Target, combatEvent.Timestamp)
-                            .AddDamage(combatEvent.Timestamp, Attacker(combatEvent.Source), combatEvent.Amount, isCritical);
+                            .AddDamage(combatEvent.Timestamp, Attacker(combatEvent.Source), combatEvent.Amount, isCritical,
+                                _roster is not null && _roster.IsPet(combatEvent.Source)
+                                    ? AttackType.Pet
+                                    : AttackTypes.Classify(combatEvent.DamageKind, combatEvent.Detail));
                         changed = true;
                     }
                     else if (_active.TryGetValue(FoeName(combatEvent.Source), out CombatEncounter? foe)
@@ -515,6 +537,9 @@ public partial class DpsTrackerService : IDpsEventSink
             int.TryParse(match.Groups["possible"].ValueSpan, NumberStyles.None, CultureInfo.InvariantCulture, out possible);
         }
 
+        // The client tags a critical heal at the end: "... by Complete Heal. (Critical)".
+        bool isCritical = match.Groups["tag"] is { Success: true } tag
+                          && tag.ValueSpan.IndexOf("Critical", StringComparison.OrdinalIgnoreCase) >= 0;
         string healer = match.Groups["healer"].Value;
         lock (_gate)
         {
@@ -535,7 +560,7 @@ public partial class DpsTrackerService : IDpsEventSink
 
             foreach (CombatEncounter encounter in _active.Values)
             {
-                encounter.AddHeal(healer, match.Groups["spell"].Value, actual, possible);
+                encounter.AddHeal(healer, match.Groups["spell"].Value, actual, possible, isCritical);
             }
 
             Publish();
@@ -544,7 +569,7 @@ public partial class DpsTrackerService : IDpsEventSink
 
     // "Leinhart healed Regnier for 328 (8415) hit points by Complete Heal."  /  "X healed you over time for 32 hit points by Spell."
     [GeneratedRegex(
-        @"^(?<healer>.+?) healed (?<target>.+?) (?:over time )?for (?<actual>\d+)(?: \((?<possible>\d+)\))? hit points? by (?<spell>.+)\.$",
+        @"^(?<healer>.+?) healed (?<target>.+?) (?:over time )?for (?<actual>\d+)(?: \((?<possible>\d+)\))? hit points? by (?<spell>.+?)\.(?: \((?<tag>.+)\))?$",
         RegexOptions.CultureInvariant)]
     private static partial Regex HealRegex();
 

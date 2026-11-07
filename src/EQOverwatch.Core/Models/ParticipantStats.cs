@@ -50,8 +50,35 @@ public sealed class ParticipantStats : ObservableObject
 
     public double MissRate => Hits + Misses == 0 ? 0.0 : (double)Misses / (Hits + Misses);
 
-    internal void RecordHit(DateTime timestamp, int amount, bool isCritical = false)
+    private readonly long[] _attackNormal = new long[AttackTypes.All.Count];
+    private readonly long[] _attackCrit = new long[AttackTypes.All.Count];
+
+    /// <summary>Damage by attack type, regular and critical, for the types this player used (largest first).</summary>
+    public IReadOnlyList<AttackSlice> AttackSlices()
     {
+        var slices = new List<AttackSlice>();
+        for (int i = 0; i < _attackNormal.Length; i++)
+        {
+            if (_attackNormal[i] + _attackCrit[i] > 0)
+            {
+                slices.Add(new AttackSlice((AttackType)i, _attackNormal[i], _attackCrit[i]));
+            }
+        }
+
+        return new AttackSliceList(slices.OrderByDescending(a => a.Total).ThenBy(a => a.Type).ToList());
+    }
+
+    internal void RecordHit(DateTime timestamp, int amount, bool isCritical = false, AttackType attack = AttackType.Hit)
+    {
+        if (isCritical)
+        {
+            _attackCrit[(int)attack] += amount;
+        }
+        else
+        {
+            _attackNormal[(int)attack] += amount;
+        }
+
         Hits++;
         TotalDamage += amount;
         if (amount > MaxHit)
@@ -147,12 +174,23 @@ internal sealed class HealStats
     public int Heals { get; private set; }
     public int MaxHeal { get; private set; }
 
+    /// <summary>Points that landed from critical heals.</summary>
+    public long CritEffective { get; private set; }
+
+    public int CritHeals { get; private set; }
+
     public string TopSpell => _bySpell.Count == 0 ? string.Empty : _bySpell.OrderByDescending(p => p.Value).ThenBy(p => p.Key, StringComparer.Ordinal).First().Key;
 
-    public void Record(string spell, int actual, int possible)
+    public void Record(string spell, int actual, int possible, bool isCritical = false)
     {
         Heals++;
         Effective += actual;
+        if (isCritical)
+        {
+            CritHeals++;
+            CritEffective += actual;
+        }
+
         if (possible > actual)
         {
             Overheal += possible - actual;

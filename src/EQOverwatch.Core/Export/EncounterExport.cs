@@ -16,7 +16,8 @@ public sealed record EncounterExportRow(
     string CritPercent,
     double Fill,
     string Class = "",
-    int Deaths = 0)
+    int Deaths = 0,
+    IReadOnlyList<AttackSlice>? Attacks = null)
 {
     /// <summary>The name, followed by " (Deaths: 2)" when the player died during the fight.</summary>
     public string DisplayName => Deaths > 0 ? $"{Name} (Deaths: {Deaths})" : Name;
@@ -56,7 +57,8 @@ public static class EncounterExport
                 hasCrits ? p.CritRatePercent.ToString("0.0", CultureInfo.InvariantCulture) + "%" : "-",
                 best > 0 ? (double)p.TotalDamage / best : 0.0,
                 p.Class,
-                p.Deaths));
+                p.Deaths,
+                p.Attacks));
         }
 
         return rows;
