@@ -143,3 +143,22 @@ public sealed class AttackColorAndFadeTests
         Assert.Equal(Now.AddMinutes(5), tracker.LastCombatUtc);
     }
 }
+
+public sealed class ExportHitsTests
+{
+    [Fact]
+    public void The_picture_table_has_a_hits_column_after_total_with_each_players_hit_count()
+    {
+        var tracker = new EQOverwatch.Core.Services.LiveDpsTracker();
+        for (int i = 0; i < 3; i++)
+        {
+            tracker.OnCombatEvent(new CombatEvent(
+                TestHelpers.At($"10:00:0{i}"), CombatEventKind.Damage, "Ream", "a frost giant", 400, DamageKind.Melee, "slashes"));
+        }
+
+        Assert.Equal("Total", EQOverwatch.Core.Export.EncounterExport.ColumnHeaders[3]);
+        Assert.Equal("Hits", EQOverwatch.Core.Export.EncounterExport.ColumnHeaders[4]);
+        var row = Assert.Single(EQOverwatch.Core.Export.EncounterExport.BuildRows(tracker.Snapshot.Active[0]));
+        Assert.Equal("3", row.Hits);
+    }
+}

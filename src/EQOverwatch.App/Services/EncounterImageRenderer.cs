@@ -17,8 +17,9 @@ namespace EQOverwatch.App.Services;
 public static class EncounterImageRenderer
 {
     private const double Scale = 2.0;
-    private const double HalfWidth = 760;
-    private const double Width = HalfWidth * 2;
+    private const double MinContentWidth = 540;
+    private const double MaxNameWidth = 280;
+    private const double ColumnGap = 16;
     private const double Padding = 22;
     private const double RowHeight = 28;
     private const double HeaderHeight = 74;
@@ -30,9 +31,6 @@ public static class EncounterImageRenderer
 
     private static readonly Typeface Regular = new("Segoe UI");
     private static readonly Typeface Bold = new(new FontFamily("Segoe UI"), FontStyles.Normal, FontWeights.SemiBold, FontStretches.Normal);
-
-    // Column left edges (name is left-aligned; the numbers are right-aligned to the next edge).
-    private static readonly double[] ColumnRight = { 52, 0, 0, 400, 490, 580, 655, 716 };
 
     /// <summary>The picture as PNG bytes (for posting to Discord). Call on the UI thread.</summary>
     public static byte[] RenderPng(EncounterSnapshot encounter, ThemePalette palette, string footer, int topCount = EncounterExport.AllAttackers, AttackColorScheme? colors = null)
@@ -59,7 +57,78 @@ public static class EncounterImageRenderer
         IReadOnlyList<AttackType> legend = AttackTypes.All
             .Where(t => rows.Any(r => r.Attacks is { } a && a.Any(x => x.Type == t && x.Total > 0)))
             .ToList();
-        double legendHeight = legend.Count == 0 ? 0 : LegendCaptionHeight + (Math.Ceiling(legend.Count / (double)LegendPerLine) * LegendLineHeight) + 6;
+
+        // ── the tables, with every column as wide as its widest cell ──
+        var dpsTable = new Table(
+            new[] { "#", "Name", "Class", "Total", "Hits", "SDPS", "Max Hit", "Max Crit", "Crit %" },
+            new[] { false, false, false, true, true, true, true, true, true }, flexColumn: 1,
+            rows.Select(r => new[]
+            {
+                r.Rank.ToString(CultureInfo.InvariantCulture), r.DisplayName, r.Class, r.Total, r.Hits, r.Sdps, r.MaxHit, r.MaxCrit, r.CritPercent,
+            }).ToList());
+
+        long healTotal = healing.Sum(h => h.Effective);
+        Table? takenTable = taken.Count == 0 ? null : new Table(
+            new[] { "#", "Name", "Taken", "% of total", "Hits", "Max Hit" },
+            new[] { false, false, true, true, true, true }, flexColumn: 1,
+            taken.Select((t, i) => new[]
+            {
+                (i + 1).ToString(CultureInfo.InvariantCulture), t.DisplayName, t.TotalDamage.ToString("N0", CultureInfo.InvariantCulture),
+                t.PercentOfTotal.ToString("0.0", CultureInfo.InvariantCulture) + "%", t.Hits.ToString("N0", CultureInfo.InvariantCulture),
+                t.MaxHit.ToString("N0", CultureInfo.InvariantCulture),
+            }).ToList());
+
+        Table? healTable = healing.Count == 0 ? null : new Table(
+            new[] { "#", "Name", "Healed", "% of total", "HPS", "Crit %", "Max Heal" },
+            new[] { false, false, true, true, true, true, true }, flexColumn: 1,
+            healing.Select((h, i) => new[]
+            {
+                (i + 1).ToString(CultureInfo.InvariantCulture), h.Name, h.Effective.ToString("N0", CultureInfo.InvariantCulture),
+                (healTotal > 0 ? 100.0 * h.Effective / healTotal : 0).ToString("0.0", CultureInfo.InvariantCulture) + "%",
+                Math.Round(h.Hps).ToString("N0", CultureInfo.InvariantCulture),
+                h.CritHeals > 0 ? h.CritHealPercent.ToString("0.0", CultureInfo.InvariantCulture) + "%" : "-",
+                h.MaxHeal.ToString("N0", CultureInfo.InvariantCulture),
+            }).ToList());
+
+        Table? deathTable = deaths.Count == 0 ? null : new Table(
+            new[] { "#", "Name", "Time", "Killed by" },
+            new[] { false, false, true, false }, flexColumn: 3,
+            deaths.Select((d, i) => new[]
+            {
+                (i + 1).ToString(CultureInfo.InvariantCulture), d.Name,
+                EncounterExport.FormatDuration((d.Time - encounter.StartTime).TotalSeconds),
+                string.IsNullOrWhiteSpace(d.KilledBy) ? "—" : d.KilledBy,
+            }).ToList());
+
+        string dpsTotalText = $"{encounter.TotalDamage.ToString("N0", CultureInfo.InvariantCulture)} total";
+        string takenTitle = $"Tanking: damage taken from {encounter.TargetName}";
+        string takenTotalText = $"{encounter.TotalDamageTaken.ToString("N0", CultureInfo.InvariantCulture)} total";
+        string healTitle = healing.Any(h => h.CritHeals > 0) ? "Healing  (lighter shade = critical heals)" : "Healing";
+        string healTotalText = $"{healTotal.ToString("N0", CultureInfo.InvariantCulture)} total";
+        string deathTotalText = deaths.Count == 0 ? "none" : $"{deaths.Count.ToString("N0", CultureInfo.InvariantCulture)} total";
+
+        // Each half is as wide as its widest table or title line needs.
+        double leftContent = Math.Max(MinContentWidth, Math.Max(
+            dpsTable.NaturalWidth, TitleWidth("DPS", dpsTotalText)));
+        double rightContent = Math.Max(MinContentWidth, new[]
+        {
+            takenTable?.NaturalWidth ?? 0, healTable?.NaturalWidth ?? 0, deathTable?.NaturalWidth ?? 0,
+            takenTable is null ? 0 : TitleWidth(takenTitle, takenTotalText),
+            healTable is null ? 0 : TitleWidth(healTitle, healTotalText),
+            TitleWidth("Deaths", deathTotalText),
+        }.Max());
+
+        dpsTable.FitTo(leftContent);
+        takenTable?.FitTo(rightContent);
+        healTable?.FitTo(rightContent);
+        deathTable?.FitTo(rightContent);
+
+        double leftHalf = leftContent + (2 * Padding);
+        double rightHalf = rightContent + (2 * Padding);
+        double width = leftHalf + rightHalf;
+
+        int legendPerLine = Math.Max(1, (int)Math.Floor(leftContent / LegendEntryWidth));
+        double legendHeight = legend.Count == 0 ? 0 : LegendCaptionHeight + (Math.Ceiling(legend.Count / (double)legendPerLine) * LegendLineHeight) + 6;
 
         double leftHeight = TitleHeight + TableHeaderHeight + (Math.Max(1, rows.Count) * RowHeight) + legendHeight;
         double rightHeight = 0;
@@ -84,43 +153,40 @@ public static class EncounterImageRenderer
         Brush barFill = WithOpacity(palette.Accent, 0.38);
         Brush takenFill = WithOpacity(TakenColor, 0.38);
         Brush line = Solid(palette.TextPrimary, 0x30);
-        double contentWidth = HalfWidth - (2 * Padding);
 
         var visual = new DrawingVisual();
         using (DrawingContext dc = visual.RenderOpen())
         {
-            dc.DrawRectangle(window, null, new Rect(0, 0, Width, height));
-            dc.DrawRoundedRectangle(card, null, new Rect(10, 10, Width - 20, height - 20), 12, 12);
+            dc.DrawRectangle(window, null, new Rect(0, 0, width, height));
+            dc.DrawRoundedRectangle(card, null, new Rect(10, 10, width - 20, height - 20), 12, 12);
             dc.DrawRoundedRectangle(accent, null, new Rect(10, 10, 6, height - 20), 3, 3);
 
             // header, across both halves
-            Draw(dc, encounter.TargetName, Bold, 22, text, Padding + 6, 20, Width - (2 * Padding) - 6, TextAlignment.Left);
-            Draw(dc, SummaryLine(encounter), Regular, 13, muted, Padding + 6, 52, Width - (2 * Padding) - 6, TextAlignment.Left);
+            Draw(dc, encounter.TargetName, Bold, 22, text, Padding + 6, 20, width - (2 * Padding) - 6, TextAlignment.Left);
+            Draw(dc, SummaryLine(encounter), Regular, 13, muted, Padding + 6, 52, width - (2 * Padding) - 6, TextAlignment.Left);
 
             // a thin divider between the halves
-            dc.DrawRectangle(Solid(palette.TextPrimary, 0x20), null, new Rect(HalfWidth - 0.5, HeaderHeight + 4, 1, Math.Max(0, height - HeaderHeight - FooterHeight - 4)));
+            dc.DrawRectangle(Solid(palette.TextPrimary, 0x20), null, new Rect(leftHalf - 0.5, HeaderHeight + 4, 1, Math.Max(0, height - HeaderHeight - FooterHeight - 4)));
 
             // ── left half: damage dealt ──
             double y = HeaderHeight;
-            Draw(dc, "DPS", Bold, 16, text, Padding + 6, y, 440, TextAlignment.Left);
-            Draw(dc, $"{encounter.TotalDamage.ToString("N0", CultureInfo.InvariantCulture)} total", Regular, 13, muted,
-                HalfWidth - Padding - 220, y + 2, 220, TextAlignment.Right);
+            DrawTitle(dc, "DPS", dpsTotalText, leftContent, y, text, muted, Bold);
             y += SectionHeight - SectionGap;
 
-            DrawRow(dc, EncounterExport.ColumnHeaders.ToArray(), y, Bold, 12, muted);
+            dpsTable.DrawHeader(dc, y, muted);
             y += TableHeaderHeight;
-            dc.DrawRectangle(line, null, new Rect(Padding, y - 2, contentWidth, 1));
+            dc.DrawRectangle(line, null, new Rect(Padding, y - 2, leftContent, 1));
 
-            foreach (EncounterExportRow row in rows)
+            for (int i = 0; i < rows.Count; i++)
             {
-                double barWidth = contentWidth * Math.Clamp(row.Fill, 0, 1);
+                EncounterExportRow row = rows[i];
+                double barWidth = leftContent * Math.Clamp(row.Fill, 0, 1);
                 if (barWidth > 0)
                 {
                     DrawDamageBar(dc, new Rect(Padding, y + 2, barWidth, RowHeight - 4), row.Attacks, colors, barFill);
                 }
 
-                DrawRow(dc, new[] { row.Rank.ToString(CultureInfo.InvariantCulture), row.DisplayName, row.Class, row.Total, row.Sdps, row.MaxHit, row.MaxCrit, row.CritPercent },
-                    y, Regular, 14, text);
+                dpsTable.DrawRow(dc, i, y, text);
                 y += RowHeight;
             }
 
@@ -133,12 +199,12 @@ public static class EncounterImageRenderer
             {
                 y += 4;
                 Draw(dc, "Bar colors: each attack type's color is for regular hits, the lighter shade is crits.", Regular, 12, muted,
-                    Padding + 6, y, contentWidth, TextAlignment.Left);
+                    Padding + 6, y, leftContent, TextAlignment.Left);
                 y += LegendCaptionHeight;
                 for (int i = 0; i < legend.Count; i++)
                 {
-                    double x = Padding + 6 + ((i % LegendPerLine) * LegendEntryWidth);
-                    double ly = y + ((i / LegendPerLine) * LegendLineHeight);
+                    double x = Padding + 6 + ((i % legendPerLine) * LegendEntryWidth);
+                    double ly = y + ((i / legendPerLine) * LegendLineHeight);
                     dc.DrawRoundedRectangle(Solid(colors.Normal(legend[i])), null, new Rect(x, ly + 4, 12, 12), 3, 3);
                     dc.DrawRoundedRectangle(Solid(colors.Crit(legend[i])), null, new Rect(x + 14, ly + 4, 12, 12), 3, 3);
                     Draw(dc, AttackTypes.Label(legend[i]), Regular, 12, text, x + 32, ly + 2, LegendEntryWidth - 36, TextAlignment.Left);
@@ -146,79 +212,55 @@ public static class EncounterImageRenderer
             }
 
             // ── right half: tanking, healing, deaths ──
-            dc.PushTransform(new TranslateTransform(HalfWidth, 0));
+            dc.PushTransform(new TranslateTransform(leftHalf, 0));
             double ry = HeaderHeight;
 
-            if (taken.Count > 0)
+            if (takenTable is not null)
             {
-                // Damage taken: what the fight's target did to the group.
-                Draw(dc, $"Tanking: damage taken from {encounter.TargetName}", Bold, 16, text, Padding + 6, ry, 440, TextAlignment.Left);
-                Draw(dc, $"{encounter.TotalDamageTaken.ToString("N0", CultureInfo.InvariantCulture)} total", Regular, 13, muted,
-                    HalfWidth - Padding - 220, ry + 2, 220, TextAlignment.Right);
+                DrawTitle(dc, takenTitle, takenTotalText, rightContent, ry, text, muted, Bold);
                 ry += SectionHeight - SectionGap;
 
-                DrawTakenRow(dc, new[] { "#", "Name", "Taken", "% of total", "Hits", "Max Hit" }, ry, Bold, 12, muted);
+                takenTable.DrawHeader(dc, ry, muted);
                 ry += TableHeaderHeight;
-                dc.DrawRectangle(line, null, new Rect(Padding, ry - 2, contentWidth, 1));
+                dc.DrawRectangle(line, null, new Rect(Padding, ry - 2, rightContent, 1));
 
                 long top = taken.Max(t => t.TotalDamage);
                 for (int i = 0; i < taken.Count; i++)
                 {
-                    DamageTakenSnapshot t = taken[i];
-                    double barWidth = top > 0 ? contentWidth * ((double)t.TotalDamage / top) : 0;
+                    double barWidth = top > 0 ? rightContent * ((double)taken[i].TotalDamage / top) : 0;
                     if (barWidth > 0)
                     {
                         dc.DrawRoundedRectangle(takenFill, null, new Rect(Padding, ry + 2, barWidth, RowHeight - 4), 5, 5);
                     }
 
-                    DrawTakenRow(dc, new[]
-                    {
-                        (i + 1).ToString(CultureInfo.InvariantCulture),
-                        t.DisplayName,
-                        t.TotalDamage.ToString("N0", CultureInfo.InvariantCulture),
-                        t.PercentOfTotal.ToString("0.0", CultureInfo.InvariantCulture) + "%",
-                        t.Hits.ToString("N0", CultureInfo.InvariantCulture),
-                        t.MaxHit.ToString("N0", CultureInfo.InvariantCulture),
-                    }, ry, Regular, 14, text);
+                    takenTable.DrawRow(dc, i, ry, text);
                     ry += RowHeight;
                 }
 
                 ry += SectionGap;
             }
 
-            if (healing.Count > 0)
+            if (healTable is not null)
             {
-                long healTotal = healing.Sum(h => h.Effective);
-                Draw(dc, healing.Any(h => h.CritHeals > 0) ? "Healing  (lighter shade = critical heals)" : "Healing", Bold, 16, text, Padding + 6, ry, 440, TextAlignment.Left);
-                Draw(dc, $"{healTotal.ToString("N0", CultureInfo.InvariantCulture)} total", Regular, 13, muted,
-                    HalfWidth - Padding - 220, ry + 2, 220, TextAlignment.Right);
+                DrawTitle(dc, healTitle, healTotalText, rightContent, ry, text, muted, Bold);
                 ry += SectionHeight - SectionGap;
 
-                DrawHealRow(dc, new[] { "#", "Name", "Healed", "% of total", "HPS", "Crit %", "Max Heal" }, ry, Bold, 12, muted);
+                healTable.DrawHeader(dc, ry, muted);
                 ry += TableHeaderHeight;
-                dc.DrawRectangle(line, null, new Rect(Padding, ry - 2, contentWidth, 1));
+                dc.DrawRectangle(line, null, new Rect(Padding, ry - 2, rightContent, 1));
 
                 long topHeal = healing.Max(h => h.Effective);
                 for (int i = 0; i < healing.Count; i++)
                 {
                     HealingSnapshot h = healing[i];
-                    double barWidth = topHeal > 0 ? contentWidth * ((double)h.Effective / topHeal) : 0;
+                    double barWidth = topHeal > 0 ? rightContent * ((double)h.Effective / topHeal) : 0;
                     if (barWidth > 0)
                     {
                         DrawSegments(dc, new Rect(Padding, ry + 2, barWidth, RowHeight - 4),
                             new[] { (h.Effective - h.CritEffective, colors.Healing), (h.CritEffective, colors.HealingCrit) });
                     }
 
-                    DrawHealRow(dc, new[]
-                    {
-                        (i + 1).ToString(CultureInfo.InvariantCulture),
-                        h.Name,
-                        h.Effective.ToString("N0", CultureInfo.InvariantCulture),
-                        (healTotal > 0 ? 100.0 * h.Effective / healTotal : 0).ToString("0.0", CultureInfo.InvariantCulture) + "%",
-                        Math.Round(h.Hps).ToString("N0", CultureInfo.InvariantCulture),
-                        h.CritHeals > 0 ? h.CritHealPercent.ToString("0.0", CultureInfo.InvariantCulture) + "%" : "-",
-                        h.MaxHeal.ToString("N0", CultureInfo.InvariantCulture),
-                    }, ry, Regular, 14, text);
+                    healTable.DrawRow(dc, i, ry, text);
                     ry += RowHeight;
                 }
 
@@ -226,31 +268,22 @@ public static class EncounterImageRenderer
             }
 
             // Deaths: who died and when in the fight. Always shown, so the layout is the same from fight to fight.
-            Draw(dc, "Deaths", Bold, 16, text, Padding + 6, ry, 440, TextAlignment.Left);
-            Draw(dc, deaths.Count == 0 ? "none" : $"{deaths.Count.ToString("N0", CultureInfo.InvariantCulture)} total", Regular, 13, muted,
-                HalfWidth - Padding - 220, ry + 2, 220, TextAlignment.Right);
+            DrawTitle(dc, "Deaths", deathTotalText, rightContent, ry, text, muted, Bold);
             ry += SectionHeight - SectionGap;
 
-            if (deaths.Count == 0)
+            if (deathTable is null)
             {
                 Draw(dc, "No deaths.", Regular, 14, muted, Padding + 6, ry + 4, 400, TextAlignment.Left);
             }
             else
             {
-                DrawDeathRow(dc, new[] { "#", "Name", "Time", "Killed by" }, ry, Bold, 12, muted);
+                deathTable.DrawHeader(dc, ry, muted);
                 ry += TableHeaderHeight;
-                dc.DrawRectangle(line, null, new Rect(Padding, ry - 2, contentWidth, 1));
+                dc.DrawRectangle(line, null, new Rect(Padding, ry - 2, rightContent, 1));
 
                 for (int i = 0; i < deaths.Count; i++)
                 {
-                    DeathSnapshot d = deaths[i];
-                    DrawDeathRow(dc, new[]
-                    {
-                        (i + 1).ToString(CultureInfo.InvariantCulture),
-                        d.Name,
-                        EncounterExport.FormatDuration((d.Time - encounter.StartTime).TotalSeconds),
-                        string.IsNullOrWhiteSpace(d.KilledBy) ? "—" : d.KilledBy,
-                    }, ry, Regular, 14, text);
+                    deathTable.DrawRow(dc, i, ry, text);
                     ry += RowHeight;
                 }
             }
@@ -258,15 +291,104 @@ public static class EncounterImageRenderer
             dc.Pop();
 
             // footer
-            Draw(dc, footer, Regular, 12, muted, Padding, height - FooterHeight + 4, Width - (2 * Padding), TextAlignment.Right);
+            Draw(dc, footer, Regular, 12, muted, Padding, height - FooterHeight + 4, width - (2 * Padding), TextAlignment.Right);
         }
 
         var bitmap = new RenderTargetBitmap(
-            (int)Math.Ceiling(Width * Scale), (int)Math.Ceiling(height * Scale), 96 * Scale, 96 * Scale, PixelFormats.Pbgra32);
+            (int)Math.Ceiling(width * Scale), (int)Math.Ceiling(height * Scale), 96 * Scale, 96 * Scale, PixelFormats.Pbgra32);
         bitmap.Render(visual);
         bitmap.Freeze();
         return bitmap;
     }
+
+    private static double MeasureText(string text, Typeface face, double size) =>
+        new FormattedText(text ?? string.Empty, CultureInfo.CurrentUICulture, FlowDirection.LeftToRight, face, size, Brushes.Black, Scale)
+            .WidthIncludingTrailingWhitespace;
+
+    /// <summary>The room a section's title and its "N total" text need side by side.</summary>
+    private static double TitleWidth(string title, string total) =>
+        MeasureText(title, Bold, 16) + MeasureText(total, Regular, 13) + 36;
+
+    private static void DrawTitle(DrawingContext dc, string title, string total, double contentWidth, double y, Brush text, Brush muted, Typeface bold)
+    {
+        Draw(dc, title, bold, 16, text, Padding + 6, y, contentWidth, TextAlignment.Left);
+        Draw(dc, total, Regular, 13, muted, Padding + contentWidth - 220, y + 2, 220, TextAlignment.Right);
+    }
+
+    /// <summary>
+    /// A table whose columns are each as wide as the widest header or cell in them. Extra room (when its half is wider than the table)
+    /// goes to one flexible column. A column's text is right-aligned for numbers.
+    /// </summary>
+    private sealed class Table
+    {
+        private readonly string[] _headers;
+        private readonly bool[] _rightAligned;
+        private readonly int _flex;
+        private readonly IReadOnlyList<string[]> _rows;
+        private readonly double[] _widths;
+        private double[] _lefts = Array.Empty<double>();
+
+        public Table(string[] headers, bool[] rightAligned, int flexColumn, IReadOnlyList<string[]> rows)
+        {
+            _headers = headers;
+            _rightAligned = rightAligned;
+            _flex = flexColumn;
+            _rows = rows;
+            _widths = new double[headers.Length];
+            for (int c = 0; c < headers.Length; c++)
+            {
+                double widest = MeasureText(headers[c], Bold, 12);
+                foreach (string[] row in rows)
+                {
+                    widest = Math.Max(widest, MeasureText(row[c], Regular, 14));
+                }
+
+                // The rank column is right-aligned and a name can be long; names are cut with "..." past MaxNameWidth.
+                _widths[c] = Math.Ceiling(c == flexColumn && c == 1 ? Math.Min(widest, MaxNameWidth) : widest) + 2;
+            }
+
+            Layout();
+        }
+
+        public double NaturalWidth => _widths.Sum() + (ColumnGap * (_widths.Length - 1));
+
+        /// <summary>Makes the table exactly <paramref name="contentWidth"/> wide by growing its flexible column.</summary>
+        public void FitTo(double contentWidth)
+        {
+            double extra = contentWidth - NaturalWidth;
+            if (extra > 0)
+            {
+                _widths[_flex] += extra;
+            }
+
+            Layout();
+        }
+
+        private void Layout()
+        {
+            _lefts = new double[_widths.Length];
+            double x = Padding;
+            for (int c = 0; c < _widths.Length; c++)
+            {
+                _lefts[c] = x;
+                x += _widths[c] + ColumnGap;
+            }
+        }
+
+        public void DrawHeader(DrawingContext dc, double y, Brush brush) => DrawCells(dc, _headers, y, Bold, 12, brush);
+
+        public void DrawRow(DrawingContext dc, int index, double y, Brush brush) => DrawCells(dc, _rows[index], y, Regular, 14, brush);
+
+        private void DrawCells(DrawingContext dc, string[] cells, double y, Typeface face, double size, Brush brush)
+        {
+            for (int c = 0; c < cells.Length; c++)
+            {
+                bool right = _rightAligned[c] || c == 0;
+                Draw(dc, cells[c], face, size, brush, _lefts[c], y + 4, _widths[c], right ? TextAlignment.Right : TextAlignment.Left);
+            }
+        }
+    }
+
 
     private const double LegendCaptionHeight = 22;
     private const double LegendLineHeight = 22;
@@ -361,60 +483,14 @@ public static class EncounterImageRenderer
         return Render(encounter, palette, footer, EncounterExport.AllAttackers, colors);
     }
 
+
     private static string SummaryLine(EncounterSnapshot encounter) =>
         $"{encounter.StartTime:yyyy-MM-dd HH:mm:ss}   •   {EncounterExport.FormatDuration(encounter.DurationSeconds)}   •   " +
         $"{encounter.TotalDamage.ToString("N0", CultureInfo.InvariantCulture)} damage   •   " +
         $"group DPS {Math.Round(encounter.TotalDamage / Math.Max(1.0, encounter.DurationSeconds)).ToString("N0", CultureInfo.InvariantCulture)}";
 
-    private static void DrawRow(DrawingContext dc, IReadOnlyList<string> cells, double y, Typeface face, double size, Brush brush)
-    {
-        // # (right-aligned), Name and Class (left), then five right-aligned number columns.
-        Draw(dc, cells[0], face, size, brush, Padding, y + 4, ColumnRight[0] - Padding, TextAlignment.Right);
-        Draw(dc, cells[1], face, size, brush, 62, y + 4, 146, TextAlignment.Left);
-        Draw(dc, cells[2], face, size, brush, 210, y + 4, 40, TextAlignment.Left);
-
-        double left = 250;
-        for (int i = 3; i < cells.Count; i++)
-        {
-            double right = ColumnRight[i];
-            Draw(dc, cells[i], face, size, brush, left, y + 4, right - left, TextAlignment.Right);
-            left = right;
-        }
-    }
-
     /// <summary>Warm color for the damage-taken bars, so they read apart from the damage-dealt bars.</summary>
     private const string TakenColor = "#E5845C";
-
-    private static void DrawTakenRow(DrawingContext dc, IReadOnlyList<string> cells, double y, Typeface face, double size, Brush brush) =>
-        DrawNumberRow(dc, cells, y, face, size, brush, 300, new[] { 400.0, 490, 580, 655 });
-
-    private static void DrawHealRow(DrawingContext dc, IReadOnlyList<string> cells, double y, Typeface face, double size, Brush brush) =>
-        DrawNumberRow(dc, cells, y, face, size, brush, 240, new[] { 335.0, 425, 515, 610, 716 });
-
-    /// <summary># (right-aligned), Name and Killed by (left), and the time into the fight (right-aligned).</summary>
-    private static void DrawDeathRow(DrawingContext dc, IReadOnlyList<string> cells, double y, Typeface face, double size, Brush brush)
-    {
-        Draw(dc, cells[0], face, size, brush, Padding, y + 4, ColumnRight[0] - Padding, TextAlignment.Right);
-        Draw(dc, cells[1], face, size, brush, 62, y + 4, 230, TextAlignment.Left);
-        Draw(dc, cells[2], face, size, brush, 296, y + 4, 90, TextAlignment.Right);
-        Draw(dc, cells[3], face, size, brush, 410, y + 4, 306, TextAlignment.Left);
-    }
-
-    /// <summary># (right-aligned), Name (left, as wide as the first number column allows), then right-aligned number columns.</summary>
-    private static void DrawNumberRow(
-        DrawingContext dc, IReadOnlyList<string> cells, double y, Typeface face, double size, Brush brush, double numbersLeft, double[] rights)
-    {
-        Draw(dc, cells[0], face, size, brush, Padding, y + 4, ColumnRight[0] - Padding, TextAlignment.Right);
-        Draw(dc, cells[1], face, size, brush, 62, y + 4, numbersLeft - 62 - 4, TextAlignment.Left);
-
-        double left = numbersLeft;
-        for (int i = 2; i < cells.Count && i - 2 < rights.Length; i++)
-        {
-            double right = rights[i - 2];
-            Draw(dc, cells[i], face, size, brush, left, y + 4, right - left, TextAlignment.Right);
-            left = right;
-        }
-    }
 
     private static void Draw(DrawingContext dc, string text, Typeface face, double size, Brush brush, double x, double y, double maxWidth, TextAlignment alignment)
     {

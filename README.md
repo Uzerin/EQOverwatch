@@ -62,6 +62,11 @@ check off, or run it by hand, under **Settings > Updates**.
 
 ## Changelog
 
+### 1.0.46
+
+- **Hits in the Discord picture.** The DPS table has a new Hits column after Total showing each player's number of damage hits.
+- **Columns fit their content.** Every column in the picture (DPS, tanking, healing and deaths) is now as wide as its widest value, and the picture is as wide as its two halves need, so long names and big numbers are no longer cut off. Names are shortened with "..." only past a very long name.
+
 ### 1.0.45
 
 - **Overlays fade when you are not fighting.** A new "Overlays out of combat (% visible)" setting on the Settings tab sets how see-through all overlays get once no combat line has been seen for 10 seconds (100 turns fading off, the lowest is 10). They are fully shown again on the next combat line, and always while they are unlocked so you can place them.
