@@ -60,11 +60,11 @@ public static class EncounterImageRenderer
 
         // ── the tables, with every column as wide as its widest cell ──
         var dpsTable = new Table(
-            new[] { "#", "Name", "Class", "Total", "Hits", "SDPS", "Max Hit", "Max Crit", "Crit %" },
-            new[] { false, false, false, true, true, true, true, true, true }, flexColumn: 1,
+            new[] { "#", "Name", "Class", "Total", "Hits", "Misses", "Hit Rate", "SDPS", "Max Hit", "Max Crit", "Crit %" },
+            new[] { false, false, false, true, true, true, true, true, true, true, true }, flexColumn: 1,
             rows.Select(r => new[]
             {
-                r.Rank.ToString(CultureInfo.InvariantCulture), r.DisplayName, r.Class, r.Total, r.Hits, r.Sdps, r.MaxHit, r.MaxCrit, r.CritPercent,
+                r.Rank.ToString(CultureInfo.InvariantCulture), r.DisplayName, r.Class, r.Total, r.Hits, r.Misses, r.HitRate, r.Sdps, r.MaxHit, r.MaxCrit, r.CritPercent,
             }).ToList());
 
         long healTotal = healing.Sum(h => h.Effective);

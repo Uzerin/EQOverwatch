@@ -62,6 +62,10 @@ check off, or run it by hand, under **Settings > Updates**.
 
 ## Changelog
 
+### 1.0.47
+
+- **Misses and hit rate in the Discord picture.** The DPS table has two new columns after Hits: Misses (attacks that missed, including dodges, parries and the like) and Hit Rate (hits out of all attempts). A pet's hits and misses count with its owner when pet damage is merged.
+
 ### 1.0.46
 
 - **Hits in the Discord picture.** The DPS table has a new Hits column after Total showing each player's number of damage hits.

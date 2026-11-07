@@ -18,7 +18,9 @@ public sealed record EncounterExportRow(
     string Class = "",
     int Deaths = 0,
     IReadOnlyList<AttackSlice>? Attacks = null,
-    string Hits = "")
+    string Hits = "",
+    string Misses = "",
+    string HitRate = "")
 {
     /// <summary>The name, followed by " (Deaths: 2)" when the player died during the fight.</summary>
     public string DisplayName => Deaths > 0 ? $"{Name} (Deaths: {Deaths})" : Name;
@@ -35,7 +37,7 @@ public static class EncounterExport
 
     /// <summary>The column titles of the screenshot's table, in order.</summary>
     public static IReadOnlyList<string> ColumnHeaders { get; } =
-        new[] { "#", "Name", "Class", "Total", "Hits", "SDPS", "Max Hit", "Max Crit", "Crit %" };
+        new[] { "#", "Name", "Class", "Total", "Hits", "Misses", "Hit Rate", "SDPS", "Max Hit", "Max Crit", "Crit %" };
 
     /// <summary>The rows of the screenshot's table: the top attackers with every number formatted.</summary>
     public static IReadOnlyList<EncounterExportRow> BuildRows(EncounterSnapshot encounter, int topCount = DefaultTopCount)
@@ -60,7 +62,9 @@ public static class EncounterExport
                 p.Class,
                 p.Deaths,
                 p.Attacks,
-                p.Hits.ToString("N0", CultureInfo.InvariantCulture)));
+                p.Hits.ToString("N0", CultureInfo.InvariantCulture),
+                p.Misses.ToString("N0", CultureInfo.InvariantCulture),
+                p.Hits + p.Misses > 0 ? (p.HitRate * 100.0).ToString("0.0", CultureInfo.InvariantCulture) + "%" : "-"));
         }
 
         return rows;

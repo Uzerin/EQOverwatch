@@ -160,5 +160,27 @@ public sealed class ExportHitsTests
         Assert.Equal("Hits", EQOverwatch.Core.Export.EncounterExport.ColumnHeaders[4]);
         var row = Assert.Single(EQOverwatch.Core.Export.EncounterExport.BuildRows(tracker.Snapshot.Active[0]));
         Assert.Equal("3", row.Hits);
+        Assert.Equal("0", row.Misses);
+        Assert.Equal("100.0%", row.HitRate);
+        Assert.Equal("Misses", EQOverwatch.Core.Export.EncounterExport.ColumnHeaders[5]);
+        Assert.Equal("Hit Rate", EQOverwatch.Core.Export.EncounterExport.ColumnHeaders[6]);
+    }
+
+    [Fact]
+    public void Misses_and_hit_rate_count_attempts_and_a_player_with_no_attempts_shows_a_dash()
+    {
+        var tracker = new EQOverwatch.Core.Services.LiveDpsTracker();
+        tracker.OnCombatEvent(new CombatEvent(
+            TestHelpers.At("10:00:00"), CombatEventKind.Damage, "Ream", "a frost giant", 400, DamageKind.Melee, "slashes"));
+        for (int i = 1; i <= 3; i++)
+        {
+            tracker.OnCombatEvent(new CombatEvent(
+                TestHelpers.At($"10:00:0{i}"), CombatEventKind.Miss, "Ream", "a frost giant", 0, DamageKind.None, "slash"));
+        }
+
+        var row = Assert.Single(EQOverwatch.Core.Export.EncounterExport.BuildRows(tracker.Snapshot.Active[0]));
+        Assert.Equal("1", row.Hits);
+        Assert.Equal("3", row.Misses);
+        Assert.Equal("25.0%", row.HitRate);
     }
 }
