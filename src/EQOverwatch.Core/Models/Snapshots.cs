@@ -38,12 +38,42 @@ public sealed record DamageTakenSnapshot(
     int Hits,
     int MaxHit,
     int Deaths = 0,
-    int Avoided = 0)
+    int Avoided = 0,
+    int Dodges = 0,
+    int Parries = 0,
+    int Blocks = 0,
+    int Ripostes = 0,
+    int Missed = 0,
+    int OtherAvoids = 0,
+    long ShieldDamage = 0)
 {
     public string DisplayName => Deaths > 0 ? $"{Name} (Deaths: {Deaths})" : Name;
 
-    /// <summary>Share of the target's attacks on this player that missed, in percent.</summary>
-    public double AvoidPercent => Hits + Avoided > 0 ? 100.0 * Avoided / (Hits + Avoided) : 0.0;
+    /// <summary>Attacks the target made on this player that landed or failed (damage shield damage is not an attack).</summary>
+    public int Attacks => Hits + Avoided;
+
+    private double Share(int count) => Attacks > 0 ? 100.0 * count / Attacks : 0.0;
+
+    /// <summary>Share of the target's attacks on this player that did not land, in percent.</summary>
+    public double AvoidPercent => Share(Avoided);
+
+    public double DodgePercent => Share(Dodges);
+    public double ParryPercent => Share(Parries);
+    public double BlockPercent => Share(Blocks);
+    public double RipostePercent => Share(Ripostes);
+
+    /// <summary>Plain misses ("..., but misses!").</summary>
+    public double MissPercent => Share(Missed);
+
+    /// <summary>Absorbed by a rune or ward, invulnerable and the like.</summary>
+    public double OtherAvoidPercent => Share(OtherAvoids);
+}
+
+/// <summary>Damage the fight's target did with a damage shield: how much, how many hits, and when (seconds into the fight) it started and last hurt anyone.</summary>
+public sealed record DamageShieldSummary(long Total, int Hits, double FirstSeconds, double LastSeconds)
+{
+    /// <summary>How long the shield kept hurting people, first hit to last.</summary>
+    public double ActiveSeconds => Math.Max(0.0, LastSeconds - FirstSeconds);
 }
 
 /// <summary>A spell a boss started casting, at log-clock time.</summary>
@@ -87,7 +117,8 @@ public sealed record EncounterSnapshot(
     IReadOnlyList<DeathSnapshot>? DeathLog = null,
     bool Killed = false,
     IReadOnlyList<PlayerCastSnapshot>? PlayerCasts = null,
-    DpsTimeline? Timeline = null)
+    DpsTimeline? Timeline = null,
+    DamageShieldSummary? DamageShield = null)
 {
     /// <summary>Every spell the raid began casting during the fight, in log order.</summary>
     public IReadOnlyList<PlayerCastSnapshot> PlayerCastRows => PlayerCasts ?? Array.Empty<PlayerCastSnapshot>();
@@ -139,7 +170,8 @@ public sealed record EncounterSnapshot(
         long takenTotal = encounter.TotalDamageTaken;
         DamageTakenSnapshot[] taken = encounter.TakenStats
             .Select(t => new DamageTakenSnapshot(
-                t.Name, t.TotalDamage, takenTotal > 0 ? 100.0 * t.TotalDamage / takenTotal : 0.0, t.Hits, t.MaxHit, encounter.DeathsOf(t.Name), t.Avoided))
+                t.Name, t.TotalDamage, takenTotal > 0 ? 100.0 * t.TotalDamage / takenTotal : 0.0, t.Hits, t.MaxHit, encounter.DeathsOf(t.Name), t.Avoided,
+                t.Dodges, t.Parries, t.Blocks, t.Ripostes, t.Misses, t.OtherAvoids, t.ShieldDamage))
             .OrderByDescending(t => t.TotalDamage)
             .ThenBy(t => t.Name, StringComparer.Ordinal)
             .ToArray();
@@ -160,7 +192,7 @@ public sealed record EncounterSnapshot(
             Array.AsReadOnly(participants), Array.AsReadOnly(taken),
             Array.AsReadOnly(encounter.Casts.ToArray()), Array.AsReadOnly(healing),
             Array.AsReadOnly(encounter.DeathLog.ToArray()), encounter.Killed,
-            Array.AsReadOnly(encounter.PlayerCasts.ToArray()), encounter.BuildTimeline());
+            Array.AsReadOnly(encounter.PlayerCasts.ToArray()), encounter.BuildTimeline(), encounter.ShieldSummary());
     }
 }
 

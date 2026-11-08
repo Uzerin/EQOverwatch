@@ -39,7 +39,7 @@ public class RaidNightFeatureTests
         Assert.Equal("Fullfrontal", e.Source);
         Assert.Equal("Vyzh`dra the Cursed", e.Target);
         Assert.Equal(34, e.Amount);
-        Assert.Equal(DamageKind.NonMelee, e.DamageKind);
+        Assert.Equal(DamageKind.DamageShield, e.DamageKind);
     }
 
     // ───────────────────────── damage taken from a corpse ─────────────────────────

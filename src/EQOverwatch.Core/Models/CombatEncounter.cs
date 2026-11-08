@@ -68,8 +68,13 @@ public sealed class CombatEncounter : ObservableObject
         TotalDamageTaken += amount;
     }
 
-    /// <summary>The fight's target attacked <paramref name="victim"/> and missed (the victim dodged, parried, blocked...).</summary>
-    internal void AddAvoided(string victim)
+    private long _shieldTotal;
+    private int _shieldHits;
+    private double _shieldFirst = -1;
+    private double _shieldLast;
+
+    /// <summary>The fight's target hurt <paramref name="victim"/> with a damage shield (thorns, flames...). Counts as damage taken, not as an attack.</summary>
+    internal void AddShieldTaken(DateTime timestamp, string victim, int amount)
     {
         if (!_takenByName.TryGetValue(victim, out DamageTakenStats? stats))
         {
@@ -77,7 +82,33 @@ public sealed class CombatEncounter : ObservableObject
             _takenByName.Add(victim, stats);
         }
 
-        stats.RecordAvoid();
+        stats.RecordShield(amount);
+        TotalDamageTaken += amount;
+        _shieldTotal += amount;
+        _shieldHits++;
+        double offset = Math.Max(0.0, (timestamp - StartTime).TotalSeconds);
+        if (_shieldFirst < 0)
+        {
+            _shieldFirst = offset;
+        }
+
+        _shieldLast = Math.Max(_shieldLast, offset);
+    }
+
+    /// <summary>The damage shield the fight's target had on, or null when it never hurt anyone with one.</summary>
+    internal DamageShieldSummary? ShieldSummary() =>
+        _shieldHits == 0 ? null : new DamageShieldSummary(_shieldTotal, _shieldHits, _shieldFirst, _shieldLast);
+
+    /// <summary>The fight's target attacked <paramref name="victim"/> and missed (the victim dodged, parried, blocked...).</summary>
+    internal void AddAvoided(string victim, AvoidKind kind = AvoidKind.Miss)
+    {
+        if (!_takenByName.TryGetValue(victim, out DamageTakenStats? stats))
+        {
+            stats = new DamageTakenStats(victim);
+            _takenByName.Add(victim, stats);
+        }
+
+        stats.RecordAvoid(kind);
     }
 
     /// <summary>Damage per second across the fight for the group and the <see cref="DpsTimeline.MaxPlayers"/> top dealers, or null when too short.</summary>

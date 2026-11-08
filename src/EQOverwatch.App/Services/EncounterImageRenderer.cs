@@ -70,14 +70,13 @@ public static class EncounterImageRenderer
 
         long healTotal = healing.Sum(h => h.Effective);
         Table? takenTable = taken.Count == 0 ? null : new Table(
-            new[] { "#", "Name", "Taken", "% of total", "Hits", "Avoided", "Avoid %", "Max Hit" },
-            new[] { false, false, true, true, true, true, true, true }, flexColumn: 1,
+            new[] { "#", "Name", "Taken", "% of total", "Hits", "Avoid %", "Max Hit" },
+            new[] { false, false, true, true, true, true, true }, flexColumn: 1,
             taken.Select((t, i) => new[]
             {
                 (i + 1).ToString(CultureInfo.InvariantCulture), t.DisplayName, t.TotalDamage.ToString("N0", CultureInfo.InvariantCulture),
                 t.PercentOfTotal.ToString("0.0", CultureInfo.InvariantCulture) + "%", t.Hits.ToString("N0", CultureInfo.InvariantCulture),
-                t.Avoided.ToString("N0", CultureInfo.InvariantCulture),
-                t.Hits + t.Avoided > 0 ? t.AvoidPercent.ToString("0.0", CultureInfo.InvariantCulture) + "%" : "-",
+                t.Attacks > 0 ? t.AvoidPercent.ToString("0.00", CultureInfo.InvariantCulture) + "%" : "-",
                 t.MaxHit.ToString("N0", CultureInfo.InvariantCulture),
             }).ToList());
 
@@ -478,7 +477,7 @@ public static class EncounterImageRenderer
             Player("Oodles", "MNK", (AttackType.HandToHand, 420000, 160000), (AttackType.Kick, 210000, 95000), (AttackType.Hit, 30000, 0)),
             Player("Trickster", "RNG", (AttackType.Archery, 380000, 210000), (AttackType.Slash, 120000, 30000), (AttackType.Pet, 90000, 20000)),
             Player("Wuzzle", "MAG", (AttackType.Spell, 420000, 100000), (AttackType.Pet, 260000, 70000)),
-            Player("Gruk", "WAR", (AttackType.Crush, 240000, 60000), (AttackType.Bash, 50000, 10000), (AttackType.OtherMelee, 25000, 0)),
+            Player("Gruk", "WAR", (AttackType.Crush, 240000, 60000), (AttackType.Bash, 50000, 10000), (AttackType.OtherMelee, 25000, 0), (AttackType.DamageShield, 38000, 0)),
         };
 
         long sum = players.Sum(p => p.TotalDamage);

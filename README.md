@@ -62,6 +62,14 @@ check off, or run it by hand, under **Settings > Updates**.
 
 ## Changelog
 
+### 1.0.51
+
+- **Damage shields.** Thorns, flames and frost lines ("is pierced by ...'s thorns", "is burned by YOUR flames", "is tormented by ...'s frost") are now their own attack type, "Damage shield", with its own color in the Colors window and its own segment in the damage bars. A player's damage shield counts in their total, SDPS and the group DPS, and shows in the DPS-over-time graph. A pet's damage shield counts with its owner when pet damage is merged.
+- **Mob damage shields are damage taken.** When the fight's target hurts a player with its own damage shield, that counts as damage taken (but not as an attack on the player, so it does not change their avoidance percentages). The Damage taken tab adds a line saying how much the shield did, in how many hits, and from when to when into the fight, so you can see how long it took to dispel.
+- **Tagged misses are counted.** Miss lines ending in a tag such as "(Riposte)", "(Flurry)" or "(Rampage)" were being skipped (about 1.3% of misses in a real log). They now count as misses and avoidance, which also corrects players' Misses and Hit Rate.
+- **Avoidance percentages.** The Avoided count is gone. The Damage taken tab shows Avoid %, Dodge %, Parry %, Block %, Riposte %, Miss % (plain misses) and Other % (runes, wards, invulnerable) for each tank, to 0.01%, as a share of all the target's attacks on them. The Discord picture's tanking table shows the overall Avoid %.
+- **Color wheel.** Clicking a color swatch (the attack colors in the Colors window and the theme colors in Settings) opens a color wheel with a brightness slider. Typing a #RRGGBB code still works.
+
 ### 1.0.50
 
 - **Overlays follow who is logged in.** A character counts as logged in while a line has been written to its log in the last 60 seconds. Timer bars, alerts, buffs, debuffs and songs show only for characters that are logged in (a character's bars come back with its next log line), and with nobody logged in every locked overlay is hidden completely. The DPS overlay shows only while an active character is producing combat lines, so a logged-off character's fight no longer keeps it on screen. While a character is logged in but out of combat, the overlays use your out-of-combat transparency as before. Unlocked overlays always show so you can place them.

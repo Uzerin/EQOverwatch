@@ -891,6 +891,19 @@ public sealed partial class MainViewModel : ObservableObject
         }
     }
 
+    /// <summary>"\nDamage shield from X: 1,240 in 12 hits, from 0:03 to 0:41 into the fight (38s)." — how long the shield was up before it was dispelled; empty when there was none.</summary>
+    public static string ShieldSummaryText(EncounterSnapshot encounter)
+    {
+        if (encounter.DamageShield is not { } shield)
+        {
+            return string.Empty;
+        }
+
+        static string Clock(double seconds) => $"{(int)seconds / 60}:{(int)seconds % 60:00}";
+        return $"\nDamage shield from {encounter.TargetName}: {shield.Total:N0} in {shield.Hits:N0} hit{(shield.Hits == 1 ? string.Empty : "s")}, " +
+               $"from {Clock(shield.FirstSeconds)} to {Clock(shield.LastSeconds)} into the fight ({shield.ActiveSeconds:0}s).";
+    }
+
     private void RefreshParticipants()
     {
         EncounterSnapshot? encounter = SelectedEncounter?.Snapshot;
@@ -934,7 +947,7 @@ public sealed partial class MainViewModel : ObservableObject
             DamageTaken.RemoveAt(DamageTaken.Count - 1);
         }
 
-        DamageTakenSummary = $"Damage taken from {encounter.TargetName}: {encounter.TotalDamageTaken:N0}";
+        DamageTakenSummary = $"Damage taken from {encounter.TargetName}: {encounter.TotalDamageTaken:N0}" + ShieldSummaryText(encounter);
         if (!Equals(EncounterTimeline, encounter.Timeline))
         {
             EncounterTimeline = encounter.Timeline;

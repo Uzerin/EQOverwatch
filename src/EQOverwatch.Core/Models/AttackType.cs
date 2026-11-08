@@ -20,6 +20,9 @@ public enum AttackType
 
     /// <summary>Everything a pet does, whatever the verb or spell.</summary>
     Pet,
+
+    /// <summary>Damage shields: thorns, flames and frost that hurt whoever hits the wearer.</summary>
+    DamageShield,
 }
 
 /// <summary>Damage one player did with one kind of attack: the regular hits and the critical hits, in points.</summary>
@@ -64,12 +67,18 @@ public static class AttackTypes
         AttackType.Spell => "Spells & procs",
         AttackType.Pet => "Pet",
         AttackType.Archery => "Archery",
+        AttackType.DamageShield => "Damage shield",
         _ => type.ToString(),
     };
 
     /// <summary>The attack a damage line was made with, from its kind and melee verb ("slash", "kicks", "frenzy on"...).</summary>
     public static AttackType Classify(DamageKind kind, string? verb)
     {
+        if (kind == DamageKind.DamageShield)
+        {
+            return AttackType.DamageShield;
+        }
+
         if (kind is DamageKind.NonMelee or DamageKind.DamageOverTime)
         {
             return AttackType.Spell;
@@ -111,6 +120,7 @@ public static class AttackTypes
         AttackType.Archery => "#22C55E",
         AttackType.OtherMelee => "#78716C",
         AttackType.Pet => "#BEF264",
+        AttackType.DamageShield => "#F43F5E",
         _ => "#06B6D4", // spells and procs
     };
 }

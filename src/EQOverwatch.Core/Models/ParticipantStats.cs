@@ -142,10 +142,37 @@ internal sealed class DamageTakenStats
     public int Hits { get; private set; }
     public int MaxHit { get; private set; }
 
-    /// <summary>Attacks from the fight's target that missed this player (dodged, parried, blocked, riposted...).</summary>
-    public int Avoided { get; private set; }
+    /// <summary>Attacks from the fight's target that missed this player (dodged, parried, blocked, riposted, plain misses, absorbed...).</summary>
+    public int Avoided => Misses + Dodges + Parries + Blocks + Ripostes + OtherAvoids;
 
-    public void RecordAvoid() => Avoided++;
+    public int Misses { get; private set; }
+    public int Dodges { get; private set; }
+    public int Parries { get; private set; }
+    public int Blocks { get; private set; }
+    public int Ripostes { get; private set; }
+    public int OtherAvoids { get; private set; }
+
+    /// <summary>Damage shield damage this player took from the fight's target (not counted in <see cref="Hits"/>).</summary>
+    public long ShieldDamage { get; private set; }
+
+    public void RecordShield(int amount)
+    {
+        ShieldDamage += amount;
+        TotalDamage += amount;
+    }
+
+    public void RecordAvoid(AvoidKind kind)
+    {
+        switch (kind)
+        {
+            case AvoidKind.Dodge: Dodges++; break;
+            case AvoidKind.Parry: Parries++; break;
+            case AvoidKind.Block: Blocks++; break;
+            case AvoidKind.Riposte: Ripostes++; break;
+            case AvoidKind.Other: OtherAvoids++; break;
+            default: Misses++; break; // a plain miss, or a miss line whose reason was not read
+        }
+    }
 
     public void Record(int amount)
     {

@@ -291,7 +291,7 @@ public partial class DpsTrackerService : IDpsEventSink
                     {
                         GetOrStart(combatEvent.Target, combatEvent.Timestamp)
                             .AddDamage(combatEvent.Timestamp, Attacker(combatEvent.Source), combatEvent.Amount, isCritical,
-                                _roster is not null && _roster.IsPet(combatEvent.Source)
+                                combatEvent.DamageKind != DamageKind.DamageShield && _roster is not null && _roster.IsPet(combatEvent.Source)
                                     ? AttackType.Pet
                                     : AttackTypes.Classify(combatEvent.DamageKind, combatEvent.Detail));
                         changed = true;
@@ -300,7 +300,15 @@ public partial class DpsTrackerService : IDpsEventSink
                              && Classify(combatEvent.Target) != NameKind.Npc)
                     {
                         // The fight's target hurt a player or pet: that is damage taken in this fight.
-                        foe.AddDamageTaken(combatEvent.Target, combatEvent.Amount);
+                        if (combatEvent.DamageKind == DamageKind.DamageShield)
+                        {
+                            foe.AddShieldTaken(combatEvent.Timestamp, combatEvent.Target, combatEvent.Amount);
+                        }
+                        else
+                        {
+                            foe.AddDamageTaken(combatEvent.Target, combatEvent.Amount);
+                        }
+
                         changed = true;
                     }
 
@@ -315,7 +323,7 @@ public partial class DpsTrackerService : IDpsEventSink
                 case CombatEventKind.Miss when _active.TryGetValue(FoeName(combatEvent.Source), out CombatEncounter? missingFoe)
                                                && Classify(combatEvent.Target) != NameKind.Npc:
                     // The fight's target swung at a player or pet and missed: the player avoided the attack.
-                    missingFoe.AddAvoided(combatEvent.Target);
+                    missingFoe.AddAvoided(combatEvent.Target, combatEvent.Avoid);
                     changed = true;
                     break;
 

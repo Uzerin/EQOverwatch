@@ -71,19 +71,19 @@ public static partial class CombatLineParser
                 return false;
             }
 
-            // Damage shield: "a frost giant is pierced by Fullfrontal's thorns for 34 points of non-melee damage."
-            if (Contains(message, " is pierced by ") && Contains(message, " thorns for "))
+            // Damage shield: "a frost giant is pierced by Fullfrontal's thorns for 34 points of non-melee damage."  /
+            // "A death beetle is burned by YOUR flames for 5 points of non-melee damage."  /  "YOU are pierced by an undead brewer's thorns for 5 ... damage!"
+            if (Contains(message, " by ") && Contains(message, " of non-melee damage") && (Contains(message, " is ") || Contains(message, " are "))
+                && !Contains(message, " damage by "))
             {
-                match = ThornsRegex().Match(line, start, length);
-                if (!match.Success || !TryAmount(match, out int thornsAmount))
+                match = ShieldRegex().Match(line, start, length);
+                if (match.Success && TryAmount(match, out int shieldAmount))
                 {
-                    return false;
+                    string owner = match.Groups["owner"].Success ? Resolve(match.Groups["owner"].Value, selfName) : selfName;
+                    combatEvent = new CombatEvent(timestamp, CombatEventKind.Damage, owner,
+                        Resolve(match.Groups["target"].Value, selfName), shieldAmount, DamageKind.DamageShield, match.Groups["kind"].Value);
+                    return true;
                 }
-
-                string owner = match.Groups["owner"].Success ? match.Groups["owner"].Value : selfName;
-                combatEvent = new CombatEvent(timestamp, CombatEventKind.Damage, owner,
-                    Resolve(match.Groups["target"].Value, selfName), thornsAmount, DamageKind.NonMelee, "thorns");
-                return true;
             }
 
             // A spell landing: "a Praetorian Medicus hit you for 497 points of magic damage by Judgment."
@@ -155,7 +155,8 @@ public static partial class CombatLineParser
             combatEvent = new CombatEvent(timestamp, CombatEventKind.Miss,
                 Resolve(match.Groups["source"].Value, selfName),
                 Resolve(match.Groups["target"].Value, selfName),
-                0, DamageKind.None, match.Groups["verb"].Value);
+                0, DamageKind.None, match.Groups["verb"].Value, false,
+                ClassifyAvoid(match.Groups["tail"].Value, match.Groups["target"].Value));
             return true;
         }
 
@@ -199,6 +200,42 @@ public static partial class CombatLineParser
         int.TryParse(match.Groups[group].ValueSpan, NumberStyles.None, CultureInfo.InvariantCulture, out amount);
 
     /// <summary>Normalizes "You"/"YOU"/"Your" to the log owner's name.</summary>
+    /// <summary>
+    /// How a miss line ended: "misses!" is a plain miss, "YOU dodge!" / "Ugli parries!" / "X blocks!" / "YOU riposte!" are the defender's skills,
+    /// anything else ("YOUR magical skin absorbs the blow!", "YOU are INVULNERABLE!") is Other. A trailing tag such as (Flurry) is not part of the tail.
+    /// </summary>
+    internal static AvoidKind ClassifyAvoid(string tail, string target)
+    {
+        string text = tail.Trim();
+        if (target.Length > 0 && text.Length > target.Length && text.StartsWith(target, StringComparison.OrdinalIgnoreCase) && text[target.Length] == ' ')
+        {
+            text = text[(target.Length + 1)..];
+        }
+
+        text = text.TrimEnd('!', '.').Trim();
+        if (text.Equals("miss", StringComparison.OrdinalIgnoreCase) || text.Equals("misses", StringComparison.OrdinalIgnoreCase))
+        {
+            return AvoidKind.Miss;
+        }
+
+        if (text.StartsWith("dodge", StringComparison.OrdinalIgnoreCase))
+        {
+            return AvoidKind.Dodge;
+        }
+
+        if (text.StartsWith("parr", StringComparison.OrdinalIgnoreCase))
+        {
+            return AvoidKind.Parry;
+        }
+
+        if (text.StartsWith("block", StringComparison.OrdinalIgnoreCase))
+        {
+            return AvoidKind.Block;
+        }
+
+        return text.StartsWith("ripost", StringComparison.OrdinalIgnoreCase) ? AvoidKind.Riposte : AvoidKind.Other;
+    }
+
     private static string Resolve(string name, string selfName) =>
         name.Equals("You", StringComparison.OrdinalIgnoreCase) || name.Equals("Your", StringComparison.OrdinalIgnoreCase)
             ? selfName
@@ -233,15 +270,16 @@ public static partial class CombatLineParser
         RegexOptions.CultureInvariant)]
     private static partial Regex OtherDotRegex();
 
-    // "a frost giant is pierced by Fullfrontal's thorns for 34 points of non-melee damage."  /  "... by your thorns for ..."
+    // "a frost giant is pierced by Fullfrontal's thorns for 34 points of non-melee damage."  /  "... is burned by YOUR flames for ..."  /
+    // "YOU are burned by froglok krup enchanter's flames for 11 points of non-melee damage!" (a mob's shield hurting you ends in "!")
     [GeneratedRegex(
-        @"^(?<target>.+?) is pierced by (?:(?<owner>.+?)'s|[Yy]our) thorns for (?<amount>\d+) points? of non-melee damage\.$",
+        @"^(?<target>.+?) (?:is|are) \w+ by (?:(?<owner>.+?)'s|[Yy][Oo][Uu][Rr]) (?<kind>\w+) for (?<amount>\d+) points? of non-melee damage[.!]$",
         RegexOptions.CultureInvariant)]
-    private static partial Regex ThornsRegex();
+    private static partial Regex ShieldRegex();
 
     // "You try to slash a frost giant, but miss!"  /  "a frost giant tries to hit YOU, but YOU dodge!"
     [GeneratedRegex(
-        @"^(?<source>.+?) tr(?:y|ies) to (?<verb>\w+(?: on)?) (?<target>.+?), but .+[!.]$",
+        @"^(?<source>.+?) tr(?:y|ies) to (?<verb>\w+(?: on)?) (?<target>.+?), but (?<tail>.+[!.])(?: \([^)]+\))?$",
         RegexOptions.CultureInvariant)]
     private static partial Regex MissRegex();
 

@@ -190,4 +190,18 @@ public partial class MainViewModelTests
         await h.Vm.StartUpdateCheckAsync();
         Assert.Contains("What's new:\nAdds AA & Disc timers.", h.Vm.InstallConfirmationText("v9.0.1"));
     }
+
+    [Fact]
+    public void The_damage_shield_line_says_how_long_the_shield_was_up_and_is_empty_without_one()
+    {
+        DateTime start = new(2026, 11, 8, 20, 0, 0);
+        var plain = new EQOverwatch.Core.Models.EncounterSnapshot(
+            1, "Lord Yelinak", start, start.AddSeconds(60), 60, 1000, false, Array.Empty<EQOverwatch.Core.Models.ParticipantSnapshot>());
+        Assert.Equal(string.Empty, EQOverwatch.App.ViewModels.MainViewModel.ShieldSummaryText(plain));
+
+        var shielded = plain with { DamageShield = new EQOverwatch.Core.Models.DamageShieldSummary(1240, 12, 3, 41) };
+        Assert.Equal(
+            "\nDamage shield from Lord Yelinak: 1,240 in 12 hits, from 0:03 to 0:41 into the fight (38s).",
+            EQOverwatch.App.ViewModels.MainViewModel.ShieldSummaryText(shielded).Replace("\r", string.Empty));
+    }
 }
