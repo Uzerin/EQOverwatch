@@ -220,4 +220,26 @@ public class TimerOverlayViewModelTests
         Assert.Equal("alert", Assert.Single(vm.Alerts).Text);
         Assert.Equal("bar", Assert.Single(vm.Bars).Label);
     }
+
+    [Fact]
+    public void Bars_and_alerts_of_characters_that_are_not_logged_in_are_left_out()
+    {
+        DateTime now = T0.AddSeconds(1);
+        TriggerSnapshot snap = Snap(
+            new ActiveTimerSnapshot(1, Guid.Empty, "trigger", "Stackprime", TimerKind.Countdown, "Haste", T0, T0.AddSeconds(60), 60),
+            new ActiveTimerSnapshot(2, Guid.Empty, "trigger", "Ream", TimerKind.Countdown, "Clarity", T0, T0.AddSeconds(60), 60),
+            new ActiveTimerSnapshot(3, Guid.Empty, "trigger", "Ream", TimerKind.TextAlert, "Ream: Gate", T0, T0.AddSeconds(5), 5),
+            new ActiveTimerSnapshot(4, Guid.Empty, "trigger", string.Empty, TimerKind.Countdown, "Shared", T0, T0.AddSeconds(60), 60));
+        var active = new HashSet<string> { "Stackprime" };
+        var vm = new TimerOverlayViewModel(() => snap, () => now, null, (name, _) => active.Contains(name));
+
+        vm.Tick();
+        Assert.Equal(new[] { "Haste", "Shared" }, vm.Bars.Select(b => b.Label).OrderBy(l => l, StringComparer.Ordinal).ToArray());
+        Assert.Empty(vm.Alerts);
+
+        active.Add("Ream"); // she logs in: her bars return
+        vm.Tick();
+        Assert.Equal(3, vm.Bars.Count);
+        Assert.Single(vm.Alerts);
+    }
 }

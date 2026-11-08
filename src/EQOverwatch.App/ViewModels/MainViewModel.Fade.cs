@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using EQOverwatch.App.Services;
+using EQOverwatch.Core.Pipeline;
 using EQOverwatch.Core.Models;
 using EQOverwatch.Core.Theming;
 
@@ -129,13 +130,23 @@ public sealed partial class MainViewModel
     /// <summary>Sets every overlay's opacity from how long ago combat was last seen. Called about four times a second.</summary>
     private void ApplyOverlayFade()
     {
-        DateTime? last = _pipeline.LiveDps.LastCombatUtc;
         DateTime now = DateTime.UtcNow;
+        CharacterActivityService activity = _pipeline.Activity;
+
+        // Only characters that are logged in count: a log that has had no line for a minute belongs to a character who is gone, so its
+        // combat does not keep the DPS overlay up, and with nobody logged in every overlay is hidden.
+        DateTime? last = activity.LastCombatUtc(now);
+        bool anyActive = activity.AnyActive(now);
         IsInCombat = OverlayFade.IsInCombat(last, now);
         foreach (OverlayKind kind in OverlayKindExtensions.All)
         {
-            _overlays.SetOpacity(
-                kind, OverlayFade.Opacity(last, now, OverlayIdlePercent, DpsHideSeconds, kind == OverlayKind.Dps, !AreOverlaysLocked));
+            double opacity = OverlayFade.Opacity(last, now, OverlayIdlePercent, DpsHideSeconds, kind == OverlayKind.Dps, !AreOverlaysLocked);
+            if (!anyActive && AreOverlaysLocked)
+            {
+                opacity = 0.0;
+            }
+
+            _overlays.SetOpacity(kind, opacity);
         }
     }
 

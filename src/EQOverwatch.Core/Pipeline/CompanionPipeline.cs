@@ -50,9 +50,13 @@ public sealed class CompanionPipeline : IAsyncDisposable
         // Every sink sees every line of every trigger-enabled log. Historical imports use none of them.
         var triggerSinks = new CompositeTriggerSink(
             new ITriggerLineSink[] { Triggers, Buffs, TimerPause, RaidBosses, ChChain, Cooldowns, Abilities, SharedTriggers, Roster, Loot, Tells }, RaiseError);
-        _monitor = new LiveLogMonitor(Logs, triggerSinks, LiveDps, RaiseError);
+        Activity = new CharacterActivityService();
+        _monitor = new LiveLogMonitor(Logs, triggerSinks, LiveDps, RaiseError, Activity);
         _monitor.TailError += (config, ex) => TailError?.Invoke(config, ex);
     }
+
+    /// <summary>Which characters are logged in: ones whose log has had a line in the last minute.</summary>
+    public CharacterActivityService Activity { get; }
 
     public WatchedLogCollection Logs { get; }
     public TriggerEngineService Triggers { get; }

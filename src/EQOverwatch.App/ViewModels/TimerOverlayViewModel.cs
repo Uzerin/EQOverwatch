@@ -73,14 +73,21 @@ public sealed class TimerOverlayViewModel : ObservableObject
     private readonly Func<TriggerSnapshot> _source;
     private readonly Func<DateTime> _utcNow;
     private readonly TimerOverlayCategory? _category;
+    private readonly Func<string, DateTime, bool>? _isCharacterActive;
 
-    public TimerOverlayViewModel(TriggerEngineService engine, TimerOverlayCategory? category = null, Func<DateTime>? utcNow = null)
-        : this(() => engine.Snapshot, utcNow, category)
+    public TimerOverlayViewModel(
+        TriggerEngineService engine, TimerOverlayCategory? category = null, Func<DateTime>? utcNow = null,
+        Func<string, DateTime, bool>? isCharacterActive = null)
+        : this(() => engine.Snapshot, utcNow, category, isCharacterActive)
     {
     }
 
-    public TimerOverlayViewModel(Func<TriggerSnapshot> source, Func<DateTime>? utcNow = null, TimerOverlayCategory? category = null)
+    /// <param name="isCharacterActive">When given, bars and alerts show only for characters it calls active (logged in); null shows them all.</param>
+    public TimerOverlayViewModel(
+        Func<TriggerSnapshot> source, Func<DateTime>? utcNow = null, TimerOverlayCategory? category = null,
+        Func<string, DateTime, bool>? isCharacterActive = null)
     {
+        _isCharacterActive = isCharacterActive;
         _source = source ?? throw new ArgumentNullException(nameof(source));
         _utcNow = utcNow ?? (() => DateTime.UtcNow);
         _category = category;
@@ -102,6 +109,11 @@ public sealed class TimerOverlayViewModel : ObservableObject
         IReadOnlyList<ActiveTimerSnapshot> active = _category is { } category
             ? _source().GetActive(now, category)
             : _source().GetActive(now);
+
+        if (_isCharacterActive is { } isActive)
+        {
+            active = active.Where(t => string.IsNullOrEmpty(t.CharacterName) || isActive(t.CharacterName, now)).ToArray();
+        }
 
         ActiveTimerSnapshot[] alerts = active
             .Where(t => t.Kind == TimerKind.TextAlert

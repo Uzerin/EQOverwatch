@@ -20,19 +20,23 @@ public static class LogEventProcessor
         ITriggerLineSink? triggerSink,
         IDpsEventSink? dpsSink,
         Action<Exception>? onError,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        ILogActivityObserver? activity = null)
     {
         while (await reader.WaitToReadAsync(cancellationToken).ConfigureAwait(false))
         {
             while (reader.TryRead(out LogEvent evt))
             {
-                Dispatch(in evt, triggerSink, dpsSink, onError);
+                Dispatch(in evt, triggerSink, dpsSink, onError, activity);
             }
         }
     }
 
-    private static void Dispatch(in LogEvent evt, ITriggerLineSink? triggerSink, IDpsEventSink? dpsSink, Action<Exception>? onError)
+    private static void Dispatch(
+        in LogEvent evt, ITriggerLineSink? triggerSink, IDpsEventSink? dpsSink, Action<Exception>? onError, ILogActivityObserver? activity)
     {
+        activity?.OnLogLine(evt.CharacterName, evt.ReceivedUtc);
+
         if (triggerSink is not null && (evt.Routes & LogRoute.Triggers) != 0)
         {
             try
@@ -58,6 +62,7 @@ public static class LogEventProcessor
 
                 if (CombatLineParser.TryParse(evt.Line, timestamp, evt.CharacterName, out CombatEvent combatEvent))
                 {
+                    activity?.OnCombatLine(evt.CharacterName, evt.ReceivedUtc);
                     dpsSink.OnCombatEvent(in combatEvent);
                 }
                 else

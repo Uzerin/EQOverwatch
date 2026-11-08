@@ -15,6 +15,7 @@ public sealed class LiveLogMonitor : IAsyncDisposable
     private readonly ITriggerLineSink _triggerSink;
     private readonly IDpsEventSink _dpsSink;
     private readonly Action<Exception>? _onError;
+    private readonly ILogActivityObserver? _activity;
 
     private LogTailService? _tail;
     private Channel<LogEvent>? _channel;
@@ -24,8 +25,10 @@ public sealed class LiveLogMonitor : IAsyncDisposable
         WatchedLogCollection logs,
         ITriggerLineSink triggerSink,
         IDpsEventSink dpsSink,
-        Action<Exception>? onError = null)
+        Action<Exception>? onError = null,
+        ILogActivityObserver? activity = null)
     {
+        _activity = activity;
         _logs = logs ?? throw new ArgumentNullException(nameof(logs));
         _triggerSink = triggerSink ?? throw new ArgumentNullException(nameof(triggerSink));
         _dpsSink = dpsSink ?? throw new ArgumentNullException(nameof(dpsSink));
@@ -57,7 +60,7 @@ public sealed class LiveLogMonitor : IAsyncDisposable
 
         ChannelReader<LogEvent> reader = _channel.Reader;
         _consumer = Task.Run(
-            () => LogEventProcessor.RunAsync(reader, _triggerSink, _dpsSink, _onError, CancellationToken.None),
+            () => LogEventProcessor.RunAsync(reader, _triggerSink, _dpsSink, _onError, CancellationToken.None, _activity),
             CancellationToken.None);
 
         tail.Start();

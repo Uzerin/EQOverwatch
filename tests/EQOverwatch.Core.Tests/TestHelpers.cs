@@ -27,7 +27,8 @@ internal static class TestHelpers
         LogRoute routes,
         ITriggerLineSink? triggerSink = null,
         IDpsEventSink? dpsSink = null,
-        DateTime? receivedUtc = null)
+        DateTime? receivedUtc = null,
+        ILogActivityObserver? activity = null)
     {
         var channel = Channel.CreateUnbounded<LogEvent>();
         foreach (string line in lines)
@@ -36,7 +37,7 @@ internal static class TestHelpers
         }
 
         channel.Writer.Complete();
-        await LogEventProcessor.RunAsync(channel.Reader, triggerSink, dpsSink, onError: null, CancellationToken.None);
+        await LogEventProcessor.RunAsync(channel.Reader, triggerSink, dpsSink, onError: null, CancellationToken.None, activity);
     }
 
     public static async Task WaitUntilAsync(Func<bool> condition, int timeoutMs = 5000)

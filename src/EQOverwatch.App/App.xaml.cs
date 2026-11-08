@@ -63,7 +63,7 @@ public partial class CompanionApp : Application
             if (kind.Category() is { } category)
             {
                 // Each timer overlay shows only its own category of the trigger engine's timers.
-                windows[kind] = new TimerOverlayWindow(new TimerOverlayViewModel(_pipeline.Triggers, category), kind);
+                windows[kind] = new TimerOverlayWindow(new TimerOverlayViewModel(_pipeline.Triggers, category, isCharacterActive: _pipeline.Activity.IsActive), kind);
             }
             else
             {

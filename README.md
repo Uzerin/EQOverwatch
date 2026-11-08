@@ -62,6 +62,10 @@ check off, or run it by hand, under **Settings > Updates**.
 
 ## Changelog
 
+### 1.0.50
+
+- **Overlays follow who is logged in.** A character counts as logged in while a line has been written to its log in the last 60 seconds. Timer bars, alerts, buffs, debuffs and songs show only for characters that are logged in (a character's bars come back with its next log line), and with nobody logged in every locked overlay is hidden completely. The DPS overlay shows only while an active character is producing combat lines, so a logged-off character's fight no longer keeps it on screen. While a character is logged in but out of combat, the overlays use your out-of-combat transparency as before. Unlocked overlays always show so you can place them.
+
 ### 1.0.49
 
 - **Full-width graph in the Discord picture.** The DPS over time graph now runs across the whole picture, directly under the mob's name and above the tables, and is a little taller.
