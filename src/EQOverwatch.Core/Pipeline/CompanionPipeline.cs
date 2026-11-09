@@ -1,4 +1,6 @@
+using EQOverwatch.Core.Experience;
 using EQOverwatch.Core.Loot;
+using EQOverwatch.Core.Resists;
 using EQOverwatch.Core.Models;
 using EQOverwatch.Core.Roster;
 using EQOverwatch.Core.Services;
@@ -43,14 +45,26 @@ public sealed class CompanionPipeline : IAsyncDisposable
         Tells = new TellReaderService(Triggers);
         AutoClick = new AutoClickService(ChChain, Triggers);
         HistoricalDps = new HistoricalDpsTracker(inactivityTimeout, Roster);
+        Songs = new SongTrackerService(Spells, Triggers);
+        Charm = new CharmWatchService(Spells, Triggers);
+        Experience = new ExperienceTracker(DateTime.UtcNow);
+        ResistStore = new MobResistStore();
+        Resists = new ResistTrackerService(Spells, ResistStore);
+        BuffUptimeTracker uptime = Uptime;
+        Songs.SongStarted += (singer, song, seconds, when) => uptime.OnLanded(singer, song, seconds, when);
 
         Triggers.Error += RaiseError;
         Logs.CollectionChanged += (_, _) => RefreshMonitoredCharacters();
 
         // Every sink sees every line of every trigger-enabled log. Historical imports use none of them.
         var triggerSinks = new CompositeTriggerSink(
-            new ITriggerLineSink[] { Triggers, Buffs, TimerPause, RaidBosses, ChChain, Cooldowns, Abilities, SharedTriggers, Roster, Loot, Tells }, RaiseError);
+            new ITriggerLineSink[] { Triggers, Buffs, Songs, Charm, TimerPause, RaidBosses, ChChain, Cooldowns, Abilities, SharedTriggers, Roster, Loot, Tells, Experience, Resists }, RaiseError);
         Activity = new CharacterActivityService();
+        Songs.SetOwnCharacterProbe(IsMonitoredCharacter);
+        Songs.SetActivityProbe(Activity.IsActive);
+        Songs.SetLevelProvider(Roster.GetLevel);
+        Resists.SetOwnCharacterProbe(IsMonitoredCharacter);
+        Resists.SetPlayerProbe(name => IsMonitoredCharacter(name) || Roster.IsVerifiedPlayer(name));
         _monitor = new LiveLogMonitor(Logs, triggerSinks, LiveDps, RaiseError, Activity);
         _monitor.TailError += (config, ex) => TailError?.Invoke(config, ex);
     }
@@ -84,6 +98,21 @@ public sealed class CompanionPipeline : IAsyncDisposable
 
     /// <summary>Active and cooldown bars for tracked AAs and disciplines.</summary>
     public AbilityTrackerService Abilities { get; }
+
+    /// <summary>Song bars for every song your characters sing (and, when switched on, every other bard's).</summary>
+    public SongTrackerService Songs { get; }
+
+    /// <summary>Countdown and break alarm for your characters' own charms.</summary>
+    public CharmWatchService Charm { get; }
+
+    /// <summary>Experience, levels and AA points gained this session.</summary>
+    public ExperienceTracker Experience { get; }
+
+    /// <summary>Resist counts per mob and resist type, yours and the raid's shares.</summary>
+    public MobResistStore ResistStore { get; }
+
+    /// <summary>Reads your characters' spells on mobs and the shared resist numbers in raid and guild chat.</summary>
+    public ResistTrackerService Resists { get; }
 
     /// <summary>Loot and the rolls won for it, collected from every trigger-enabled log.</summary>
     public LootTracker Loot { get; }
@@ -146,7 +175,8 @@ public sealed class CompanionPipeline : IAsyncDisposable
         _isImporting = true;
         try
         {
-            var importer = new HistoricalLogImporter(HistoricalDps, RaiseError);
+            // The log's own spells on mobs are read for resist tracking too.
+            var importer = new HistoricalLogImporter(Resists.WrapImport(HistoricalDps), RaiseError);
             return await importer.ImportAsync(filePath, startTime, endTime, progress, cancellationToken).ConfigureAwait(false);
         }
         finally

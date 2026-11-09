@@ -28,7 +28,17 @@ public partial class ColorSwatchPicker : UserControl
 
     public ColorSwatchPicker()
     {
-        InitializeComponent();
+        // The slider's Value="1" in XAML raises ValueChanged while the control is still being built, before Preview and HexReadout
+        // exist; ignore it (it used to crash the Settings tab and the Colors window when they first opened).
+        _internal = true;
+        try
+        {
+            InitializeComponent();
+        }
+        finally
+        {
+            _internal = false;
+        }
     }
 
     /// <summary>The color as "#RRGGBB". Text that is not a color is ignored (the swatch keeps its last color).</summary>

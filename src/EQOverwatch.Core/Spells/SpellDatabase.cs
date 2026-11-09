@@ -34,8 +34,14 @@ public sealed record SpellInfo(
 /// A spell as the raid-boss picker sees it: any named spell, including instant casts such as boss AE nukes and knockbacks
 /// that <see cref="SpellInfo"/> leaves out. A raid rule starts on the cast ("begins to cast"), so a spell needs no landing message.
 /// </summary>
-public sealed record SpellDefinition(int SpellId, string Name, string CastOnYou, string CastOnOther)
+/// <param name="ResistType">The resist the spell checks (see <see cref="SpellResist"/>): 0 unresistable or unknown, 1 magic, 2 fire, 3 cold, 4 poison, 5 disease, 6 chromatic, 7 prismatic, 8 physical, 9 corruption.</param>
+/// <param name="CastTimeMs">Cast time in milliseconds.</param>
+/// <param name="IsDetrimental">True when the spell file marks it detrimental (it can be resisted by a mob).</param>
+public sealed record SpellDefinition(int SpellId, string Name, string CastOnYou, string CastOnOther, int ResistType = 0, int CastTimeMs = 0, bool IsDetrimental = false)
 {
+    /// <summary><see cref="CastOnOther"/> without surrounding whitespace: the text a log line ends with.</summary>
+    public string CastOnOtherSuffix => CastOnOther.Trim();
+
     /// <summary>"Dragon Roar  (#1234)".</summary>
     public string Label => $"{Name}  (#{SpellId})";
 }
@@ -59,6 +65,7 @@ public sealed class SpellDatabase
 
     private readonly Dictionary<int, SpellInfo> _byId = new();
     private readonly Dictionary<int, SpellDefinition> _definitionsById = new();
+    private readonly Dictionary<string, SpellDefinition> _definitionsByName = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<int, DurationFocus> _fociById = new();
     private readonly Dictionary<string, SpellInfo> _byName = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, SpellInfo[]> _byCastOnYou;
@@ -144,6 +151,14 @@ public sealed class SpellDatabase
             return byName != 0 ? byName : a.SpellId.CompareTo(b.SpellId);
         });
         AllSpellDefinitions = all;
+        foreach (SpellDefinition definition in all)
+        {
+            // Several ranks share a name: prefer a detrimental, resistable one with a landing message (what resist tracking needs).
+            if (!_definitionsByName.TryGetValue(definition.Name, out SpellDefinition? known) || Rank(definition) > Rank(known))
+            {
+                _definitionsByName[definition.Name] = definition;
+            }
+        }
 
         _byCastOnYou = Index(list, s => s.CastOnYou);
         _byCastOnOther = Index(list, s => s.CastOnOtherSuffix);
@@ -185,6 +200,12 @@ public sealed class SpellDatabase
 
     /// <summary>Case-insensitive.</summary>
     public SpellInfo? FindByName(string name) => name is null ? null : _byName.GetValueOrDefault(name);
+
+    /// <summary>Any named spell (duration or not) by name, capitals ignored; null when the file has none.</summary>
+    public SpellDefinition? FindDefinitionByName(string name) => name is null ? null : _definitionsByName.GetValueOrDefault(name);
+
+    private static int Rank(SpellDefinition d) =>
+        (d.IsDetrimental ? 4 : 0) + (SpellResist.IsResistable(d.ResistType) ? 2 : 0) + (d.CastOnOtherSuffix.Length > 0 ? 1 : 0);
 
     /// <summary>Spells whose landing-on-you text is exactly <paramref name="text"/>, longest duration first.</summary>
     public IReadOnlyList<SpellInfo> FindByCastOnYou(string text) => Lookup(_byCastOnYou, text);

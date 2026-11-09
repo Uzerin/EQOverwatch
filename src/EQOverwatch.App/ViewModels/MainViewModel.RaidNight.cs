@@ -182,7 +182,7 @@ public sealed partial class MainViewModel
         }
 
         UptimeSummary = uptime.Length == 0
-            ? "No tracked buff or debuff was seen during this fight. Uptime covers the spells on your Spells & Songs list, from fights watched live."
+            ? "No tracked buff or debuff was seen during this fight. Uptime covers the spells on your Spells list and the songs your characters sing, from fights watched live."
             : $"How long each tracked spell was up during this {(int)encounter.DurationSeconds / 60}:{(int)encounter.DurationSeconds % 60:00} fight. A debuff on the mob counts from when it lands until it runs out.";
 
         BossAbilityDisplayRow[] abilities = BossAbilityTimeline.Build(encounter)

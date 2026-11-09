@@ -10,7 +10,7 @@ using EQOverwatch.Core.Spells;
 namespace EQOverwatch.App.ViewModels;
 
 /// <summary>
-/// The Buff &amp; Song Tracker tab (a list of chosen spells, each with its own overlay) and the Raid Triggers boss drop-down
+/// The Spells tab (a list of chosen buffs and debuffs, each with its own overlay) and the Raid Triggers boss drop-down
 /// (mobs from ended fights).
 /// </summary>
 public sealed partial class MainViewModel
@@ -58,7 +58,7 @@ public sealed partial class MainViewModel
     [ObservableProperty]
     private string _trackerActivity = NoTrackerActivity;
 
-    private const string NoTrackerActivity = "No tracked buff or song has landed in your logs yet.";
+    private const string NoTrackerActivity = "No tracked buff or debuff has landed in your logs yet.";
 
     private long _lastTimersStarted;
 
@@ -103,6 +103,7 @@ public sealed partial class MainViewModel
 
         bool isId = int.TryParse(term, NumberStyles.None, CultureInfo.InvariantCulture, out int id);
         List<SpellSuggestion> matches = all
+            .Where(s => s.Category != TimerOverlayCategory.Songs)
             .Where(s => s.Name.Contains(term, StringComparison.OrdinalIgnoreCase) || (isId && s.SpellId == id))
             .OrderByDescending(s => s.Name.StartsWith(term, StringComparison.OrdinalIgnoreCase))
             .ThenBy(s => s.Name, StringComparer.OrdinalIgnoreCase)
@@ -132,6 +133,11 @@ public sealed partial class MainViewModel
         {
             TrackerStatus = "Pick a spell from the search list first.";
             return;
+        }
+
+        if (TrackerOverlay is not (TimerOverlayCategory.Buffs or TimerOverlayCategory.Debuffs))
+        {
+            TrackerOverlay = TimerOverlayCategory.Buffs; // songs need no list
         }
 
         TrackedSpellRowViewModel? existing = TrackedSpells.FirstOrDefault(r => r.SpellId == pick.SpellId);
@@ -230,6 +236,7 @@ public sealed partial class MainViewModel
             }
         }
 
+        RemoveSongRows(database: null);
         ApplyTracked();
     }
 
@@ -254,6 +261,8 @@ public sealed partial class MainViewModel
                 migratedAny = true;
             }
         }
+
+        RemoveSongRows(database);
 
         if (migratedAny)
         {

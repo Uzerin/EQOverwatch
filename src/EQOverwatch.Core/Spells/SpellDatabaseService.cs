@@ -66,6 +66,7 @@ public sealed class SpellDatabaseService
     private const int LegacyMaxTicks = 17;
     private const int LegacyGoodEffect = 83;
     private const int LegacyBardLevel = 115;
+    private const int LegacyResistType = 85;
 
     private const int SplitCastTime = 8;
     private const int SplitFormula = 11;
@@ -73,6 +74,7 @@ public sealed class SpellDatabaseService
     private const int SplitGoodEffect = 28;
     private const int SplitBardLevel = 43;
     private const int SplitRecastMs = 10;
+    private const int SplitResistType = 29;
 
     /// <summary>Spell rows recast more slowly than this are offered on the AAs &amp; Discs tab.</summary>
     public const int MinAbilityRecastSeconds = 10;
@@ -163,7 +165,9 @@ public sealed class SpellDatabaseService
                 string fades = split ? string.Empty : columns.Get(LegacySpellFades);
 
                 // Every readable row is a candidate for the raid boss picker; the split layout fills the messages in later.
-                definitions[id] = new SpellDefinition(id, name, castOnYou, castOnOther);
+                int resistType = columns.TryInt(split ? SplitResistType : LegacyResistType, out int resist) && resist is >= 0 and <= 9 ? resist : 0;
+                bool detrimental = columns.TryInt(goodEffectColumn, out int good) && good == 0;
+                definitions[id] = new SpellDefinition(id, name, castOnYou, castOnOther, resistType, castTimeMs, detrimental);
 
                 if (split && name.Length > 0 && columns.TryInt(SplitRecastMs, out int recastMs) && recastMs >= MinAbilityRecastSeconds * 1000)
                 {

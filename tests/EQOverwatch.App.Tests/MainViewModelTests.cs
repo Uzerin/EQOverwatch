@@ -834,10 +834,10 @@ public partial class MainViewModelTests
         h.Dialogs.SpellsFile = Harness.WriteSpellFile(h.SpellsPath);
         await h.Vm.BrowseSpellsCommand.ExecuteAsync(null);
 
-        AddTracked(h, "Spirit of Wolf", TimerOverlayCategory.Songs);
+        AddTracked(h, "Spirit of Wolf", TimerOverlayCategory.Debuffs);
 
         TrackedSpellRowViewModel wolf = Assert.Single(h.Vm.TrackedSpells);
-        Assert.Equal(TimerOverlayCategory.Songs, wolf.Overlay);
+        Assert.Equal(TimerOverlayCategory.Debuffs, wolf.Overlay);
         Assert.Equal("15:00", wolf.DurationText);
         Assert.Equal("1 spell tracked (1 on)", h.Vm.TrackedSummary);
         Assert.Equal(new[] { 100 }, h.Pipeline.Buffs.TrackedSpellIds);
@@ -846,20 +846,25 @@ public partial class MainViewModelTests
         AppSettings saved = h.Saved();
         TrackedSpellSetting savedWolf = Assert.Single(saved.TrackedSpells);
         Assert.Equal(100, savedWolf.SpellId);
-        Assert.Equal(TimerOverlayCategory.Songs, savedWolf.Overlay);
+        Assert.Equal(TimerOverlayCategory.Debuffs, savedWolf.Overlay);
         Assert.Equal(new[] { 100 }, saved.TrackedSpellIds);
 
         // The user's overlay wins over the spell file's own guess.
-        h.Pipeline.Buffs.OnLine("Stackprime", "You begin singing Spirit of Wolf.", DateTime.UtcNow);
+        h.Pipeline.Buffs.OnLine("Stackprime", "You feel quick as a wolf.", DateTime.UtcNow);
         ActiveTimerSnapshot timer = Assert.Single(h.Pipeline.Triggers.Snapshot.Timers);
         Assert.Equal("Stackprime: Spirit of Wolf", timer.Text);
         Assert.Equal(900, timer.DurationSeconds);
-        Assert.Equal(TimerOverlayCategory.Songs, timer.Category);
+        Assert.Equal(TimerOverlayCategory.Debuffs, timer.Category);
 
-        wolf.Overlay = TimerOverlayCategory.Debuffs;
-        Assert.Equal(TimerOverlayCategory.Debuffs, Assert.Single(h.Saved().TrackedSpells).Overlay);
+        wolf.Overlay = TimerOverlayCategory.Buffs;
+        Assert.Equal(TimerOverlayCategory.Buffs, Assert.Single(h.Saved().TrackedSpells).Overlay);
         h.Pipeline.Buffs.OnLine("Stackprime", "You feel quick as a wolf.", DateTime.UtcNow.AddSeconds(1));
-        Assert.Contains(h.Pipeline.Triggers.Snapshot.Timers, t => t.Category == TimerOverlayCategory.Debuffs);
+        Assert.Contains(h.Pipeline.Triggers.Snapshot.Timers, t => t.Category == TimerOverlayCategory.Buffs);
+
+        // Songs are not offered for the list: picking it falls back to Buffs.
+        AddTracked(h, "Spirit of Wolf", TimerOverlayCategory.Songs);
+        Assert.Equal(TimerOverlayCategory.Buffs, Assert.Single(h.Vm.TrackedSpells).Overlay);
+        Assert.Equal(new[] { "Buffs", "Debuffs" }, h.Vm.SpellOverlayOptions.Select(o => o.Display));
     }
 
     [Fact]
@@ -869,7 +874,7 @@ public partial class MainViewModelTests
         h.Dialogs.SpellsFile = Harness.WriteSpellFile(h.SpellsPath);
         await h.Vm.BrowseSpellsCommand.ExecuteAsync(null);
         AddTracked(h, "Spirit of Wolf", TimerOverlayCategory.Buffs);
-        AddTracked(h, "Selo's Accelerando", TimerOverlayCategory.Songs);
+        AddTracked(h, "Selo's Accelerando", TimerOverlayCategory.Debuffs);
         Assert.Equal(2, h.Vm.TrackedSpells.Count);
 
         TrackedSpellRowViewModel wolf = h.Vm.TrackedSpells.Single(r => r.SpellId == 100);
@@ -892,10 +897,10 @@ public partial class MainViewModelTests
         await h.Vm.BrowseSpellsCommand.ExecuteAsync(null);
         AddTracked(h, "Selo's Accelerando", TimerOverlayCategory.Buffs);
 
-        AddTracked(h, "Selo's Accelerando", TimerOverlayCategory.Songs);
+        AddTracked(h, "Selo's Accelerando", TimerOverlayCategory.Debuffs);
 
         TrackedSpellRowViewModel row = Assert.Single(h.Vm.TrackedSpells);
-        Assert.Equal(TimerOverlayCategory.Songs, row.Overlay);
+        Assert.Equal(TimerOverlayCategory.Debuffs, row.Overlay);
         Assert.Contains("already tracked", h.Vm.TrackerStatus);
     }
 
@@ -920,12 +925,12 @@ public partial class MainViewModelTests
         h.Dialogs.SpellsFile = Harness.WriteSpellFile(h.SpellsPath);
         await h.Vm.BrowseSpellsCommand.ExecuteAsync(null);
         AddTracked(h, "Spirit of Wolf", TimerOverlayCategory.Buffs);
-        AddTracked(h, "Selo's Accelerando", TimerOverlayCategory.Songs);
+        AddTracked(h, "Selo's Accelerando", TimerOverlayCategory.Debuffs);
 
         h.Vm.TrackedFilterText = "wolf";
         Assert.Equal(100, Assert.Single(h.Vm.VisibleTrackedSpells).SpellId);
 
-        h.Vm.TrackedFilterText = "songs";
+        h.Vm.TrackedFilterText = "debuffs";
         Assert.Equal(101, Assert.Single(h.Vm.VisibleTrackedSpells).SpellId);
 
         h.Vm.TrackedFilterText = string.Empty;
@@ -965,8 +970,9 @@ public partial class MainViewModelTests
         {
             s.SpellsFilePath = Harness.WriteSpellFile(Path.Combine(dir, "spells_us.txt"));
             s.DefaultCasterLevel = 20;
-            s.TrackedSpells.Add(new TrackedSpellSetting { SpellId = 100, SpellName = "Spirit of Wolf", Overlay = TimerOverlayCategory.Songs });
+            s.TrackedSpells.Add(new TrackedSpellSetting { SpellId = 100, SpellName = "Spirit of Wolf", Overlay = TimerOverlayCategory.Buffs });
             s.TrackedSpells.Add(new TrackedSpellSetting { SpellId = 9999, SpellName = "Gone Spell", Overlay = TimerOverlayCategory.Debuffs, IsEnabled = false });
+            s.TrackedSpells.Add(new TrackedSpellSetting { SpellId = 101, SpellName = "Selo's Accelerando", Overlay = TimerOverlayCategory.Songs }); // songs leave the list
         });
 
         // Active before the spell file finishes loading; the switched-off one is kept but not tracked.
@@ -979,7 +985,8 @@ public partial class MainViewModelTests
         TrackedSpellRowViewModel wolf = h.Vm.TrackedSpells.Single(r => r.SpellId == 100);
         Assert.Equal("Spirit of Wolf", wolf.Name);
         Assert.Equal("15:00", wolf.DurationText);
-        Assert.Equal(TimerOverlayCategory.Songs, wolf.Overlay);
+        Assert.Equal(TimerOverlayCategory.Buffs, wolf.Overlay);
+        Assert.DoesNotContain(h.Vm.TrackedSpells, r => r.SpellId == 101);
         TrackedSpellRowViewModel gone = h.Vm.TrackedSpells.Single(r => r.SpellId == 9999);
         Assert.Equal("Gone Spell", gone.Name); // not in the file: still listed by its saved name
         Assert.Equal("?", gone.DurationText);
@@ -1008,7 +1015,7 @@ public partial class MainViewModelTests
 
         Assert.Equal(TimerOverlayCategory.Buffs, h.Vm.TrackedSpells.Single(r => r.SpellId == 300).Overlay);
         Assert.Equal(TimerOverlayCategory.Debuffs, h.Vm.TrackedSpells.Single(r => r.SpellId == 301).Overlay);
-        Assert.Equal(TimerOverlayCategory.Songs, h.Vm.TrackedSpells.Single(r => r.SpellId == 302).Overlay);
+        Assert.DoesNotContain(h.Vm.TrackedSpells, r => r.SpellId == 302); // a song: it reaches the Songs overlay without the list
 
         h.Vm.TrackedSpells.Single(r => r.SpellId == 300).Overlay = TimerOverlayCategory.RaidTriggers; // the user's choice sticks
         Assert.Equal(TimerOverlayCategory.RaidTriggers, h.Saved().TrackedSpells.Single(t => t.SpellId == 300).Overlay);

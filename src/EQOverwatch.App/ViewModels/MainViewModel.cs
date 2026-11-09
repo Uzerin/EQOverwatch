@@ -112,6 +112,7 @@ public sealed partial class MainViewModel : ObservableObject
         _pipeline.Roster.Changed += OnRosterChanged;
 
         Restore(settings);
+        InitializeReleaseFeatures();
         ConfigureDiscord(discordPoster, renderEncounterPng);
         _characterData.ScanAll(EqFolderPath); // output files written while the app was closed
         _characterData.PruneMissingFiles(EqFolderPath); // saved data whose output file has since been deleted
@@ -793,6 +794,7 @@ public sealed partial class MainViewModel : ObservableObject
         SyncAutoClick();
         _pipeline.TimerPause.Tick(DateTime.UtcNow);
         RefreshRaidNight();
+        RefreshReleaseFeatures();
         ApplyOverlayFade();
         _ = TickUpdateCheck(DateTime.UtcNow);
 
@@ -1371,6 +1373,10 @@ public sealed partial class MainViewModel : ObservableObject
             _audio.IsEnabled = !settings.IsAudioMuted;
             ReadTellsAloud = settings.ReadTellsAloud;
             _pipeline.Tells.IsEnabled = settings.ReadTellsAloud;
+            ShowAllBardSongs = settings.ShowAllBardSongs;
+            _pipeline.Songs.ShowAllBards = settings.ShowAllBardSongs;
+            CharmWatchEnabled = settings.CharmWatchEnabled;
+            _pipeline.Charm.IsEnabled = settings.CharmWatchEnabled;
             AutoClickDelayMilliseconds = settings.AutoClickDelayMilliseconds; // whether it is on is never restored: it starts off
             AutoClickIdleMinutes = settings.AutoClickIdleMinutes <= 0 ? AutoClickService.DefaultIdleMinutes : settings.AutoClickIdleMinutes;
             AutoClickHotkey = string.IsNullOrWhiteSpace(settings.AutoClickHotkey) ? AutoClickService.DefaultHotkey : settings.AutoClickHotkey;
@@ -1460,6 +1466,8 @@ public sealed partial class MainViewModel : ObservableObject
         EncounterTimeoutSeconds = EncounterTimeoutSeconds,
         IsAudioMuted = IsAudioMuted,
         ReadTellsAloud = ReadTellsAloud,
+        ShowAllBardSongs = ShowAllBardSongs,
+        CharmWatchEnabled = CharmWatchEnabled,
         AutoClickDelayMilliseconds = AutoClickDelayMilliseconds,
         AutoClickIdleMinutes = AutoClickIdleMinutes,
         NonCombatZones = SafeZoneList(),

@@ -90,40 +90,42 @@ public sealed class Phase8Fix2Tests : IDisposable
     }
 
     [Fact]
-    public void Singing_a_tracked_song_starts_its_bar_without_any_landing_text()
+    public void Singing_a_song_starts_its_bar_without_any_list_or_landing_text()
     {
-        _tracker.SetTrackedSpellOverlays(new[] { new KeyValuePair<int, TimerOverlayCategory>(Chorus, TimerOverlayCategory.Songs) });
+        var songs = new SongTrackerService(_spells, _engine);
 
-        _tracker.OnLine("Oodlesii", "You begin singing Elemental Chorus.", T0);
+        songs.OnLine("Oodlesii", "You begin singing Elemental Chorus.", T0);
 
         ActiveTimerSnapshot timer = Assert.Single(Timers);
         Assert.Equal("Oodlesii: Elemental Chorus", timer.Text);
         Assert.Equal(TimerOverlayCategory.Songs, timer.Category);
         Assert.Equal(18, timer.DurationSeconds);
         Assert.Equal(T0, timer.StartedUtc);
-        Assert.Equal(1, _tracker.TimersStarted);
+        Assert.Equal(1, songs.BarsStarted);
     }
 
     [Fact]
     public void Singing_a_song_again_restarts_the_same_bar()
     {
-        _tracker.SetTrackedSpells(new[] { Chorus });
+        var songs = new SongTrackerService(_spells, _engine);
 
-        _tracker.OnLine("Oodlesii", "You begin singing Elemental Chorus.", T0);
-        _tracker.OnLine("Oodlesii", "You begin singing Elemental Chorus.", T0.AddSeconds(12));
+        songs.OnLine("Oodlesii", "You begin singing Elemental Chorus.", T0);
+        songs.OnLine("Oodlesii", "You begin singing Elemental Chorus.", T0.AddSeconds(12));
 
         ActiveTimerSnapshot timer = Assert.Single(Timers);
         Assert.Equal(T0.AddSeconds(12), timer.StartedUtc);
     }
 
     [Fact]
-    public void The_chosen_overlay_applies_to_a_song_that_starts_on_the_sing_line()
+    public void A_sung_song_always_goes_to_the_songs_overlay()
     {
         _tracker.SetTrackedSpellOverlays(new[] { new KeyValuePair<int, TimerOverlayCategory>(Chorus, TimerOverlayCategory.Buffs) });
+        var songs = new SongTrackerService(_spells, _engine);
 
         _tracker.OnLine("Oodlesii", "You begin singing Elemental Chorus.", T0);
+        songs.OnLine("Oodlesii", "You begin singing Elemental Chorus.", T0);
 
-        Assert.Equal(TimerOverlayCategory.Buffs, Assert.Single(Timers).Category);
+        Assert.Equal(TimerOverlayCategory.Songs, Assert.Single(Timers).Category);
     }
 
     [Fact]
@@ -160,6 +162,7 @@ public sealed class Phase8Fix2Tests : IDisposable
 
         // The singer's log: sing line, then the same landing text.
         _tracker.OnLine("Oodlesii", "You begin singing Elemental Chorus.", T0);
+        new SongTrackerService(_spells, _engine).OnLine("Oodlesii", "You begin singing Elemental Chorus.", T0);
         _tracker.OnLine("Oodlesii", "You feel an aura of elemental protection surrounding you.", T0.AddSeconds(1));
 
         Assert.Equal("Oodlesii: Elemental Chorus", Assert.Single(Timers).Text);

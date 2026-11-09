@@ -13,8 +13,8 @@ namespace EQOverwatch.Core.Services;
 /// song. &lt;X&gt;" for a tracked X queue a pending cast that stays valid for the spell's cast time plus 2.5 s.
 /// </para>
 /// <para>
-/// <b>2. Landing.</b> (Songs are the exception: a bard song, or any spell announced with "sing", starts only from the singer's
-/// own "You begin singing X." line and never from landing text.) A line equal to a tracked spell's cast-on-you text, or ending with its cast-on-other text, starts a bar
+/// <b>2. Landing.</b> (Songs are the exception: a bard song, or any spell announced with "sing", never starts a bar here. Songs are
+/// handled by <see cref="SongTrackerService"/>, which needs no list.) A line equal to a tracked spell's cast-on-you text, or ending with its cast-on-other text, starts a bar
 /// (or restarts the existing one, so a bard song that is re-sung is refreshed). When several tracked spells share that text, a
 /// pending cast of the same character's log decides; with none, the longest-lasting tracked spell wins. The bar is labelled
 /// "Target: Spell" and lasts the spell's base duration.
@@ -253,31 +253,9 @@ public sealed class BuffTrackerService : ITriggerLineSink
                     _pending.RemoveAt(0);
                 }
             }
-
-            if (isSinging && message.StartsWith(YouBeginSinging, StringComparison.Ordinal))
-            {
-                StartSong(spell, observedBy, now);
-            }
         }
 
         return true; // a cast announcement is never also a landing or a fade
-    }
-
-    /// <summary>
-    /// Songs have no landing text worth waiting for: your own "You begin singing X." starts the bar at once and restarts it every
-    /// time the song is sung again. (Another bard's "begins to sing a song" only queues a pending cast, because the song lands on
-    /// the group and not on the singer.)
-    /// </summary>
-    private void StartSong(SpellInfo spell, string character, DateTime now)
-    {
-        TimerOverlayCategory category = Volatile.Read(ref _overlayOverrides).TryGetValue(spell.SpellId, out TimerOverlayCategory chosen)
-            ? chosen
-            : spell.BaseDurationSeconds <= SpellDatabaseService.MaxBardSongSeconds ? TimerOverlayCategory.Songs : spell.Category;
-
-        string label = Label(character, spell);
-        _timers.StartTimer(TimerSourceId, TimerSourceName, character, label, spell.BaseDurationSeconds, now, category);
-        Interlocked.Increment(ref _timersStarted);
-        Volatile.Write(ref _lastStarted, label);
     }
 
     /// <summary>Handles "(?&lt;caster&gt;\w+) begins to cast a spell. &lt;(?&lt;spell&gt;.+)&gt;" and the "sing a song" variant.</summary>
@@ -429,7 +407,7 @@ public sealed class BuffTrackerService : ITriggerLineSink
                 : spell.Category;
         }
 
-        // Songs start only from the singer's own "You begin singing X." line (see StartSong). Their landing text appears in the log
+        // Songs get their bars from SongTrackerService ("You begin singing X."). Their landing text appears in the log
         // of everyone in range, which would otherwise put a bar in the Songs overlay for each of those characters. A spell counts as
         // a song when the file says so, when it was announced with "sing", or when the user put it in the Songs overlay.
         if (wasSung || spell.Category == TimerOverlayCategory.Songs || category == TimerOverlayCategory.Songs)

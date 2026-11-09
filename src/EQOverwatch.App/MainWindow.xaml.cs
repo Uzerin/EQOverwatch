@@ -91,6 +91,28 @@ public partial class MainWindow : Window
         _viewModel.ReportAutoClickHotkey(ok);
     }
 
+    /// <summary>Lists the characters whose logs can be searched (logs may have been added since the tab was opened).</summary>
+    private void LogSearchCharacters_DropDownOpened(object sender, EventArgs e) => _viewModel.RefreshLogSearchCharactersCommand.Execute(null);
+
+    /// <summary>Enter in the search box searches.</summary>
+    private void LogSearchText_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key == System.Windows.Input.Key.Enter && _viewModel.SearchLogsCommand.CanExecute(null))
+        {
+            _viewModel.SearchLogsCommand.Execute(null);
+            e.Handled = true;
+        }
+    }
+
+    /// <summary>Double-clicking a found line copies it.</summary>
+    private void LogSearchGrid_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (sender is DataGrid { SelectedItem: LogSearchRow row })
+        {
+            _viewModel.CopyLogSearchRowCommand.Execute(row);
+        }
+    }
+
     /// <summary>Remembers that the next text change in a search box comes from the keyboard, not from picking an item.</summary>
     private void SearchCombo_UserInput(object sender, EventArgs e) => _userTyping = true;
 

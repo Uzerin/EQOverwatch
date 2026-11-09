@@ -188,14 +188,15 @@ public sealed class BuffTrackerServiceTests : IDisposable
     public void Resinging_a_bard_song_refreshes_the_existing_bar()
     {
         Track(Selo);
+        var songs = new SongTrackerService(_spells, _engine); // songs need no list: the sing line starts the bar
 
-        Line("Stackprime", "You begin singing Selo's Accelerando.", T0);
+        songs.OnLine("Stackprime", "You begin singing Selo's Accelerando.", T0);
         Line("Stackprime", "You feel your pace quicken.", T0);
         ActiveTimerSnapshot first = Assert.Single(Timers);
         Assert.Equal("Stackprime: Selo's Accelerando", first.Text);
         Assert.Equal(T0.AddSeconds(180), first.ExpiresUtc);
 
-        Line("Stackprime", "You begin singing Selo's Accelerando.", T0.AddSeconds(6));
+        songs.OnLine("Stackprime", "You begin singing Selo's Accelerando.", T0.AddSeconds(6));
         Line("Stackprime", "You feel your pace quicken.", T0.AddSeconds(6));
 
         ActiveTimerSnapshot refreshed = Assert.Single(Timers); // still one bar

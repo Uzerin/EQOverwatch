@@ -31,7 +31,9 @@ internal static class SpellTestData
     }
 
     /// <summary>Split layout: 8 cast time, 11 formula, 12 max ticks, 28 GoodEffect, 43 Bard level, 10 recast (ms). Column 6 stays numeric.</summary>
-    public static string SplitRow(int id, string name, int castMs, int formula, int ticks, int goodEffect = 1, int bardLevel = NoBardLevel, int recastMs = 0)
+    public static string SplitRow(
+        int id, string name, int castMs, int formula, int ticks, int goodEffect = 1, int bardLevel = NoBardLevel, int recastMs = 0,
+        int resistType = 0, string? effects = null)
     {
         string[] c = Enumerable.Repeat("0", Columns).ToArray();
         c[0] = id.ToString();
@@ -42,6 +44,12 @@ internal static class SpellTestData
         c[12] = ticks.ToString();
         c[28] = goodEffect.ToString();
         c[43] = bardLevel.ToString();
+        c[29] = resistType.ToString();
+        if (effects is not null)
+        {
+            c[^1] = effects; // the split layout ends each row with its effect slots
+        }
+
         return string.Join('^', c);
     }
 

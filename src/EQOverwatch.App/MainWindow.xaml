@@ -665,8 +665,8 @@
                 </Grid>
             </TabItem>
 
-            <!-- ═════════ Tab 4: Spells & Songs ═════════ -->
-            <TabItem Header="Spells &amp; Songs">
+            <!-- ═════════ Tab 4: Spells ═════════ -->
+            <TabItem Header="Spells">
                 <Grid Margin="6">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -675,13 +675,21 @@
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
 
-                    <TextBlock Grid.Row="0" Style="{StaticResource HintText}" Margin="0,0,0,10" Text="{Binding SpellsStatus}"/>
+                    <StackPanel Grid.Row="0" Margin="0,0,0,10">
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                            <CheckBox Content="Show songs from all bards" IsChecked="{Binding ShowAllBardSongs}" VerticalAlignment="Center"
+                                      ToolTip="On: every bard's songs your logged-in characters see go to the Songs overlay. Off: only songs your own characters sing."/>
+                            <TextBlock Style="{StaticResource HintText}" Margin="8,0,0,0" VerticalAlignment="Center"
+                                       Text="(off: only songs your characters sing)"/>
+                        </StackPanel>
+                        <TextBlock Style="{StaticResource HintText}" Text="{Binding SpellsStatus}"/>
+                    </StackPanel>
 
-                    <!-- Track a buff, debuff or song -->
+                    <!-- Track a buff or debuff -->
                     <Border Grid.Row="1" Padding="12" Margin="0,0,0,12" CornerRadius="8" BorderThickness="1"
                             BorderBrush="{DynamicResource BorderSoftBrush}" Background="{DynamicResource WindowBgBrush}">
                         <StackPanel>
-                            <TextBlock Style="{StaticResource SectionTitle}" Text="Track a buff, debuff or song"/>
+                            <TextBlock Style="{StaticResource SectionTitle}" Text="Track a buff or debuff"/>
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
@@ -714,13 +722,15 @@
 
                                 <StackPanel Grid.Column="2">
                                     <TextBlock Style="{StaticResource FieldLabel}" Margin="0,0,0,4" Text="Show on overlay"/>
-                                    <ComboBox ItemsSource="{Binding CategoryOptions}" DisplayMemberPath="Display" SelectedValuePath="Value"
+                                    <ComboBox ItemsSource="{Binding SpellOverlayOptions}" DisplayMemberPath="Display" SelectedValuePath="Value"
                                               SelectedValue="{Binding TrackerOverlay}"/>
                                 </StackPanel>
 
                                 <Button Grid.Column="4" Content="Add to Tracker" VerticalAlignment="Bottom"
                                         Command="{Binding AddTrackedSpellCommand}"/>
                             </Grid>
+                            <TextBlock Style="{StaticResource HintText}" Margin="0,8,0,0"
+                                       Text="Songs go to the Songs overlay on their own and don't need adding."/>
                             <TextBlock Style="{StaticResource HintText}" Margin="0,8,0,0" Text="{Binding TrackerPreview}"/>
                             <TextBlock Style="{StaticResource HintText}" Margin="0,2,0,0" Text="{Binding TrackerStatus}"/>
                         </StackPanel>
@@ -756,7 +766,7 @@
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <ComboBox Margin="4,2" MinHeight="26"
-                                                  ItemsSource="{Binding DataContext.CategoryOptions, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                  ItemsSource="{Binding DataContext.SpellOverlayOptions, RelativeSource={RelativeSource AncestorType=Window}}"
                                                   DisplayMemberPath="Display" SelectedValuePath="Value"
                                                   SelectedValue="{Binding Overlay, UpdateSourceTrigger=PropertyChanged}"/>
                                     </DataTemplate>
@@ -1610,25 +1620,40 @@
                         <TextBlock Style="{StaticResource FieldLabel}" Text="Mob"/>
                         <TextBox Width="200" Margin="0,0,14,6" VerticalAlignment="Center"
                                  Text="{Binding BossHistoryFilter, UpdateSourceTrigger=PropertyChanged}"/>
-                        <Button Content="Clear history" Margin="0,0,8,6" Style="{StaticResource SecondaryButton}" Command="{Binding ClearBossHistoryCommand}"
+                        <Button Content="Clear history" Margin="0,0,22,6" Style="{StaticResource SecondaryButton}" Command="{Binding ClearBossHistoryCommand}"
                                 ToolTip="Forgets the saved fights. They come back from your logs the next time history is loaded."/>
+                        <TextBlock Style="{StaticResource FieldLabel}" Text="Resists"/>
+                        <RadioButton Content="Mine" GroupName="ResistView" Margin="0,0,10,6" VerticalAlignment="Center" IsChecked="{Binding ResistMineView}"
+                                     ToolTip="Resist % from your characters' own spells only."/>
+                        <RadioButton Content="Raid" GroupName="ResistView" Margin="0,0,14,6" VerticalAlignment="Center" IsChecked="{Binding ResistRaidView}"
+                                     ToolTip="Your characters plus every player who shared resists in raid or guild chat."/>
+                        <Button Content="Share resists" Margin="0,0,8,6" Style="{StaticResource SecondaryButton}" Command="{Binding ShareResistsCommand}"
+                                ToolTip="Copies the selected mob's resists (your characters' numbers) as a line to paste into /rs or /gu. Other Overwatch users in the raid pick it up."/>
+                        <Button Content="Share all" Margin="0,0,8,6" Style="{StaticResource SecondaryButton}" Command="{Binding ShareAllResistsCommand}"
+                                ToolTip="Copies one chat line with your resists for the mobs you cast on most recently. Click again for the next line."/>
                     </WrapPanel>
                     <TextBlock Grid.Row="1" Style="{StaticResource HintText}" Margin="0,0,0,8" TextWrapping="Wrap" Text="{Binding BossHistoryStatus}"/>
                     <Grid Grid.Row="2">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" MinWidth="320"/>
+                            <ColumnDefinition Width="3*" MinWidth="420"/>
                             <ColumnDefinition Width="14"/>
-                            <ColumnDefinition Width="*" MinWidth="320"/>
+                            <ColumnDefinition Width="2*" MinWidth="320"/>
                         </Grid.ColumnDefinitions>
 
                         <DataGrid Grid.Column="0" ItemsSource="{Binding BossHistoryRows}" SelectedItem="{Binding SelectedBossHistoryRow, Mode=TwoWay}"
                                   AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" SelectionMode="Single"
                                   HeadersVisibility="Column" GridLinesVisibility="Horizontal" HorizontalScrollBarVisibility="Auto">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="Mob" Binding="{Binding Boss, Mode=OneWay}" Width="*" MinWidth="140"/>
+                                <DataGridTextColumn Header="Mob" Binding="{Binding Boss, Mode=OneWay}" Width="Auto" MinWidth="160"/>
                                 <DataGridTextColumn Header="Highest Level" Binding="{Binding HighestLevel, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                                 <DataGridTextColumn Header="Lowest Level" Binding="{Binding LowestLevel, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                                 <DataGridTextColumn Header="Kills" Binding="{Binding Kills, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                <DataGridTextColumn Header="Magic" Binding="{Binding Magic, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                <DataGridTextColumn Header="Fire" Binding="{Binding Fire, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                <DataGridTextColumn Header="Cold" Binding="{Binding Cold, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                <DataGridTextColumn Header="Poison" Binding="{Binding Poison, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                <DataGridTextColumn Header="Disease" Binding="{Binding Disease, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                <DataGridTextColumn Header="Shared by" Binding="{Binding SharedBy, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                                 <DataGridTextColumn Header="Attempts" Binding="{Binding Attempts, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                                 <DataGridTextColumn Header="Fastest kill" Binding="{Binding Fastest, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                                 <DataGridTextColumn Header="Average kill" Binding="{Binding Average, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
@@ -1643,6 +1668,7 @@
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
                             <DockPanel Grid.Row="0" Margin="0,0,0,8" LastChildFill="False">
@@ -1742,8 +1768,151 @@
                                 </StackPanel>
                                 <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" Text="{Binding BossKillsHint}"/>
                             </StackPanel>
+
+                            <!-- the selected mob's resists by type, and who the raid figures came from -->
+                            <Border Grid.Row="3" Margin="0,10,0,0" Padding="10" CornerRadius="8" BorderThickness="1"
+                                    BorderBrush="{DynamicResource BorderSoftBrush}" Background="{DynamicResource WindowBgBrush}">
+                                <StackPanel>
+                                    <TextBlock FontSize="14" FontWeight="SemiBold" Margin="0,0,0,6" Text="{Binding ResistPanelTitle}"/>
+                                    <DataGrid ItemsSource="{Binding ResistTypeRows}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
+                                              HeadersVisibility="Column" GridLinesVisibility="Horizontal" MaxHeight="170" Margin="0,0,0,8">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="Resist type" Binding="{Binding Type, Mode=OneWay}" Width="*"/>
+                                            <DataGridTextColumn Header="Landed" Binding="{Binding Landed, Mode=OneWay, StringFormat=N0}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                            <DataGridTextColumn Header="Resisted" Binding="{Binding Resisted, Mode=OneWay, StringFormat=N0}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                            <DataGridTextColumn Header="Resist %" Binding="{Binding Percent, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                    <TextBlock FontWeight="SemiBold" Margin="0,0,0,4" Text="Contributors"/>
+                                    <DataGrid ItemsSource="{Binding ResistContributorRows}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
+                                              HeadersVisibility="Column" GridLinesVisibility="Horizontal" MaxHeight="170" HorizontalScrollBarVisibility="Auto">
+                                        <DataGrid.RowStyle>
+                                            <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsOutlier}" Value="True">
+                                                        <Setter Property="Foreground" Value="#F59E0B"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </DataGrid.RowStyle>
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="Player" Binding="{Binding Player, Mode=OneWay}" Width="Auto"/>
+                                            <DataGridTextColumn Header="Shared" Binding="{Binding Shared, Mode=OneWay}" Width="Auto"/>
+                                            <DataGridTextColumn Header="Magic" Binding="{Binding Magic, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                            <DataGridTextColumn Header="Fire" Binding="{Binding Fire, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                            <DataGridTextColumn Header="Cold" Binding="{Binding Cold, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                            <DataGridTextColumn Header="Poison" Binding="{Binding Poison, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                            <DataGridTextColumn Header="Disease" Binding="{Binding Disease, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                            <DataGridTextColumn Header="Status" Binding="{Binding Status, Mode=OneWay}" Width="*" MinWidth="120"/>
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                    <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,6,0,0" Text="{Binding ResistPanelHint}"/>
+                                </StackPanel>
+                            </Border>
                         </Grid>
                     </Grid>
+                </Grid>
+            </TabItem>
+
+            <!-- ═════════ Experience ═════════ -->
+            <TabItem Header="Experience">
+                <Grid Margin="6">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <DockPanel Grid.Row="0" Margin="0,0,0,8" LastChildFill="False">
+                        <Button DockPanel.Dock="Right" Content="Reset session" Style="{StaticResource SecondaryButton}" Command="{Binding ResetExperienceCommand}"
+                                ToolTip="Starts counting again from now."/>
+                        <TextBlock DockPanel.Dock="Left" Style="{StaticResource HintText}" VerticalAlignment="Center" Text="{Binding ExperienceSession}"/>
+                    </DockPanel>
+                    <DataGrid Grid.Row="1" ItemsSource="{Binding ExperienceRows}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
+                              HeadersVisibility="Column" GridLinesVisibility="Horizontal">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Character" Binding="{Binding Character, Mode=OneWay}" Width="*" MinWidth="120"/>
+                            <DataGridTextColumn Header="Level" Binding="{Binding Level, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                            <DataGridTextColumn Header="XP this session" Binding="{Binding XpSession, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                            <DataGridTextColumn Header="XP / hour" Binding="{Binding XpPerHour, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                            <DataGridTextColumn Header="Next level in" Binding="{Binding NextLevel, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                            <DataGridTextColumn Header="AAs gained" Binding="{Binding AaGained, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                            <DataGridTextColumn Header="AA / hour" Binding="{Binding AaPerHour, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                            <DataGridTextColumn Header="Kills with XP" Binding="{Binding Kills, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                            <DataGridTextColumn Header="Last gain" Binding="{Binding LastGain, Mode=OneWay}" Width="Auto"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <UniformGrid Grid.Row="2" Rows="1" Margin="0,10,0,0">
+                        <Border Margin="0,0,8,0" Padding="10,8" CornerRadius="6" BorderThickness="1" BorderBrush="{DynamicResource BorderSoftBrush}" Background="{DynamicResource WindowBgBrush}">
+                            <StackPanel><TextBlock Style="{StaticResource HintText}" Text="Session length"/><TextBlock FontSize="18" FontWeight="SemiBold" Text="{Binding ExperienceSessionLength}"/></StackPanel>
+                        </Border>
+                        <Border Margin="0,0,8,0" Padding="10,8" CornerRadius="6" BorderThickness="1" BorderBrush="{DynamicResource BorderSoftBrush}" Background="{DynamicResource WindowBgBrush}">
+                            <StackPanel><TextBlock Style="{StaticResource HintText}" Text="Party / raid / solo kills"/><TextBlock FontSize="18" FontWeight="SemiBold" Text="{Binding ExperienceKillSplit}"/></StackPanel>
+                        </Border>
+                        <Border Margin="0,0,8,0" Padding="10,8" CornerRadius="6" BorderThickness="1" BorderBrush="{DynamicResource BorderSoftBrush}" Background="{DynamicResource WindowBgBrush}">
+                            <StackPanel><TextBlock Style="{StaticResource HintText}" Text="Levels gained"/><TextBlock FontSize="18" FontWeight="SemiBold" Text="{Binding ExperienceLevelsGained}"/></StackPanel>
+                        </Border>
+                        <Border Padding="10,8" CornerRadius="6" BorderThickness="1" BorderBrush="{DynamicResource BorderSoftBrush}" Background="{DynamicResource WindowBgBrush}">
+                            <StackPanel><TextBlock Style="{StaticResource HintText}" Text="AA points gained"/><TextBlock FontSize="18" FontWeight="SemiBold" Text="{Binding ExperienceAaGained}"/></StackPanel>
+                        </Border>
+                    </UniformGrid>
+                    <TextBlock Grid.Row="3" Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,8,0,0" Text="{Binding ExperienceHint}"/>
+                </Grid>
+            </TabItem>
+
+            <!-- ═════════ Log search ═════════ -->
+            <TabItem Header="Log search">
+                <Grid Margin="6">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <DockPanel Grid.Row="0" Margin="0,0,0,8">
+                        <Button DockPanel.Dock="Right" Content="Cancel" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Command="{Binding CancelLogSearchCommand}"/>
+                        <Button DockPanel.Dock="Right" Content="Search" Margin="8,0,0,0" Command="{Binding SearchLogsCommand}"/>
+                        <ComboBox DockPanel.Dock="Right" Width="130" Margin="8,0,0,0" ItemsSource="{Binding LogSearchRanges}" SelectedIndex="{Binding LogSearchRangeIndex}"/>
+                        <ComboBox DockPanel.Dock="Right" Width="160" Margin="8,0,0,0" ItemsSource="{Binding LogSearchCharacters}" SelectedItem="{Binding LogSearchCharacter}"
+                                  DropDownOpened="LogSearchCharacters_DropDownOpened"/>
+                        <TextBox VerticalAlignment="Center" Text="{Binding LogSearchText, UpdateSourceTrigger=PropertyChanged}" KeyDown="LogSearchText_KeyDown"
+                                 ToolTip="Every word must be in the line (capitals ignored). Put a phrase in quotes to keep it together."/>
+                    </DockPanel>
+                    <ItemsControl Grid.Row="1" ItemsSource="{Binding LogSearchChannels}" Margin="0,0,0,8" Focusable="False">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <CheckBox Content="{Binding Label}" IsChecked="{Binding IsOn}" Margin="0,0,16,4"/>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <ProgressBar Grid.Row="2" Height="4" Margin="0,0,0,6" Maximum="100" Value="{Binding LogSearchProgress}">
+                        <ProgressBar.Style>
+                            <Style TargetType="ProgressBar">
+                                <Setter Property="Visibility" Value="Hidden"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsLogSearching}" Value="True">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ProgressBar.Style>
+                    </ProgressBar>
+                    <DataGrid Grid.Row="3" ItemsSource="{Binding LogSearchRows}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
+                              HeadersVisibility="Column" GridLinesVisibility="Horizontal" SelectionMode="Single" MouseDoubleClick="LogSearchGrid_MouseDoubleClick">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Time" Binding="{Binding Time, Mode=OneWay}" Width="Auto"/>
+                            <DataGridTextColumn Header="Character" Binding="{Binding Character, Mode=OneWay}" Width="Auto"/>
+                            <DataGridTextColumn Header="Channel" Binding="{Binding Channel, Mode=OneWay}" Width="Auto"/>
+                            <DataGridTextColumn Header="Line" Binding="{Binding Line, Mode=OneWay}" Width="*"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <TextBlock Grid.Row="4" Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,8,0,0" Text="{Binding LogSearchStatus}"/>
                 </Grid>
             </TabItem>
 
@@ -1945,6 +2114,15 @@
                                 <TextBlock Style="{StaticResource HintText}"
                                            Text="When the app opens it loads the Primary DPS character's recent log into the DPS meter, so a fight already in progress shows as if the app had been open all along. All fights, live and imported, share one list on the DPS tab, newest first."/>
                                 <TextBlock Style="{StaticResource HintText}" Text="{Binding ImportStatus}"/>
+                            </StackPanel>
+                        </GroupBox>
+
+                        <GroupBox Header="Charm watch">
+                            <StackPanel>
+                                <CheckBox Content="Watch my characters' charms" Margin="0,2,0,6" IsChecked="{Binding CharmWatchEnabled}"
+                                          ToolTip="A countdown bar on the Debuffs overlay while your character's charm lasts, and a red CHARM BROKE banner and a spoken Charm broke when it breaks."/>
+                                <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap"
+                                           Text="Only your own charms: the game tells only the caster when a charm breaks. Uses the trigger voice and the Mute audio switch."/>
                             </StackPanel>
                         </GroupBox>
 

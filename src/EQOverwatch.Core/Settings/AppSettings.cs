@@ -22,6 +22,12 @@ public sealed class AppSettings
     /// <summary>Speak incoming tells aloud (on by default).</summary>
     public bool ReadTellsAloud { get; set; } = true;
 
+    /// <summary>Show every bard's songs on the Songs overlay (off: only songs your characters sing).</summary>
+    public bool ShowAllBardSongs { get; set; }
+
+    /// <summary>Bars and a break alarm for your characters' charms (on by default).</summary>
+    public bool CharmWatchEnabled { get; set; } = true;
+
     /// <summary>Milliseconds between a chain cue for your cleric and the auto-click. Whether it is on is never saved: it starts off.</summary>
     public int AutoClickDelayMilliseconds { get; set; }
 

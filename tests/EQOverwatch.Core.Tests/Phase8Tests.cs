@@ -41,28 +41,24 @@ public sealed class Phase8Tests : IDisposable
     [Fact]
     public void The_chosen_overlay_decides_where_the_bar_appears()
     {
-        _tracker.SetTrackedSpellOverlays(new[]
-        {
-            new KeyValuePair<int, TimerOverlayCategory>(100, TimerOverlayCategory.Songs),
-            new KeyValuePair<int, TimerOverlayCategory>(101, TimerOverlayCategory.Debuffs),
-        });
+        _tracker.SetTrackedSpellOverlays(new[] { new KeyValuePair<int, TimerOverlayCategory>(100, TimerOverlayCategory.Debuffs) });
 
-        _tracker.OnLine("Stackprime", "You begin singing Spirit of Wolf.", T0); // a Songs-overlay spell starts on the sing line
-        _tracker.OnLine("Stackprime", "You feel your pace quicken.", T0.AddSeconds(1));
+        _tracker.OnLine("Stackprime", "You feel quick as a wolf.", T0);
 
-        Assert.Equal(TimerOverlayCategory.Songs, Timers.Single(t => t.Text.EndsWith("Spirit of Wolf")).Category);
-        Assert.Equal(TimerOverlayCategory.Debuffs, Timers.Single(t => t.Text.EndsWith("Selo's Accelerando")).Category);
+        Assert.Equal(TimerOverlayCategory.Debuffs, Timers.Single(t => t.Text.EndsWith("Spirit of Wolf")).Category);
     }
 
     [Fact]
-    public void A_sung_song_still_follows_the_chosen_overlay()
+    public void A_sung_song_goes_to_the_songs_overlay_whatever_the_list_says()
     {
         _tracker.SetTrackedSpellOverlays(new[] { new KeyValuePair<int, TimerOverlayCategory>(101, TimerOverlayCategory.Buffs) });
+        var songs = new SongTrackerService(_spells, _engine);
 
         _tracker.OnLine("Stackprime", "You begin singing Selo's Accelerando.", T0);
+        songs.OnLine("Stackprime", "You begin singing Selo's Accelerando.", T0);
         _tracker.OnLine("Stackprime", "You feel your pace quicken.", T0.AddSeconds(1));
 
-        Assert.Equal(TimerOverlayCategory.Buffs, Assert.Single(Timers).Category);
+        Assert.Equal(TimerOverlayCategory.Songs, Assert.Single(Timers).Category);
     }
 
     [Fact]

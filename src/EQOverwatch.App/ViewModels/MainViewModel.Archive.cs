@@ -24,7 +24,8 @@ public sealed record BossKillRow(
 /// (Primary DPS) character's own record against it.
 /// </summary>
 public sealed record BossHistoryRow(
-    string Boss, string HighestLevel, string LowestLevel, int Kills, int Attempts, string Fastest, string Average, string BestDps, int Players, string LastFought);
+    string Boss, string HighestLevel, string LowestLevel, int Kills, int Attempts, string Fastest, string Average, string BestDps, int Players, string LastFought,
+    string Magic = "–", string Fire = "–", string Cold = "–", string Poison = "–", string Disease = "–", string SharedBy = "–");
 
 // Boss kill history, backup and restore, and saved overlay layouts.
 public sealed partial class MainViewModel
@@ -154,6 +155,7 @@ public sealed partial class MainViewModel
         }
 
         RebuildBossKills();
+        RebuildResistPanel();
     }
 
     partial void OnBossHistorySizeIndexChanged(int value) => RebuildBossHistory();
@@ -167,12 +169,12 @@ public sealed partial class MainViewModel
         IReadOnlyList<BossFight> fights = _bossHistory.Fights();
         IReadOnlyList<BossFight> loaded = LoadedLogFights();
         string filter = BossHistoryFilter?.Trim() ?? string.Empty;
-        BossHistoryRow[] rows = BossHistoryStore.SummarizeMobs(fights, loaded, BossHistoryMinPlayers)
+        BossHistoryRow[] fought = BossHistoryStore.SummarizeMobs(fights, loaded, BossHistoryMinPlayers)
             .Where(s => filter.Length == 0 || s.Boss.Contains(filter, StringComparison.OrdinalIgnoreCase))
             .Select(s =>
             {
                 MobLevels? levels = _mobLevels.Find(s.Boss);
-                return new BossHistoryRow(
+                return WithResists(new BossHistoryRow(
                     s.Boss,
                     levels is null ? "—" : levels.Highest.ToString(CultureInfo.CurrentCulture),
                     levels is null ? "—" : levels.Lowest.ToString(CultureInfo.CurrentCulture),
@@ -181,14 +183,33 @@ public sealed partial class MainViewModel
                     BossHistoryStore.FormatDuration(s.AverageSeconds),
                     s.BestDps > 0 ? s.BestDps.ToString("N0", CultureInfo.CurrentCulture) : "—",
                     s.MostPlayers,
-                    s.LastFought == default ? "—" : s.LastFought.ToString("MMM d", CultureInfo.CurrentCulture));
+                    s.LastFought == default ? "—" : s.LastFought.ToString("MMM d", CultureInfo.CurrentCulture)));
             })
             .ToArray();
+
+        // With "Any size", mobs that only have resist numbers (no recorded fight) are listed too.
+        IEnumerable<BossHistoryRow> resistOnly = BossHistorySizeIndex != 0
+            ? Enumerable.Empty<BossHistoryRow>()
+            : _pipeline.ResistStore.Mobs()
+                .Where(m => !fought.Any(r => r.Boss.Equals(m, StringComparison.OrdinalIgnoreCase)))
+                .Where(m => filter.Length == 0 || m.Contains(filter, StringComparison.OrdinalIgnoreCase))
+                .Select(m =>
+                {
+                    MobLevels? levels = _mobLevels.Find(m);
+                    return WithResists(new BossHistoryRow(
+                        m,
+                        levels is null ? "—" : levels.Highest.ToString(CultureInfo.CurrentCulture),
+                        levels is null ? "—" : levels.Lowest.ToString(CultureInfo.CurrentCulture),
+                        0, 0, "—", "—", "—", 0, "—"));
+                })
+                .Where(r => r.Magic != "–" || r.Fire != "–" || r.Cold != "–" || r.Poison != "–" || r.Disease != "–" || r.SharedBy != "–");
+        BossHistoryRow[] rows = fought.Concat(resistOnly).ToArray();
         BossHistoryRows = rows;
         SelectedBossHistoryRow = _selectedBossName is null
             ? null
             : rows.FirstOrDefault(r => r.Boss.Equals(_selectedBossName, StringComparison.OrdinalIgnoreCase));
         RebuildBossKills();
+        RebuildResistPanel();
 
         WatchedLogConfig? primaryLog = Logs.PrimaryDpsLog;
         BossHistoryStatus = fights.Count == 0

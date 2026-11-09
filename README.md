@@ -12,8 +12,14 @@ changes to the game. It runs alongside EverQuest and works for as many of your c
 - **Custom triggers.** GINA-style triggers: match a line in your log, then show text, play a sound, speak it, or start a timer.
 - **Raid triggers.** Recast timers for boss abilities, with a spoken announcement when the timer starts and another when 10 seconds
   remain. Pick the ability from your spell file or type the log text yourself, and edit saved triggers in place.
-- **Spells & Songs tab.** Pick the buffs, debuffs and songs you care about and choose which overlay each one appears in. Bars start
-  from your own casts (and your monitored characters' landings) using the messages in your spell file.
+- **Spells tab.** Pick the buffs and debuffs you care about and choose which overlay each one appears in. Bars start from your own
+  casts (and your monitored characters' landings) using the messages in your spell file. Songs need no list: every song your
+  characters sing goes to the Songs overlay on its own, and a checkbox adds every other bard's songs too.
+- **Charm watch.** Your characters' charms get a countdown bar, and a red banner and a spoken "Charm broke" when they break.
+- **Experience.** XP and AA points per hour for each character this session, kills, levels gained and the time to the next level.
+- **Resists.** Mob History shows each mob's resist % for magic, fire, cold, poison and disease, from your characters' spells, and
+  the raid can pool their numbers by pasting a short line into raid or guild chat.
+- **Log search.** Search every character's log for chat lines, by channel, character and date.
 - **Character data.** Buttons on the Characters tab open a character's inventory, spellbook, missing spells and key ring, read from the
   files EverQuest's `/outputfile` command writes. Run the command in the game, then click the button.
 - **AAs & Discs.** Track disciplines and AAs: an "active" bar for how long it lasts and a "cooldown" bar until it can be used again,
@@ -61,6 +67,37 @@ check off, or run it by hand, under **Settings > Updates**.
   from it; most AAs have no recast there, so type the name exactly as the log prints it and enter the times yourself.
 
 ## Changelog
+
+### 1.0.52
+
+- **Spells & Songs is now Spells.** The tab is for buffs and debuffs only. Every song your characters sing ("You begin singing ...")
+  goes to the Songs overlay on its own, with the song's own duration from your spell file (at your character's level when it is
+  known), so songs no longer need to be added. Songs that were on the list are removed when you update. Songs also count on the
+  Uptime tab.
+- **Songs from every bard.** A "Show songs from all bards" checkbox at the top of the Spells tab adds other players' songs that your
+  logged-in characters see, as "Trick: Warsong of the Vah Shir". Off by default. When several of your logs see the same song there is
+  only one bar.
+- **Charm watch.** When one of your characters charms a mob, a bar such as "Ream: Charm, a rock golem" counts down on the Debuffs
+  overlay for the charm's longest duration. When the charm wears off, the bar turns into a red "CHARM BROKE" banner for 10 seconds and
+  the app says "Charm broke" (using the trigger voice and the Mute switch). Only your own charms: the game only tells the caster. It
+  can be switched off in Settings.
+- **Experience tab.** For each character: level, XP gained this session, XP per hour, time to the next level, AA points gained and per
+  hour, kills that gave experience and when the last gain was, plus totals for the session. The session starts when the app opens;
+  Reset session starts it again. Where a character is in its level comes from the last level-up near the end of its log. A kill whose
+  line shows no percentage (at the level cap, or with AA experience on) counts as a kill but adds no XP.
+- **Resists in Mob History.** New Magic, Fire, Cold, Poison and Disease columns show each mob's resist %: resisted spells out of every
+  spell of that type that landed or was resisted. Only your characters' own spells on mobs count, live and from logs you read in (a
+  log read twice is counted once). Clicking a mob shows its numbers by resist type, including the rarer types.
+- **Raid resist sharing.** Share resists copies a short line such as `{EQO:R1:Xin Thall Centien:M180-3:F22-6}` for the selected mob to
+  paste into /rs or /gu; Share all copies one line for the mobs you cast on most recently (click again for the next line). Everyone
+  running Overwatch picks the line up from raid or guild chat. The Mine / Raid switch shows your numbers alone or added to everyone's
+  shares. Each player's newest share replaces their older one, shares older than 90 days are dropped, and with three or more
+  contributors anyone more than 30 points from the middle value for a type is left out of that type and shown in orange.
+- **Log search tab.** Search the chat in every character's log: every word has to be in the line and a phrase in quotes stays
+  together. Pick the channels (tells, guild, raid, group, say, OOC/shout/auction, chat channels or everything else), one character or
+  all, and the last 7, 30 or 90 days or all time. Up to 1,000 lines are listed, newest first; double-click a line to copy it.
+- **Color swatch crash fixed.** Opening the Settings tab or the Colors window could close the app (the color wheel's brightness slider
+  reacted before the control was ready). It no longer does.
 
 ### 1.0.51
 

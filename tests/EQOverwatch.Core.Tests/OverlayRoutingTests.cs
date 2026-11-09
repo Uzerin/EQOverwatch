@@ -106,8 +106,10 @@ public sealed class OverlayRoutingTests : IDisposable
         var spells = new SpellDatabaseService();
         spells.Load(Path.Combine(_dir, "spells_us.txt"));
         var engine = new TriggerEngineService();
-        var tracker = new BuffTrackerService(spells, engine);
-        tracker.SetTrackedSpells(new[] { 1, 2, 3, 4, 5 });
+        var buffs = new BuffTrackerService(spells, engine);
+        buffs.SetTrackedSpells(new[] { 1, 2, 3, 4, 5 });
+        var songs = new SongTrackerService(spells, engine);
+        var tracker = new EQOverwatch.Core.Pipeline.CompositeTriggerSink(new EQOverwatch.Core.Pipeline.ITriggerLineSink[] { buffs, songs }, _ => { });
 
         tracker.OnLine("Stackprime", "You feel quick.", Now);
         tracker.OnLine("Stackprime", "You feel sick.", Now);
@@ -123,7 +125,7 @@ public sealed class OverlayRoutingTests : IDisposable
         CategoryOf("Stackprime: Disease Cloud", TimerOverlayCategory.Debuffs);
         CategoryOf("Stackprime: Selo's Accelerando", TimerOverlayCategory.Songs);
         CategoryOf("Stackprime: Mystery Tune", TimerOverlayCategory.Songs);   // 18s and sung
-        CategoryOf("Stackprime: Long Hymn", TimerOverlayCategory.Buffs);      // 600s, so not a song even when sung
+        CategoryOf("Stackprime: Long Hymn", TimerOverlayCategory.Songs);      // anything sung is a song
 
         void CategoryOf(string text, TimerOverlayCategory expected) =>
             Assert.Equal(expected, engine.Snapshot.Timers.Single(t => t.Text == text).Category);
