@@ -28,8 +28,8 @@ changes to the game. It runs alongside EverQuest and works for as many of your c
 - **DPS & encounter history.** Live damage meter and a single newest-first list of fights, live and imported. Opening the app in the
   middle of a fight picks the fight up from your log. Copy the top 12 as chat text, or everyone as a picture for Discord. Every
   attacker shows a class (WAR, CLR, ...), and a pet's damage counts under its owner.
-- **Players & pets.** The app remembers the players it has verified and which pet belongs to whom, and keeps them between runs.
-  Classes are read from `/who`. To link a pet, target it and type `/pet leader`.
+- **Players & pets.** The app remembers the players it has verified and which pet belongs to whom, per server, and keeps them between
+  runs. Classes and levels are read from `/who`. To link a pet, target it and type `/pet leader`.
 - **Six overlays.** Buffs, Debuffs, Songs, Raid Triggers, CH Chain and DPS. Each is movable, resizable and lockable, with a theme bar
   for colors.
 - **Sharing.** Share triggers in chat as `{EQO:...}` tokens. Nothing from a shared trigger is switched on until you accept it, and
@@ -67,6 +67,37 @@ check off, or run it by hand, under **Settings > Updates**.
   from it; most AAs have no recast there, so type the name exactly as the log prints it and enter the times yourself.
 
 ## Changelog
+
+### 1.0.53
+
+- **Levels and classes are kept per server.** A `/who` or a level-up on one server no longer changes a character with the same name
+  on another server. Each character's level and class on the Characters tab are the most recent ones seen in a log on that
+  character's own server. The Experience tab, song lengths and the Class column on fights look them up on the right server too.
+- **Pets are kept per server.** A pet is linked to its owner only on the server where `/pet leader` was seen, so a pet with the same
+  name on another server is not merged into the wrong player's DPS row. The Players & Pets tab has a Server column in both lists,
+  and Forget removes only that server's entry.
+- **Additional characters have a server.** Pick the server next to the name when you add one. The Server column in the list is a
+  drop-down, so you can move a character to another server later. The same name can be listed once per server. Buffs landing on an
+  additional character only count in logs on that character's server.
+- **Your saved data is moved over.** Players and pets saved before this version had no server. Each is filed under the server of
+  your watched log with that name, otherwise the server most of your logs are on. Additional characters go on the server they were
+  last seen on. The next `/who` on each server corrects anything that ended up wrong.
+- **Experience by mob.** The Experience tab has a new table showing what each mob gave each character at each level: kills,
+  average % of a level per kill, total % and when it was last killed. Pick the character and level at the top. Each experience
+  line is matched to the kill line from the same second. A gain with no kill line beside it shows as "(unknown mob)" rather than
+  being guessed. The kill that causes a level-up counts at the level the character was before it. The table is saved between runs.
+  The first time, each watched log's history is read from the start, which takes about a second per log. "Scan log history"
+  reads them all again.
+- **Debuff counters.** A debuff bar shows how many counters the spell puts on its target, for example "3 disease" or
+  "2 disease, 4 poison", taken from the spell file. The Spells tab has a Counters column. EQ doesn't log partial cures, so the
+  number shown is the spell's starting count.
+- **Cured debuffs end their bar.** When "Ream is cured of Spreading Crud by Stackprime." (or "You are cured of ...") appears, that
+  debuff's bar turns green and reads "cured by Stackprime" for 5 seconds, then goes away. Otherwise a debuff bar runs until its time
+  is up or it fades, as before.
+- **"Everyone in the raid" bars show for everyone.** AA and discipline bars for other raid members (for example "Quickshotz:
+  Trueshot Discipline") were made but hidden, because overlays only showed bars for your own logged-in characters. A bar about
+  anyone without a log on your PC, including buffs on your additional characters, now shows while any of your characters is
+  logged in. Bars for your own characters still show only while that character is logged in, and nothing shows when none are.
 
 ### 1.0.52
 

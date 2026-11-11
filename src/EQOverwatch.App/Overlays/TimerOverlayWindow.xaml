@@ -61,6 +61,7 @@
                                                Margin="8,0,0,0"
                                                Text="{Binding RemainingText}"
                                                Style="{StaticResource OverlayTextStyle}"/>
+                                    <TextBlock DockPanel.Dock="Right" Text="{Binding Note}" Style="{StaticResource TimerNoteStyle}"/>
                                     <TextBlock Text="{Binding Label}"
                                                TextTrimming="CharacterEllipsis"
                                                Style="{StaticResource OverlayTextStyle}"/>

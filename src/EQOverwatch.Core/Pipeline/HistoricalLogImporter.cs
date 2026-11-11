@@ -56,6 +56,7 @@ public sealed class HistoricalLogImporter
         }
 
         string characterName = LogFileName.GetCharacterName(filePath);
+        string serverName = LogFileName.TryParse(filePath, out _, out string parsedServer) ? parsedServer : string.Empty;
         var stopwatch = Stopwatch.StartNew();
         var counters = new ImportCounters();
 
@@ -76,7 +77,7 @@ public sealed class HistoricalLogImporter
             _dpsSink.OnLogOwner(characterName);
 
             Task producer = Task.Run(
-                () => ProduceAsync(filePath, characterName, startTime, endTime, channel.Writer, progress, counters, token),
+                () => ProduceAsync(filePath, characterName, serverName, startTime, endTime, channel.Writer, progress, counters, token),
                 CancellationToken.None);
 
             Task consumer = Task.Run(
@@ -105,6 +106,7 @@ public sealed class HistoricalLogImporter
     private static async Task ProduceAsync(
         string filePath,
         string characterName,
+        string serverName,
         DateTime? startTime,
         DateTime? endTime,
         ChannelWriter<LogEvent> writer,
@@ -154,7 +156,7 @@ public sealed class HistoricalLogImporter
 
                 if (queue)
                 {
-                    var evt = new LogEvent(characterName, line, default, LogRoute.Dps, timestamp);
+                    var evt = new LogEvent(characterName, line, default, LogRoute.Dps, timestamp, serverName);
                     if (!writer.TryWrite(evt))
                     {
                         await writer.WriteAsync(evt, cancellationToken).ConfigureAwait(false);

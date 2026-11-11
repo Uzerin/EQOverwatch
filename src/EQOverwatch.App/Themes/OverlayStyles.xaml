@@ -129,6 +129,21 @@
             <DataTrigger Binding="{Binding IsUrgent}" Value="True">
                 <Setter Property="Opacity" Value="0.55"/>
             </DataTrigger>
+            <DataTrigger Binding="{Binding IsCured}" Value="True">
+                <Setter Property="Background" Value="#FF2E9E4F"/>
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- A debuff's counters beside its name ("3 disease"); hidden when the bar has none. -->
+    <Style x:Key="TimerNoteStyle" TargetType="TextBlock" BasedOn="{StaticResource OverlayTextStyle}">
+        <Setter Property="Margin" Value="8,0,0,0"/>
+        <Setter Property="Opacity" Value="0.85"/>
+        <Setter Property="FontStyle" Value="Italic"/>
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding Note}" Value="">
+                <Setter Property="Visibility" Value="Collapsed"/>
+            </DataTrigger>
         </Style.Triggers>
     </Style>
 

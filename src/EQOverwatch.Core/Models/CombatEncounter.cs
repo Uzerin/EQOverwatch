@@ -30,6 +30,9 @@ public sealed class CombatEncounter : ObservableObject
 
     public int Id { get; }
     public string TargetName { get; }
+
+    /// <summary>The server of the log that started the fight (empty when unknown); classes and pets are looked up there.</summary>
+    public string Server { get; set; } = string.Empty;
     public DateTime StartTime { get; }
     public DateTime EndTime { get; private set; }
     public bool IsActive { get; private set; } = true;

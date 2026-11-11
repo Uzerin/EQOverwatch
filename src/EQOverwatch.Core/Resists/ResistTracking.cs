@@ -419,6 +419,8 @@ public sealed class ResistImportSink : IDpsEventSink
         _inner.OnLogOwner(characterName);
     }
 
+    public void OnLogServer(string serverName) => _inner.OnLogServer(serverName);
+
     public void OnNonCombatMessage(ReadOnlySpan<char> message)
     {
         _inner.OnNonCombatMessage(message);

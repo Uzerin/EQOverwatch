@@ -95,7 +95,7 @@ internal sealed class TailWorker : IDisposable
                 }
 
                 string line = Encoding.Latin1.GetString(_buffer, lineStart, lineLength);
-                var evt = new LogEvent(_config.CharacterName, line, DateTime.UtcNow, routes);
+                var evt = new LogEvent(_config.CharacterName, line, DateTime.UtcNow, routes, serverName: _config.ServerName);
 
                 if (!writer.TryWrite(evt))
                 {

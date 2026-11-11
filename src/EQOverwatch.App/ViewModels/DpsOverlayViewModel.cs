@@ -64,6 +64,9 @@ public sealed partial class DpsOverlayViewModel : ObservableObject
     private long _lastVersion = -1;
 
     private readonly Func<string, string>? _classOf;
+
+    /// <summary>When set, classes are looked up on the server of the log that recorded the fight (used instead of the name-only lookup).</summary>
+    public Func<string, string, string>? ClassOnServer { get; init; }
     private readonly Func<string, bool>? _isMine;
 
     /// <param name="classOf">Looks up a name's class label ("WAR", "Pet", or empty); null shows no classes.</param>
@@ -136,7 +139,7 @@ public sealed partial class DpsOverlayViewModel : ObservableObject
 
         if (encounter is not null && _classOf is not null)
         {
-            encounter = encounter.WithClasses(_classOf);
+            encounter = ClassOnServer is { } onServer ? encounter.WithClassesOnServer(onServer) : encounter.WithClasses(_classOf);
         }
 
         DisplayedEncounter = encounter;

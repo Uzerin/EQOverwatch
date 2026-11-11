@@ -1,6 +1,6 @@
 namespace EQOverwatch.Core.Settings;
 
-/// <summary>A player the app has seen for certain (in a /who list, or as the owner of a pet), with their class when known.</summary>
+/// <summary>A player the app has seen for certain on one server (in a /who list, or as the owner of a pet), with their class when known.</summary>
 public sealed class RosterPlayerEntry
 {
     public string Name { get; set; } = string.Empty;
@@ -10,6 +10,12 @@ public sealed class RosterPlayerEntry
 
     /// <summary>The player's level, or 0 when it has not been seen.</summary>
     public int Level { get; set; }
+
+    /// <summary>The server the player was seen on (empty in settings saved before servers were kept).</summary>
+    public string Server { get; set; } = string.Empty;
+
+    /// <summary>Increases every time the player is seen, so the most recent sighting across servers is known.</summary>
+    public long Seen { get; set; }
 }
 
 /// <summary>A pet and the player it belongs to.</summary>
@@ -17,6 +23,12 @@ public sealed class RosterPetEntry
 {
     public string Pet { get; set; } = string.Empty;
     public string Owner { get; set; } = string.Empty;
+
+    /// <summary>The server the pet and its owner are on (empty in settings saved before servers were kept).</summary>
+    public string Server { get; set; } = string.Empty;
+
+    /// <summary>Increases every time the pet is seen.</summary>
+    public long Seen { get; set; }
 }
 
 /// <summary>What is saved of the player roster.</summary>

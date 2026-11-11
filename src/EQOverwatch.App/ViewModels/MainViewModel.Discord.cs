@@ -114,7 +114,7 @@ public sealed partial class MainViewModel
     {
         foreach (EncounterSnapshot fight in _discordSelector.Select(live.Completed, _clock()))
         {
-            QueueDiscordPost(fight.WithClasses(_pipeline.Roster.GetClassLabel));
+            QueueDiscordPost(fight.WithClassesOnServer(ClassLabelOnServer));
         }
     }
 

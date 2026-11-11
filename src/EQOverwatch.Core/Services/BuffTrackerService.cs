@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using EQOverwatch.Core.Models;
 using EQOverwatch.Core.Pipeline;
 using EQOverwatch.Core.Spells;
@@ -31,7 +32,7 @@ namespace EQOverwatch.Core.Services;
 /// ("cast on you") always count. Until it has been called, every target is allowed.
 /// </para>
 /// </summary>
-public sealed class BuffTrackerService : ITriggerLineSink
+public sealed partial class BuffTrackerService : ITriggerLineSink
 {
     /// <summary>Source id the bars are registered under in <see cref="TriggerEngineService"/>.</summary>
     public static readonly Guid TimerSourceId = new("8f3b1a52-6c2e-4d7a-9a41-5b0c7e2d9f10");
@@ -48,6 +49,12 @@ public sealed class BuffTrackerService : ITriggerLineSink
     private const string OtherCastingMarker = " begins casting ";
     private const string OtherSingingMarker = " begins singing ";
     private const string YourPrefix = "Your ";
+
+    /// <summary>How long the green "cured by" bar shows after a "cured of" line removes a bar.</summary>
+    public const double CuredShowSeconds = 5;
+
+    [GeneratedRegex(@"^(?<who>.+?) (?:is|are) cured of (?<spell>.+) by (?<curer>.+)\.$", RegexOptions.CultureInvariant)]
+    private static partial Regex CuredLine();
     private const int MaxPendingCasts = 64;
     private const int MinSuffixLength = 3;
 
@@ -76,6 +83,7 @@ public sealed class BuffTrackerService : ITriggerLineSink
     private HashSet<int> _trackedIds = new();
     private TrackedState _state = TrackedState.Empty;
     private HashSet<string>? _allowedTargets;
+    private HashSet<string>? _allowedByServer; // "server|name"; an empty server allows the name on every server
     private IReadOnlyDictionary<int, TimerOverlayCategory> _overlayOverrides = new Dictionary<int, TimerOverlayCategory>();
     private long _timersStarted;
     private string _lastStarted = string.Empty;
@@ -115,7 +123,42 @@ public sealed class BuffTrackerService : ITriggerLineSink
         HashSet<string>? set = names is null
             ? null
             : new HashSet<string>(names.Where(n => !string.IsNullOrWhiteSpace(n)).Select(n => n.Trim()), StringComparer.OrdinalIgnoreCase);
+        Volatile.Write(ref _allowedByServer, null);
         Volatile.Write(ref _allowedTargets, set);
+    }
+
+    /// <summary>
+    /// Restricts "cast on other" bars to these characters, each on its own server: a landing seen in a log on another server does not
+    /// count for them. A character with an empty server counts on every server.
+    /// </summary>
+    public void SetAllowedTargetsOnServers(IEnumerable<(string Name, string Server)> characters)
+    {
+        ArgumentNullException.ThrowIfNull(characters);
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var byServer = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach ((string name, string server) in characters)
+        {
+            if (!string.IsNullOrWhiteSpace(name))
+            {
+                names.Add(name.Trim());
+                byServer.Add(ServerKey(server, name));
+            }
+        }
+
+        Volatile.Write(ref _allowedByServer, byServer);
+        Volatile.Write(ref _allowedTargets, names);
+    }
+
+    private static string ServerKey(string? server, string name) => $"{server?.Trim() ?? string.Empty}|{name.Trim()}";
+
+    private bool IsAllowedTarget(HashSet<string> allowed, string target, string server)
+    {
+        if (server.Length > 0 && Volatile.Read(ref _allowedByServer) is { } byServer)
+        {
+            return byServer.Contains(ServerKey(server, target)) || byServer.Contains(ServerKey(string.Empty, target));
+        }
+
+        return allowed.Contains(target);
     }
 
     /// <summary>Casts waiting to land (including ones that have expired but have not been purged yet).</summary>
@@ -190,7 +233,10 @@ public sealed class BuffTrackerService : ITriggerLineSink
     /// <summary>"Oodles: Spirit of Wolf" for the most recent bar started, or empty.</summary>
     public string LastStarted => Volatile.Read(ref _lastStarted);
 
-    public void OnLine(string characterName, ReadOnlySpan<char> message, DateTime receivedUtc)
+    public void OnLine(string characterName, ReadOnlySpan<char> message, DateTime receivedUtc) =>
+        OnLine(characterName, string.Empty, message, receivedUtc);
+
+    public void OnLine(string characterName, string serverName, ReadOnlySpan<char> message, DateTime receivedUtc)
     {
         TrackedState state = Volatile.Read(ref _state);
         if (state.IsEmpty || message.IsEmpty)
@@ -208,7 +254,12 @@ public sealed class BuffTrackerService : ITriggerLineSink
             return;
         }
 
-        TryHandleLanding(state, characterName, message, receivedUtc);
+        if (TryHandleCure(characterName, message, receivedUtc))
+        {
+            return;
+        }
+
+        TryHandleLanding(state, characterName, serverName ?? string.Empty, message, receivedUtc);
     }
 
     // ───────────────────────── step 1: pending casts ─────────────────────────
@@ -340,9 +391,39 @@ public sealed class BuffTrackerService : ITriggerLineSink
         }
     }
 
+    /// <summary>
+    /// "Ream is cured of Spreading Crud by Stackprime." / "You are cured of ... by ...": EQ writes this only when a cure removes the
+    /// whole debuff, so the bar is replaced by a short green "cured by" bar. Partial cures print nothing and leave the bar alone.
+    /// </summary>
+    private bool TryHandleCure(string characterName, ReadOnlySpan<char> message, DateTime now)
+    {
+        if (message.Length < 20 || message[^1] != '.' || !message.Contains(" cured of ", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        Match match = CuredLine().Match(message.ToString());
+        if (!match.Success)
+        {
+            return false;
+        }
+
+        string who = match.Groups["who"].Value;
+        string target = who == "You" ? characterName : who;
+        string spell = match.Groups["spell"].Value;
+        string curer = match.Groups["curer"].Value;
+        string label = $"{target}: {spell}";
+        if (_timers.CureTimer(TimerSourceId, target, label, $"{label} cured by {curer}", CuredShowSeconds, now))
+        {
+            Faded?.Invoke(target, spell, now);
+        }
+
+        return true;
+    }
+
     // ───────────────────────── step 2: landing ─────────────────────────
 
-    private void TryHandleLanding(TrackedState state, string characterName, ReadOnlySpan<char> message, DateTime now)
+    private void TryHandleLanding(TrackedState state, string characterName, string server, ReadOnlySpan<char> message, DateTime now)
     {
         SpellInfo[]? candidates = null;
         string target = characterName;
@@ -372,7 +453,7 @@ public sealed class BuffTrackerService : ITriggerLineSink
                 candidates = group.Spells;
                 target = who.ToString();
 
-                if (Volatile.Read(ref _allowedTargets) is { } allowed && !allowed.Contains(target))
+                if (Volatile.Read(ref _allowedTargets) is { } allowed && !IsAllowedTarget(allowed, target, server))
                 {
                     if (Volatile.Read(ref _bystanderProbe)?.Invoke(target) != true)
                     {
@@ -420,7 +501,9 @@ public sealed class BuffTrackerService : ITriggerLineSink
         string label = Label(target, spell);
         if (!bystander)
         {
-            _timers.StartTimer(TimerSourceId, TimerSourceName, target, label, seconds, now, category);
+            _timers.StartTimer(
+                TimerSourceId, TimerSourceName, target, label, seconds, now, category,
+                note: category == TimerOverlayCategory.Debuffs ? spell.CountersText : null);
             Interlocked.Increment(ref _timersStarted);
             Volatile.Write(ref _lastStarted, label);
         }

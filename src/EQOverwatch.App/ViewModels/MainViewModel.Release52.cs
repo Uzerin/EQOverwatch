@@ -94,6 +94,8 @@ public sealed partial class MainViewModel
             _pipeline.ResistStore.SetStoragePath(Path.Combine(_dataDirectory, "mobresists.json"), DateTime.UtcNow);
         }
 
+        InitializeMobExperience();
+
         // Where each character is in its level, from the last level-up near the end of its log.
         string[] logs = Logs.Select(l => l.FilePath).ToArray();
         ExperienceTracker experience = _pipeline.Experience;
@@ -131,6 +133,8 @@ public sealed partial class MainViewModel
             _lastExperienceRefresh = nowUtc;
             RebuildExperience(nowUtc);
         }
+
+        RefreshMobExperience(nowUtc);
     }
 
     /// <summary>Drops song rows from a saved Spells list: songs now reach the Songs overlay on their own.</summary>
@@ -186,7 +190,7 @@ public sealed partial class MainViewModel
 
     private void RebuildExperience(DateTime nowUtc)
     {
-        IReadOnlyList<ExperienceRow> rows = _pipeline.Experience.Rows(nowUtc, _pipeline.Roster.GetLevel);
+        IReadOnlyList<ExperienceRow> rows = _pipeline.Experience.Rows(nowUtc, (name, server) => _pipeline.Roster.GetLevel(name, server));
         DateTime start = _pipeline.Experience.SessionStartUtc;
         ExperienceRows = rows.Select(r => new ExperienceRowView(
                 r.Character,

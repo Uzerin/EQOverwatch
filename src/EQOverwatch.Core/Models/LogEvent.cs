@@ -19,9 +19,10 @@ public enum LogRoute : byte
 /// </summary>
 public readonly struct LogEvent
 {
-    public LogEvent(string characterName, string line, DateTime receivedUtc, LogRoute routes, DateTime logTimestamp = default)
+    public LogEvent(string characterName, string line, DateTime receivedUtc, LogRoute routes, DateTime logTimestamp = default, string? serverName = null)
     {
         CharacterName = characterName;
+        ServerName = serverName ?? string.Empty;
         Line = line;
         ReceivedUtc = receivedUtc;
         Routes = routes;
@@ -30,6 +31,9 @@ public readonly struct LogEvent
 
     /// <summary>Character that owns the log file this line came from.</summary>
     public string CharacterName { get; }
+
+    /// <summary>Server of the log file this line came from (from <c>eqlog_&lt;Character&gt;_&lt;Server&gt;.txt</c>), or empty when unknown.</summary>
+    public string ServerName { get; }
 
     /// <summary>Full line including the 26-character <c>[ddd MMM dd HH:mm:ss yyyy]</c> wrapper.</summary>
     public string Line { get; }

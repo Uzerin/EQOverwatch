@@ -100,6 +100,12 @@ public sealed class AppSettings
     /// </summary>
     public List<string> AdditionalMonitoredCharacters { get; set; } = new();
 
+    /// <summary>
+    /// The same characters, each with the server it is on. Settings saved before servers were kept have only
+    /// <see cref="AdditionalMonitoredCharacters"/>; this list wins when it has entries.
+    /// </summary>
+    public List<AdditionalCharacterSetting> AdditionalCharacterServers { get; set; } = new();
+
     /// <summary>How many days of history the Primary DPS log is imported for; 0 means all history.</summary>
     public int HistoricalDaysLimit { get; set; } = DefaultHistoricalDaysLimit;
 
@@ -354,4 +360,11 @@ public sealed class TriggerRule
 
     private static Guid DeriveId(Guid id, string purpose) =>
         new(MD5.HashData(Encoding.UTF8.GetBytes($"{id:N}:{purpose}")));
+}
+
+/// <summary>An additional character to monitor and the server it is on (empty for any server).</summary>
+public sealed class AdditionalCharacterSetting
+{
+    public string Name { get; set; } = string.Empty;
+    public string Server { get; set; } = string.Empty;
 }

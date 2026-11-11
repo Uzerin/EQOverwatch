@@ -86,7 +86,7 @@ public sealed partial class MainViewModel
 
         string name = log.CharacterName;
         var viewModel = new CharacterDataViewModel(
-            _characterData, () => EqFolderPath, name, log.ServerName, () => _pipeline.Roster.GetClass(name), tab, CreateFocusViewModel(name, log.ServerName));
+            _characterData, () => EqFolderPath, name, log.ServerName, () => _pipeline.Roster.GetClass(name, log.ServerName), tab, CreateFocusViewModel(name, log.ServerName));
         _characterDataPresenter?.Show(viewModel);
     }
 

@@ -48,6 +48,7 @@ public sealed class CompanionPipeline : IAsyncDisposable
         Songs = new SongTrackerService(Spells, Triggers);
         Charm = new CharmWatchService(Spells, Triggers);
         Experience = new ExperienceTracker(DateTime.UtcNow);
+        MobExperience = new MobExperienceStore();
         ResistStore = new MobResistStore();
         Resists = new ResistTrackerService(Spells, ResistStore);
         BuffUptimeTracker uptime = Uptime;
@@ -58,11 +59,12 @@ public sealed class CompanionPipeline : IAsyncDisposable
 
         // Every sink sees every line of every trigger-enabled log. Historical imports use none of them.
         var triggerSinks = new CompositeTriggerSink(
-            new ITriggerLineSink[] { Triggers, Buffs, Songs, Charm, TimerPause, RaidBosses, ChChain, Cooldowns, Abilities, SharedTriggers, Roster, Loot, Tells, Experience, Resists }, RaiseError);
+            new ITriggerLineSink[] { Triggers, Buffs, Songs, Charm, TimerPause, RaidBosses, ChChain, Cooldowns, Abilities, SharedTriggers, Roster, Loot, Tells, Experience, MobExperience, Resists }, RaiseError);
         Activity = new CharacterActivityService();
         Songs.SetOwnCharacterProbe(IsMonitoredCharacter);
         Songs.SetActivityProbe(Activity.IsActive);
-        Songs.SetLevelProvider(Roster.GetLevel);
+        Songs.SetLevelProvider((name, server) => Roster.GetLevel(name, server));
+        MobExperience.SetLevelProvider((name, server) => Roster.GetLevel(name, server));
         Resists.SetOwnCharacterProbe(IsMonitoredCharacter);
         Resists.SetPlayerProbe(name => IsMonitoredCharacter(name) || Roster.IsVerifiedPlayer(name));
         _monitor = new LiveLogMonitor(Logs, triggerSinks, LiveDps, RaiseError, Activity);
@@ -107,6 +109,9 @@ public sealed class CompanionPipeline : IAsyncDisposable
 
     /// <summary>Experience, levels and AA points gained this session.</summary>
     public ExperienceTracker Experience { get; }
+
+    /// <summary>Experience by mob, per character, server and character level (kept between runs).</summary>
+    public MobExperienceStore MobExperience { get; }
 
     /// <summary>Resist counts per mob and resist type, yours and the raid's shares.</summary>
     public MobResistStore ResistStore { get; }
@@ -241,6 +246,7 @@ public sealed class CompanionPipeline : IAsyncDisposable
     private void RaiseError(Exception ex) => Error?.Invoke(ex);
 
     private string[] _additionalCharacters = Array.Empty<string>();
+    private (string Name, string Server)[] _additionalOnServers = Array.Empty<(string, string)>();
 
     /// <summary>Characters monitored in addition to the watched logs (a second PC, groupmates).</summary>
     public IReadOnlyList<string> AdditionalMonitoredCharacters => _additionalCharacters;
@@ -269,14 +275,38 @@ public sealed class CompanionPipeline : IAsyncDisposable
     /// <summary>True when <paramref name="name"/> is one of the characters this app monitors ("my characters").</summary>
     public bool IsMonitoredCharacter(string name) => Volatile.Read(ref _monitoredSet).Contains(name);
 
+    /// <summary>
+    /// Whether an overlay shows a bar about <paramref name="name"/>. A character with a watched log shows while it is logged in (its log had
+    /// a line in the last minute). Anyone else, such as another raid member using a disc or an additional character with a buff, shows
+    /// while any of your characters is logged in, so nothing shows when nobody is.
+    /// </summary>
+    public bool IsBarShown(string name, DateTime nowUtc) =>
+        Logs.Any(l => string.Equals(l.CharacterName, name, StringComparison.OrdinalIgnoreCase))
+            ? Activity.IsActive(name, nowUtc)
+            : Activity.AnyActive(nowUtc);
+
     /// <summary>Replaces the additional monitored characters and re-registers everyone.</summary>
     public void SetAdditionalMonitoredCharacters(IEnumerable<string> names)
     {
         ArgumentNullException.ThrowIfNull(names);
+        SetAdditionalMonitoredCharacters(names.Select(n => (n, string.Empty)));
+    }
 
-        _additionalCharacters = names
-            .Where(n => !string.IsNullOrWhiteSpace(n))
-            .Select(n => n.Trim())
+    /// <summary>
+    /// Replaces the additional monitored characters, each on its own server (empty for any server), and re-registers everyone.
+    /// Buff landings on them count only in logs on their server.
+    /// </summary>
+    public void SetAdditionalMonitoredCharacters(IEnumerable<(string Name, string Server)> characters)
+    {
+        ArgumentNullException.ThrowIfNull(characters);
+
+        _additionalOnServers = characters
+            .Where(c => !string.IsNullOrWhiteSpace(c.Name))
+            .Select(c => (c.Name.Trim(), c.Server?.Trim() ?? string.Empty))
+            .Distinct()
+            .ToArray();
+        _additionalCharacters = _additionalOnServers
+            .Select(c => c.Name)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
         RefreshMonitoredCharacters();
@@ -296,7 +326,7 @@ public sealed class CompanionPipeline : IAsyncDisposable
         }
 
         Volatile.Write(ref _monitoredSet, new HashSet<string>(everyone, StringComparer.OrdinalIgnoreCase));
-        Buffs.SetAllowedTargets(everyone);
+        Buffs.SetAllowedTargetsOnServers(Logs.Select(l => (l.CharacterName, l.ServerName)).Concat(_additionalOnServers).ToList());
         Abilities.SetMonitoredCharacters(everyone);
     }
 }

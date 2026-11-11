@@ -56,6 +56,9 @@ public sealed partial class TrackedSpellRowViewModel : ObservableObject
 
     public string DurationText => _info is null ? "?" : OverlayFormat.Duration(_info.BaseDurationSeconds);
 
+    /// <summary>The counters the spell puts on its target ("3 disease"), from the spell file; empty for none.</summary>
+    public string CountersText => _info?.CountersText ?? string.Empty;
+
     public string CastOnYou => _info?.CastOnYou ?? string.Empty;
 
     public string CastOnOther => _info?.CastOnOther ?? string.Empty;

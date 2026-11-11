@@ -42,7 +42,7 @@ public static class LogEventProcessor
             try
             {
                 // No timestamp parse here: triggers evaluate the message span directly for minimum latency.
-                triggerSink.OnLine(evt.CharacterName, evt.Message, evt.ReceivedUtc);
+                triggerSink.OnLine(evt.CharacterName, evt.ServerName, evt.Message, evt.ReceivedUtc);
             }
             catch (Exception ex)
             {
@@ -54,6 +54,7 @@ public static class LogEventProcessor
         {
             try
             {
+                dpsSink.OnLogServer(evt.ServerName);
                 DateTime timestamp = evt.LogTimestamp;
                 if (timestamp == default && !LogLineFormat.TryParseTimestamp(evt.Line, out timestamp))
                 {

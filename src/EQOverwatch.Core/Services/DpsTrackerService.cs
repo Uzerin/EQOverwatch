@@ -104,6 +104,7 @@ public partial class DpsTrackerService : IDpsEventSink
     private const int MaxPendingCastNames = 32;
     private readonly Dictionary<string, List<BossCastSnapshot>> _recentCasts = new(StringComparer.OrdinalIgnoreCase);
     private string _logOwner = string.Empty;
+    private string _server = string.Empty;
     private readonly List<PlayerCastSnapshot> _recentPlayerCasts = new();
     private static readonly TimeSpan PlayerCastLead = TimeSpan.FromSeconds(10);
     private const int MaxRecentPlayerCasts = 300;
@@ -191,6 +192,15 @@ public partial class DpsTrackerService : IDpsEventSink
         {
             _seedPlayers.Add(name);
             ConfirmPlayerLocked(name);
+        }
+    }
+
+    /// <summary>The server of the log whose line comes next: players, pets and classes are looked up on it.</summary>
+    public void OnLogServer(string serverName)
+    {
+        lock (_gate)
+        {
+            _server = serverName ?? string.Empty;
         }
     }
 
@@ -291,7 +301,7 @@ public partial class DpsTrackerService : IDpsEventSink
                     {
                         GetOrStart(combatEvent.Target, combatEvent.Timestamp)
                             .AddDamage(combatEvent.Timestamp, Attacker(combatEvent.Source), combatEvent.Amount, isCritical,
-                                combatEvent.DamageKind != DamageKind.DamageShield && _roster is not null && _roster.IsPet(combatEvent.Source)
+                                combatEvent.DamageKind != DamageKind.DamageShield && _roster is not null && _roster.IsPet(combatEvent.Source, _server)
                                     ? AttackType.Pet
                                     : AttackTypes.Classify(combatEvent.DamageKind, combatEvent.Detail));
                         changed = true;
@@ -356,7 +366,13 @@ public partial class DpsTrackerService : IDpsEventSink
     /// <summary>Lets the roster learn from /who and /pet leader lines, including while a log is imported or caught up.</summary>
     public void OnNonCombatMessage(ReadOnlySpan<char> message)
     {
-        _roster?.Observe(message);
+        string server;
+        lock (_gate)
+        {
+            server = _server;
+        }
+
+        _roster?.Observe(message, server);
 
         // /consider lines that show a level ("... (Lvl: 62)") feed the shared mob level ranges.
         Action<string, int>? levelSeen = MobLevelSeen;
@@ -679,11 +695,11 @@ public partial class DpsTrackerService : IDpsEventSink
 
     /// <summary>The row a hit is credited to: the owner when the attacker is a known pet and merging is on.</summary>
     private string Attacker(string source) =>
-        _roster is { MergePetDamage: true } roster && roster.TryGetOwner(source, out string? owner) ? owner : source;
+        _roster is { MergePetDamage: true } roster && roster.TryGetOwner(source, _server, out string owner) ? owner : source;
 
     private NameKind Classify(string name)
     {
-        if (_roster is not null && (_roster.IsVerifiedPlayer(name) || _roster.IsPet(name)))
+        if (_roster is not null && (_roster.IsVerifiedPlayer(name, _server) || _roster.IsPet(name, _server)))
         {
             return NameKind.Player;
         }
@@ -747,7 +763,7 @@ public partial class DpsTrackerService : IDpsEventSink
     {
         if (!_active.TryGetValue(target, out CombatEncounter? encounter))
         {
-            encounter = new CombatEncounter(_nextId++, LowerArticle(target), timestamp);
+            encounter = new CombatEncounter(_nextId++, LowerArticle(target), timestamp) { Server = _server };
             _active.Add(target, encounter);
 
             foreach (PlayerCastSnapshot early in _recentPlayerCasts.Where(c => timestamp - c.Time <= PlayerCastLead))

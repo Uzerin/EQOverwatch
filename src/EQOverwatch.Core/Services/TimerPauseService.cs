@@ -54,7 +54,7 @@ public sealed class TimerPauseService : ITriggerLineSink
 
     internal sealed record SavedBar(
         string Subject, string Label, string SourceName, double DurationSeconds, DateTime StartedUtc, DateTime ExpiresUtc,
-        DateTime? PausedUtc, bool Hidden, TimerOverlayCategory Category);
+        DateTime? PausedUtc, bool Hidden, TimerOverlayCategory Category, string? Note = null);
 
     internal sealed record SavedState(DateTime SavedUtc, List<SavedCharacter> Characters, List<SavedBar> Bars);
 
@@ -312,7 +312,10 @@ public sealed class TimerPauseService : ITriggerLineSink
                     _engine.RestoreBar(
                         new ActiveTimerSnapshot(
                             0, _sourceId, bar.SourceName ?? BuffTrackerService.TimerSourceName, bar.Subject, TimerKind.Countdown, bar.Label,
-                            bar.StartedUtc, bar.ExpiresUtc, bar.DurationSeconds, bar.Category, bar.PausedUtc, bar.Hidden),
+                            bar.StartedUtc, bar.ExpiresUtc, bar.DurationSeconds, bar.Category, bar.PausedUtc, bar.Hidden)
+                        {
+                            Note = bar.Note ?? string.Empty,
+                        },
                         now);
                 }
             }
@@ -343,7 +346,8 @@ public sealed class TimerPauseService : ITriggerLineSink
             }
 
             var bars = _engine.BarsOf(_sourceId)
-                .Select(b => new SavedBar(b.CharacterName, b.Text, b.TriggerName, b.DurationSeconds, b.StartedUtc, b.ExpiresUtc, b.PausedUtc, b.Hidden, b.Category))
+                .Where(b => !b.Cured)
+                .Select(b => new SavedBar(b.CharacterName, b.Text, b.TriggerName, b.DurationSeconds, b.StartedUtc, b.ExpiresUtc, b.PausedUtc, b.Hidden, b.Category, b.Note))
                 .ToList();
             string json = JsonSerializer.Serialize(new SavedState(nowUtc ?? DateTime.UtcNow, characters, bars));
             string? directory = Path.GetDirectoryName(_filePath);

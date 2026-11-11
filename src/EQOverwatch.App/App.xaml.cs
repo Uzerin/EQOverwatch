@@ -63,11 +63,14 @@ public partial class CompanionApp : Application
             if (kind.Category() is { } category)
             {
                 // Each timer overlay shows only its own category of the trigger engine's timers.
-                windows[kind] = new TimerOverlayWindow(new TimerOverlayViewModel(_pipeline.Triggers, category, isCharacterActive: _pipeline.Activity.IsActive), kind);
+                windows[kind] = new TimerOverlayWindow(new TimerOverlayViewModel(_pipeline.Triggers, category, isCharacterActive: _pipeline.IsBarShown), kind);
             }
             else
             {
-                dpsVm = new DpsOverlayViewModel(() => _pipeline.LiveDps.Snapshot, _pipeline.Roster.GetClassLabel, _pipeline.IsMonitoredCharacter);
+                dpsVm = new DpsOverlayViewModel(() => _pipeline.LiveDps.Snapshot, _pipeline.Roster.GetClassLabel, _pipeline.IsMonitoredCharacter)
+                {
+                    ClassOnServer = (name, server) => _pipeline.Roster.GetClassLabel(name, server),
+                };
                 windows[kind] = new DpsOverlayWindow(dpsVm);
             }
         }

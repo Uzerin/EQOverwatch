@@ -19,10 +19,10 @@ public sealed partial class MainViewModel
     /// <summary>"EQ Overwatch".</summary>
     public string AppName => AppInfo.Name;
 
-    /// <summary>"v1.0.52", read from this assembly's version.</summary>
+    /// <summary>"v1.0.53", read from this assembly's version.</summary>
     public string AppVersion { get; } = AppInfo.FormatVersion(typeof(MainViewModel).Assembly);
 
-    /// <summary>"EQ Overwatch v1.0.52": the window title, and the footer of the Discord picture.</summary>
+    /// <summary>"EQ Overwatch v1.0.53": the window title, and the footer of the Discord picture.</summary>
     public string WindowTitle => $"{AppName} {AppVersion}";
 
     // ───────────────────────── EverQuest folder ─────────────────────────
@@ -188,36 +188,146 @@ public sealed partial class MainViewModel
         RefreshCharacterInfo();
     }
 
-    /// <summary>Level and class for every watched and additional character, read from the roster (what /who and level-ups taught it).</summary>
+    /// <summary>
+    /// Level and class for every watched and additional character, read from the roster on that character's own server (what /who
+    /// and level-ups in that server's logs taught it).
+    /// </summary>
     private void RefreshCharacterInfo()
     {
         foreach (WatchedLogConfig log in Logs)
         {
-            log.Level = _pipeline.Roster.GetLevel(log.CharacterName);
-            log.ClassName = _pipeline.Roster.GetClass(log.CharacterName);
+            log.Level = _pipeline.Roster.GetLevel(log.CharacterName, log.ServerName);
+            log.ClassName = _pipeline.Roster.GetClass(log.CharacterName, log.ServerName);
             log.DataText = DescribeCharacterData(log);
         }
 
-        AdditionalCharacterRows.Clear();
-        foreach (string name in AdditionalCharacters)
+        foreach (CharacterInfoRow row in AdditionalCharacterRows)
         {
-            AdditionalCharacterRows.Add(new CharacterInfoRow(name, _pipeline.Roster.GetLevel(name), _pipeline.Roster.GetClass(name)));
+            row.Level = _pipeline.Roster.GetLevel(row.Name, row.Server);
+            row.ClassName = _pipeline.Roster.GetClass(row.Name, row.Server);
         }
+
+        RefreshServerChoices();
     }
 
     // ──────────────── additional characters (other PCs, groupmates) ────────────────
 
-    /// <summary>Characters whose buffs are tracked although they are not played here.</summary>
+    /// <summary>Characters whose buffs are tracked although they are not played here (one entry per row, so a name can repeat on two servers).</summary>
     public ObservableCollection<string> AdditionalCharacters { get; } = new();
 
-    /// <summary>The same characters with their level and class, as the table under the Characters grid shows them.</summary>
+    /// <summary>The same characters with their server, level and class, as the table under the Characters grid shows them.</summary>
     public ObservableCollection<CharacterInfoRow> AdditionalCharacterRows { get; } = new();
+
+    /// <summary>The servers an additional character can be on: the servers of the watched logs, plus any already used in the list.</summary>
+    public ObservableCollection<string> ServerChoices { get; } = new();
 
     [ObservableProperty]
     private string _newAdditionalCharacter = string.Empty;
 
+    /// <summary>The server a newly added character is on.</summary>
+    [ObservableProperty]
+    private string _newAdditionalCharacterServer = string.Empty;
+
     [ObservableProperty]
     private string _additionalCharacterStatus = string.Empty;
+
+    /// <summary>The server most watched logs are on (A-Z on a tie), or empty without logs: where data saved without a server goes.</summary>
+    private string DefaultServer() =>
+        Logs.Where(l => l.ServerName.Length > 0)
+            .GroupBy(l => l.ServerName, StringComparer.OrdinalIgnoreCase)
+            .OrderByDescending(g => g.Count())
+            .ThenBy(g => g.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.First().ServerName)
+            .FirstOrDefault() ?? string.Empty;
+
+    private void RefreshServerChoices()
+    {
+        List<string> servers = Logs.Select(l => l.ServerName)
+            .Concat(AdditionalCharacterRows.Select(r => r.Server))
+            .Where(s => s.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(s => s, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        // Changed item by item (never cleared), so the drop-downs in the list keep showing their server while it changes.
+        for (int i = ServerChoices.Count - 1; i >= 0; i--)
+        {
+            if (!servers.Contains(ServerChoices[i], StringComparer.Ordinal))
+            {
+                ServerChoices.RemoveAt(i);
+            }
+        }
+
+        for (int i = 0; i < servers.Count; i++)
+        {
+            if (i >= ServerChoices.Count || !string.Equals(ServerChoices[i], servers[i], StringComparison.Ordinal))
+            {
+                int existing = ServerChoices.IndexOf(servers[i]);
+                if (existing >= 0)
+                {
+                    ServerChoices.Move(existing, i);
+                }
+                else
+                {
+                    ServerChoices.Insert(i, servers[i]);
+                }
+            }
+        }
+
+        if (!ServerChoices.Contains(NewAdditionalCharacterServer, StringComparer.OrdinalIgnoreCase))
+        {
+            NewAdditionalCharacterServer = ServerChoices.Count == 1 ? ServerChoices[0] : DefaultServer();
+        }
+    }
+
+    /// <summary>
+    /// Files roster entries saved before servers were kept: under the server of the watched log with that name, otherwise the server
+    /// most watched logs are on. Then restores the additional characters (older settings have names only: each goes on the server it
+    /// was last seen on, otherwise that same default server).
+    /// </summary>
+    private void RestoreAdditionalCharacters(AppSettings settings)
+    {
+        string fallback = DefaultServer();
+        if (fallback.Length > 0)
+        {
+            _pipeline.Roster.AssignLegacyServers(name =>
+                Logs.Where(l => l.CharacterName.Equals(name, StringComparison.Ordinal) && l.ServerName.Length > 0)
+                    .Select(l => l.ServerName)
+                    .OrderBy(s => s.Equals(fallback, StringComparison.OrdinalIgnoreCase) ? 0 : 1)
+                    .FirstOrDefault() ?? fallback);
+        }
+
+        AdditionalCharacterRows.Clear();
+        AdditionalCharacters.Clear();
+        List<AdditionalCharacterSetting> saved = settings.AdditionalCharacterServers ?? new List<AdditionalCharacterSetting>();
+        if (saved.Count > 0)
+        {
+            foreach (AdditionalCharacterSetting entry in saved)
+            {
+                AddRow(entry.Name, entry.Server ?? string.Empty);
+            }
+        }
+        else
+        {
+            foreach (string name in settings.AdditionalMonitoredCharacters ?? new List<string>())
+            {
+                string seen = _pipeline.Roster.GetLatestServer(name);
+                AddRow(name, seen.Length > 0 ? seen : fallback);
+            }
+        }
+
+        _pipeline.SetAdditionalMonitoredCharacters(AdditionalCharacterRows.Select(r => (r.Name, r.Server)));
+        RefreshCharacterInfo();
+    }
+
+    private CharacterInfoRow AddRow(string name, string server)
+    {
+        var row = new CharacterInfoRow(name, server, OnAdditionalServerChanging, OnAdditionalServerChanged);
+        AdditionalCharacterRows.Add(row);
+        AdditionalCharacters.Add(name);
+        return row;
+    }
+
+    private static string ServerText(string server) => server.Length > 0 ? server : "any server";
 
     [RelayCommand]
     private void AddAdditionalCharacter()
@@ -236,38 +346,65 @@ public sealed partial class MainViewModel
         }
 
         string name = char.ToUpperInvariant(typed[0]) + typed[1..].ToLowerInvariant();
-        if (AdditionalCharacters.Any(n => string.Equals(n, name, StringComparison.OrdinalIgnoreCase)))
+        string server = NewAdditionalCharacterServer?.Trim() ?? string.Empty;
+        if (AdditionalCharacterRows.Any(r => r.Is(name, server)))
         {
-            AdditionalCharacterStatus = $"{name} is already in the list.";
+            AdditionalCharacterStatus = $"{name} ({ServerText(server)}) is already in the list.";
             return;
         }
 
-        AdditionalCharacters.Add(name);
+        AddRow(name, server);
         NewAdditionalCharacter = string.Empty;
-        AdditionalCharacterStatus = $"Now tracking buffs on {name}.";
+        AdditionalCharacterStatus = server.Length > 0 ? $"Now tracking buffs on {name} ({server})." : $"Now tracking buffs on {name}.";
         ApplyMonitoredCharacters();
     }
 
+    /// <summary>Removes a row (the Remove button passes the row; a name removes that name's first row).</summary>
     [RelayCommand]
-    private void RemoveAdditionalCharacter(string? name)
+    private void RemoveAdditionalCharacter(object? target)
     {
-        if (name is null)
+        CharacterInfoRow? row = target switch
+        {
+            CharacterInfoRow r => r,
+            string name => AdditionalCharacterRows.FirstOrDefault(r => string.Equals(r.Name, name, StringComparison.OrdinalIgnoreCase)),
+            _ => null,
+        };
+
+        if (row is null || !AdditionalCharacterRows.Remove(row))
         {
             return;
         }
 
-        string? existing = AdditionalCharacters.FirstOrDefault(n => string.Equals(n, name, StringComparison.OrdinalIgnoreCase));
-        if (existing is not null && AdditionalCharacters.Remove(existing))
+        int index = AdditionalCharacters.IndexOf(row.Name);
+        if (index >= 0)
         {
-            AdditionalCharacterStatus = $"No longer tracking {existing}.";
-            ApplyMonitoredCharacters();
+            AdditionalCharacters.RemoveAt(index);
         }
+
+        AdditionalCharacterStatus = $"No longer tracking {row.Name}.";
+        ApplyMonitoredCharacters();
     }
+
+    /// <summary>A row's server was changed in the list: refused when the same name is already listed on that server.</summary>
+    private bool OnAdditionalServerChanging(CharacterInfoRow row, string server)
+    {
+        if (AdditionalCharacterRows.Any(r => !ReferenceEquals(r, row) && r.Is(row.Name, server)))
+        {
+            AdditionalCharacterStatus = $"{row.Name} ({ServerText(server)}) is already in the list.";
+            return false;
+        }
+
+        AdditionalCharacterStatus = $"{row.Name} is now tracked on {ServerText(server)}.";
+        return true;
+    }
+
+    /// <summary>A row's server changed: its level and class now come from that server.</summary>
+    private void OnAdditionalServerChanged(CharacterInfoRow row) => ApplyMonitoredCharacters();
 
     /// <summary>Registers the extra characters with the DPS trackers and the buff tracker, then saves.</summary>
     private void ApplyMonitoredCharacters()
     {
-        _pipeline.SetAdditionalMonitoredCharacters(AdditionalCharacters);
+        _pipeline.SetAdditionalMonitoredCharacters(AdditionalCharacterRows.Select(r => (r.Name, r.Server)));
         RefreshCharacterInfo();
         RequestSave();
     }
@@ -533,10 +670,88 @@ public sealed partial class MainViewModel
     }
 }
 
-/// <summary>One line of the "additional characters" table.</summary>
-public sealed record CharacterInfoRow(string Name, int Level, string ClassName)
+/// <summary>One line of the "additional characters" table. Its server can be changed in the list.</summary>
+public sealed class CharacterInfoRow : ObservableObject
 {
+    private readonly Func<CharacterInfoRow, string, bool>? _serverChanging;
+    private readonly Action<CharacterInfoRow>? _serverChanged;
+    private string _server;
+    private int _level;
+    private string _className = string.Empty;
+
+    public CharacterInfoRow(
+        string name, string server, Func<CharacterInfoRow, string, bool>? serverChanging = null, Action<CharacterInfoRow>? serverChanged = null)
+    {
+        Name = name;
+        _server = server ?? string.Empty;
+        _serverChanging = serverChanging;
+        _serverChanged = serverChanged;
+    }
+
+    public string Name { get; }
+
+    /// <summary>The server the character is on (empty for any server). A change the list refuses leaves it as it was.</summary>
+    public string Server
+    {
+        get => _server;
+        set
+        {
+            value = value?.Trim() ?? string.Empty;
+            if (string.Equals(value, _server, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            if (_serverChanging is not null && !_serverChanging(this, value))
+            {
+                // Puts the old server back in the list's drop-down. The drop-down ignores a change notice raised while it is still
+                // writing its own choice, so the notice is sent once it has finished.
+                if (System.Windows.Application.Current?.Dispatcher is { } dispatcher)
+                {
+                    dispatcher.BeginInvoke(() => OnPropertyChanged(nameof(Server)));
+                }
+                else
+                {
+                    OnPropertyChanged(nameof(Server));
+                }
+
+                return;
+            }
+
+            SetProperty(ref _server, value);
+            _serverChanged?.Invoke(this);
+        }
+    }
+
+    public int Level
+    {
+        get => _level;
+        set
+        {
+            if (SetProperty(ref _level, value))
+            {
+                OnPropertyChanged(nameof(LevelText));
+            }
+        }
+    }
+
+    public string ClassName
+    {
+        get => _className;
+        set
+        {
+            if (SetProperty(ref _className, value ?? string.Empty))
+            {
+                OnPropertyChanged(nameof(ClassText));
+            }
+        }
+    }
+
     public string LevelText => Level > 0 ? Level.ToString(System.Globalization.CultureInfo.InvariantCulture) : "—";
 
     public string ClassText => ClassName.Length > 0 ? ClassName : "—";
+
+    /// <summary>True for the same name (any capitals) on the same server (any capitals).</summary>
+    public bool Is(string name, string server) =>
+        string.Equals(Name, name, StringComparison.OrdinalIgnoreCase) && string.Equals(Server, server ?? string.Empty, StringComparison.OrdinalIgnoreCase);
 }

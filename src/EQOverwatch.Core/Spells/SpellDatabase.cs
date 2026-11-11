@@ -24,10 +24,76 @@ public sealed record SpellInfo(
     int BaseDurationSeconds,
     TimerOverlayCategory Category = TimerOverlayCategory.Buffs,
     IReadOnlyList<int>? ClassLevels = null,
-    IReadOnlyList<int>? EffectIds = null)
+    IReadOnlyList<int>? EffectIds = null,
+    SpellCounters? Counters = null)
 {
     /// <summary><see cref="CastOnOther"/> without surrounding whitespace: the text a log line ends with.</summary>
     public string CastOnOtherSuffix => CastOnOther.Trim();
+
+    /// <summary>"3 disease", "3 disease, 2 poison", or empty when the spell has no counters.</summary>
+    public string CountersText => Counters?.Label ?? string.Empty;
+}
+
+/// <summary>
+/// The counters a detrimental spell puts on its target, from its effects in the spell file: effect 35 disease, 36 poison,
+/// 116 curse and 369 corruption (a cure removes them with negative values; only positive ones are counted here).
+/// </summary>
+public sealed record SpellCounters(int Disease, int Poison, int Curse, int Corruption)
+{
+    public const int DiseaseEffect = 35;
+    public const int PoisonEffect = 36;
+    public const int CurseEffect = 116;
+    public const int CorruptionEffect = 369;
+
+    /// <summary>"3 disease, 2 poison" (in that order: disease, poison, curse, corruption).</summary>
+    public string Label
+    {
+        get
+        {
+            var parts = new List<string>(4);
+            Add(Disease, "disease");
+            Add(Poison, "poison");
+            Add(Curse, "curse");
+            Add(Corruption, "corruption");
+            return string.Join(", ", parts);
+
+            void Add(int count, string kind)
+            {
+                if (count > 0)
+                {
+                    parts.Add($"{count} {kind}");
+                }
+            }
+        }
+    }
+
+    /// <summary>The counters in a spell's effects, or null when it has none.</summary>
+    public static SpellCounters? From(IEnumerable<SpellEffects.Effect>? effects)
+    {
+        if (effects is null)
+        {
+            return null;
+        }
+
+        int disease = 0, poison = 0, curse = 0, corruption = 0;
+        foreach (SpellEffects.Effect effect in effects)
+        {
+            if (effect.Base <= 0)
+            {
+                continue;
+            }
+
+            switch (effect.Spa)
+            {
+                case DiseaseEffect: disease += effect.Base; break;
+                case PoisonEffect: poison += effect.Base; break;
+                case CurseEffect: curse += effect.Base; break;
+                case CorruptionEffect: corruption += effect.Base; break;
+            }
+        }
+
+        return disease + poison + curse + corruption > 0 ? new SpellCounters(disease, poison, curse, corruption) : null;
+    }
 }
 
 /// <summary>

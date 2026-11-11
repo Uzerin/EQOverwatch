@@ -145,6 +145,17 @@ public sealed record EncounterSnapshot(
     /// A copy whose participants carry their class label ("WAR", "Pet", or empty), looked up now. Classes are not stored in the
     /// frozen fight, so one learned after the fight ended (a later /who) still shows.
     /// </summary>
+    /// <summary>The server of the log that recorded the fight (empty when unknown).</summary>
+    public string Server { get; init; } = string.Empty;
+
+    /// <summary>Like <see cref="WithClasses(Func{string, string})"/>, with each class looked up on the fight's <see cref="Server"/>.</summary>
+    public EncounterSnapshot WithClassesOnServer(Func<string, string, string> classOnServer)
+    {
+        ArgumentNullException.ThrowIfNull(classOnServer);
+        string server = Server;
+        return WithClasses(name => classOnServer(name, server));
+    }
+
     public EncounterSnapshot WithClasses(Func<string, string> classOf)
     {
         ArgumentNullException.ThrowIfNull(classOf);
@@ -192,7 +203,10 @@ public sealed record EncounterSnapshot(
             Array.AsReadOnly(participants), Array.AsReadOnly(taken),
             Array.AsReadOnly(encounter.Casts.ToArray()), Array.AsReadOnly(healing),
             Array.AsReadOnly(encounter.DeathLog.ToArray()), encounter.Killed,
-            Array.AsReadOnly(encounter.PlayerCasts.ToArray()), encounter.BuildTimeline(), encounter.ShieldSummary());
+            Array.AsReadOnly(encounter.PlayerCasts.ToArray()), encounter.BuildTimeline(), encounter.ShieldSummary())
+        {
+            Server = encounter.Server,
+        };
     }
 }
 
@@ -239,6 +253,12 @@ public sealed record ActiveTimerSnapshot(
     DateTime? PausedUtc = null,
     bool Hidden = false)
 {
+    /// <summary>A short note shown beside the bar's text, such as a debuff's counters ("3 disease").</summary>
+    public string Note { get; init; } = string.Empty;
+
+    /// <summary>True for the short green bar that replaces a debuff once a "cured of" line has removed it.</summary>
+    public bool Cured { get; init; }
+
     /// <summary>The moment the bar's clock reads: <paramref name="nowUtc"/>, or the instant it was paused at while it is paused.</summary>
     private DateTime ClockAt(DateTime nowUtc) => PausedUtc is { } paused && paused < nowUtc ? paused : nowUtc;
 

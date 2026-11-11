@@ -40,6 +40,7 @@ public sealed partial class ExperienceTracker : ITriggerLineSink
     private readonly object _gate = new();
     private readonly Dictionary<string, Stats> _stats = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, (int Level, double? Progress)> _known = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, string> _servers = new(StringComparer.OrdinalIgnoreCase); // character -> server of its log
     private DateTime _sessionStartUtc;
     private long _version;
 
@@ -109,6 +110,22 @@ public sealed partial class ExperienceTracker : ITriggerLineSink
         }
 
         Interlocked.Increment(ref _version);
+    }
+
+    public void OnLine(string characterName, string serverName, ReadOnlySpan<char> message, DateTime receivedUtc)
+    {
+        if (!string.IsNullOrEmpty(serverName) && !string.IsNullOrEmpty(characterName))
+        {
+            lock (_gate)
+            {
+                if (!_servers.TryGetValue(characterName, out string? known) || !known.Equals(serverName, StringComparison.Ordinal))
+                {
+                    _servers[characterName] = serverName;
+                }
+            }
+        }
+
+        OnLine(characterName, message, receivedUtc);
     }
 
     public void OnLine(string characterName, ReadOnlySpan<char> message, DateTime receivedUtc)
@@ -217,7 +234,11 @@ public sealed partial class ExperienceTracker : ITriggerLineSink
     }
 
     /// <summary>One row per character that gained anything this session, in name order.</summary>
-    public IReadOnlyList<ExperienceRow> Rows(DateTime nowUtc, Func<string, int>? levelFallback = null)
+    public IReadOnlyList<ExperienceRow> Rows(DateTime nowUtc, Func<string, int>? levelFallback = null) =>
+        Rows(nowUtc, levelFallback is null ? null : (name, _) => levelFallback(name));
+
+    /// <summary>The same, with the level fallback looked up on the server of each character's log.</summary>
+    public IReadOnlyList<ExperienceRow> Rows(DateTime nowUtc, Func<string, string, int>? levelOnServer)
     {
         lock (_gate)
         {
@@ -231,7 +252,7 @@ public sealed partial class ExperienceTracker : ITriggerLineSink
                     TimeSpan? next = s.Progress is { } progress && perHour > 0.0001
                         ? TimeSpan.FromHours(Math.Max(0, 100 - progress) / perHour)
                         : null;
-                    int level = s.Level > 0 ? s.Level : levelFallback?.Invoke(p.Key) ?? 0;
+                    int level = s.Level > 0 ? s.Level : levelOnServer?.Invoke(p.Key, _servers.GetValueOrDefault(p.Key, string.Empty)) ?? 0;
                     return new ExperienceRow(
                         p.Key, level, s.Xp, perHour, s.Progress, next, s.Aa, s.Aa / hours, s.Kills, s.Party, s.Raid, s.Solo, s.Levels, s.LastGainUtc);
                 })

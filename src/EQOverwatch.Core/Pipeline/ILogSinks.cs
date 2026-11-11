@@ -13,6 +13,13 @@ public interface ITriggerLineSink
     /// <param name="message">Line text after the timestamp wrapper.</param>
     /// <param name="receivedUtc">Wall-clock instant the line was read (drives countdown timers).</param>
     void OnLine(string characterName, ReadOnlySpan<char> message, DateTime receivedUtc);
+
+    /// <summary>
+    /// The same, with the server of the log the line came from (empty when unknown). The pipeline calls this one; sinks that care
+    /// which server a line is from (the player roster, the buff and song trackers) override it. By default it ignores the server.
+    /// </summary>
+    void OnLine(string characterName, string serverName, ReadOnlySpan<char> message, DateTime receivedUtc) =>
+        OnLine(characterName, message, receivedUtc);
 }
 
 /// <summary>
@@ -58,6 +65,14 @@ public interface IDpsEventSink
     /// learn players and pets from /who and /pet leader lines. Default implementation does nothing.
     /// </summary>
     void OnNonCombatMessage(ReadOnlySpan<char> message)
+    {
+    }
+
+    /// <summary>
+    /// Called before every line with the server of the log it came from (empty when unknown), so players, pets and classes are
+    /// looked up on the right server. Default implementation does nothing.
+    /// </summary>
+    void OnLogServer(string serverName)
     {
     }
 }

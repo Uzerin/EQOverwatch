@@ -45,6 +45,14 @@ public sealed partial class TimerBarViewModel : ObservableObject
     [ObservableProperty]
     private bool _isUrgent;
 
+    /// <summary>A debuff's counters ("3 disease"), shown beside the label; empty for none.</summary>
+    [ObservableProperty]
+    private string _note = string.Empty;
+
+    /// <summary>The short green bar shown after a "cured of" line removed the debuff.</summary>
+    [ObservableProperty]
+    private bool _isCured;
+
     /// <summary>Picks the bar color (the theme's Buffs / Debuffs / Songs / Raid Triggers color).</summary>
     [ObservableProperty]
     private TimerOverlayCategory _category;
@@ -54,9 +62,11 @@ public sealed partial class TimerBarViewModel : ObservableObject
         Category = snapshot.Category;
         double remaining = snapshot.RemainingSeconds(nowUtc);
         Label = snapshot.Text;
+        Note = snapshot.Note;
+        IsCured = snapshot.Cured;
         RemainingText = OverlayFormat.Remaining(remaining);
         Fraction = snapshot.FractionRemaining(nowUtc);
-        IsUrgent = remaining <= UrgentThresholdSeconds;
+        IsUrgent = !snapshot.Cured && remaining <= UrgentThresholdSeconds;
     }
 }
 

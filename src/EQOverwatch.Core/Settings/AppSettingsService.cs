@@ -297,6 +297,24 @@ public sealed class AppSettingsService : IDisposable
         return result;
     }
 
+    /// <summary>Trims names and servers, drops invalid names and duplicate name-and-server pairs (case-insensitive), keeps the order.</summary>
+    internal static List<AdditionalCharacterSetting> NormalizeCharacterServers(IEnumerable<AdditionalCharacterSetting?>? entries)
+    {
+        var result = new List<AdditionalCharacterSetting>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (AdditionalCharacterSetting? entry in entries ?? Enumerable.Empty<AdditionalCharacterSetting?>())
+        {
+            string name = entry?.Name?.Trim() ?? string.Empty;
+            string server = entry?.Server?.Trim() ?? string.Empty;
+            if (NormalizeCharacterNames(new[] { name }).Count == 1 && seen.Add($"{server}|{name}"))
+            {
+                result.Add(new AdditionalCharacterSetting { Name = name, Server = server });
+            }
+        }
+
+        return result;
+    }
+
     /// <summary>Trims names, drops blanks and duplicates (case-insensitive), keeps the first spelling and the original order.</summary>
     internal static List<string> NormalizeCharacterNames(IEnumerable<string>? names)
     {
@@ -334,6 +352,7 @@ public sealed class AppSettingsService : IDisposable
 
         settings.EqFolderPath = EqDirectoryScanner.Normalize(settings.EqFolderPath);
         settings.AdditionalMonitoredCharacters = NormalizeCharacterNames(settings.AdditionalMonitoredCharacters);
+        settings.AdditionalCharacterServers = NormalizeCharacterServers(settings.AdditionalCharacterServers);
         settings.ChChain = (settings.ChChain ?? new ChChainSettings()).Sanitized();
         settings.HistoricalDaysLimit = AppSettings.HistoricalDaysChoices.Contains(settings.HistoricalDaysLimit)
             ? settings.HistoricalDaysLimit

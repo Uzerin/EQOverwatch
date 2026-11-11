@@ -30,7 +30,7 @@ public sealed class SongTrackerService : ITriggerLineSink
 
     private Func<string, bool>? _isMine;
     private Func<string, DateTime, bool>? _isActive;
-    private Func<string, int>? _levelOf;
+    private Func<string, string, int>? _levelOf;
     private long _barsStarted;
 
     public SongTrackerService(SpellDatabaseService spells, TriggerEngineService timers)
@@ -55,9 +55,16 @@ public sealed class SongTrackerService : ITriggerLineSink
     public void SetActivityProbe(Func<string, DateTime, bool>? isActive) => Volatile.Write(ref _isActive, isActive);
 
     /// <summary>Gives a character's level (0 when not known), so your own songs last as long as they do at that level.</summary>
-    public void SetLevelProvider(Func<string, int>? levelOf) => Volatile.Write(ref _levelOf, levelOf);
+    public void SetLevelProvider(Func<string, int>? levelOf) =>
+        Volatile.Write(ref _levelOf, levelOf is null ? null : (name, _) => levelOf(name));
 
-    public void OnLine(string characterName, ReadOnlySpan<char> message, DateTime receivedUtc)
+    /// <summary>Gives a character's level on a server (0 when not known).</summary>
+    public void SetLevelProvider(Func<string, string, int>? levelOnServer) => Volatile.Write(ref _levelOf, levelOnServer);
+
+    public void OnLine(string characterName, ReadOnlySpan<char> message, DateTime receivedUtc) =>
+        OnLine(characterName, string.Empty, message, receivedUtc);
+
+    public void OnLine(string characterName, string serverName, ReadOnlySpan<char> message, DateTime receivedUtc)
     {
         if (message.Length < 12 || message[^1] is not ('.' or '>'))
         {
@@ -69,7 +76,7 @@ public sealed class SongTrackerService : ITriggerLineSink
             if (message[^1] == '.')
             {
                 string song = message[YouBeginSinging.Length..^1].ToString();
-                StartOwn(characterName, song, receivedUtc);
+                StartOwn(characterName, serverName, song, receivedUtc);
             }
 
             return;
@@ -100,14 +107,14 @@ public sealed class SongTrackerService : ITriggerLineSink
         return ticks <= 0 ? song.BaseDurationSeconds : ticks * 6;
     }
 
-    private void StartOwn(string character, string songName, DateTime now)
+    private void StartOwn(string character, string server, string songName, DateTime now)
     {
         if (_spells.Database.FindByName(songName) is not { } song)
         {
             return;
         }
 
-        int level = Volatile.Read(ref _levelOf)?.Invoke(character) ?? 0;
+        int level = Volatile.Read(ref _levelOf)?.Invoke(character, server) ?? 0;
         Start(character, character, song, SongSeconds(song, level), now);
     }
 

@@ -25,6 +25,24 @@ public sealed class CompanionPipelineTests : IDisposable
         File.AppendAllTextAsync(path, string.Join("\n", lines) + "\n");
 
     [Fact]
+    public async Task Bars_about_other_raid_members_show_while_any_of_your_characters_is_logged_in()
+    {
+        await using var pipeline = new CompanionPipeline();
+        pipeline.Logs.AddFile(Create("eqlog_Stackprime_frostreaver.txt"));
+        pipeline.Logs.AddFile(Create("eqlog_Ream_frostreaver.txt"));
+        var t0 = new DateTime(2026, 11, 10, 20, 0, 0, DateTimeKind.Utc);
+
+        Assert.False(pipeline.IsBarShown("Quickshotz", t0)); // nobody logged in: nothing shows
+        pipeline.Activity.OnLogLine("Stackprime", t0);
+
+        Assert.True(pipeline.IsBarShown("Stackprime", t0.AddSeconds(5)));
+        Assert.False(pipeline.IsBarShown("Ream", t0.AddSeconds(5)));        // your own character, logged out
+        Assert.True(pipeline.IsBarShown("Quickshotz", t0.AddSeconds(5)));   // another raid member's disc
+        Assert.True(pipeline.IsBarShown("quickshotz", t0.AddSeconds(5)));
+        Assert.False(pipeline.IsBarShown("Quickshotz", t0.AddMinutes(2)));  // everyone logged out again
+    }
+
+    [Fact]
     public async Task Live_tailing_and_triggers_keep_running_while_a_historical_log_is_imported()
     {
         string livePath = Create("eqlog_Stackprime_Frostreaver.txt", Line("old line that must be skipped"));

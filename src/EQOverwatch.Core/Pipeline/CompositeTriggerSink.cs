@@ -15,13 +15,16 @@ public sealed class CompositeTriggerSink : ITriggerLineSink
         _onError = onError;
     }
 
-    public void OnLine(string characterName, ReadOnlySpan<char> message, DateTime receivedUtc)
+    public void OnLine(string characterName, ReadOnlySpan<char> message, DateTime receivedUtc) =>
+        OnLine(characterName, string.Empty, message, receivedUtc);
+
+    public void OnLine(string characterName, string serverName, ReadOnlySpan<char> message, DateTime receivedUtc)
     {
         foreach (ITriggerLineSink sink in _sinks)
         {
             try
             {
-                sink.OnLine(characterName, message, receivedUtc);
+                sink.OnLine(characterName, serverName, message, receivedUtc);
             }
             catch (Exception ex)
             {

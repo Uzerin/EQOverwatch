@@ -292,6 +292,9 @@
                                        Text="Buffs landing on these characters start and reset timer bars here, just like your own characters. Strangers in the raid are ignored. Triggers only run on logs this PC can read."/>
                             <DockPanel Margin="0,0,0,8">
                                 <Button DockPanel.Dock="Right" Content="+ Add Character" Margin="10,0,0,0" Command="{Binding AddAdditionalCharacterCommand}"/>
+                                <ComboBox DockPanel.Dock="Right" Width="150" Margin="10,0,0,0" ToolTip="The server this character plays on"
+                                          ItemsSource="{Binding ServerChoices}"
+                                          SelectedItem="{Binding NewAdditionalCharacterServer, Mode=TwoWay}"/>
                                 <TextBox MaxLength="30" ToolTip="Character name, then Enter"
                                          Text="{Binding NewAdditionalCharacter, UpdateSourceTrigger=PropertyChanged}">
                                     <TextBox.InputBindings>
@@ -304,6 +307,15 @@
                                       GridLinesVisibility="Horizontal" HorizontalAlignment="Left" Width="620" MaxHeight="170">
                                 <DataGrid.Columns>
                                     <DataGridTextColumn Header="Character" Binding="{Binding Name, Mode=OneWay}" Width="Auto"/>
+                                    <DataGridTemplateColumn Header="Server" Width="160">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <ComboBox Margin="2,1" ToolTip="Change the server this character is tracked on"
+                                                          ItemsSource="{Binding DataContext.ServerChoices, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                          SelectedItem="{Binding Server, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
                                     <DataGridTextColumn Header="Level" Binding="{Binding LevelText, Mode=OneWay}" Width="Auto"/>
                                     <DataGridTextColumn Header="Class" Binding="{Binding ClassText, Mode=OneWay}" Width="Auto"/>
                                     <DataGridTemplateColumn Width="100">
@@ -312,7 +324,7 @@
                                                 <Button Content="Remove" Style="{StaticResource SecondaryButton}" Margin="4,1" Padding="10,3"
                                                         ToolTip="Stop monitoring this character"
                                                         Command="{Binding DataContext.RemoveAdditionalCharacterCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                        CommandParameter="{Binding Name}"/>
+                                                        CommandParameter="{Binding}"/>
                                             </DataTemplate>
                                         </DataGridTemplateColumn.CellTemplate>
                                     </DataGridTemplateColumn>
@@ -762,6 +774,7 @@
                             <DataGridTextColumn Header="Spell" Binding="{Binding Name}" Width="170" ElementStyle="{StaticResource WrapCell}"/>
                             <DataGridTextColumn Header="ID" Binding="{Binding SpellId}" Width="64" ElementStyle="{StaticResource NumericCell}"/>
                             <DataGridTextColumn Header="Duration" Binding="{Binding DurationText}" Width="80" ElementStyle="{StaticResource NumericCell}"/>
+                            <DataGridTextColumn Header="Counters" Binding="{Binding CountersText, Mode=OneWay}" Width="110" ElementStyle="{StaticResource WrapCell}"/>
                             <DataGridTemplateColumn Header="Overlay" Width="160">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
@@ -1819,8 +1832,11 @@
                 <Grid Margin="6">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="*" MinHeight="90"/>
                         <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="2*" MinHeight="140"/>
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
                     <DockPanel Grid.Row="0" Margin="0,0,0,8" LastChildFill="False">
@@ -1857,6 +1873,31 @@
                         </Border>
                     </UniformGrid>
                     <TextBlock Grid.Row="3" Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,8,0,0" Text="{Binding ExperienceHint}"/>
+
+                    <!-- Experience by mob, per character level -->
+                    <DockPanel Grid.Row="4" Margin="0,14,0,8" LastChildFill="False">
+                        <TextBlock DockPanel.Dock="Left" Text="Experience by mob" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        <Button DockPanel.Dock="Right" Content="Scan log history" Style="{StaticResource SecondaryButton}" Command="{Binding ScanMobExperienceCommand}"
+                                ToolTip="Reads every watched log from the start again and rebuilds its table."/>
+                        <ComboBox DockPanel.Dock="Right" Width="80" Margin="6,0,12,0" ItemsSource="{Binding MobExperienceLevels}"
+                                  SelectedItem="{Binding SelectedMobExperienceLevel, Mode=TwoWay}"/>
+                        <TextBlock DockPanel.Dock="Right" Style="{StaticResource HintText}" VerticalAlignment="Center" Text="Level"/>
+                        <ComboBox DockPanel.Dock="Right" Width="200" Margin="6,0,12,0" ItemsSource="{Binding MobExperienceCharacters}" DisplayMemberPath="Label"
+                                  SelectedItem="{Binding SelectedMobExperienceCharacter, Mode=TwoWay}"/>
+                        <TextBlock DockPanel.Dock="Right" Style="{StaticResource HintText}" VerticalAlignment="Center" Text="Character"/>
+                    </DockPanel>
+                    <DataGrid Grid.Row="5" ItemsSource="{Binding MobExperienceRows}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
+                              HeadersVisibility="Column" GridLinesVisibility="Horizontal">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Level" Binding="{Binding Level, Mode=OneWay}" Width="60" ElementStyle="{StaticResource NumericCell}"/>
+                            <DataGridTextColumn Header="Mob" Binding="{Binding Mob, Mode=OneWay}" Width="*" MinWidth="160"/>
+                            <DataGridTextColumn Header="Kills" Binding="{Binding Kills, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                            <DataGridTextColumn Header="Avg % per kill" Binding="{Binding AveragePercent, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                            <DataGridTextColumn Header="Total %" Binding="{Binding TotalPercent, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                            <DataGridTextColumn Header="Last kill" Binding="{Binding LastKill, Mode=OneWay}" Width="Auto"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <TextBlock Grid.Row="6" Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,8,0,0" Text="{Binding MobExperienceStatus}"/>
                 </Grid>
             </TabItem>
 
@@ -1952,6 +1993,7 @@
                                       HorizontalScrollBarVisibility="Auto">
                                 <DataGrid.Columns>
                                     <DataGridTextColumn Header="Player" Binding="{Binding Name}" Width="Auto"/>
+                                    <DataGridTextColumn Header="Server" Binding="{Binding Server}" Width="Auto"/>
                                     <DataGridTextColumn Header="Level" Binding="{Binding LevelText, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                                     <DataGridTextColumn Header="Class" Binding="{Binding Class}" Width="Auto"/>
                                     <DataGridTextColumn Header="Pets" Binding="{Binding Pets}" Width="Auto"/>
@@ -1975,6 +2017,7 @@
                                 <DataGrid.Columns>
                                     <DataGridTextColumn Header="Pet" Binding="{Binding Pet}" Width="Auto"/>
                                     <DataGridTextColumn Header="Owner" Binding="{Binding Owner}" Width="Auto"/>
+                                    <DataGridTextColumn Header="Server" Binding="{Binding Server}" Width="Auto"/>
                                     <DataGridTemplateColumn Width="Auto">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>

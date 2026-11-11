@@ -99,7 +99,8 @@ public sealed class TriggerEngineService : ITriggerLineSink
         string label,
         double durationSeconds,
         DateTime nowUtc,
-        TimerOverlayCategory category = TimerOverlayCategory.RaidTriggers)
+        TimerOverlayCategory category = TimerOverlayCategory.RaidTriggers,
+        string? note = null)
     {
         if (durationSeconds <= 0)
         {
@@ -112,7 +113,10 @@ public sealed class TriggerEngineService : ITriggerLineSink
             var key = new TimerKey(sourceId, subject, TimerKind.Countdown, label);
             ActiveTimerSnapshot timer = new(
                 ++_nextTimerId, sourceId, sourceName, subject, TimerKind.Countdown, label,
-                nowUtc, nowUtc.AddSeconds(durationSeconds), durationSeconds, category);
+                nowUtc, nowUtc.AddSeconds(durationSeconds), durationSeconds, category)
+            {
+                Note = note ?? string.Empty,
+            };
             if (_paused.TryGetValue((sourceId, subject.ToLowerInvariant()), out PauseState pause) && (pause.IncludeSongs || category != TimerOverlayCategory.Songs))
             {
                 timer = timer with { PausedUtc = nowUtc, Hidden = pause.Hidden }; // started while the character's clock is stopped
@@ -311,6 +315,34 @@ public sealed class TriggerEngineService : ITriggerLineSink
     }
 
     /// <summary>Removes a bar started with <see cref="StartTimer"/>. Returns false if it was not running.</summary>
+    /// <summary>
+    /// Replaces a running countdown with a short green "cured" bar: the bar with <paramref name="label"/> is removed and a bar reading
+    /// <paramref name="curedText"/> runs for <paramref name="showSeconds"/> in the same overlay. Returns false when no such bar was running.
+    /// </summary>
+    public bool CureTimer(Guid sourceId, string subject, string label, string curedText, double showSeconds, DateTime nowUtc)
+    {
+        lock (_gate)
+        {
+            if (!_timers.Remove(new TimerKey(sourceId, subject, TimerKind.Countdown, label), out ActiveTimerSnapshot? old))
+            {
+                return false;
+            }
+
+            if (showSeconds > 0)
+            {
+                _timers[new TimerKey(sourceId, subject, TimerKind.Countdown, curedText)] = new ActiveTimerSnapshot(
+                    ++_nextTimerId, sourceId, old.TriggerName, subject, TimerKind.Countdown, curedText,
+                    nowUtc, nowUtc.AddSeconds(showSeconds), showSeconds, old.Category)
+                {
+                    Cured = true,
+                };
+            }
+
+            PublishLocked();
+            return true;
+        }
+    }
+
     public bool CancelTimer(Guid sourceId, string subject, string label)
     {
         lock (_gate)

@@ -242,7 +242,7 @@ public sealed partial class MainViewModel
             return;
         }
 
-        encounter = encounter.WithClasses(_pipeline.Roster.GetClassLabel);
+        encounter = encounter.WithClassesOnServer(ClassLabelOnServer);
         try
         {
             _clipboard.SetText(EncounterExport.BuildChatText(encounter, EncounterExport.DefaultTopCount));
@@ -263,7 +263,7 @@ public sealed partial class MainViewModel
             return;
         }
 
-        encounter = encounter.WithClasses(_pipeline.Roster.GetClassLabel);
+        encounter = encounter.WithClassesOnServer(ClassLabelOnServer);
         try
         {
             _clipboard.SetEncounterImage(encounter, ActivePalette, WindowTitle, EncounterExport.AllAttackers);

@@ -367,4 +367,20 @@ public sealed class BuffTrackerServiceTests : IDisposable
         Line("Stackprime", "Randomguy looks faster.", T0.AddSeconds(1));
         Assert.Equal(2, Timers.Count);
     }
+
+    [Fact]
+    public void A_monitored_character_counts_only_in_logs_on_its_own_server()
+    {
+        Track(Wolf);
+        _tracker.SetAllowedTargetsOnServers(new[] { ("Oodles", "frostreaver"), ("Ream", string.Empty) });
+
+        _tracker.OnLine("Stackprime", "newserver", "Oodles looks faster.", T0);
+        Assert.Empty(Timers); // the Oodles on newserver is someone else
+
+        _tracker.OnLine("Stackprime", "Frostreaver", "Oodles looks faster.", T0.AddSeconds(1));
+        Assert.Single(Timers);
+
+        _tracker.OnLine("Stackprime", "newserver", "Ream looks faster.", T0.AddSeconds(2));
+        Assert.Equal(2, Timers.Count); // no server: any server counts
+    }
 }

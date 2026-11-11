@@ -99,7 +99,7 @@ public sealed partial class MainViewModel
             return null;
         }
 
-        int classIndex = EqClass.TryNormalize(_pipeline.Roster.GetClass(name), out string className)
+        int classIndex = EqClass.TryNormalize(_pipeline.Roster.GetClass(name, log.ServerName), out string className)
             ? EqClass.Names.ToList().IndexOf(className)
             : -1;
         return new CasterDuration(classIndex, profile);
@@ -119,7 +119,7 @@ public sealed partial class MainViewModel
         string name = log.CharacterName, server = log.ServerName;
         FocusEffectsViewModel focus = CreateFocusViewModel(name, server);
         var viewModel = new CharacterDataViewModel(
-            _characterData, () => EqFolderPath, name, server, () => _pipeline.Roster.GetClass(name),
+            _characterData, () => EqFolderPath, name, server, () => _pipeline.Roster.GetClass(name, server),
             CharacterDataViewModel.FocusTab, focus);
         _characterDataPresenter?.Show(viewModel);
     }

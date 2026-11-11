@@ -218,7 +218,7 @@ public sealed class SpellDatabaseService
                 }
 
                 int[]? effectIds = effects is { Count: > 0 } ? effects.Select(e => e.Spa).Distinct().ToArray() : null;
-                kept[id] = new SpellInfo(id, name, castOnYou, castOnOther, fades, castTimeMs, formula, maxTicks, seconds, category, classLevels, effectIds);
+                kept[id] = new SpellInfo(id, name, castOnYou, castOnOther, fades, castTimeMs, formula, maxTicks, seconds, category, classLevels, effectIds, SpellCounters.From(effects));
             }
         }
 

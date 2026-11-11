@@ -306,6 +306,7 @@ public sealed partial class MainViewModel : ObservableObject
         }
 
         StatusMessage = $"{Logs.Count} log file(s) watched.";
+        ScanUnreadMobExperience();
     }
 
     [RelayCommand]
@@ -920,7 +921,7 @@ public sealed partial class MainViewModel : ObservableObject
             return;
         }
 
-        IReadOnlyList<ParticipantSnapshot> ranked = encounter.WithClasses(_pipeline.Roster.GetClassLabel).Participants;
+        IReadOnlyList<ParticipantSnapshot> ranked = encounter.WithClassesOnServer(ClassLabelOnServer).Participants;
         long topDealt = ranked.Count > 0 ? ranked.Max(p => p.TotalDamage) : 0;
         for (int i = 0; i < ranked.Count; i++)
         {
@@ -1332,12 +1333,6 @@ public sealed partial class MainViewModel : ObservableObject
             int newCharacters = DiscoverCharacters(); // characters created since the last run show up without a manual refresh
             DescribeEqFolderAtStartup(newCharacters);
 
-            foreach (string name in settings.AdditionalMonitoredCharacters ?? new List<string>())
-            {
-                AdditionalCharacters.Add(name);
-            }
-
-            _pipeline.SetAdditionalMonitoredCharacters(AdditionalCharacters);
             HistoricalDaysLimit = settings.HistoricalDaysLimit;
             SelectedMainTab = Math.Max(0, settings.LastTabIndex);
             SyncModeIndex = SyncModeFromText(settings.SyncMode);
@@ -1397,6 +1392,7 @@ public sealed partial class MainViewModel : ObservableObject
             RestoreTrackedSpells(settings);
             RestoreTrackedAbilities(settings);
             RestoreRoster(settings);
+            RestoreAdditionalCharacters(settings); // after the roster: older entries are filed under a server first
             SpellsFilePath = settings.SpellsFilePath ?? string.Empty;
             if (string.IsNullOrWhiteSpace(SpellsFilePath) && EqDirectoryScanner.HasSpellsFile(EqFolderPath))
             {
@@ -1496,7 +1492,8 @@ public sealed partial class MainViewModel : ObservableObject
         TrackedAbilities = TrackedAbilities.Select(r => r.ToSetting()).ToList(),
         Roster = _pipeline.Roster.ToSettings(),
         EqFolderPath = EqFolderPath,
-        AdditionalMonitoredCharacters = AdditionalCharacters.ToList(),
+        AdditionalMonitoredCharacters = AdditionalCharacters.Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+        AdditionalCharacterServers = AdditionalCharacterRows.Select(r => new AdditionalCharacterSetting { Name = r.Name, Server = r.Server }).ToList(),
         HistoricalDaysLimit = HistoricalDaysLimit,
         LastTabIndex = SelectedMainTab,
         OverlayProfiles = _overlayProfiles.ToList(),
