@@ -106,6 +106,9 @@ public sealed class AppSettings
     /// </summary>
     public List<AdditionalCharacterSetting> AdditionalCharacterServers { get; set; } = new();
 
+    /// <summary>Where the main, Colors and Character data windows were when last moved or closed, by window name.</summary>
+    public Dictionary<string, WindowPlacementSetting> WindowPlacements { get; set; } = new();
+
     /// <summary>How many days of history the Primary DPS log is imported for; 0 means all history.</summary>
     public int HistoricalDaysLimit { get; set; } = DefaultHistoricalDaysLimit;
 
@@ -222,6 +225,34 @@ public sealed class OverlayProfile
     public OverlaySettings RaidTriggers { get; set; } = OverlaySettings.ForCategory(TimerOverlayCategory.RaidTriggers);
     public OverlaySettings ChChain { get; set; } = OverlaySettings.ForCategory(TimerOverlayCategory.ChChain);
     public OverlaySettings Dps { get; set; } = OverlaySettings.DefaultDps;
+}
+
+/// <summary>
+/// A window's normal (not maximized) bounds in screen pixels, and whether it was maximized. Windows itself puts a window that would be off
+/// every screen back on one, so a monitor that has been unplugged is handled when the placement is applied.
+/// </summary>
+public sealed record WindowPlacementSetting
+{
+    /// <summary>The window names saved: the main window, the Colors window and the Character data window.</summary>
+    public const string Main = "Main";
+    public const string Colors = "Colors";
+    public const string CharacterData = "CharacterData";
+
+    /// <summary>Smaller than this is not a real window size, so it is not restored.</summary>
+    public const int MinSize = 100;
+
+    public int Left { get; init; }
+    public int Top { get; init; }
+    public int Right { get; init; }
+    public int Bottom { get; init; }
+    public bool IsMaximized { get; init; }
+
+    public int Width => Right - Left;
+    public int Height => Bottom - Top;
+
+    /// <summary>True when the bounds are a usable window size (not empty, inverted or absurdly large).</summary>
+    public bool IsUsable => Width >= MinSize && Height >= MinSize && Width <= 32000 && Height <= 32000
+        && Math.Abs((long)Left) <= 64000 && Math.Abs((long)Top) <= 64000;
 }
 
 /// <summary>Bounds, visibility and lock state of one overlay window (device-independent units).</summary>

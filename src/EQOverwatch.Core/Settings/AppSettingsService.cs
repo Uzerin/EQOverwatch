@@ -353,6 +353,9 @@ public sealed class AppSettingsService : IDisposable
         settings.EqFolderPath = EqDirectoryScanner.Normalize(settings.EqFolderPath);
         settings.AdditionalMonitoredCharacters = NormalizeCharacterNames(settings.AdditionalMonitoredCharacters);
         settings.AdditionalCharacterServers = NormalizeCharacterServers(settings.AdditionalCharacterServers);
+        settings.WindowPlacements = (settings.WindowPlacements ?? new Dictionary<string, WindowPlacementSetting>())
+            .Where(p => !string.IsNullOrWhiteSpace(p.Key) && p.Value is { IsUsable: true })
+            .ToDictionary(p => p.Key, p => p.Value, StringComparer.OrdinalIgnoreCase);
         settings.ChChain = (settings.ChChain ?? new ChChainSettings()).Sanitized();
         settings.HistoricalDaysLimit = AppSettings.HistoricalDaysChoices.Contains(settings.HistoricalDaysLimit)
             ? settings.HistoricalDaysLimit

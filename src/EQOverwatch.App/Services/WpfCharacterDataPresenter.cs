@@ -26,6 +26,14 @@ public sealed class WpfCharacterDataPresenter : ICharacterDataPresenter
         }
 
         var window = new CharacterDataWindow(viewModel) { Owner = Application.Current?.MainWindow };
+        if (Application.Current?.MainWindow?.DataContext is MainViewModel main)
+        {
+            // Every character's window opens where the last one was.
+            Interop.WindowPlacementKeeper.Attach(
+                window,
+                () => main.GetWindowPlacement(Core.Settings.WindowPlacementSetting.CharacterData),
+                placement => main.SetWindowPlacement(Core.Settings.WindowPlacementSetting.CharacterData, placement));
+        }
         string key = viewModel.Key;
         window.Closed += (_, _) => _open.Remove(key);
         _open[key] = window;

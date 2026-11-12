@@ -1316,6 +1316,14 @@ public sealed partial class MainViewModel : ObservableObject
         _restoring = true;
         try
         {
+            foreach ((string name, WindowPlacementSetting placement) in settings.WindowPlacements ?? new Dictionary<string, WindowPlacementSetting>())
+            {
+                if (placement is { IsUsable: true })
+                {
+                    _windowPlacements[name] = placement;
+                }
+            }
+
             foreach (WatchedLogSettings saved in settings.WatchedLogs)
             {
                 if (string.IsNullOrWhiteSpace(saved.FilePath))
@@ -1494,6 +1502,7 @@ public sealed partial class MainViewModel : ObservableObject
         EqFolderPath = EqFolderPath,
         AdditionalMonitoredCharacters = AdditionalCharacters.Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
         AdditionalCharacterServers = AdditionalCharacterRows.Select(r => new AdditionalCharacterSetting { Name = r.Name, Server = r.Server }).ToList(),
+        WindowPlacements = new Dictionary<string, WindowPlacementSetting>(_windowPlacements, StringComparer.OrdinalIgnoreCase),
         HistoricalDaysLimit = HistoricalDaysLimit,
         LastTabIndex = SelectedMainTab,
         OverlayProfiles = _overlayProfiles.ToList(),
@@ -1508,6 +1517,24 @@ public sealed partial class MainViewModel : ObservableObject
         UpdateCheckHours = UpdateCheckHours,
         SkippedUpdateVersion = _skippedUpdateVersion,
     };
+
+    private readonly Dictionary<string, WindowPlacementSetting> _windowPlacements = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Where the named window was last (see <see cref="WindowPlacementSetting"/> for the names), or null to open it where it opens by default.</summary>
+    public WindowPlacementSetting? GetWindowPlacement(string window) => _windowPlacements.GetValueOrDefault(window);
+
+    /// <summary>Remembers where the named window is now and saves it with the settings. Unusable sizes are ignored.</summary>
+    public void SetWindowPlacement(string window, WindowPlacementSetting placement)
+    {
+        if (string.IsNullOrWhiteSpace(window) || placement is not { IsUsable: true }
+            || (_windowPlacements.TryGetValue(window, out WindowPlacementSetting? known) && known == placement))
+        {
+            return;
+        }
+
+        _windowPlacements[window] = placement;
+        RequestSave();
+    }
 
     private void RequestSave()
     {

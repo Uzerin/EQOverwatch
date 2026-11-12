@@ -68,6 +68,14 @@ check off, or run it by hand, under **Settings > Updates**.
 
 ## Changelog
 
+### 1.0.54
+
+- **The app remembers where its windows were.** The main window opens where you last left it, at the same size, and maximized if
+  it was maximized when you closed it. The Colors and Character data windows do the same. The spot is saved a second after you
+  stop moving or resizing a window, and again when you close it, so it's kept even if the app doesn't close normally. A window
+  that was minimized reopens at its normal size. If the saved spot is on a monitor that's no longer connected, Windows moves the
+  window back onto a screen.
+
 ### 1.0.53
 
 - **Levels and classes are kept per server.** A `/who` or a level-up on one server no longer changes a character with the same name

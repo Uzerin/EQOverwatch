@@ -14,6 +14,10 @@ public partial class ColorsWindow : Window
         InitializeComponent();
         _viewModel = viewModel;
         DataContext = viewModel;
+        Interop.WindowPlacementKeeper.Attach(
+            this,
+            () => viewModel.GetWindowPlacement(Core.Settings.WindowPlacementSetting.Colors),
+            placement => viewModel.SetWindowPlacement(Core.Settings.WindowPlacementSetting.Colors, placement));
 
         viewModel.ColorsChanged += RedrawPreview;
         Closed += (_, _) => viewModel.ColorsChanged -= RedrawPreview;

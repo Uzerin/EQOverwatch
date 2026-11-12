@@ -3,6 +3,7 @@ using System.Windows.Controls;
 using System.Windows.Threading;
 using EQOverwatch.App.Interop;
 using EQOverwatch.App.ViewModels;
+using EQOverwatch.Core.Settings;
 
 namespace EQOverwatch.App;
 
@@ -46,6 +47,12 @@ public partial class MainWindow : Window
 
         _viewModel = viewModel;
         DataContext = viewModel;
+
+        // Opens where it was last time; stored before the view model's final save on close.
+        WindowPlacementKeeper.Attach(
+            this,
+            () => viewModel.GetWindowPlacement(WindowPlacementSetting.Main),
+            placement => viewModel.SetWindowPlacement(WindowPlacementSetting.Main, placement));
         viewModel.ShowColorsRequested += OpenColorsWindow;
 
         _refreshTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = RefreshInterval };
