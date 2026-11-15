@@ -110,4 +110,81 @@ public partial class MainViewModelTests
         h.Vm.DropTag = "Guild Drops";
         Assert.Equal("Guild Drops", h.Pipeline.Drops.Tag);
     }
+
+    private sealed class FakeSharedDrops : ISharedDropsService
+    {
+        public Dictionary<(string Server, string Id), (long Updated, byte[] Bytes, int Kills, int Drops)> Files { get; } = new();
+
+        public List<string> Calls { get; } = new();
+
+        public Task<IReadOnlyList<SharedDropsEntry>> ListAsync(string server, CancellationToken cancellation = default)
+        {
+            Calls.Add("list " + server);
+            return Task.FromResult<IReadOnlyList<SharedDropsEntry>>(Files.Where(f => f.Key.Server == server)
+                .Select(f => new SharedDropsEntry(f.Key.Id, f.Value.Updated, f.Value.Kills, f.Value.Drops)).ToList());
+        }
+
+        public Task<byte[]> DownloadAsync(string server, string id, CancellationToken cancellation = default)
+        {
+            Calls.Add("get " + id);
+            return Task.FromResult(Files[(server, id)].Bytes);
+        }
+
+        public Task<bool> UploadAsync(string id, string key, SharedDropsUpload upload, CancellationToken cancellation = default)
+        {
+            Calls.Add("put " + upload.Server);
+            Files[(upload.Server, id)] = (1, upload.Gzip, upload.Kills, upload.Drops);
+            return Task.FromResult(true);
+        }
+
+        public Task DeleteAsync(string server, string id, string key, CancellationToken cancellation = default)
+        {
+            Calls.Add("delete " + server);
+            Files.Remove((server, id));
+            return Task.CompletedTask;
+        }
+    }
+
+    [Fact]
+    public async Task The_shared_drop_switches_upload_yours_add_everyone_elses_and_take_them_back_out()
+    {
+        using var h = new Harness();
+        FillDrops(h.Pipeline.Drops);
+        var service = new FakeSharedDrops();
+        h.Vm.ConfigureSharedDrops(service);
+        Assert.Equal(new[] { MainViewModel.DropSourceAll, MainViewModel.DropSourceMine }, h.Vm.DropSources);
+
+        // Someone else's upload is waiting on the service.
+        var friend = new DropStore();
+        friend.SetZoneProvider((_, _) => "Clan Crushbone");
+        Drop(friend, "Orc pawn was slain by Kel!", 1000, character: "Kel");
+        Drop(friend, "--Kel has looted a Torch from orc pawn's corpse.--", 1002, character: "Kel");
+        SharedDropsUpload theirs = friend.ExportShared("frostreaver")!;
+        service.Files[("frostreaver", "friendfriendfriend")] = (77, theirs.Gzip, theirs.Kills, theirs.Drops);
+
+        h.Vm.UseSharedDrops = true;
+        await h.Vm.SharedDropsTask;
+        Assert.Equal(MainViewModel.DropSourceEveryone, h.Vm.SelectedDropSource);
+        Assert.Equal(MainViewModel.DropSourceEveryone, h.Vm.DropSources[0]);
+        Assert.DoesNotContain(service.Calls, c => c.StartsWith("put", StringComparison.Ordinal)); // nothing of yours is sent
+        Assert.Equal("5", h.Vm.DropRows.First(r => r.Name == "orc pawn").Kills);
+        Assert.StartsWith("1 other player shared drops (1 new or updated).", h.Vm.SharedDropsStatus, StringComparison.Ordinal);
+
+        h.Vm.ShareMyDrops = true;
+        await h.Vm.SharedDropsTask;
+        Assert.Contains("put frostreaver", service.Calls);
+        Assert.Contains("put oakwynd", service.Calls);
+        Assert.Single(service.Calls, c => c.StartsWith("get", StringComparison.Ordinal)); // read once; your own file is never read back
+
+        h.Vm.ShareMyDrops = false;
+        await h.Vm.SharedDropsTask;
+        Assert.Contains("delete frostreaver", service.Calls);
+        Assert.Equal("Your drops are no longer shared; your files were taken off the service.", h.Vm.SharedDropsStatus);
+
+        h.Vm.UseSharedDrops = false;
+        Assert.Equal(MainViewModel.DropSourceAll, h.Vm.SelectedDropSource);
+        Assert.DoesNotContain(MainViewModel.DropSourceEveryone, h.Vm.DropSources);
+        Assert.Equal("4", h.Vm.DropRows.First(r => r.Name == "orc pawn").Kills);
+        Assert.Empty(h.Pipeline.Drops.SharedFiles("frostreaver"));
+    }
 }

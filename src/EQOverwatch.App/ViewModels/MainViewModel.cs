@@ -1352,6 +1352,7 @@ public sealed partial class MainViewModel : ObservableObject
             _pipeline.Cooldowns.IsEnabled = IsCooldownTrackerEnabled;
             CheckForUpdates = settings.CheckForUpdates;
             UpdateCheckHours = settings.UpdateCheckHours;
+            RestoreSharedDrops(settings);
             _skippedUpdateVersion = settings.SkippedUpdateVersion ?? string.Empty;
 
             ChChainSettings chain = (settings.ChChain ?? new ChChainSettings()).Sanitized();
@@ -1516,6 +1517,10 @@ public sealed partial class MainViewModel : ObservableObject
         CheckForUpdates = CheckForUpdates,
         UpdateCheckHours = UpdateCheckHours,
         SkippedUpdateVersion = _skippedUpdateVersion,
+        UseSharedDrops = UseSharedDrops,
+        ShareMyDrops = ShareMyDrops,
+        SharedDropsId = _sharedDropsId,
+        SharedDropsKey = _sharedDropsKey,
     };
 
     private readonly Dictionary<string, WindowPlacementSetting> _windowPlacements = new(StringComparer.OrdinalIgnoreCase);

@@ -1,3 +1,4 @@
+using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -16,6 +17,19 @@ public sealed record DropMobRow(string Zone, string Mob, int Kills, IReadOnlyLis
 
 /// <summary>Drops imported from someone else's file.</summary>
 public sealed record DropSource(string Tag, string Server, int Kills, int Drops, DateTime ImportedUtc);
+
+/// <summary>Which kills and drops the table counts.</summary>
+public enum DropScope
+{
+    /// <summary>Only this PC's logs.</summary>
+    Mine,
+
+    /// <summary>This PC's logs and drops files imported by hand.</summary>
+    ImportedFiles,
+
+    /// <summary>All of that and the files other players shared online.</summary>
+    Everyone,
+}
 
 /// <summary>The result of reading a drops file.</summary>
 public sealed record DropImportResult(string Tag, string Server, int Kills, int Drops, bool Replaced);
@@ -42,6 +56,10 @@ public sealed partial class DropStore : ITriggerLineSink
 
     private const string FileFormat = "EQOverwatchDrops";
     private const int MaxImportEvents = 3_000_000;
+    private const long MaxSharedBytes = 64L * 1024 * 1024; // a shared file once unpacked
+
+    /// <summary>A shared drop counts only when the same file has a kill of that mob this many seconds before it (or just after).</summary>
+    public const int SharedKillBackingSeconds = 120;
     private const int OwnSource = 0;
     private const int OwnObserver = 0; // this PC's events once its logs' copies are merged
 
@@ -412,7 +430,11 @@ public sealed partial class DropStore : ITriggerLineSink
     /// The drop table for one server: each mob that dropped something, with its kills and each item's drops, most-killed first. Kills
     /// are never shown below the drops of its most common item (a corpse looted whose kill no log saw still was a kill).
     /// </summary>
-    public IReadOnlyList<DropMobRow> Table(string server, bool includeImported)
+    public IReadOnlyList<DropMobRow> Table(string server, bool includeImported) =>
+        Table(server, includeImported ? DropScope.Everyone : DropScope.Mine);
+
+    /// <summary>The drop table for one server, counting the kills and drops in <paramref name="scope"/>.</summary>
+    public IReadOnlyList<DropMobRow> Table(string server, DropScope scope)
     {
         lock (_gate)
         {
@@ -422,7 +444,8 @@ public sealed partial class DropStore : ITriggerLineSink
                 return Array.Empty<DropMobRow>();
             }
 
-            IEnumerable<Event> events = _events.Where(e => e.Server == serverId && (includeImported || e.Source == OwnSource));
+            IEnumerable<Event> events = _events.Where(e => e.Server == serverId
+                && (e.Source == OwnSource || scope == DropScope.Everyone || (scope == DropScope.ImportedFiles && !_sources[e.Source].Shared)));
             var kills = new Dictionary<(int Zone, int Mob), int>();
             var drops = new Dictionary<(int Zone, int Mob), Dictionary<int, int>>();
             foreach (IGrouping<(EventKind Kind, int Zone, int Mob, int Item), Event> group in events.GroupBy(e => (e.Kind, e.Zone, e.Mob, e.Item)))
@@ -535,37 +558,7 @@ public sealed partial class DropStore : ITriggerLineSink
         int dropCount;
         lock (_gate)
         {
-            Compact();
-            int serverId = _names.FindServer(server);
-            var file = new DropFile { Format = FileFormat, Version = 1, Tag = _tag, Server = server, ExportedUtc = DateTime.UtcNow };
-            var zones = new Dictionary<int, int>();
-            var mobs = new Dictionary<int, int>();
-            var items = new Dictionary<int, int>();
-            int Index(Dictionary<int, int> map, List<string> list, int id, string name)
-            {
-                if (!map.TryGetValue(id, out int index))
-                {
-                    map[id] = index = list.Count;
-                    list.Add(name);
-                }
-
-                return index;
-            }
-
-            foreach (Event e in _events.Where(e => e.Source == OwnSource && e.Server == serverId).OrderBy(e => e.Time))
-            {
-                int zone = Index(zones, file.Zones, e.Zone, _names.ZoneName(e.Zone));
-                int mob = Index(mobs, file.Mobs, e.Mob, _names.MobName(e.Mob));
-                if (e.Kind == EventKind.Kill)
-                {
-                    file.Kills.Add(new[] { e.Time, zone, mob });
-                }
-                else
-                {
-                    file.Drops.Add(new[] { e.Time, zone, mob, Index(items, file.Items, e.Item, _names.ItemName(e.Item)) });
-                }
-            }
-
+            DropFile file = OwnFile(server, _tag);
             dropCount = file.Drops.Count;
             json = JsonSerializer.Serialize(file);
         }
@@ -578,6 +571,69 @@ public sealed partial class DropStore : ITriggerLineSink
 
         File.WriteAllText(path, json, new UTF8Encoding(false));
         return dropCount;
+    }
+
+    /// <summary>
+    /// This PC's own kills and drops on one server as a gzip drops file for the online shared table, without the tag. Null when there
+    /// are no drops on that server.
+    /// </summary>
+    public SharedDropsUpload? ExportShared(string server)
+    {
+        DropFile file;
+        lock (_gate)
+        {
+            file = OwnFile(server, string.Empty);
+        }
+
+        if (file.Drops.Count == 0)
+        {
+            return null;
+        }
+
+        using var buffer = new MemoryStream();
+        using (var gzip = new GZipStream(buffer, CompressionLevel.SmallestSize, leaveOpen: true))
+        {
+            JsonSerializer.Serialize(gzip, file);
+        }
+
+        return new SharedDropsUpload(file.Server, file.Kills.Count, file.Drops.Count, buffer.ToArray());
+    }
+
+    /// <summary>This PC's own events on a server as a drops file. Call inside the lock.</summary>
+    private DropFile OwnFile(string server, string tag)
+    {
+        Compact();
+        int serverId = _names.FindServer(server);
+        var file = new DropFile { Format = FileFormat, Version = 1, Tag = tag, Server = server.ToLowerInvariant(), ExportedUtc = DateTime.UtcNow };
+        var zones = new Dictionary<int, int>();
+        var mobs = new Dictionary<int, int>();
+        var items = new Dictionary<int, int>();
+        int Index(Dictionary<int, int> map, List<string> list, int id, string name)
+        {
+            if (!map.TryGetValue(id, out int index))
+            {
+                map[id] = index = list.Count;
+                list.Add(name);
+            }
+
+            return index;
+        }
+
+        foreach (Event e in _events.Where(e => e.Source == OwnSource && e.Server == serverId).OrderBy(e => e.Time))
+        {
+            int zone = Index(zones, file.Zones, e.Zone, _names.ZoneName(e.Zone));
+            int mob = Index(mobs, file.Mobs, e.Mob, _names.MobName(e.Mob));
+            if (e.Kind == EventKind.Kill)
+            {
+                file.Kills.Add(new[] { e.Time, zone, mob });
+            }
+            else
+            {
+                file.Drops.Add(new[] { e.Time, zone, mob, Index(items, file.Items, e.Item, _names.ItemName(e.Item)) });
+            }
+        }
+
+        return file;
     }
 
     /// <summary>
@@ -596,7 +652,8 @@ public sealed partial class DropStore : ITriggerLineSink
             throw new InvalidDataException("That isn't an EQ Overwatch drops file.");
         }
 
-        if (file is null || file.Format != FileFormat || string.IsNullOrWhiteSpace(file.Server) || string.IsNullOrWhiteSpace(file.Tag))
+        if (file is null || file.Format != FileFormat || string.IsNullOrWhiteSpace(file.Server) || string.IsNullOrWhiteSpace(file.Tag)
+            || file.Tag.StartsWith(SharedPrefix, StringComparison.OrdinalIgnoreCase))
         {
             throw new InvalidDataException("That isn't an EQ Overwatch drops file.");
         }
@@ -613,7 +670,7 @@ public sealed partial class DropStore : ITriggerLineSink
                 throw new InvalidDataException("That file is your own export.");
             }
 
-            int existing = _sources.FindIndex(s => string.Equals(s.Tag, file.Tag, StringComparison.OrdinalIgnoreCase)
+            int existing = _sources.FindIndex(s => !s.Shared && string.Equals(s.Tag, file.Tag, StringComparison.OrdinalIgnoreCase)
                 && string.Equals(s.Server, file.Server, StringComparison.OrdinalIgnoreCase));
             int source;
             if (existing > 0)
@@ -666,9 +723,9 @@ public sealed partial class DropStore : ITriggerLineSink
             for (int i = 1; i < _sources.Count; i++)
             {
                 Source s = _sources[i];
-                if (s.Tag.Length == 0)
+                if (s.Tag.Length == 0 || s.Shared)
                 {
-                    continue; // removed
+                    continue; // removed, or shared online
                 }
 
                 int source = i;
@@ -685,12 +742,163 @@ public sealed partial class DropStore : ITriggerLineSink
     {
         lock (_gate)
         {
-            int source = _sources.FindIndex(s => string.Equals(s.Tag, tag, StringComparison.OrdinalIgnoreCase)
+            int source = _sources.FindIndex(s => !s.Shared && string.Equals(s.Tag, tag, StringComparison.OrdinalIgnoreCase)
                 && string.Equals(s.Server, server, StringComparison.OrdinalIgnoreCase));
             if (source > 0)
             {
                 _events.RemoveAll(e => e.Source == source);
                 _sources[source] = new Source(string.Empty, string.Empty, DateTime.MinValue);
+                Changed();
+            }
+        }
+    }
+
+    // ───────────────────────── shared online ─────────────────────────
+
+    private const string SharedPrefix = "shared:";
+
+    /// <summary>The online files already read for a server: id and the upload time it had.</summary>
+    public IReadOnlyDictionary<string, long> SharedFiles(string server)
+    {
+        lock (_gate)
+        {
+            return _sources.Where(s => s.Shared && string.Equals(s.Server, server, StringComparison.OrdinalIgnoreCase))
+                .ToDictionary(s => s.Tag, s => s.Updated, StringComparer.Ordinal);
+        }
+    }
+
+    /// <summary>
+    /// Adds (or replaces) another player's online file. Drops count only when the same file has a kill of that mob just before them, so
+    /// a file of made-up drops adds nothing. Returns the drops kept. Throws <see cref="InvalidDataException"/> for a damaged file.
+    /// </summary>
+    public int ImportShared(string id, string server, long updated, byte[] gzipped)
+    {
+        DropFile? file;
+        try
+        {
+            using var input = new GZipStream(new MemoryStream(gzipped), CompressionMode.Decompress);
+            using var limited = new MemoryStream();
+            byte[] chunk = new byte[81920];
+            int read;
+            while ((read = input.Read(chunk, 0, chunk.Length)) > 0)
+            {
+                if (limited.Length + read > MaxSharedBytes)
+                {
+                    throw new InvalidDataException("That shared file is too large.");
+                }
+
+                limited.Write(chunk, 0, read);
+            }
+
+            limited.Position = 0;
+            file = JsonSerializer.Deserialize<DropFile>(limited);
+        }
+        catch (Exception ex) when (ex is JsonException or IOException)
+        {
+            throw new InvalidDataException("That isn't an EQ Overwatch drops file.");
+        }
+
+        if (file is null || file.Format != FileFormat || file.Kills.Count + file.Drops.Count > MaxImportEvents)
+        {
+            throw new InvalidDataException("That isn't an EQ Overwatch drops file.");
+        }
+
+        // Kill times per (zone, mob), for the backing check.
+        var killTimes = new Dictionary<(long Zone, long Mob), List<long>>();
+        foreach (long[] kill in file.Kills)
+        {
+            if (kill.Length >= 3)
+            {
+                if (!killTimes.TryGetValue((kill[1], kill[2]), out List<long>? times))
+                {
+                    killTimes[(kill[1], kill[2])] = times = new List<long>();
+                }
+
+                times.Add(kill[0]);
+            }
+        }
+
+        foreach (List<long> times in killTimes.Values)
+        {
+            times.Sort();
+        }
+
+        bool Backed(long time, long zone, long mob)
+        {
+            if (!killTimes.TryGetValue((zone, mob), out List<long>? times))
+            {
+                return false;
+            }
+
+            int at = times.BinarySearch(time + 2);
+            int before = at >= 0 ? at : ~at - 1;
+            return before >= 0 && times[before] >= time - SharedKillBackingSeconds;
+        }
+
+        lock (_gate)
+        {
+            int existing = _sources.FindIndex(s => s.Shared && s.Tag == id && string.Equals(s.Server, server, StringComparison.OrdinalIgnoreCase));
+            int source;
+            if (existing > 0)
+            {
+                source = existing;
+                _events.RemoveAll(e => e.Source == source);
+            }
+            else
+            {
+                source = _sources.Count;
+                _sources.Add(null!);
+            }
+
+            _sources[source] = new Source(id, server.ToLowerInvariant(), DateTime.UtcNow, Shared: true, Updated: updated);
+            int serverId = _names.Server(server);
+            int observer = ObserverFor(SharedPrefix + id);
+            foreach (long[] kill in file.Kills)
+            {
+                if (kill.Length >= 3 && Name(file.Zones, kill[1]) is { } zone && Name(file.Mobs, kill[2]) is { Length: > 0 } mob)
+                {
+                    _events.Add(new Event(EventKind.Kill, kill[0], serverId, _names.Zone(zone), _names.Mob(mob), -1, observer, source));
+                }
+            }
+
+            int drops = 0;
+            foreach (long[] drop in file.Drops)
+            {
+                if (drop.Length >= 4 && Backed(drop[0], drop[1], drop[2]) && Name(file.Zones, drop[1]) is { } zone
+                    && Name(file.Mobs, drop[2]) is { Length: > 0 } mob && Name(file.Items, drop[3]) is { Length: > 0 } item)
+                {
+                    _events.Add(new Event(EventKind.Drop, drop[0], serverId, _names.Zone(zone), _names.Mob(mob), _names.Item(item), observer, source));
+                    drops++;
+                }
+            }
+
+            Changed();
+            return drops;
+        }
+
+        static string? Name(List<string> names, long index) => index >= 0 && index < names.Count ? names[(int)index] : null;
+    }
+
+    /// <summary>Takes one online file (or, with no id, every online file) out of the table.</summary>
+    public void RemoveShared(string? server = null, string? id = null)
+    {
+        lock (_gate)
+        {
+            bool any = false;
+            for (int i = 1; i < _sources.Count; i++)
+            {
+                Source s = _sources[i];
+                if (s.Shared && (server is null || string.Equals(s.Server, server, StringComparison.OrdinalIgnoreCase)) && (id is null || s.Tag == id))
+                {
+                    int source = i;
+                    _events.RemoveAll(e => e.Source == source);
+                    _sources[i] = new Source(string.Empty, string.Empty, DateTime.MinValue);
+                    any = true;
+                }
+            }
+
+            if (any)
+            {
                 Changed();
             }
         }
@@ -745,7 +953,7 @@ public sealed partial class DropStore : ITriggerLineSink
         {
             SavedSource s = saved.Sources[i];
             sources[i + 1] = _sources.Count;
-            _sources.Add(new Source(s.Tag, s.Server, s.ImportedUtc));
+            _sources.Add(new Source(s.Tag, s.Server, s.ImportedUtc, s.Shared, s.Updated));
         }
 
         foreach (long[] e in saved.Events)
@@ -764,7 +972,8 @@ public sealed partial class DropStore : ITriggerLineSink
             }
 
             int source = sources[e[6]];
-            int observer = source == OwnSource ? OwnObserver : ObserverFor("import:" + _sources[source].Tag);
+            int observer = source == OwnSource ? OwnObserver
+                : ObserverFor((_sources[source].Shared ? SharedPrefix : "import:") + _sources[source].Tag);
             _events.Add(new Event(kind, e[1], servers[e[2]], zones[e[3]], mobs[e[4]], item, observer, source));
         }
     }
@@ -795,7 +1004,11 @@ public sealed partial class DropStore : ITriggerLineSink
                 if (_sources[i].Tag.Length > 0)
                 {
                     sourceIndex[i] = file.Sources.Count + 1;
-                    file.Sources.Add(new SavedSource { Tag = _sources[i].Tag, Server = _sources[i].Server, ImportedUtc = _sources[i].ImportedUtc });
+                    file.Sources.Add(new SavedSource
+                    {
+                        Tag = _sources[i].Tag, Server = _sources[i].Server, ImportedUtc = _sources[i].ImportedUtc,
+                        Shared = _sources[i].Shared, Updated = _sources[i].Updated,
+                    });
                 }
             }
 
@@ -857,7 +1070,8 @@ public sealed partial class DropStore : ITriggerLineSink
     /// <summary>A kill or a drop, seen by one log (observer) of this PC or of an imported file (source). Item is -1 for kills.</summary>
     private readonly record struct Event(EventKind Kind, long Time, int Server, int Zone, int Mob, int Item, int Observer, int Source);
 
-    private sealed record Source(string Tag, string Server, DateTime ImportedUtc);
+    /// <summary>Where events came from: this PC (0), an imported file, or a file shared online (Tag is then its id).</summary>
+    private sealed record Source(string Tag, string Server, DateTime ImportedUtc, bool Shared = false, long Updated = 0);
 
     /// <summary>What one log is in the middle of: kills just made, and advanced-loot items waiting for their loot line.</summary>
     private sealed class LogState(string character, string server)
@@ -974,6 +1188,12 @@ public sealed partial class DropStore : ITriggerLineSink
         public string Server { get; set; } = string.Empty;
 
         public DateTime ImportedUtc { get; set; }
+
+        /// <summary>True for a file shared online; Tag is then its id.</summary>
+        public bool Shared { get; set; }
+
+        /// <summary>For a file shared online, the upload time it had (unix seconds).</summary>
+        public long Updated { get; set; }
     }
 
     /// <summary>drops.json: the tag, which logs were read, the names, imported files, and every event.</summary>

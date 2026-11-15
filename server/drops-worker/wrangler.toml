@@ -1,0 +1,13 @@
+name = "eqo-drops"
+main = "src/index.js"
+compatibility_date = "2026-11-01"
+workers_dev = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "eqo-drops"
+database_id = "626ca279-610d-4e7d-9420-3b462b559e7b"
+
+[[kv_namespaces]]
+binding = "FILES"
+id = "24559c568c36406a8a281bb674c5886f"

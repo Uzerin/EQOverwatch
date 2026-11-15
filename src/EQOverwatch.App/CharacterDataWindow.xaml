@@ -68,7 +68,7 @@
                 </DataGrid>
             </TabItem>
 
-            <TabItem Header="Missing spells">
+            <TabItem Header="Missing Spells">
                 <DockPanel Margin="0,6,0,0">
                     <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6">
                         <CheckBox DockPanel.Dock="Right" Content="Only spells with a scroll on hand" IsChecked="{Binding OnlyWithScroll}"
@@ -87,7 +87,7 @@
                 </DockPanel>
             </TabItem>
 
-            <TabItem Header="Key ring">
+            <TabItem Header="Key Ring">
                 <DataGrid Margin="0,6,0,0" ItemsSource="{Binding KeyRingRows}" AutoGenerateColumns="False" CanUserAddRows="False"
                           CanUserDeleteRows="False" IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal">
                     <DataGrid.Columns>

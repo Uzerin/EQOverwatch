@@ -36,7 +36,7 @@ public sealed partial class MainViewModel
 
     public ObservableCollection<string> DropZones { get; } = new() { AllDropZones };
 
-    public IReadOnlyList<string> DropSources { get; } = new[] { DropSourceAll, DropSourceMine };
+    public ObservableCollection<string> DropSources { get; } = new() { DropSourceAll, DropSourceMine };
 
     public ObservableCollection<DropSourceView> DropImports { get; } = new();
 
@@ -225,6 +225,7 @@ public sealed partial class MainViewModel
             _ = Task.Run(_pipeline.Drops.Flush);
         }
 
+        RefreshSharedDrops(nowUtc);
         if (_pipeline.Drops.Version != _dropsVersionShown && nowUtc - _lastDropsRebuild >= DropsRebuildEvery)
         {
             RebuildDrops(tableToo: true);
@@ -264,7 +265,7 @@ public sealed partial class MainViewModel
 
             if (tableToo)
             {
-                _dropTable = server is null ? Array.Empty<DropMobRow>() : store.Table(server, SelectedDropSource != DropSourceMine);
+                _dropTable = server is null ? Array.Empty<DropMobRow>() : store.Table(server, SelectedDropScope);
                 List<string> zones = new[] { AllDropZones }
                     .Concat(_dropTable.Select(r => r.Zone).Where(z => z.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase)
                         .OrderBy(z => z, StringComparer.OrdinalIgnoreCase))

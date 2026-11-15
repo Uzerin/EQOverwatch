@@ -1030,22 +1030,22 @@
                     <!-- Encounter browser + participant breakdown -->
                     <Grid Grid.Row="2">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto" MaxWidth="560"/>
                             <ColumnDefinition Width="12"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
 
-                        <DataGrid Grid.Column="0" ItemsSource="{Binding Encounters}" SelectedItem="{Binding SelectedEncounter, Mode=TwoWay}"
+                        <DataGrid Grid.Column="0" HorizontalAlignment="Left" ItemsSource="{Binding Encounters}" SelectedItem="{Binding SelectedEncounter, Mode=TwoWay}"
                                   AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
                                   SelectionMode="Single" HeadersVisibility="Column" GridLinesVisibility="Horizontal">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="Target" Binding="{Binding TargetName}" Width="*" MinWidth="120"/>
-                                <DataGridTextColumn Header="Start" Binding="{Binding StartText}" SortMemberPath="StartTime" Width="140"/>
-                                <DataGridTextColumn Header="Length" Binding="{Binding DurationText}" SortMemberPath="DurationSeconds" Width="64"
+                                <DataGridTextColumn Header="Target" Binding="{Binding TargetName}" Width="Auto" MinWidth="120"/>
+                                <DataGridTextColumn Header="Start" Binding="{Binding StartText}" SortMemberPath="StartTime" Width="Auto"/>
+                                <DataGridTextColumn Header="Length" Binding="{Binding DurationText}" SortMemberPath="DurationSeconds" Width="Auto"
                                                     ElementStyle="{StaticResource NumericCell}"/>
-                                <DataGridTextColumn Header="Damage" Binding="{Binding TotalDamage, StringFormat=N0}" Width="84"
+                                <DataGridTextColumn Header="Damage" Binding="{Binding TotalDamage, StringFormat=N0}" Width="Auto"
                                                     ElementStyle="{StaticResource NumericCell}"/>
-                                <DataGridTextColumn Header="Group DPS" Binding="{Binding GroupDps, StringFormat=N0}" Width="80"
+                                <DataGridTextColumn Header="Group DPS" Binding="{Binding GroupDps, StringFormat=N0}" Width="Auto"
                                                     ElementStyle="{StaticResource NumericCell}"/>
                             </DataGrid.Columns>
                         </DataGrid>
@@ -1061,7 +1061,7 @@
                             <DockPanel Grid.Row="0">
                                 <TextBlock DockPanel.Dock="Top" FontWeight="SemiBold" Margin="0,0,0,8" TextWrapping="Wrap"
                                            Text="{Binding EncounterSummary}"/>
-                                <DataGrid ItemsSource="{Binding Participants}"
+                                <DataGrid ItemsSource="{Binding Participants}" HorizontalAlignment="Left"
                                           AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
                                           HeadersVisibility="Column" GridLinesVisibility="Horizontal"
                                           FrozenColumnCount="2" HorizontalScrollBarVisibility="Auto">
@@ -1105,11 +1105,11 @@
                             </DockPanel>
 
                             <TabControl Grid.Row="2">
-                                <TabItem Header="Damage taken">
+                                <TabItem Header="Damage Taken">
                                     <DockPanel Margin="0,6,0,0">
                                         <TextBlock DockPanel.Dock="Top" FontWeight="SemiBold" Margin="0,0,0,8" TextWrapping="Wrap"
                                                    Text="{Binding DamageTakenSummary}"/>
-                                        <DataGrid ItemsSource="{Binding DamageTaken}"
+                                        <DataGrid ItemsSource="{Binding DamageTaken}" HorizontalAlignment="Left"
                                           AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
                                           HeadersVisibility="Column" GridLinesVisibility="Horizontal"
                                           FrozenColumnCount="2" HorizontalScrollBarVisibility="Auto">
@@ -1161,11 +1161,11 @@
                                     </DockPanel>
                                 </TabItem>
 
-                                <TabItem Header="Boss abilities">
+                                <TabItem Header="Boss Abilities">
                                     <DockPanel Margin="0,6,0,0">
                                         <TextBlock DockPanel.Dock="Top" FontWeight="SemiBold" Margin="0,0,0,8" TextWrapping="Wrap"
                                                    Text="{Binding BossAbilitySummary}"/>
-                                        <DataGrid ItemsSource="{Binding BossAbilityRows}"
+                                        <DataGrid HorizontalAlignment="Left" ItemsSource="{Binding BossAbilityRows}"
                                                   AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
                                                   HeadersVisibility="Column" GridLinesVisibility="Horizontal" HorizontalScrollBarVisibility="Auto">
                                             <DataGrid.Columns>
@@ -1180,7 +1180,7 @@
                                 </TabItem>
 
                                 <TabItem Header="Deaths">
-                                    <DataGrid Margin="0,6,0,0" ItemsSource="{Binding DeathRows}"
+                                    <DataGrid Margin="0,6,0,0" HorizontalAlignment="Left" ItemsSource="{Binding DeathRows}"
                                               AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
                                               HeadersVisibility="Column" GridLinesVisibility="Horizontal" HorizontalScrollBarVisibility="Auto">
                                         <DataGrid.Columns>
@@ -1195,7 +1195,7 @@
                                     <DockPanel Margin="0,6,0,0">
                                         <TextBlock DockPanel.Dock="Top" FontWeight="SemiBold" Margin="0,0,0,8" TextWrapping="Wrap"
                                                    Text="{Binding HealingSummary}"/>
-                                        <DataGrid ItemsSource="{Binding HealingRows}"
+                                        <DataGrid HorizontalAlignment="Left" ItemsSource="{Binding HealingRows}"
                                                   AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
                                                   HeadersVisibility="Column" GridLinesVisibility="Horizontal" HorizontalScrollBarVisibility="Auto">
                                             <DataGrid.Columns>
@@ -1220,7 +1220,7 @@
                                     <DockPanel Margin="0,6,0,0">
                                         <TextBlock DockPanel.Dock="Top" FontWeight="SemiBold" Margin="0,0,0,8" TextWrapping="Wrap"
                                                    Text="{Binding UptimeSummary}"/>
-                                        <DataGrid ItemsSource="{Binding UptimeRows}"
+                                        <DataGrid HorizontalAlignment="Left" ItemsSource="{Binding UptimeRows}"
                                                   AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
                                                   HeadersVisibility="Column" GridLinesVisibility="Horizontal" HorizontalScrollBarVisibility="Auto">
                                             <DataGrid.Columns>
@@ -1232,7 +1232,7 @@
                                         </DataGrid>
                                     </DockPanel>
                                 </TabItem>
-                                <TabItem Header="Spell casts">
+                                <TabItem Header="Spell Casts">
                                     <Grid Margin="0,6,0,0">
                                         <Grid.RowDefinitions>
                                             <RowDefinition Height="Auto"/>
@@ -1248,8 +1248,8 @@
                                             <Button Content="Copy" Command="{Binding CopySpellCastsCommand}" Style="{StaticResource SecondaryButton}" Margin="10,0,0,0"/>
                                         </StackPanel>
                                         <TabControl Grid.Row="2">
-                                            <TabItem Header="By player">
-                                                <DataGrid Margin="0,6,0,0" ItemsSource="{Binding SpellCastPlayerRows}"
+                                            <TabItem Header="By Player">
+                                                <DataGrid Margin="0,6,0,0" HorizontalAlignment="Left" ItemsSource="{Binding SpellCastPlayerRows}"
                                                           AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
                                                           HeadersVisibility="Column" GridLinesVisibility="Horizontal" HorizontalScrollBarVisibility="Auto">
                                                     <DataGrid.RowStyle>
@@ -1276,8 +1276,8 @@
                                                     </DataGrid.Columns>
                                                 </DataGrid>
                                             </TabItem>
-                                            <TabItem Header="By spell">
-                                                <DataGrid Margin="0,6,0,0" ItemsSource="{Binding SpellCastTotalRows}"
+                                            <TabItem Header="By Spell">
+                                                <DataGrid Margin="0,6,0,0" HorizontalAlignment="Left" ItemsSource="{Binding SpellCastTotalRows}"
                                                           AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
                                                           HeadersVisibility="Column" GridLinesVisibility="Horizontal" HorizontalScrollBarVisibility="Auto">
                                                     <DataGrid.Columns>
@@ -1461,7 +1461,7 @@
             </TabItem>
 
             <!-- ═════════ Drop table ═════════ -->
-            <TabItem Header="Drop table">
+            <TabItem Header="Drop Table">
                 <Grid Margin="6">
                     <Grid.Resources>
                         <Style x:Key="DropViewTab" TargetType="RadioButton">
@@ -1508,8 +1508,8 @@
                     </Grid.RowDefinitions>
 
                     <DockPanel Grid.Row="0" Margin="0,0,0,10" LastChildFill="False">
-                        <RadioButton DockPanel.Dock="Left" GroupName="DropViews" Style="{StaticResource DropViewTab}" Content="By mob" IsChecked="{Binding IsDropsByMob, Mode=TwoWay}"/>
-                        <RadioButton DockPanel.Dock="Left" GroupName="DropViews" Style="{StaticResource DropViewTab}" Content="By item" IsChecked="{Binding IsDropsByItem, Mode=TwoWay}"/>
+                        <RadioButton DockPanel.Dock="Left" GroupName="DropViews" Style="{StaticResource DropViewTab}" Content="By Mob" IsChecked="{Binding IsDropsByMob, Mode=TwoWay}"/>
+                        <RadioButton DockPanel.Dock="Left" GroupName="DropViews" Style="{StaticResource DropViewTab}" Content="By Item" IsChecked="{Binding IsDropsByItem, Mode=TwoWay}"/>
                         <RadioButton DockPanel.Dock="Right" GroupName="DropViews" Style="{StaticResource DropViewTab}" Content="Sharing" IsChecked="{Binding IsDropsSharing, Mode=TwoWay}"/>
                         <Button DockPanel.Dock="Right" Margin="0,0,10,0" Content="Scan log history" Style="{StaticResource SecondaryButton}" Command="{Binding ScanDropsCommand}"
                                 ToolTip="Reads every watched log from the start again. Kills and drops seen before are not counted twice."/>
@@ -1547,7 +1547,7 @@
                                 <TextBox Text="{Binding DropSearch, UpdateSourceTrigger=PropertyChanged, Delay=250}" ToolTip="A mob or item name, or part of one."/>
                             </DockPanel>
                         </Grid>
-                        <DataGrid Grid.Row="1" ItemsSource="{Binding DropRows}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
+                        <DataGrid Grid.Row="1" HorizontalAlignment="Left" ItemsSource="{Binding DropRows}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
                                   HeadersVisibility="Column" GridLinesVisibility="Horizontal" CanUserSortColumns="False"
                                   VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling">
                             <DataGrid.RowStyle>
@@ -1561,7 +1561,7 @@
                                 </Style>
                             </DataGrid.RowStyle>
                             <DataGrid.Columns>
-                                <DataGridTemplateColumn Width="*" MinWidth="220">
+                                <DataGridTemplateColumn Width="Auto" MinWidth="160">
                                     <DataGridTemplateColumn.HeaderTemplate>
                                         <DataTemplate>
                                             <TextBlock Text="{Binding DataContext.DropFirstColumn, RelativeSource={RelativeSource AncestorType=DataGrid}}"/>
@@ -1599,10 +1599,10 @@
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>
-                                <DataGridTextColumn Header="Zone" Binding="{Binding Zone, Mode=OneWay}" Width="200"/>
-                                <DataGridTextColumn Header="Kills" Binding="{Binding Kills, Mode=OneWay}" Width="90" ElementStyle="{StaticResource NumericCell}"/>
-                                <DataGridTextColumn Header="Drops" Binding="{Binding Drops, Mode=OneWay}" Width="90" ElementStyle="{StaticResource NumericCell}"/>
-                                <DataGridTemplateColumn Header="Rate" Width="150">
+                                <DataGridTextColumn Header="Zone" Binding="{Binding Zone, Mode=OneWay}" Width="Auto"/>
+                                <DataGridTextColumn Header="Kills" Binding="{Binding Kills, Mode=OneWay}" Width="Auto" MinWidth="56" ElementStyle="{StaticResource NumericCell}"/>
+                                <DataGridTextColumn Header="Drops" Binding="{Binding Drops, Mode=OneWay}" Width="Auto" MinWidth="56" ElementStyle="{StaticResource NumericCell}"/>
+                                <DataGridTemplateColumn Header="Rate" Width="Auto" MinWidth="130">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
                                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -1621,6 +1621,18 @@
                     <!-- Sharing -->
                     <ScrollViewer Grid.Row="1" Style="{StaticResource DropSharingOnly}" VerticalScrollBarVisibility="Auto">
                         <StackPanel MaxWidth="760" HorizontalAlignment="Left">
+                            <TextBlock Style="{StaticResource SectionTitle}" Text="Shared online"/>
+                            <TextBlock Style="{StaticResource HintText}" Margin="0,0,0,8"
+                                       Text="Pool drops with every EQ Overwatch player on your server. What is sent: each kill and drop's mob, item, zone and time, under a random id. No character names, nothing else. A fight several players logged counts once, and a drop only counts when the same player logged the kill."/>
+                            <CheckBox Margin="0,0,0,4" Content="Use shared drops" IsChecked="{Binding UseSharedDrops, Mode=TwoWay}"
+                                      ToolTip="Adds the drops other players shared to your table (Source: You and all players). Checked about once an hour."/>
+                            <CheckBox Margin="0,0,0,8" Content="Share my drops" IsChecked="{Binding ShareMyDrops, Mode=TwoWay}"
+                                      ToolTip="Uploads your own kills and drops now and then. Switching it off takes them off the service."/>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
+                                <Button Content="Check now" Style="{StaticResource SecondaryButton}" Command="{Binding SyncSharedDropsNowCommand}"/>
+                                <TextBlock Style="{StaticResource HintText}" Margin="10,0,0,0" VerticalAlignment="Center" MaxWidth="620" Text="{Binding SharedDropsStatus}"/>
+                            </StackPanel>
+
                             <TextBlock Style="{StaticResource SectionTitle}" Text="Drops files"/>
                             <TextBlock Style="{StaticResource HintText}" Margin="0,0,0,8"
                                        Text="Share your drop table by hand, for example in a Discord channel. A file holds one server's kills and drops: item, mob, zone and time. No character names. Importing a file from someone who logged the same fights counts each one once."/>
@@ -1770,11 +1782,11 @@
                                  Text="{Binding ItemSearchText, UpdateSourceTrigger=PropertyChanged}"/>
                         <TextBlock DockPanel.Dock="Top" Style="{StaticResource HintText}" Margin="0,0,0,6" Text="{Binding ItemSearchStatus}"/>
                         <DataGrid ItemsSource="{Binding ItemHits}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
-                                  HeadersVisibility="Column" GridLinesVisibility="Horizontal">
+                                  HeadersVisibility="Column" GridLinesVisibility="Horizontal" HorizontalScrollBarVisibility="Disabled">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="Character" Binding="{Binding Character, Mode=OneWay}" Width="Auto"/>
-                                <DataGridTextColumn Header="Where" Binding="{Binding Where, Mode=OneWay}" Width="Auto"/>
-                                <DataGridTextColumn Header="Item" Binding="{Binding Item, Mode=OneWay}" Width="Auto"/>
+                                <DataGridTextColumn Header="Where" Binding="{Binding Where, Mode=OneWay}" Width="Auto" MaxWidth="220" ElementStyle="{StaticResource WrapCell}"/>
+                                <DataGridTextColumn Header="Item" Binding="{Binding Item, Mode=OneWay}" Width="*" MinWidth="120" ElementStyle="{StaticResource WrapCell}"/>
                                 <DataGridTextColumn Header="Count" Binding="{Binding Count, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                             </DataGrid.Columns>
                         </DataGrid>
@@ -1789,11 +1801,11 @@
                         <DockPanel Grid.Row="0">
                             <TextBlock DockPanel.Dock="Top" FontWeight="SemiBold" Margin="0,0,0,6" Text="Scrolls you carry that a character needs"/>
                             <DataGrid ItemsSource="{Binding ScrollRows}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
-                                      HeadersVisibility="Column" GridLinesVisibility="Horizontal">
+                                      HeadersVisibility="Column" GridLinesVisibility="Horizontal" HorizontalScrollBarVisibility="Disabled">
                                 <DataGrid.Columns>
                                     <DataGridTextColumn Header="Spell" Binding="{Binding Spell, Mode=OneWay}" Width="Auto"/>
-                                    <DataGridTextColumn Header="Needed by" Binding="{Binding NeededBy, Mode=OneWay}" Width="Auto"/>
-                                    <DataGridTextColumn Header="Carried by" Binding="{Binding HeldBy, Mode=OneWay}" Width="Auto"/>
+                                    <DataGridTextColumn Header="Needed by" Binding="{Binding NeededBy, Mode=OneWay}" Width="*" MinWidth="100" ElementStyle="{StaticResource WrapCell}"/>
+                                    <DataGridTextColumn Header="Carried by" Binding="{Binding HeldBy, Mode=OneWay}" Width="*" MinWidth="100" ElementStyle="{StaticResource WrapCell}"/>
                                     <DataGridTextColumn Header="Server" Binding="{Binding Server, Mode=OneWay}" Width="Auto"/>
                                 </DataGrid.Columns>
                             </DataGrid>
@@ -1801,11 +1813,11 @@
                         <DockPanel Grid.Row="2">
                             <TextBlock DockPanel.Dock="Top" FontWeight="SemiBold" Margin="0,0,0,6" Text="Shopping list: missing spells nobody has a scroll for"/>
                             <DataGrid ItemsSource="{Binding ShoppingRows}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
-                                      HeadersVisibility="Column" GridLinesVisibility="Horizontal">
+                                      HeadersVisibility="Column" GridLinesVisibility="Horizontal" HorizontalScrollBarVisibility="Disabled">
                                 <DataGrid.Columns>
                                     <DataGridTextColumn Header="Level" Binding="{Binding Level, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                                     <DataGridTextColumn Header="Spell" Binding="{Binding Spell, Mode=OneWay}" Width="Auto"/>
-                                    <DataGridTextColumn Header="Needed by" Binding="{Binding NeededBy, Mode=OneWay}" Width="Auto"/>
+                                    <DataGridTextColumn Header="Needed by" Binding="{Binding NeededBy, Mode=OneWay}" Width="*" MinWidth="100" ElementStyle="{StaticResource WrapCell}"/>
                                     <DataGridTextColumn Header="Server" Binding="{Binding Server, Mode=OneWay}" Width="Auto"/>
                                 </DataGrid.Columns>
                             </DataGrid>
@@ -2040,10 +2052,10 @@
                                 ToolTip="Starts counting again from now."/>
                         <TextBlock DockPanel.Dock="Left" Style="{StaticResource HintText}" VerticalAlignment="Center" Text="{Binding ExperienceSession}"/>
                     </DockPanel>
-                    <DataGrid Grid.Row="1" ItemsSource="{Binding ExperienceRows}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
+                    <DataGrid Grid.Row="1" HorizontalAlignment="Left" ItemsSource="{Binding ExperienceRows}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
                               HeadersVisibility="Column" GridLinesVisibility="Horizontal">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="Character" Binding="{Binding Character, Mode=OneWay}" Width="*" MinWidth="120"/>
+                            <DataGridTextColumn Header="Character" Binding="{Binding Character, Mode=OneWay}" Width="Auto" MinWidth="120"/>
                             <DataGridTextColumn Header="Level" Binding="{Binding Level, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                             <DataGridTextColumn Header="XP this session" Binding="{Binding XpSession, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                             <DataGridTextColumn Header="XP / hour" Binding="{Binding XpPerHour, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
@@ -2082,11 +2094,11 @@
                                   SelectedItem="{Binding SelectedMobExperienceCharacter, Mode=TwoWay}"/>
                         <TextBlock DockPanel.Dock="Right" Style="{StaticResource HintText}" VerticalAlignment="Center" Text="Character"/>
                     </DockPanel>
-                    <DataGrid Grid.Row="5" ItemsSource="{Binding MobExperienceRows}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
+                    <DataGrid Grid.Row="5" HorizontalAlignment="Left" ItemsSource="{Binding MobExperienceRows}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
                               HeadersVisibility="Column" GridLinesVisibility="Horizontal">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="Level" Binding="{Binding Level, Mode=OneWay}" Width="60" ElementStyle="{StaticResource NumericCell}"/>
-                            <DataGridTextColumn Header="Mob" Binding="{Binding Mob, Mode=OneWay}" Width="*" MinWidth="160"/>
+                            <DataGridTextColumn Header="Level" Binding="{Binding Level, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                            <DataGridTextColumn Header="Mob" Binding="{Binding Mob, Mode=OneWay}" Width="Auto" MinWidth="160"/>
                             <DataGridTextColumn Header="Kills" Binding="{Binding Kills, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                             <DataGridTextColumn Header="Avg % per kill" Binding="{Binding AveragePercent, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                             <DataGridTextColumn Header="Total %" Binding="{Binding TotalPercent, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
@@ -2148,8 +2160,8 @@
                     </Grid.RowDefinitions>
 
                     <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10">
-                        <RadioButton GroupName="MapsSubTabs" Style="{StaticResource MapsSubTab}" Content="Current zone" IsChecked="{Binding IsCurrentZoneTab, Mode=TwoWay}"/>
-                        <RadioButton GroupName="MapsSubTabs" Style="{StaticResource MapsSubTab}" Content="Select zone" IsChecked="{Binding IsSelectZoneTab, Mode=TwoWay}"/>
+                        <RadioButton GroupName="MapsSubTabs" Style="{StaticResource MapsSubTab}" Content="Current Zone" IsChecked="{Binding IsCurrentZoneTab, Mode=TwoWay}"/>
+                        <RadioButton GroupName="MapsSubTabs" Style="{StaticResource MapsSubTab}" Content="Select Zone" IsChecked="{Binding IsSelectZoneTab, Mode=TwoWay}"/>
                     </StackPanel>
 
                     <!-- Expansion, Zone and Map pack in one row (Current zone shows where the Primary DPS character is instead of the first two) -->
@@ -2286,7 +2298,7 @@
             </TabItem>
 
             <!-- ═════════ Log search ═════════ -->
-            <TabItem Header="Log search">
+            <TabItem Header="Log Search">
                 <Grid Margin="6">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>

@@ -159,6 +159,18 @@ public sealed class AppSettings
     /// <summary>Hours between checks for a newer version while the app stays open. 0 checks only when the app opens.</summary>
     public int UpdateCheckHours { get; set; } = 4;
 
+    /// <summary>Add the drops other players shared online to the Drop Table (off until switched on).</summary>
+    public bool UseSharedDrops { get; set; }
+
+    /// <summary>Upload this PC's drops to the online shared table (off until switched on).</summary>
+    public bool ShareMyDrops { get; set; }
+
+    /// <summary>This install's random id in the online shared table (made on the first upload; never a character name).</summary>
+    public string SharedDropsId { get; set; } = string.Empty;
+
+    /// <summary>The secret that lets only this install replace or remove its online file.</summary>
+    public string SharedDropsKey { get; set; } = string.Empty;
+
     /// <summary>A version ("v1.0.12") the user chose to skip: it is not announced again (a newer one still is).</summary>
     public string SkippedUpdateVersion { get; set; } = string.Empty;
 

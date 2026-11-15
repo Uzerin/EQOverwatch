@@ -29,6 +29,7 @@ public partial class CompanionApp : Application
     private HttpClient? _http;
     private HttpClient? _discordHttp;
     private HttpClient? _updateHttp;
+    private HttpClient? _sharedDropsHttp;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -125,6 +126,11 @@ public partial class CompanionApp : Application
                 Process.Start(new ProcessStartInfo(exe) { UseShellExecute = true, WorkingDirectory = Path.GetDirectoryName(exe) ?? string.Empty });
                 Shutdown();
             });
+
+        // The online shared drop table (both of its switches start off).
+        _sharedDropsHttp = new HttpClient { Timeout = TimeSpan.FromSeconds(60) };
+        _sharedDropsHttp.DefaultRequestHeaders.UserAgent.ParseAdd(AppInfo.SettingsFolderName);
+        _viewModel.ConfigureSharedDrops(new EQOverwatch.Core.Drops.HttpSharedDropsService(_sharedDropsHttp));
 
         var main = new MainWindow(_viewModel);
         MainWindow = main; // closing it ends the app (ShutdownMode=OnMainWindowClose)
