@@ -116,11 +116,6 @@ public sealed partial class MainViewModel
             return;
         }
 
-        string name = log.CharacterName, server = log.ServerName;
-        FocusEffectsViewModel focus = CreateFocusViewModel(name, server);
-        var viewModel = new CharacterDataViewModel(
-            _characterData, () => EqFolderPath, name, server, () => _pipeline.Roster.GetClass(name, server),
-            CharacterDataViewModel.FocusTab, focus);
-        _characterDataPresenter?.Show(viewModel);
+        _characterDataPresenter?.Show(CreateCharacterWindow(log, CharacterDataViewModel.FocusTab));
     }
 }

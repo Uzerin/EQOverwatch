@@ -140,7 +140,9 @@ public sealed partial class MainViewModel
         IsInCombat = OverlayFade.IsInCombat(last, now);
         foreach (OverlayKind kind in OverlayKindExtensions.All)
         {
-            double opacity = OverlayFade.Opacity(last, now, OverlayIdlePercent, DpsHideSeconds, kind == OverlayKind.Dps, !AreOverlaysLocked);
+            // The Tells overlay does not fade out of combat: a tell matters most when nothing is happening.
+            double opacity = kind == OverlayKind.Tells ? 1.0
+                : OverlayFade.Opacity(last, now, OverlayIdlePercent, DpsHideSeconds, kind == OverlayKind.Dps, !AreOverlaysLocked);
             if (!anyActive && AreOverlaysLocked)
             {
                 opacity = 0.0;

@@ -49,7 +49,7 @@ public sealed class OverlayHost : IOverlayHost
     public void Apply(OverlayKind kind, OverlaySettings settings)
     {
         OverlayWindowBase window = Get(kind);
-        OverlaySettings defaults = kind.Category() is { } category ? OverlaySettings.ForCategory(category) : OverlaySettings.DefaultDps;
+        OverlaySettings defaults = kind.Defaults();
 
         // SystemParameters.VirtualScreen* spans every monitor, in the same device-independent units as Window.Left/Top.
         var screen = new ScreenRect(

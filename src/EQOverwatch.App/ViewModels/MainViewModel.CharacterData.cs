@@ -18,6 +18,33 @@ public sealed partial class MainViewModel
     [ObservableProperty]
     private string _characterDataStatus = string.Empty;
 
+    /// <summary>
+    /// The Characters tab's Inventory / Profile button: the character's window on its Inventory tab, with every other tab (spellbook,
+    /// missing spells, key ring, focus effects, skills, tradeskills, faction) beside it. It opens even before any /outputfile file exists.
+    /// </summary>
+    [RelayCommand]
+    private void OpenProfile(WatchedLogConfig? log)
+    {
+        if (log is null)
+        {
+            return;
+        }
+
+        _characterData.ScanAll(EqFolderPath);
+        RefreshCharacterInfo();
+        CharacterDataStatus = string.Empty;
+        _characterDataPresenter?.Show(CreateCharacterWindow(log, CharacterDataViewModel.InventoryTab));
+    }
+
+    /// <summary>A character's window, with its focus effects, skills, tradeskills and faction, and a Forget button.</summary>
+    internal CharacterDataViewModel CreateCharacterWindow(WatchedLogConfig log, int tab)
+    {
+        string name = log.CharacterName, server = log.ServerName;
+        return new CharacterDataViewModel(
+            _characterData, () => EqFolderPath, name, server, () => _pipeline.Roster.GetClass(name, server), tab,
+            CreateFocusViewModel(name, server), ProgressSourceFor(name, server), () => ForgetCharacterData(log));
+    }
+
     [RelayCommand]
     private void OpenInventory(WatchedLogConfig? log) => OpenCharacterData(log, OutputFileKind.Inventory);
 
@@ -84,10 +111,7 @@ public sealed partial class MainViewModel
             _ => CharacterDataViewModel.MissingSpellsTab,
         };
 
-        string name = log.CharacterName;
-        var viewModel = new CharacterDataViewModel(
-            _characterData, () => EqFolderPath, name, log.ServerName, () => _pipeline.Roster.GetClass(name, log.ServerName), tab, CreateFocusViewModel(name, log.ServerName));
-        _characterDataPresenter?.Show(viewModel);
+        _characterDataPresenter?.Show(CreateCharacterWindow(log, tab));
     }
 
     /// <summary>What to tell someone who clicks a data button before EverQuest has written the file.</summary>

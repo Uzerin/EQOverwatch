@@ -4,7 +4,7 @@ using EQOverwatch.Core.Theming;
 
 namespace EQOverwatch.App.Services;
 
-/// <summary>The six overlay windows.</summary>
+/// <summary>The overlay windows.</summary>
 public enum OverlayKind
 {
     Buffs,
@@ -13,6 +13,7 @@ public enum OverlayKind
     RaidTriggers,
     ChChain,
     Dps,
+    Tells,
 }
 
 public static class OverlayKindExtensions
@@ -39,8 +40,14 @@ public static class OverlayKindExtensions
         _ => OverlayKind.RaidTriggers,
     };
 
-    /// <summary>The window title and drag-strip text: "Buffs", "Debuffs", "Songs", "Raid Triggers", "CH Chain" or "DPS".</summary>
-    public static string Title(this OverlayKind kind) => kind.Category()?.DisplayName() ?? "DPS";
+    /// <summary>The window title and drag-strip text: "Buffs", "Debuffs", "Songs", "Raid Triggers", "CH Chain", "DPS" or "Tells".</summary>
+    public static string Title(this OverlayKind kind) => kind.Category()?.DisplayName() ?? (kind == OverlayKind.Tells ? "Tells" : "DPS");
+
+    /// <summary>Where an overlay goes when nothing is saved for it.</summary>
+    public static EQOverwatch.Core.Settings.OverlaySettings Defaults(this OverlayKind kind) =>
+        kind.Category() is { } category ? EQOverwatch.Core.Settings.OverlaySettings.ForCategory(category)
+        : kind == OverlayKind.Tells ? EQOverwatch.Core.Settings.OverlaySettings.DefaultTells
+        : EQOverwatch.Core.Settings.OverlaySettings.DefaultDps;
 }
 
 /// <summary>Applies a color palette to the running application (main window and every overlay).</summary>

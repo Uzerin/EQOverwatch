@@ -14,6 +14,19 @@ public sealed record MissingSpellRow(int Level, string Name, string Scroll);
 
 public sealed record KeyRingRow(string Type, string Name, int ItemId);
 
+/// <summary>A skill on the Skills tab: its value, the most it can be for the class and level, and today's skill-ups.</summary>
+public sealed record SkillRowView(string Skill, int Value, string Max, string Today, string LastUp, bool IsMaxed);
+
+public sealed record TradeskillRowView(string Recipe, int Combines, int Made, int Failed, string Success, string Last);
+
+public sealed record FactionRowView(string Faction, string Session, string AllTime, string Hits, string UsualHit, string ComesFrom, string Status);
+
+/// <summary>Where the Skills, Tradeskills and Faction tabs get their rows (read again each time the window refreshes).</summary>
+public sealed record CharacterProgressSource(
+    Func<IReadOnlyList<SkillRowView>> Skills,
+    Func<IReadOnlyList<TradeskillRowView>> Tradeskills,
+    Func<IReadOnlyList<FactionRowView>> Factions);
+
 /// <summary>
 /// One character's data window: inventory, spellbook, missing spells and key ring, read from the character's <c>/outputfile</c> files.
 /// The filter box narrows whichever table is showing. <see cref="Refresh"/> reads the game folder again.
@@ -25,6 +38,9 @@ public sealed partial class CharacterDataViewModel : ObservableObject
     public const int MissingSpellsTab = 2;
     public const int KeyRingTab = 3;
     public const int FocusTab = 4;
+    public const int SkillsTab = 5;
+    public const int TradeskillsTab = 6;
+    public const int FactionTab = 7;
 
     private const string ScrollPrefix = "Spell: ";
     private const string None = "—";
@@ -32,12 +48,16 @@ public sealed partial class CharacterDataViewModel : ObservableObject
     private readonly CharacterDataStore _store;
     private readonly Func<string?> _eqFolder;
     private readonly Func<string> _classLabel;
+    private readonly CharacterProgressSource? _progress;
+    private readonly Action? _forget;
 
     public CharacterDataViewModel(
         CharacterDataStore store, Func<string?> eqFolder, string characterName, string serverName, Func<string> classLabel, int tab,
-        FocusEffectsViewModel? focus = null)
+        FocusEffectsViewModel? focus = null, CharacterProgressSource? progress = null, Action? forget = null)
     {
         Focus = focus;
+        _progress = progress;
+        _forget = forget;
         _store = store ?? throw new ArgumentNullException(nameof(store));
         _eqFolder = eqFolder ?? throw new ArgumentNullException(nameof(eqFolder));
         _classLabel = classLabel ?? throw new ArgumentNullException(nameof(classLabel));
@@ -89,7 +109,35 @@ public sealed partial class CharacterDataViewModel : ObservableObject
     [ObservableProperty]
     private IReadOnlyList<KeyRingRow> _keyRingRows = Array.Empty<KeyRingRow>();
 
+    [ObservableProperty]
+    private IReadOnlyList<SkillRowView> _skillRows = Array.Empty<SkillRowView>();
+
+    [ObservableProperty]
+    private IReadOnlyList<TradeskillRowView> _tradeskillRows = Array.Empty<TradeskillRowView>();
+
+    [ObservableProperty]
+    private IReadOnlyList<FactionRowView> _factionRows = Array.Empty<FactionRowView>();
+
+    /// <summary>Hides skills already at their most for the character's class and level.</summary>
+    [ObservableProperty]
+    private bool _onlyUnmaxedSkills;
+
+    public bool CanForget => _forget is not null;
+
     partial void OnFilterTextChanged(string value) => Rebuild();
+
+    partial void OnOnlyUnmaxedSkillsChanged(bool value) => Rebuild();
+
+    // The log-based tabs change as the character plays, so they are read again whenever a tab is picked.
+    partial void OnSelectedTabIndexChanged(int value) => Rebuild();
+
+    /// <summary>Forgets the character's saved /outputfile data (after asking), then refreshes the window.</summary>
+    [RelayCommand]
+    private void Forget()
+    {
+        _forget?.Invoke();
+        Rebuild();
+    }
 
     partial void OnOnlyWithScrollChanged(bool value) => Rebuild();
 
@@ -132,8 +180,8 @@ public sealed partial class CharacterDataViewModel : ObservableObject
         }
 
         Title = details.Count == 0
-            ? $"{CharacterName} · Character data"
-            : $"{CharacterName} ({string.Join(", ", details)}) · Character data";
+            ? $"{CharacterName} · Inventory / Profile"
+            : $"{CharacterName} ({string.Join(", ", details)}) · Inventory / Profile";
 
         SourceText = data is null
             ? "No /outputfile data has been read yet."
@@ -220,6 +268,13 @@ public sealed partial class CharacterDataViewModel : ObservableObject
             .Select(m => new MissingSpellRow(m.Level, m.Name, scrolls.GetValueOrDefault(m.Name) ?? None))
             .Where(m => !OnlyWithScroll || m.Scroll != None)
             .ToList();
+
+        if (_progress is not null)
+        {
+            SkillRows = _progress.Skills().Where(r => Match(r.Skill) && (!OnlyUnmaxedSkills || !r.IsMaxed)).ToList();
+            TradeskillRows = _progress.Tradeskills().Where(r => Match(r.Recipe)).ToList();
+            FactionRows = _progress.Factions().Where(r => Match(r.Faction) || Match(r.ComesFrom)).ToList();
+        }
 
         MissingSummary = data is null || !data.Has(OutputFileKind.MissingSpells)
             ? "Missing spells have not been read yet."

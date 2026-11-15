@@ -222,28 +222,10 @@
                             <DataGridTemplateColumn Header="Character data" Width="Auto">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
-                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                            <Button Content="Inventory" Style="{StaticResource SecondaryButton}" Margin="4,1" Padding="8,3"
-                                                    ToolTip="Open this character's inventory (from /outputfile inventory)"
-                                                    Command="{Binding DataContext.OpenInventoryCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                    CommandParameter="{Binding}"/>
-                                            <Button Content="Spellbook" Style="{StaticResource SecondaryButton}" Margin="0,1,4,1" Padding="8,3"
-                                                    ToolTip="Open this character's spellbook (from /outputfile spellbook)"
-                                                    Command="{Binding DataContext.OpenSpellbookCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                    CommandParameter="{Binding}"/>
-                                            <Button Content="Missing spells" Style="{StaticResource SecondaryButton}" Margin="0,1,4,1" Padding="8,3"
-                                                    ToolTip="Open the spells this character has not scribed (from /outputfile missingspells)"
-                                                    Command="{Binding DataContext.OpenMissingSpellsCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                    CommandParameter="{Binding}"/>
-                                            <Button Content="Focus Effects" Style="{StaticResource SecondaryButton}" Margin="0,1,4,1" Padding="8,3"
-                                                    ToolTip="Choose this character's spell-duration focus effects and AA bonus, which lengthen the buff, debuff and DoT bars for spells it casts"
-                                                    Command="{Binding DataContext.OpenFocusEffectsCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                    CommandParameter="{Binding}"/>
-                                            <Button Content="Forget" Style="{StaticResource SecondaryButton}" Margin="0,1,4,1" Padding="8,3"
-                                                    ToolTip="Forget the inventory, spellbook and missing spells saved for this character"
-                                                    Command="{Binding DataContext.ForgetCharacterDataCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                    CommandParameter="{Binding}"/>
-                                        </StackPanel>
+                                        <Button Content="Inventory / Profile" Style="{StaticResource SecondaryButton}" Margin="4,1" Padding="8,3"
+                                                ToolTip="Open this character's window: inventory, spellbook, missing spells, key ring, focus effects, skills, tradeskills and faction"
+                                                Command="{Binding DataContext.OpenProfileCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                CommandParameter="{Binding}"/>
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
@@ -2354,6 +2336,47 @@
             </TabItem>
 
             <!-- ═════════ Players & Pets ═════════ -->
+            <!-- ═════════ Tells ═════════ -->
+            <TabItem Header="Tells">
+                <Grid Margin="6">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <WrapPanel Grid.Row="0" Margin="0,0,0,8">
+                        <TextBlock Style="{StaticResource FieldLabel}" Text="Show" VerticalAlignment="Center"/>
+                        <ComboBox Width="130" Margin="0,0,14,6" ItemsSource="{Binding TellShowChoices}" SelectedItem="{Binding TellShow, Mode=TwoWay}"/>
+                        <TextBlock Style="{StaticResource FieldLabel}" Text="Character" VerticalAlignment="Center"/>
+                        <ComboBox Width="170" Margin="0,0,14,6" ItemsSource="{Binding TellCharacters}" SelectedItem="{Binding TellCharacter, Mode=TwoWay}"/>
+                        <TextBlock Style="{StaticResource FieldLabel}" Text="Keep tells for" VerticalAlignment="Center"/>
+                        <ComboBox Width="100" Margin="0,0,14,6" ItemsSource="{Binding TellKeepChoices}" SelectedIndex="{Binding TellKeepIndex, Mode=TwoWay}"/>
+                        <Button Content="Mark all read" Margin="0,0,0,6" Style="{StaticResource SecondaryButton}" Command="{Binding MarkAllTellsReadCommand}"
+                                ToolTip="Stops every tell counting as unanswered."/>
+                    </WrapPanel>
+                    <DataGrid Grid.Row="1" HorizontalAlignment="Left" ItemsSource="{Binding TellRows}" AutoGenerateColumns="False" CanUserAddRows="False"
+                              IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal" HorizontalScrollBarVisibility="Disabled">
+                        <DataGrid.RowStyle>
+                            <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsUnanswered}" Value="True">
+                                        <Setter Property="FontWeight" Value="SemiBold"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </DataGrid.RowStyle>
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="When" Binding="{Binding When, Mode=OneWay}" Width="Auto"/>
+                            <DataGridTextColumn Header="To" Binding="{Binding To, Mode=OneWay}" Width="Auto"/>
+                            <DataGridTextColumn Header="From" Binding="{Binding From, Mode=OneWay}" Width="Auto"/>
+                            <DataGridTextColumn Header="Message" Binding="{Binding Message, Mode=OneWay}" Width="Auto" MaxWidth="900" ElementStyle="{StaticResource WrapCell}"/>
+                            <DataGridTextColumn Header="Answered" Binding="{Binding Answered, Mode=OneWay}" Width="Auto"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <TextBlock Grid.Row="2" Style="{StaticResource HintText}" Margin="0,8,0,0" Text="{Binding TellStatus}"/>
+                </Grid>
+            </TabItem>
+
             <TabItem Header="Players &amp; Pets">
                 <Grid Margin="6">
                     <Grid.RowDefinitions>
@@ -2532,6 +2555,8 @@
                                     <CheckBox Content="Raid Triggers" IsChecked="{Binding IsRaidTriggersOverlayVisible}" Margin="0,0,20,6"/>
                                     <CheckBox Content="CH Chain" IsChecked="{Binding IsChChainOverlayVisible}" Margin="0,0,20,6"/>
                                     <CheckBox Content="DPS" IsChecked="{Binding IsDpsOverlayVisible}" Margin="0,0,20,6"/>
+                                    <CheckBox Content="Tells" IsChecked="{Binding IsTellsOverlayVisible}" Margin="0,0,20,6"
+                                              ToolTip="Your characters' unanswered tells. It stays fully visible out of combat."/>
                                 </WrapPanel>
                                 <TextBlock Style="{StaticResource HintText}"
                                            Text="With the CH Chain overlay off, Complete Heal chain bars and the late-cast alarm are shown in the Buffs overlay instead."/>

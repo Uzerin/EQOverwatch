@@ -463,13 +463,14 @@ public sealed partial class MainViewModel
         SelectedOverlayProfile = keep is not null && OverlayProfileNames.Contains(keep) ? keep : OverlayProfileNames.FirstOrDefault();
     }
 
-    private static OverlaySettings ProfileSettings(OverlayProfile profile, OverlayKind kind) => kind switch
+    private OverlaySettings ProfileSettings(OverlayProfile profile, OverlayKind kind) => kind switch
     {
         OverlayKind.Buffs => profile.Buffs,
         OverlayKind.Debuffs => profile.Debuffs,
         OverlayKind.Songs => profile.Songs,
         OverlayKind.RaidTriggers => profile.RaidTriggers,
         OverlayKind.ChChain => profile.ChChain,
+        OverlayKind.Tells => profile.Tells ?? _overlays.Capture(OverlayKind.Tells),
         _ => profile.Dps,
     };
 
@@ -499,6 +500,7 @@ public sealed partial class MainViewModel
             RaidTriggers = _overlays.Capture(OverlayKind.RaidTriggers),
             ChChain = _overlays.Capture(OverlayKind.ChChain),
             Dps = _overlays.Capture(OverlayKind.Dps),
+            Tells = _overlays.Capture(OverlayKind.Tells),
         };
 
         _overlayProfiles.RemoveAll(p => p.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
@@ -552,7 +554,14 @@ public sealed partial class MainViewModel
         IsRaidTriggersOverlayVisible = profile.RaidTriggers.IsVisible;
         IsChChainOverlayVisible = profile.ChChain.IsVisible;
         IsDpsOverlayVisible = profile.Dps.IsVisible;
-        AreOverlaysLocked = OverlayKindExtensions.All.All(kind => ProfileSettings(profile, kind).IsLocked);
+        IsTellsOverlayVisible = ProfileSettings(profile, OverlayKind.Tells).IsVisible;
+        AreOverlaysLocked = OverlayKindExtensions.All.Where(kind => kind != OverlayKind.Tells).All(kind => ProfileSettings(profile, kind).IsLocked);
+        OverlaySettings tells = ProfileSettings(profile, OverlayKind.Tells);
+        if (AreOverlaysLocked && !tells.IsLocked)
+        {
+            _overlays.Apply(OverlayKind.Tells, tells with { IsLocked = true });
+        }
+
         RequestSave();
     }
 

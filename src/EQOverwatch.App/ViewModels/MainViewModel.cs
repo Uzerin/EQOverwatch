@@ -176,6 +176,9 @@ public sealed partial class MainViewModel : ObservableObject
     private bool _isDpsOverlayVisible = true;
 
     [ObservableProperty]
+    private bool _isTellsOverlayVisible;
+
+    [ObservableProperty]
     private bool _isAudioMuted;
 
     /// <summary>Speaks "Name tells Character: message" for every tell sent to a watched character.</summary>
@@ -213,6 +216,8 @@ public sealed partial class MainViewModel : ObservableObject
     }
 
     partial void OnIsDpsOverlayVisibleChanged(bool value) => OnOverlayVisibilityChanged(OverlayKind.Dps, value);
+
+    partial void OnIsTellsOverlayVisibleChanged(bool value) => OnOverlayVisibilityChanged(OverlayKind.Tells, value);
 
     private void OnOverlayVisibilityChanged(OverlayKind kind, bool visible)
     {
@@ -1353,6 +1358,7 @@ public sealed partial class MainViewModel : ObservableObject
             CheckForUpdates = settings.CheckForUpdates;
             UpdateCheckHours = settings.UpdateCheckHours;
             RestoreSharedDrops(settings);
+            RestoreTells(settings);
             _skippedUpdateVersion = settings.SkippedUpdateVersion ?? string.Empty;
 
             ChChainSettings chain = (settings.ChChain ?? new ChChainSettings()).Sanitized();
@@ -1438,7 +1444,13 @@ public sealed partial class MainViewModel : ObservableObject
             IsChChainOverlayVisible = settings.ChChainOverlay.IsVisible;
             _pipeline.ChChain.UseChChainOverlay = IsChChainOverlayVisible; // not raised when the value equals the default
             IsDpsOverlayVisible = settings.DpsOverlay.IsVisible;
-            AreOverlaysLocked = OverlayKindExtensions.All.All(kind => GetOverlaySettings(settings, kind).IsLocked);
+            IsTellsOverlayVisible = settings.TellsOverlay.IsVisible;
+            // The Tells overlay is newer than most saved settings, so it follows the others' lock rather than deciding it.
+            AreOverlaysLocked = OverlayKindExtensions.All.Where(kind => kind != OverlayKind.Tells).All(kind => GetOverlaySettings(settings, kind).IsLocked);
+            if (AreOverlaysLocked && !settings.TellsOverlay.IsLocked)
+            {
+                _overlays.Apply(OverlayKind.Tells, settings.TellsOverlay with { IsLocked = true });
+            }
         }
         finally
         {
@@ -1453,6 +1465,7 @@ public sealed partial class MainViewModel : ObservableObject
         OverlayKind.Songs => settings.SongsOverlay,
         OverlayKind.RaidTriggers => settings.RaidTriggersOverlay,
         OverlayKind.ChChain => settings.ChChainOverlay,
+        OverlayKind.Tells => settings.TellsOverlay,
         _ => settings.DpsOverlay,
     };
 
@@ -1492,6 +1505,8 @@ public sealed partial class MainViewModel : ObservableObject
         RaidTriggersOverlay = _overlays.Capture(OverlayKind.RaidTriggers),
         ChChainOverlay = _overlays.Capture(OverlayKind.ChChain),
         DpsOverlay = _overlays.Capture(OverlayKind.Dps),
+        TellsOverlay = _overlays.Capture(OverlayKind.Tells),
+        TellKeepDays = TellKeepDays,
         RaidBossTimers = RaidRules.Select(r => r.ToRule()).ToList(),
         Theme = _theme.Clone(),
         SpellsFilePath = SpellsFilePath,
@@ -1630,6 +1645,8 @@ public sealed partial class MainViewModel : ObservableObject
         _isShutDown = true;
         _pipeline.TimerPause.Save();
         _pipeline.Drops.Flush();
+        _pipeline.Progress.Flush();
+        _pipeline.TellInbox.Flush();
         StopSync();
 
         Logs.CollectionChanged -= OnLogsChanged;

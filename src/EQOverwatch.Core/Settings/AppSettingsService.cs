@@ -344,6 +344,8 @@ public sealed class AppSettingsService : IDisposable
         settings.RaidTriggersOverlay ??= OverlaySettings.ForCategory(TimerOverlayCategory.RaidTriggers);
         settings.ChChainOverlay ??= OverlaySettings.ForCategory(TimerOverlayCategory.ChChain);
         settings.DpsOverlay ??= OverlaySettings.DefaultDps;
+        settings.TellsOverlay ??= OverlaySettings.DefaultTells;
+        settings.TellKeepDays = Math.Max(0, settings.TellKeepDays);
 
         foreach (WatchedLogSettings log in settings.WatchedLogs)
         {

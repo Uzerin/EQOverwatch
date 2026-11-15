@@ -1,0 +1,41 @@
+<overlays:OverlayWindowBase x:Class="EQOverwatch.App.Overlays.TellsOverlayWindow"
+                            xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                            xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                            xmlns:overlays="clr-namespace:EQOverwatch.App.Overlays"
+                            Title="EQ Overwatch Tells"
+                            OverlayName="Tells"
+                            WindowStartupLocation="Manual"
+                            Left="1020" Top="60"
+                            Width="320" Height="160"
+                            MinWidth="200" MinHeight="70">
+    <Grid>
+        <Border Style="{StaticResource OverlayBackdropStyle}"/>
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <Border Grid.Row="0" Style="{StaticResource OverlayTitleStripStyle}" MouseLeftButtonDown="OnTitleStripMouseDown">
+                <TextBlock Margin="6,0" Style="{StaticResource OverlayTextStyle}"
+                           Text="{Binding OverlayName, RelativeSource={RelativeSource AncestorType={x:Type overlays:OverlayWindowBase}}}"/>
+            </Border>
+            <StackPanel Grid.Row="1" Margin="4" ClipToBounds="True">
+                <TextBlock Margin="2,0,0,3" Style="{StaticResource OverlayMutedTextStyle}" Text="{Binding CountText}"/>
+                <ItemsControl ItemsSource="{Binding Rows}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Margin="0,0,0,2" Padding="6,2" CornerRadius="3" Background="{DynamicResource RowBackdropBrush}">
+                                <DockPanel LastChildFill="True">
+                                    <TextBlock DockPanel.Dock="Right" Margin="8,0,0,0" Style="{StaticResource OverlayMutedTextStyle}" Text="{Binding Ago}"/>
+                                    <TextBlock TextTrimming="CharacterEllipsis" Style="{StaticResource OverlayTextStyle}">
+                                        <Run Text="{Binding To, Mode=OneWay}"/><Run Text=" ← "/><Run FontWeight="SemiBold" Text="{Binding From, Mode=OneWay}"/><Run Text=": "/><Run Text="{Binding Text, Mode=OneWay}"/>
+                                    </TextBlock>
+                                </DockPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</overlays:OverlayWindowBase>

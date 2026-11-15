@@ -66,6 +66,10 @@ public partial class CompanionApp : Application
                 // Each timer overlay shows only its own category of the trigger engine's timers.
                 windows[kind] = new TimerOverlayWindow(new TimerOverlayViewModel(_pipeline.Triggers, category, isCharacterActive: _pipeline.IsBarShown), kind);
             }
+            else if (kind == OverlayKind.Tells)
+            {
+                windows[kind] = new TellsOverlayWindow(new TellsOverlayViewModel(_pipeline.TellInbox));
+            }
             else
             {
                 dpsVm = new DpsOverlayViewModel(() => _pipeline.LiveDps.Snapshot, _pipeline.Roster.GetClassLabel, _pipeline.IsMonitoredCharacter)

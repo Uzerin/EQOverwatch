@@ -26,6 +26,8 @@ as many characters as you play, without touching the game.
 - Experience and AA per hour, and experience by mob at each level.
 - Drop Table: drop rates by mob and item for each server, pooled online with other players if you like.
 - Maps: add your own labels to the in-game maps.
+- Skills with their caps, tradeskill success rates and faction for each character.
+- Never miss a tell: unanswered tells across all your characters, with an optional overlay.
 - Search every character's chat history.
 
 **Built for boxers**
@@ -56,6 +58,14 @@ settings are kept.
 - Spell data comes from your own `spells_us.txt`.
 
 ## Changelog
+
+### 1.0.59
+
+- One Inventory / Profile button per character opens a window with every character tab, including the new ones.
+- New Skills tab in the character window: each skill A to Z with its max for your class and level.
+- New Tradeskills tab in the character window: success rate for each recipe.
+- New Faction tab in the character window: faction changes, usual hit and the mob that causes them.
+- New Tells tab and optional Tells overlay for unanswered tells across all your characters.
 
 ### 1.0.58
 

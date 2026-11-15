@@ -76,6 +76,12 @@ public sealed class AppSettings
     public OverlaySettings ChChainOverlay { get; set; } = OverlaySettings.ForCategory(TimerOverlayCategory.ChChain);
     public OverlaySettings DpsOverlay { get; set; } = OverlaySettings.DefaultDps;
 
+    /// <summary>The unanswered-tells overlay (hidden until switched on).</summary>
+    public OverlaySettings TellsOverlay { get; set; } = OverlaySettings.DefaultTells;
+
+    /// <summary>Days tells are kept on the Tells tab; 0 keeps them for good.</summary>
+    public int TellKeepDays { get; set; } = 30;
+
     /// <summary>Recast countdowns for raid boss abilities.</summary>
     public List<RaidBossTimerRule> RaidBossTimers { get; set; } = new();
 
@@ -237,6 +243,9 @@ public sealed class OverlayProfile
     public OverlaySettings RaidTriggers { get; set; } = OverlaySettings.ForCategory(TimerOverlayCategory.RaidTriggers);
     public OverlaySettings ChChain { get; set; } = OverlaySettings.ForCategory(TimerOverlayCategory.ChChain);
     public OverlaySettings Dps { get; set; } = OverlaySettings.DefaultDps;
+
+    /// <summary>Null in layouts saved before the Tells overlay existed: applying one leaves the Tells overlay as it is.</summary>
+    public OverlaySettings? Tells { get; set; }
 }
 
 /// <summary>
@@ -281,6 +290,8 @@ public sealed record OverlaySettings
     public static readonly OverlaySettings DefaultTimer = new() { Left = 100, Top = 100, Width = 320, Height = 240 };
 
     public static readonly OverlaySettings DefaultDps = new() { Left = 700, Top = 340, Width = 300, Height = 230 };
+
+    public static readonly OverlaySettings DefaultTells = new() { Left = 1020, Top = 60, Width = 320, Height = 160, IsVisible = false };
 
     private static readonly OverlaySettings DefaultBuffs = new() { Left = 60, Top = 60, Width = 300, Height = 260 };
     private static readonly OverlaySettings DefaultDebuffs = new() { Left = 380, Top = 60, Width = 300, Height = 260 };

@@ -11,6 +11,7 @@
         FontFamily="Segoe UI" FontSize="13">
 
     <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
         <Style x:Key="NumericCell" TargetType="TextBlock">
             <Setter Property="HorizontalAlignment" Value="Right"/>
             <Setter Property="Margin" Value="0,0,8,0"/>
@@ -31,6 +32,10 @@
 
         <!-- Filter, refresh and where the data came from. -->
         <DockPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+            <Button DockPanel.Dock="Right" Content="Forget this character" Command="{Binding ForgetCommand}"
+                    Style="{StaticResource SecondaryButton}" Margin="10,0,0,0" Padding="12,4"
+                    ToolTip="Forget the inventory, spellbook and missing spells saved for this character (they come back if the files are read again)"
+                    Visibility="{Binding CanForget, Converter={StaticResource BoolToVisibility}}"/>
             <Button DockPanel.Dock="Right" Content="Refresh" Command="{Binding RefreshCommand}"
                     Style="{StaticResource SecondaryButton}" Margin="10,0,0,0" Padding="12,4"
                     ToolTip="Read this character's /outputfile files from the EverQuest folder again"/>
@@ -115,6 +120,61 @@
                     <TextBlock Style="{StaticResource HintText}"
                                Text="Applies only to buffs, debuffs and DoTs this character casts. Songs are never extended. The bonus from the focus and the AAs adds together, and the best single focus counts."/>
                 </StackPanel>
+            </TabItem>
+
+            <TabItem Header="Skills">
+                <DockPanel Margin="0,6,0,0">
+                    <CheckBox DockPanel.Dock="Top" Margin="0,0,0,6" Content="Only skills not maxed" IsChecked="{Binding OnlyUnmaxedSkills}"/>
+                    <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource HintText}" Margin="0,6,0,0"
+                               Text="From the &quot;You have become better at&quot; lines in this character's log. Max is the most the skill can be for the character's class and level, from skillcaps.txt in your EverQuest folder."/>
+                    <DataGrid HorizontalAlignment="Left" ItemsSource="{Binding SkillRows}" AutoGenerateColumns="False" CanUserAddRows="False"
+                              CanUserDeleteRows="False" IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Skill" Binding="{Binding Skill, Mode=OneWay}" Width="Auto"/>
+                            <DataGridTextColumn Header="Value" Binding="{Binding Value, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                            <DataGridTextColumn Header="Max" Binding="{Binding Max, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                            <DataGridTextColumn Header="Today" Binding="{Binding Today, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                            <DataGridTextColumn Header="Last up" Binding="{Binding LastUp, Mode=OneWay}" Width="Auto"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </TabItem>
+
+            <TabItem Header="Tradeskills">
+                <DockPanel Margin="0,6,0,0">
+                    <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource HintText}" Margin="0,6,0,0"
+                               Text="Each combine this character's log shows: &quot;You have fashioned the items together&quot; made it, &quot;You lacked the skills&quot; failed."/>
+                    <DataGrid HorizontalAlignment="Left" ItemsSource="{Binding TradeskillRows}" AutoGenerateColumns="False" CanUserAddRows="False"
+                              CanUserDeleteRows="False" IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Recipe" Binding="{Binding Recipe, Mode=OneWay}" Width="Auto"/>
+                            <DataGridTextColumn Header="Combines" Binding="{Binding Combines, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                            <DataGridTextColumn Header="Made" Binding="{Binding Made, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                            <DataGridTextColumn Header="Failed" Binding="{Binding Failed, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                            <DataGridTextColumn Header="Success" Binding="{Binding Success, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                            <DataGridTextColumn Header="Last" Binding="{Binding Last, Mode=OneWay}" Width="Auto"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </TabItem>
+
+            <TabItem Header="Faction">
+                <DockPanel Margin="0,6,0,0">
+                    <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource HintText}" Margin="0,6,0,0"
+                               Text="From the &quot;Your faction standing with&quot; lines in this character's log. This session counts since the app opened. Comes from is the mob whose kills change it most."/>
+                    <DataGrid HorizontalAlignment="Left" ItemsSource="{Binding FactionRows}" AutoGenerateColumns="False" CanUserAddRows="False"
+                              CanUserDeleteRows="False" IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Faction" Binding="{Binding Faction, Mode=OneWay}" Width="Auto"/>
+                            <DataGridTextColumn Header="This session" Binding="{Binding Session, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                            <DataGridTextColumn Header="All time" Binding="{Binding AllTime, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                            <DataGridTextColumn Header="Hits" Binding="{Binding Hits, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                            <DataGridTextColumn Header="Usual hit" Binding="{Binding UsualHit, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                            <DataGridTextColumn Header="Comes from" Binding="{Binding ComesFrom, Mode=OneWay}" Width="Auto"/>
+                            <DataGridTextColumn Header="Status" Binding="{Binding Status, Mode=OneWay}" Width="Auto"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
             </TabItem>
         </TabControl>
     </DockPanel>

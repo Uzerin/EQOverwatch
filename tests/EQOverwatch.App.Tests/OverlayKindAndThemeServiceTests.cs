@@ -8,13 +8,15 @@ namespace EQOverwatch.App.Tests;
 public class OverlayKindAndThemeServiceTests
 {
     [Fact]
-    public void There_are_five_timer_overlays_and_one_dps_overlay_with_the_requested_titles()
+    public void There_are_five_timer_overlays_a_dps_overlay_and_a_tells_overlay_with_the_requested_titles()
     {
-        Assert.Equal(6, OverlayKindExtensions.All.Count);
+        Assert.Equal(7, OverlayKindExtensions.All.Count);
         Assert.Equal(
-            new[] { "Buffs", "Debuffs", "Songs", "Raid Triggers", "CH Chain", "DPS" },
+            new[] { "Buffs", "Debuffs", "Songs", "Raid Triggers", "CH Chain", "DPS", "Tells" },
             OverlayKindExtensions.All.Select(k => k.Title()));
         Assert.Null(OverlayKind.Dps.Category());
+        Assert.Null(OverlayKind.Tells.Category());
+        Assert.False(OverlayKind.Tells.Defaults().IsVisible); // off until switched on
     }
 
     [Fact]
