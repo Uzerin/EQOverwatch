@@ -57,6 +57,10 @@ settings are kept.
 
 ## Changelog
 
+### 1.0.58
+
+- Fixed Install update failing when an old update folder was read-only.
+
 ### 1.0.57
 
 - Drop Table can pool drops online with other players on your server (two switches under Sharing, both off by default).

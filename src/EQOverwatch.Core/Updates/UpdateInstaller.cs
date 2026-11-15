@@ -51,12 +51,7 @@ public sealed partial class UpdateInstaller : IUpdateInstaller
 
         try
         {
-            if (Directory.Exists(stagingDirectory))
-            {
-                Directory.Delete(stagingDirectory, recursive: true);
-            }
-
-            Directory.CreateDirectory(stagingDirectory);
+            stagingDirectory = UpdateSwapper.FreshFolder(stagingDirectory);
 
             progress?.Report("Getting the checksum…");
             string expected = await ReadExpectedHashAsync(assets.HashUrl, cancellationToken).ConfigureAwait(false);
@@ -227,6 +222,67 @@ public static class UpdateSwapper
         }
     }
 
+    /// <summary>
+    /// An empty folder to download into: <paramref name="folder"/> emptied (read-only flags cleared first), or when it can't be removed,
+    /// the first of folder-2, folder-3 … that can be. Throws <see cref="IOException"/> or <see cref="UnauthorizedAccessException"/> when none can.
+    /// </summary>
+    public static string FreshFolder(string folder)
+    {
+        Exception? last = null;
+        for (int n = 1; n <= 5; n++)
+        {
+            string candidate = n == 1 ? folder : $"{folder}-{n}";
+            try
+            {
+                DeleteFolder(candidate);
+                Directory.CreateDirectory(candidate);
+                return candidate;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                last = ex;
+            }
+        }
+
+        throw last is UnauthorizedAccessException denied ? denied : new IOException(last!.Message, last);
+    }
+
+    /// <summary>Deletes a folder and everything in it, clearing read-only flags first (Windows won't delete a read-only folder or file).</summary>
+    public static void DeleteFolder(string folder)
+    {
+        if (!Directory.Exists(folder))
+        {
+            return;
+        }
+
+        var root = new DirectoryInfo(folder);
+        foreach (FileSystemInfo item in root.EnumerateFileSystemInfos("*", SearchOption.AllDirectories))
+        {
+            if ((item.Attributes & FileAttributes.ReadOnly) != 0)
+            {
+                item.Attributes &= ~FileAttributes.ReadOnly;
+            }
+        }
+
+        if ((root.Attributes & FileAttributes.ReadOnly) != 0)
+        {
+            root.Attributes &= ~FileAttributes.ReadOnly;
+        }
+
+        root.Delete(recursive: true);
+    }
+
+    private static void TryDeleteFolder(string folder)
+    {
+        try
+        {
+            DeleteFolder(folder);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+        }
+    }
+
     /// <summary>Removes the leftovers of an earlier update (the backup of the old exe and the staging folder). Never throws.</summary>
     public static void CleanUp(string currentExe)
     {
@@ -238,10 +294,14 @@ public static class UpdateSwapper
                 File.Delete(backup);
             }
 
-            string staging = Path.Combine(Path.GetDirectoryName(currentExe) ?? string.Empty, StagingFolderName);
-            if (Directory.Exists(staging))
+            string folder = Path.GetDirectoryName(currentExe) ?? string.Empty;
+            foreach (string staging in Directory.EnumerateDirectories(folder, StagingFolderName + "*"))
             {
-                Directory.Delete(staging, recursive: true);
+                string name = Path.GetFileName(staging);
+                if (name == StagingFolderName || name.StartsWith(StagingFolderName + "-", StringComparison.Ordinal))
+                {
+                    TryDeleteFolder(staging);
+                }
             }
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)

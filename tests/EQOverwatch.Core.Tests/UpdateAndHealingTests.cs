@@ -167,6 +167,39 @@ public sealed class UpdateAndHealingTests : IDisposable
     }
 
     [Fact]
+    public async Task A_read_only_update_folder_left_by_an_earlier_update_does_not_stop_the_next_one()
+    {
+        string staging = Path.Combine(_dir, ".update");
+        Directory.CreateDirectory(staging);
+        string leftover = Path.Combine(staging, "update.zip");
+        File.WriteAllText(leftover, "old");
+        File.SetAttributes(leftover, FileAttributes.ReadOnly);
+        new DirectoryInfo(staging).Attributes |= FileAttributes.ReadOnly;
+
+        byte[] zip = ZipWith("EQOverwatch.exe", "new program");
+        UpdateInstaller installer = Installer(new()
+        {
+            [ZipUrl] = zip,
+            [HashUrl] = Encoding.ASCII.GetBytes(Sha256(zip)),
+        }, out _);
+
+        string exe = await installer.PrepareAsync(Assets, staging, null, CancellationToken.None);
+        Assert.Equal("new program", File.ReadAllText(exe));
+        Assert.Equal(staging, Path.GetDirectoryName(exe));
+
+        // Start-up cleanup removes read-only leftovers too, including a fallback folder.
+        string current = Path.Combine(_dir, "EQOverwatch.exe");
+        File.WriteAllText(current, "app");
+        Directory.CreateDirectory(staging + "-2");
+        new DirectoryInfo(staging + "-2").Attributes |= FileAttributes.ReadOnly;
+        new DirectoryInfo(staging).Attributes |= FileAttributes.ReadOnly;
+        UpdateSwapper.CleanUp(current);
+        Assert.False(Directory.Exists(staging));
+        Assert.False(Directory.Exists(staging + "-2"));
+        Assert.True(File.Exists(current));
+    }
+
+    [Fact]
     public async Task A_download_that_does_not_match_is_refused_and_removed()
     {
         byte[] zip = ZipWith("EQOverwatch.exe", "tampered");
