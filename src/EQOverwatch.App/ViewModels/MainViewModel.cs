@@ -1624,6 +1624,7 @@ public sealed partial class MainViewModel : ObservableObject
 
         _isShutDown = true;
         _pipeline.TimerPause.Save();
+        _pipeline.Drops.Flush();
         StopSync();
 
         Logs.CollectionChanged -= OnLogsChanged;

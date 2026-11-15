@@ -1460,6 +1460,202 @@
                 </Grid>
             </TabItem>
 
+            <!-- ═════════ Drop table ═════════ -->
+            <TabItem Header="Drop table">
+                <Grid Margin="6">
+                    <Grid.Resources>
+                        <Style x:Key="DropViewTab" TargetType="RadioButton">
+                            <Setter Property="Margin" Value="0,0,6,0"/>
+                            <Setter Property="Cursor" Value="Hand"/>
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="RadioButton">
+                                        <Border x:Name="Box" Padding="12,5" CornerRadius="6" BorderThickness="1"
+                                                BorderBrush="{DynamicResource BorderSoftBrush}" Background="Transparent">
+                                            <ContentPresenter x:Name="Text" TextElement.Foreground="{DynamicResource TextMutedBrush}"/>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsChecked" Value="True">
+                                                <Setter TargetName="Box" Property="Background" Value="{DynamicResource AccentBrush}"/>
+                                                <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                                                <Setter TargetName="Text" Property="TextElement.Foreground" Value="White"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                        <Style x:Key="DropTableOnly" TargetType="FrameworkElement">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsDropTableView}" Value="True">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                        <Style x:Key="DropSharingOnly" TargetType="FrameworkElement">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsDropSharingView}" Value="True">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Grid.Resources>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <DockPanel Grid.Row="0" Margin="0,0,0,10" LastChildFill="False">
+                        <RadioButton DockPanel.Dock="Left" GroupName="DropViews" Style="{StaticResource DropViewTab}" Content="By mob" IsChecked="{Binding IsDropsByMob, Mode=TwoWay}"/>
+                        <RadioButton DockPanel.Dock="Left" GroupName="DropViews" Style="{StaticResource DropViewTab}" Content="By item" IsChecked="{Binding IsDropsByItem, Mode=TwoWay}"/>
+                        <RadioButton DockPanel.Dock="Right" GroupName="DropViews" Style="{StaticResource DropViewTab}" Content="Sharing" IsChecked="{Binding IsDropsSharing, Mode=TwoWay}"/>
+                        <Button DockPanel.Dock="Right" Margin="0,0,10,0" Content="Scan log history" Style="{StaticResource SecondaryButton}" Command="{Binding ScanDropsCommand}"
+                                ToolTip="Reads every watched log from the start again. Kills and drops seen before are not counted twice."/>
+                    </DockPanel>
+
+                    <!-- The table -->
+                    <Grid Grid.Row="1" Style="{StaticResource DropTableOnly}">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <Grid Grid.Row="0" Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <DockPanel Grid.Column="0" Margin="0,0,12,0">
+                                <TextBlock DockPanel.Dock="Left" Style="{StaticResource FieldLabel}" Text="Server"/>
+                                <ComboBox ItemsSource="{Binding DropServers}" SelectedItem="{Binding SelectedDropServer, Mode=TwoWay}"
+                                          ToolTip="Each server's drops are kept apart; random-loot servers never mix with others."/>
+                            </DockPanel>
+                            <DockPanel Grid.Column="1" Margin="0,0,12,0">
+                                <TextBlock DockPanel.Dock="Left" Style="{StaticResource FieldLabel}" Text="Zone"/>
+                                <ComboBox ItemsSource="{Binding DropZones}" SelectedItem="{Binding SelectedDropZone, Mode=TwoWay}"/>
+                            </DockPanel>
+                            <DockPanel Grid.Column="2" Margin="0,0,12,0">
+                                <TextBlock DockPanel.Dock="Left" Style="{StaticResource FieldLabel}" Text="Source"/>
+                                <ComboBox ItemsSource="{Binding DropSources}" SelectedItem="{Binding SelectedDropSource, Mode=TwoWay}"/>
+                            </DockPanel>
+                            <DockPanel Grid.Column="3">
+                                <TextBlock DockPanel.Dock="Left" Style="{StaticResource FieldLabel}" Text="Search"/>
+                                <TextBox Text="{Binding DropSearch, UpdateSourceTrigger=PropertyChanged, Delay=250}" ToolTip="A mob or item name, or part of one."/>
+                            </DockPanel>
+                        </Grid>
+                        <DataGrid Grid.Row="1" ItemsSource="{Binding DropRows}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
+                                  HeadersVisibility="Column" GridLinesVisibility="Horizontal" CanUserSortColumns="False"
+                                  VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling">
+                            <DataGrid.RowStyle>
+                                <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsHeading}" Value="True">
+                                            <Setter Property="FontWeight" Value="SemiBold"/>
+                                            <Setter Property="Background" Value="{DynamicResource WindowBgBrush}"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </DataGrid.RowStyle>
+                            <DataGrid.Columns>
+                                <DataGridTemplateColumn Width="*" MinWidth="220">
+                                    <DataGridTemplateColumn.HeaderTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding DataContext.DropFirstColumn, RelativeSource={RelativeSource AncestorType=DataGrid}}"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.HeaderTemplate>
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <DockPanel>
+                                                <TextBlock DockPanel.Dock="Right" Margin="8,0,4,0" VerticalAlignment="Center" FontWeight="Normal">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding StatsItem}" Value="{x:Null}">
+                                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                    <Hyperlink Command="{Binding DataContext.OpenItemStatsCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                               CommandParameter="{Binding StatsItem}" ToolTip="Opens the item's Allakhazam page in your browser.">stats ↗</Hyperlink>
+                                                </TextBlock>
+                                                <TextBlock VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Text="{Binding Name}">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Margin" Value="18,0,0,0"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsHeading}" Value="True">
+                                                                    <Setter Property="Margin" Value="2,0,0,0"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                            </DockPanel>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTextColumn Header="Zone" Binding="{Binding Zone, Mode=OneWay}" Width="200"/>
+                                <DataGridTextColumn Header="Kills" Binding="{Binding Kills, Mode=OneWay}" Width="90" ElementStyle="{StaticResource NumericCell}"/>
+                                <DataGridTextColumn Header="Drops" Binding="{Binding Drops, Mode=OneWay}" Width="90" ElementStyle="{StaticResource NumericCell}"/>
+                                <DataGridTemplateColumn Header="Rate" Width="150">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                <Border Height="6" CornerRadius="3" Margin="0,0,6,0" VerticalAlignment="Center" Width="{Binding RateBar}"
+                                                        Background="{DynamicResource AccentBrush}"/>
+                                                <TextBlock Text="{Binding Rate}"/>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                        <TextBlock Grid.Row="2" Style="{StaticResource HintText}" Margin="0,8,0,0" Text="{Binding DropStatus}"/>
+                    </Grid>
+
+                    <!-- Sharing -->
+                    <ScrollViewer Grid.Row="1" Style="{StaticResource DropSharingOnly}" VerticalScrollBarVisibility="Auto">
+                        <StackPanel MaxWidth="760" HorizontalAlignment="Left">
+                            <TextBlock Style="{StaticResource SectionTitle}" Text="Drops files"/>
+                            <TextBlock Style="{StaticResource HintText}" Margin="0,0,0,8"
+                                       Text="Share your drop table by hand, for example in a Discord channel. A file holds one server's kills and drops: item, mob, zone and time. No character names. Importing a file from someone who logged the same fights counts each one once."/>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                <TextBlock Style="{StaticResource FieldLabel}" Text="Server"/>
+                                <ComboBox Width="180" ItemsSource="{Binding DropServers}" SelectedItem="{Binding DropExportServer, Mode=TwoWay}"/>
+                                <Button Margin="10,0,6,0" Content="Export drops file…" Command="{Binding ExportDropsCommand}"/>
+                                <Button Content="Import drops file…" Style="{StaticResource SecondaryButton}" Command="{Binding ImportDropsCommand}"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                <TextBlock Style="{StaticResource FieldLabel}" Text="Your tag"/>
+                                <TextBox Width="180" Text="{Binding DropTag, UpdateSourceTrigger=LostFocus}" ToolTip="The name your drops files carry. It's random to start with; never a character name unless you type one."/>
+                                <Button Margin="10,0,0,0" Content="New tag" Style="{StaticResource SecondaryButton}" Command="{Binding NewDropTagCommand}"/>
+                            </StackPanel>
+                            <TextBlock Style="{StaticResource HintText}" Margin="0,0,0,12" Text="{Binding DropShareStatus}"/>
+
+                            <TextBlock Style="{StaticResource SectionTitle}" Text="Imported files"/>
+                            <TextBlock Style="{StaticResource HintText}" Margin="0,0,0,6" Text="Importing a newer file from the same tag replaces the older one. Remove takes a file's drops back out of your table."/>
+                            <ItemsControl ItemsSource="{Binding DropImports}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <DockPanel Margin="0,2">
+                                            <Button DockPanel.Dock="Right" Content="Remove" Style="{StaticResource SecondaryButton}" Margin="10,0,0,0"
+                                                    Command="{Binding DataContext.RemoveDropImportCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}"/>
+                                            <TextBlock VerticalAlignment="Center" Text="{Binding Text}"/>
+                                        </DockPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+            </TabItem>
+
             <!-- ═════════ Attendance ═════════ -->
             <TabItem Header="Attendance">
                 <Grid Margin="6">

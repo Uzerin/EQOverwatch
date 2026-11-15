@@ -61,6 +61,33 @@ public sealed class WpfDialogService : IDialogService
         return dialog.ShowDialog(Owner()) == true ? dialog.FileName : null;
     }
 
+    public string? PickDropsExportPath(string suggestedName)
+    {
+        var dialog = new SaveFileDialog
+        {
+            Title = "Save a drops file",
+            Filter = "EQ Overwatch drops (*.eqodrops)|*.eqodrops",
+            FileName = suggestedName,
+            AddExtension = true,
+            DefaultExt = ".eqodrops",
+            OverwritePrompt = true,
+        };
+
+        return dialog.ShowDialog(Owner()) == true ? dialog.FileName : null;
+    }
+
+    public string? PickDropsImportFile()
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = "Choose a drops file to import",
+            Filter = "EQ Overwatch drops (*.eqodrops)|*.eqodrops|All files (*.*)|*.*",
+            CheckFileExists = true,
+        };
+
+        return dialog.ShowDialog(Owner()) == true ? dialog.FileName : null;
+    }
+
     public bool Confirm(string title, string message)
     {
         MessageBoxResult answer = Owner() is { } owner

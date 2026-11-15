@@ -56,6 +56,14 @@ public partial class MainViewModelTests
         public string? EqFolder { get; set; }
 
         public string? PickEqFolder() => EqFolder;
+
+        public string? DropsExportPath { get; set; }
+
+        public string? DropsImportFile { get; set; }
+
+        public string? PickDropsExportPath(string suggestedName) => DropsExportPath;
+
+        public string? PickDropsImportFile() => DropsImportFile;
     }
 
     private sealed class FakeClipboard : IClipboardService

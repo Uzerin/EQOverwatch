@@ -68,6 +68,23 @@ check off, or run it by hand, under **Settings > Updates**.
 
 ## Changelog
 
+### 1.0.56
+
+- **Fixed a crash, usually soon after the app started.** When the Experience tab's character list changed (for example when the
+  log history of a character was read for the first time), the Experience by mob drop-downs could keep re-selecting each other
+  until the app closed without a message. The drop-downs now keep their selection while their lists change.
+- **New Drop table tab: which mobs drop which items, and how often.** It fills in from your logs (every watched log's history is
+  read once, then live lines): kills, items looted from corpses, and advanced-loot items nobody looted when only one kind of mob
+  was just killed.
+  - Each server is kept apart, so random-loot servers like Frostreaver never mix with others. It starts on your Primary DPS
+    character's server.
+  - **By mob** lists each mob with its kills and every item it dropped, with the drop count and rate. **By item** lists each item
+    with the mobs that drop it. Zone, Source and Search narrow it down, and "stats ↗" opens the item's Allakhazam page.
+  - A kill or drop seen by several of your logs counts once; two mobs killed together still count two.
+  - **Sharing:** "Export drops file…" saves one server's kills and drops (item, mob, zone and time, no character names) under a
+    random tag you can change. "Import drops file…" adds someone else's; a fight you both logged counts once, a newer file from
+    the same tag replaces the older one, and Remove takes a file back out.
+
 ### 1.0.55
 
 - **New Maps tab for your own labels on the in-game map.** It draws a zone's map from the map files in your EverQuest folder.

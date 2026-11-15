@@ -3,6 +3,7 @@ using System.Globalization;
 using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using EQOverwatch.App.Presentation;
 using EQOverwatch.Core.Experience;
 using EQOverwatch.Core.Parsing;
 
@@ -26,6 +27,7 @@ public sealed partial class MainViewModel
     private long _mobExperienceVersionShown = -1;
     private DateTime _lastMobExperienceFlush;
     private bool _mobExperienceScanning;
+    private bool _rebuildingMobExperience;
 
     public ObservableCollection<MobExperienceCharacterChoice> MobExperienceCharacters { get; } = new();
 
@@ -45,9 +47,23 @@ public sealed partial class MainViewModel
         "Fills in as your characters gain experience. Each experience line is matched to the kill line from the same second; "
         + "gains with no kill line next to them show as (unknown mob).";
 
-    partial void OnSelectedMobExperienceCharacterChanged(MobExperienceCharacterChoice? value) => RebuildMobExperience(levelsToo: true);
+    // A rebuild sets these itself; while it runs, a change (including one a bound drop-down pushes back while its items change) must not
+    // start another rebuild inside it, or the two can keep re-selecting each other until the stack overflows.
+    partial void OnSelectedMobExperienceCharacterChanged(MobExperienceCharacterChoice? value)
+    {
+        if (!_rebuildingMobExperience)
+        {
+            RebuildMobExperience(levelsToo: true);
+        }
+    }
 
-    partial void OnSelectedMobExperienceLevelChanged(string value) => RebuildMobExperience(levelsToo: false);
+    partial void OnSelectedMobExperienceLevelChanged(string value)
+    {
+        if (!_rebuildingMobExperience)
+        {
+            RebuildMobExperience(levelsToo: false);
+        }
+    }
 
     /// <summary>Loads the saved table and reads the history of any watched log not read before.</summary>
     private void InitializeMobExperience()
@@ -145,62 +161,73 @@ public sealed partial class MainViewModel
 
     private void RebuildMobExperience(bool levelsToo)
     {
-        MobExperienceStore store = _pipeline.MobExperience;
-        _mobExperienceVersionShown = store.Version;
-
-        // The character list, kept in place so the selection holds.
-        List<MobExperienceCharacterChoice> characters = store.Characters()
-            .Select(c => new MobExperienceCharacterChoice(c.Character, c.Server))
-            .ToList();
-        if (!characters.SequenceEqual(MobExperienceCharacters))
+        if (_rebuildingMobExperience)
         {
-            MobExperienceCharacterChoice? keep = SelectedMobExperienceCharacter;
-            MobExperienceCharacters.Clear();
-            foreach (MobExperienceCharacterChoice choice in characters)
-            {
-                MobExperienceCharacters.Add(choice);
-            }
-
-            SelectedMobExperienceCharacter = keep is not null && characters.Contains(keep) ? keep : characters.FirstOrDefault();
-            return; // the selection change rebuilds the rest
-        }
-
-        if (SelectedMobExperienceCharacter is null && characters.Count > 0)
-        {
-            SelectedMobExperienceCharacter = characters[0];
             return;
         }
 
-        IReadOnlyList<MobExperienceRow> rows = SelectedMobExperienceCharacter is { } selected
+        _rebuildingMobExperience = true;
+        try
+        {
+            RebuildMobExperienceNow(levelsToo);
+        }
+        finally
+        {
+            _rebuildingMobExperience = false;
+        }
+    }
+
+    /// <summary>
+    /// One pass: the lists are changed item by item and the selections are set once, in that order. Never call it directly: go through
+    /// <see cref="RebuildMobExperience"/>, which keeps the selection changes made here from starting another rebuild.
+    /// </summary>
+    private void RebuildMobExperienceNow(bool levelsToo)
+    {
+        MobExperienceStore store = _pipeline.MobExperience;
+        _mobExperienceVersionShown = store.Version;
+
+        // The character list. The selection is read before the list changes, because a bound drop-down may clear it meanwhile.
+        List<MobExperienceCharacterChoice> characters = store.Characters()
+            .Select(c => new MobExperienceCharacterChoice(c.Character, c.Server))
+            .ToList();
+        MobExperienceCharacterChoice? keepCharacter = SelectedMobExperienceCharacter;
+        bool charactersChanged = ObservableSync.SyncValues(MobExperienceCharacters, characters);
+        MobExperienceCharacterChoice? selected = keepCharacter is not null && characters.Contains(keepCharacter) ? keepCharacter : characters.FirstOrDefault();
+        if (selected != keepCharacter)
+        {
+            levelsToo = true; // another character has other levels
+        }
+
+        SelectedMobExperienceCharacter = selected;
+        if (charactersChanged)
+        {
+            OnPropertyChanged(nameof(SelectedMobExperienceCharacter)); // a drop-down that let go of it while its items changed shows it again
+        }
+
+        IReadOnlyList<MobExperienceRow> rows = selected is not null
             ? store.Rows(selected.Character, selected.Server)
             : Array.Empty<MobExperienceRow>();
 
+        string keepLevel = SelectedMobExperienceLevel ?? AllLevels;
         if (levelsToo)
         {
             List<string> levels = new[] { AllLevels }
                 .Concat(rows.Select(r => r.Level).Distinct().OrderByDescending(l => l).Select(LevelText))
                 .ToList();
-            if (!levels.SequenceEqual(MobExperienceLevels))
+            bool levelsChanged = ObservableSync.SyncValues(MobExperienceLevels, levels);
+            SelectedMobExperienceLevel = levels.Contains(keepLevel) ? keepLevel : AllLevels;
+            if (levelsChanged)
             {
-                string keep = SelectedMobExperienceLevel;
-                MobExperienceLevels.Clear();
-                foreach (string level in levels)
-                {
-                    MobExperienceLevels.Add(level);
-                }
-
-                if (!levels.Contains(keep))
-                {
-                    SelectedMobExperienceLevel = AllLevels;
-                    return; // the level change rebuilds the rows
-                }
-
-                SelectedMobExperienceLevel = keep;
+                OnPropertyChanged(nameof(SelectedMobExperienceLevel));
             }
+        }
+        else if (SelectedMobExperienceLevel is null)
+        {
+            SelectedMobExperienceLevel = AllLevels;
         }
 
         DateTime nowUtc = DateTime.UtcNow;
-        string filter = SelectedMobExperienceLevel;
+        string filter = SelectedMobExperienceLevel ?? AllLevels;
         int previous = int.MinValue;
         var views = new List<MobExperienceRowView>();
         foreach (MobExperienceRow row in rows)

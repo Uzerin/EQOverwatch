@@ -96,6 +96,7 @@ public sealed partial class MainViewModel
 
         InitializeMobExperience();
         InitializeMaps();
+        InitializeDrops();
 
         // Where each character is in its level, from the last level-up near the end of its log.
         string[] logs = Logs.Select(l => l.FilePath).ToArray();
@@ -137,6 +138,7 @@ public sealed partial class MainViewModel
 
         RefreshMobExperience(nowUtc);
         RefreshMaps();
+        RefreshDrops(nowUtc);
     }
 
     /// <summary>Drops song rows from a saved Spells list: songs now reach the Songs overlay on their own.</summary>

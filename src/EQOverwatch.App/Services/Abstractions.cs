@@ -75,6 +75,12 @@ public interface IDialogService
     /// <summary>Asks which backup zip to restore; null when cancelled.</summary>
     string? PickBackupFile() => null;
 
+    /// <summary>Asks where to save a drops file; null when cancelled.</summary>
+    string? PickDropsExportPath(string suggestedName) => null;
+
+    /// <summary>Asks which drops file to import; null when cancelled.</summary>
+    string? PickDropsImportFile() => null;
+
     /// <summary>Asks a yes/no question.</summary>
     bool Confirm(string title, string message) => false;
 

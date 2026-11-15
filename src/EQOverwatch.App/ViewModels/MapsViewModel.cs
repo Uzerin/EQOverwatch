@@ -499,15 +499,15 @@ public sealed partial class MapsViewModel : ObservableObject
             .OrderBy(z => z.Label.StartsWith("The ", StringComparison.OrdinalIgnoreCase) ? z.Label[4..] : z.Label, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
+        // The list is changed item by item (never cleared) so a bound drop-down keeps its selection meanwhile.
         string? keep = _selectedZone?.ShortName;
-        ZoneChoices.Clear();
-        foreach (MapZoneChoice zone in named)
+        EQOverwatch.App.Presentation.ObservableSync.SyncValues(ZoneChoices, named);
+        MapZoneChoice? zoneNow = ZoneChoices.FirstOrDefault(z => z.ShortName == keep) ?? ZoneChoices.FirstOrDefault();
+        if (!Equals(zoneNow, _selectedZone))
         {
-            ZoneChoices.Add(zone);
+            _selectedZone = zoneNow;
+            OnPropertyChanged(nameof(SelectedZone));
         }
-
-        _selectedZone = ZoneChoices.FirstOrDefault(z => z.ShortName == keep) ?? ZoneChoices.FirstOrDefault();
-        OnPropertyChanged(nameof(SelectedZone));
     }
 
     /// <summary>Shows the zone the sub-tab calls for: the Primary DPS character's, or the one picked.</summary>

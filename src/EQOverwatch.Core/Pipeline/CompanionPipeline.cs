@@ -1,3 +1,4 @@
+using EQOverwatch.Core.Drops;
 using EQOverwatch.Core.Experience;
 using EQOverwatch.Core.Loot;
 using EQOverwatch.Core.Maps;
@@ -51,6 +52,7 @@ public sealed class CompanionPipeline : IAsyncDisposable
         Experience = new ExperienceTracker(DateTime.UtcNow);
         MobExperience = new MobExperienceStore();
         Zones = new ZoneTracker();
+        Drops = new DropStore();
         ResistStore = new MobResistStore();
         Resists = new ResistTrackerService(Spells, ResistStore);
         BuffUptimeTracker uptime = Uptime;
@@ -61,7 +63,7 @@ public sealed class CompanionPipeline : IAsyncDisposable
 
         // Every sink sees every line of every trigger-enabled log. Historical imports use none of them.
         var triggerSinks = new CompositeTriggerSink(
-            new ITriggerLineSink[] { Triggers, Buffs, Songs, Charm, TimerPause, RaidBosses, ChChain, Cooldowns, Abilities, SharedTriggers, Roster, Loot, Tells, Experience, MobExperience, Resists, Zones }, RaiseError);
+            new ITriggerLineSink[] { Triggers, Buffs, Songs, Charm, TimerPause, RaidBosses, ChChain, Cooldowns, Abilities, SharedTriggers, Roster, Loot, Tells, Experience, MobExperience, Resists, Zones, Drops }, RaiseError);
         Activity = new CharacterActivityService();
         Songs.SetOwnCharacterProbe(IsMonitoredCharacter);
         Songs.SetActivityProbe(Activity.IsActive);
@@ -69,6 +71,9 @@ public sealed class CompanionPipeline : IAsyncDisposable
         MobExperience.SetLevelProvider((name, server) => Roster.GetLevel(name, server));
         Resists.SetOwnCharacterProbe(IsMonitoredCharacter);
         Resists.SetPlayerProbe(name => IsMonitoredCharacter(name) || Roster.IsVerifiedPlayer(name));
+        ZoneTracker zones = Zones;
+        Drops.SetZoneProvider((name, server) => zones.Get(name, server)?.Zone);
+        Drops.SetPlayerProbe(name => IsMonitoredCharacter(name) || Roster.IsVerifiedPlayer(name) || Roster.IsPet(name));
         _monitor = new LiveLogMonitor(Logs, triggerSinks, LiveDps, RaiseError, Activity);
         _monitor.TailError += (config, ex) => TailError?.Invoke(config, ex);
     }
@@ -117,6 +122,9 @@ public sealed class CompanionPipeline : IAsyncDisposable
 
     /// <summary>Each character's zone and last /loc, for the Maps tab.</summary>
     public ZoneTracker Zones { get; }
+
+    /// <summary>The drop table: which mobs drop which items and how often, per server.</summary>
+    public DropStore Drops { get; }
 
     /// <summary>Resist counts per mob and resist type, yours and the raid's shares.</summary>
     public MobResistStore ResistStore { get; }
