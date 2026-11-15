@@ -1901,6 +1901,194 @@
                 </Grid>
             </TabItem>
 
+            <!-- ═════════ Maps ═════════ -->
+            <TabItem Header="Maps">
+                <Grid Margin="6" DataContext="{Binding Maps}">
+                    <Grid.Resources>
+                        <BooleanToVisibilityConverter x:Key="MapsVisible"/>
+                        <Style x:Key="MapsSubTab" TargetType="RadioButton">
+                            <Setter Property="Margin" Value="0,0,6,0"/>
+                            <Setter Property="Cursor" Value="Hand"/>
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="RadioButton">
+                                        <Border x:Name="Box" Padding="12,5" CornerRadius="6" BorderThickness="1"
+                                                BorderBrush="{DynamicResource BorderSoftBrush}" Background="Transparent">
+                                            <ContentPresenter x:Name="Text" TextElement.Foreground="{DynamicResource TextMutedBrush}"/>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsChecked" Value="True">
+                                                <Setter TargetName="Box" Property="Background" Value="{DynamicResource AccentBrush}"/>
+                                                <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                                                <Setter TargetName="Text" Property="TextElement.Foreground" Value="White"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                        <Style x:Key="MapsShowOnSelect" TargetType="FrameworkElement">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsSelectZoneTab}" Value="True">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                        <Style x:Key="MapsShowOnCurrent" TargetType="FrameworkElement">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsCurrentZoneTab}" Value="True">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Grid.Resources>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10">
+                        <RadioButton GroupName="MapsSubTabs" Style="{StaticResource MapsSubTab}" Content="Current zone" IsChecked="{Binding IsCurrentZoneTab, Mode=TwoWay}"/>
+                        <RadioButton GroupName="MapsSubTabs" Style="{StaticResource MapsSubTab}" Content="Select zone" IsChecked="{Binding IsSelectZoneTab, Mode=TwoWay}"/>
+                    </StackPanel>
+
+                    <!-- Expansion, Zone and Map pack in one row (Current zone shows where the Primary DPS character is instead of the first two) -->
+                    <Grid Grid.Row="1" Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <DockPanel Grid.Column="0" Margin="0,0,12,0" Style="{StaticResource MapsShowOnSelect}">
+                            <TextBlock DockPanel.Dock="Left" Style="{StaticResource FieldLabel}" Text="Expansion"/>
+                            <ComboBox ItemsSource="{Binding Expansions}" DisplayMemberPath="Label" SelectedItem="{Binding SelectedExpansion, Mode=TwoWay}"/>
+                        </DockPanel>
+                        <DockPanel Grid.Column="1" Margin="0,0,12,0" Style="{StaticResource MapsShowOnSelect}">
+                            <TextBlock DockPanel.Dock="Left" Style="{StaticResource FieldLabel}" Text="Zone"/>
+                            <ComboBox ItemsSource="{Binding ZoneChoices}" DisplayMemberPath="Label" SelectedItem="{Binding SelectedZone, Mode=TwoWay}"/>
+                        </DockPanel>
+                        <DockPanel Grid.Column="0" Grid.ColumnSpan="2" Margin="0,0,12,0" Style="{StaticResource MapsShowOnCurrent}">
+                            <ComboBox DockPanel.Dock="Right" MinWidth="220" Margin="8,0,0,0" ItemsSource="{Binding CurrentChoices}" DisplayMemberPath="Label"
+                                      SelectedItem="{Binding SelectedCurrentChoice, Mode=TwoWay}"
+                                      Visibility="{Binding HasCurrentChoices, Converter={StaticResource MapsVisible}}"
+                                      ToolTip="This zone name has more than one map. Pick the one you are in."/>
+                            <TextBlock VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Text="{Binding CurrentZoneText}"/>
+                        </DockPanel>
+                        <DockPanel Grid.Column="2">
+                            <TextBlock DockPanel.Dock="Left" Style="{StaticResource FieldLabel}" Text="Map pack"/>
+                            <ComboBox ItemsSource="{Binding Packs}" DisplayMemberPath="Label" SelectedItem="{Binding SelectedPack, Mode=TwoWay}"
+                                      ToolTip="The map folder under maps in your EverQuest folder. Labels are saved to this pack only."/>
+                        </DockPanel>
+                        <Button Grid.Column="3" Margin="10,0,0,0" Content="Reload" Style="{StaticResource SecondaryButton}" Command="{Binding ReloadCommand}"
+                                ToolTip="Reads the map packs and map files again, for changes made outside the app."/>
+                    </Grid>
+
+                    <DockPanel Grid.Row="2" Margin="0,0,0,8" LastChildFill="True">
+                        <TextBlock DockPanel.Dock="Left" Style="{StaticResource FieldLabel}" Text="Edit layer"/>
+                        <ListBox DockPanel.Dock="Left" ItemsSource="{Binding LayerChoices}" SelectedIndex="{Binding SelectedLayer, Mode=TwoWay}"
+                                 BorderThickness="0" Background="Transparent" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                 ToolTip="Base is zone.txt; 1 to 3 are zone_1.txt to zone_3.txt. The other layers show dimmed.">
+                            <ListBox.ItemsPanel>
+                                <ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate>
+                            </ListBox.ItemsPanel>
+                            <ListBox.ItemTemplate>
+                                <DataTemplate><TextBlock Text="{Binding}" MinWidth="34" TextAlignment="Center" Padding="2,1"/></DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                        <TextBlock DockPanel.Dock="Left" Style="{StaticResource HintText}" VerticalAlignment="Center" Margin="10,0,0,0" Text="{Binding LayerFileText}"/>
+                        <TextBlock Style="{StaticResource ErrorText}" VerticalAlignment="Center" Margin="16,0,0,0" Text="{Binding FollowNote}"/>
+                    </DockPanel>
+
+                    <Grid Grid.Row="3">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" MinWidth="300"/>
+                            <ColumnDefinition Width="340"/>
+                        </Grid.ColumnDefinitions>
+                        <DockPanel Grid.Column="0" Margin="0,0,12,0">
+                            <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource HintText}" Margin="0,4,0,0"
+                                       Text="Drag this layer's labels to move them, or click empty map to place a new one. Wheel zooms, right-drag moves the map, right double-click fits it. Gray is the other layers; the yellow ring is your last /loc."/>
+                            <Border CornerRadius="6" ClipToBounds="True" BorderThickness="1" BorderBrush="{DynamicResource BorderSoftBrush}">
+                                <ctl:MapCanvas Maps="{Binding}"/>
+                            </Border>
+                        </DockPanel>
+
+                        <DockPanel Grid.Column="1">
+                            <StackPanel DockPanel.Dock="Bottom">
+                                <TextBlock FontWeight="SemiBold" Margin="0,10,0,4" Text="{Binding FormTitle}"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Grid.Row="0" Style="{StaticResource FieldLabel}" Text="Text"/>
+                                    <TextBox Grid.Row="0" Grid.Column="1" Margin="0,0,0,6" Text="{Binding EditText, UpdateSourceTrigger=PropertyChanged}"/>
+                                    <TextBlock Grid.Row="1" Style="{StaticResource FieldLabel}" Text="/loc"/>
+                                    <DockPanel Grid.Row="1" Grid.Column="1" Margin="0,0,0,6">
+                                        <Button DockPanel.Dock="Right" Margin="6,0,0,0" Content="Use my /loc" Style="{StaticResource SecondaryButton}" Command="{Binding UseMyLocCommand}"
+                                                ToolTip="The Primary DPS character's last /loc in this zone."/>
+                                        <TextBox Text="{Binding EditLoc, UpdateSourceTrigger=PropertyChanged}" ToolTip="Y, X, Z as /loc prints them."/>
+                                    </DockPanel>
+                                    <TextBlock Grid.Row="2" Style="{StaticResource FieldLabel}" Text="Color"/>
+                                    <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal">
+                                        <ctl:ColorSwatchPicker Width="24" Height="24" Hex="{Binding EditColorHex, Mode=TwoWay}"/>
+                                        <TextBlock Style="{StaticResource FieldLabel}" Margin="16,0,10,0" Text="Size"/>
+                                        <ComboBox Width="100" ItemsSource="{Binding SizeChoices}" DisplayMemberPath="Label" SelectedItem="{Binding EditSize, Mode=TwoWay}"/>
+                                    </StackPanel>
+                                </Grid>
+                                <TextBlock Style="{StaticResource ErrorText}" Margin="0,6,0,0" Text="{Binding ErrorText}"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                    <Button Content="Add label" Margin="0,0,6,0" Command="{Binding AddLabelCommand}">
+                                        <Button.Style>
+                                            <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsEditing}" Value="True">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                    </Button>
+                                    <Button Content="New label" Margin="0,0,6,0" Style="{StaticResource SecondaryButton}" Command="{Binding NewLabelCommand}"
+                                            Visibility="{Binding IsEditing, Converter={StaticResource MapsVisible}}"/>
+                                    <Button Content="Save layer" Margin="0,0,6,0" Command="{Binding SaveCommand}"/>
+                                    <Button Content="Discard changes" Style="{StaticResource SecondaryButton}" Command="{Binding DiscardChangesCommand}"
+                                            Visibility="{Binding IsDirty, Converter={StaticResource MapsVisible}}"/>
+                                </StackPanel>
+                                <TextBlock Style="{StaticResource HintText}" Margin="0,8,0,0" Text="{Binding StatusLine}"/>
+                            </StackPanel>
+
+                            <TextBlock DockPanel.Dock="Top" FontWeight="SemiBold" Margin="0,0,0,4" Text="{Binding LabelListTitle}"/>
+                            <ListBox ItemsSource="{Binding Labels}" SelectedItem="{Binding SelectedLabel, Mode=TwoWay}" HorizontalContentAlignment="Stretch"
+                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <DockPanel>
+                                            <Button DockPanel.Dock="Right" Content="✕" Padding="6,0" Margin="6,0,0,0" Style="{StaticResource SecondaryButton}"
+                                                    ToolTip="Delete this label"
+                                                    Command="{Binding DataContext.DeleteLabelCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                    CommandParameter="{Binding}"/>
+                                            <TextBlock DockPanel.Dock="Right" Style="{StaticResource HintText}" VerticalAlignment="Center" Text="{Binding LocText}"/>
+                                            <Border DockPanel.Dock="Left" Width="10" Height="10" CornerRadius="2" Margin="0,0,8,0" Background="{Binding Hex}"/>
+                                            <TextBlock VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Text="{Binding Text}"/>
+                                        </DockPanel>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </DockPanel>
+                    </Grid>
+                </Grid>
+            </TabItem>
+
             <!-- ═════════ Log search ═════════ -->
             <TabItem Header="Log search">
                 <Grid Margin="6">

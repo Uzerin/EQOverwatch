@@ -77,6 +77,17 @@ public interface IDialogService
 
     /// <summary>Asks a yes/no question.</summary>
     bool Confirm(string title, string message) => false;
+
+    /// <summary>Asks whether to save changes before they would be lost: Save, Don't save or Cancel.</summary>
+    UnsavedChoice AskUnsavedChanges(string title, string message) => UnsavedChoice.Discard;
+}
+
+/// <summary>The answer to "save your changes first?".</summary>
+public enum UnsavedChoice
+{
+    Save,
+    Discard,
+    Cancel,
 }
 
 /// <summary>Opens a character's data window and shows plain messages, so view-model logic can be tested without windows.</summary>

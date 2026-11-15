@@ -1,5 +1,6 @@
 using EQOverwatch.Core.Experience;
 using EQOverwatch.Core.Loot;
+using EQOverwatch.Core.Maps;
 using EQOverwatch.Core.Resists;
 using EQOverwatch.Core.Models;
 using EQOverwatch.Core.Roster;
@@ -49,6 +50,7 @@ public sealed class CompanionPipeline : IAsyncDisposable
         Charm = new CharmWatchService(Spells, Triggers);
         Experience = new ExperienceTracker(DateTime.UtcNow);
         MobExperience = new MobExperienceStore();
+        Zones = new ZoneTracker();
         ResistStore = new MobResistStore();
         Resists = new ResistTrackerService(Spells, ResistStore);
         BuffUptimeTracker uptime = Uptime;
@@ -59,7 +61,7 @@ public sealed class CompanionPipeline : IAsyncDisposable
 
         // Every sink sees every line of every trigger-enabled log. Historical imports use none of them.
         var triggerSinks = new CompositeTriggerSink(
-            new ITriggerLineSink[] { Triggers, Buffs, Songs, Charm, TimerPause, RaidBosses, ChChain, Cooldowns, Abilities, SharedTriggers, Roster, Loot, Tells, Experience, MobExperience, Resists }, RaiseError);
+            new ITriggerLineSink[] { Triggers, Buffs, Songs, Charm, TimerPause, RaidBosses, ChChain, Cooldowns, Abilities, SharedTriggers, Roster, Loot, Tells, Experience, MobExperience, Resists, Zones }, RaiseError);
         Activity = new CharacterActivityService();
         Songs.SetOwnCharacterProbe(IsMonitoredCharacter);
         Songs.SetActivityProbe(Activity.IsActive);
@@ -112,6 +114,9 @@ public sealed class CompanionPipeline : IAsyncDisposable
 
     /// <summary>Experience by mob, per character, server and character level (kept between runs).</summary>
     public MobExperienceStore MobExperience { get; }
+
+    /// <summary>Each character's zone and last /loc, for the Maps tab.</summary>
+    public ZoneTracker Zones { get; }
 
     /// <summary>Resist counts per mob and resist type, yours and the raid's shares.</summary>
     public MobResistStore ResistStore { get; }

@@ -69,6 +69,20 @@ public sealed class WpfDialogService : IDialogService
         return answer == MessageBoxResult.Yes;
     }
 
+    public UnsavedChoice AskUnsavedChanges(string title, string message)
+    {
+        string text = message + "\n\nYes saves them, No throws them away, Cancel stays where you are.";
+        MessageBoxResult answer = Owner() is { } owner
+            ? MessageBox.Show(owner, text, title, MessageBoxButton.YesNoCancel, MessageBoxImage.Question)
+            : MessageBox.Show(text, title, MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
+        return answer switch
+        {
+            MessageBoxResult.Yes => UnsavedChoice.Save,
+            MessageBoxResult.No => UnsavedChoice.Discard,
+            _ => UnsavedChoice.Cancel,
+        };
+    }
+
     public string? PickWavFile()
     {
         var dialog = new OpenFileDialog

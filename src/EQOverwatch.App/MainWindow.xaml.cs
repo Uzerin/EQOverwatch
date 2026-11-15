@@ -71,8 +71,14 @@ public partial class MainWindow : Window
             _viewModel.AutoClickHotkeyChanged += RegisterAutoClickHotkey;
             RegisterAutoClickHotkey();
         };
-        Closing += (_, _) =>
+        Closing += (_, e) =>
         {
+            if (!_viewModel.Maps.ConfirmClose())
+            {
+                e.Cancel = true; // the user chose to stay with unsaved map labels
+                return;
+            }
+
             _refreshTimer.Stop();
             _viewModel.AutoClickHotkeyChanged -= RegisterAutoClickHotkey;
             _hotkey?.Dispose();

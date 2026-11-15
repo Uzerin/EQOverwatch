@@ -68,6 +68,20 @@ check off, or run it by hand, under **Settings > Updates**.
 
 ## Changelog
 
+### 1.0.55
+
+- **New Maps tab for your own labels on the in-game map.** It draws a zone's map from the map files in your EverQuest folder.
+  - **Current zone** follows the zone your Primary DPS character is in. **Select zone** has an Expansion drop-down (All, then
+    each expansion in release order, then Other) and a Zone drop-down sorted A to Z. A **Map pack** drop-down in the same row
+    picks the pack under `maps` (it starts on the pack your Primary DPS character uses in game).
+  - **Edit layer** picks the file to change: Base (`zone.txt`) or layers 1 to 3 (`zone_1.txt` to `zone_3.txt`); it starts on
+    layer 3. That layer's lines and labels are bright; the other layers show dimmed in gray.
+  - Add a label by clicking the map, typing a /loc, or pressing "Use my /loc". Drag labels to move them, click one to change its
+    text, color or size, and delete it from the list. The mouse wheel zooms and dragging with the right button moves the map.
+  - Only labels change; map lines are never touched. The first time a file is changed, a copy is kept next to it as `.bak`.
+    Labels show in game after you zone or reopen the map.
+  - Switching layer, zone, map pack or sub-tab, or closing the app, with unsaved changes asks whether to save them first.
+
 ### 1.0.54
 
 - **The app remembers where its windows were.** The main window opens where you last left it, at the same size, and maximized if
