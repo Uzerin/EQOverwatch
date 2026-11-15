@@ -12,6 +12,84 @@
 
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
+
+        <!-- One inventory slot: a drawn slot icon or a lettered item tile, its count, and its augment sockets. -->
+        <DataTemplate x:Key="SlotTemplate">
+            <Button Width="54" Height="54" Margin="0,0,4,4" Padding="0" Cursor="Arrow" ToolTip="{Binding ToolTip}"
+                    Command="{Binding DataContext.InventoryPanel.OpenCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                    CommandParameter="{Binding}">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Box" CornerRadius="6" BorderThickness="1" BorderBrush="{DynamicResource BorderSoftBrush}"
+                                Background="{DynamicResource WindowBgBrush}">
+                            <Grid>
+                                <Path Width="26" Height="26" Stretch="Uniform" Data="{Binding Glyph}" Stroke="{Binding GlyphBrush}" StrokeThickness="1.6"
+                                      StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                      Visibility="{Binding ShowGlyph, Converter={StaticResource BoolToVisibility}}"/>
+                                <Border Width="34" Height="34" CornerRadius="7" BorderThickness="1" Background="{Binding TileFill}" BorderBrush="{Binding TileInk}"
+                                        Visibility="{Binding ShowTile, Converter={StaticResource BoolToVisibility}}">
+                                    <TextBlock Text="{Binding Initials}" Foreground="{Binding TileInk}" FontWeight="SemiBold" FontSize="12"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <TextBlock Text="{Binding CountText}" FontSize="10" Foreground="{DynamicResource TextMutedBrush}"
+                                           HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,3,1"/>
+                                <ItemsControl ItemsSource="{Binding Augments}" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="3,0,0,3"
+                                              Visibility="{Binding HasAugments, Converter={StaticResource BoolToVisibility}}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <StackPanel Orientation="Horizontal"/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Width="9" Height="9" Margin="0,0,2,0" CornerRadius="2" BorderThickness="1"
+                                                    BorderBrush="{DynamicResource TextMutedBrush}" Background="{DynamicResource CardBgBrush}">
+                                                <Ellipse x:Name="Dot" Width="4" Height="4" Fill="{DynamicResource AccentBrush}" Visibility="Collapsed"/>
+                                            </Border>
+                                            <DataTemplate.Triggers>
+                                                <DataTrigger Binding="{Binding}" Value="True">
+                                                    <Setter TargetName="Dot" Property="Visibility" Value="Visible"/>
+                                                </DataTrigger>
+                                            </DataTemplate.Triggers>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <DataTrigger Binding="{Binding IsBag}" Value="True">
+                                <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                                <Setter Property="Cursor" Value="Hand"/>
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding IsOpen}" Value="True">
+                                <Setter TargetName="Box" Property="Background" Value="{DynamicResource AccentBrush}"/>
+                            </DataTrigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Button.Template>
+            </Button>
+        </DataTemplate>
+
+        <Style x:Key="SectionTab" TargetType="RadioButton">
+            <Setter Property="Margin" Value="0,0,6,0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="Box" Padding="10,4" CornerRadius="6" BorderThickness="1" BorderBrush="{DynamicResource BorderSoftBrush}" Background="Transparent">
+                            <ContentPresenter x:Name="Text" TextElement.Foreground="{DynamicResource TextMutedBrush}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Box" Property="Background" Value="{DynamicResource AccentBrush}"/>
+                                <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                                <Setter TargetName="Text" Property="TextElement.Foreground" Value="White"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
         <Style x:Key="NumericCell" TargetType="TextBlock">
             <Setter Property="HorizontalAlignment" Value="Right"/>
             <Setter Property="Margin" Value="0,0,8,0"/>
@@ -29,6 +107,15 @@
     </Window.Resources>
 
     <DockPanel Margin="10">
+
+        <!-- The class persona the per-persona tabs show. -->
+        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8" Visibility="{Binding HasPersonas, Converter={StaticResource BoolToVisibility}}">
+            <TextBlock DockPanel.Dock="Left" Text="Persona" Style="{StaticResource HintText}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+            <ComboBox DockPanel.Dock="Left" Width="200" ItemsSource="{Binding PersonaChoices}" SelectedItem="{Binding SelectedPersona, Mode=TwoWay}"
+                      DisplayMemberPath="Label" VerticalAlignment="Center"/>
+            <TextBlock Style="{StaticResource HintText}" VerticalAlignment="Center" Margin="14,0,0,0"
+                       Text="Spellbook, Missing Spells, Focus Effects, Skills and Faction follow the persona. Inventory, Key Ring and Tradeskills are shared by all personas."/>
+        </DockPanel>
 
         <!-- Filter, refresh and where the data came from. -->
         <DockPanel DockPanel.Dock="Top" Margin="0,0,0,10">
@@ -49,7 +136,13 @@
         <TabControl SelectedIndex="{Binding SelectedTabIndex, Mode=TwoWay}">
 
             <TabItem Header="Inventory">
-                <DataGrid Margin="0,6,0,0" ItemsSource="{Binding InventoryRows}" AutoGenerateColumns="False" CanUserAddRows="False"
+                <Grid Margin="0,6,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" MaxWidth="560"/>
+                        <ColumnDefinition Width="16"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                <DataGrid Grid.Column="0" HorizontalAlignment="Left" ItemsSource="{Binding InventoryRows}" AutoGenerateColumns="False" CanUserAddRows="False"
                           CanUserDeleteRows="False" IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="Where" Binding="{Binding Where, Mode=OneWay}" Width="Auto"/>
@@ -60,10 +153,61 @@
                                             ElementStyle="{StaticResource NumericCell}"/>
                     </DataGrid.Columns>
                 </DataGrid>
+
+                <!-- The inventory as the game shows it. -->
+                <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" DataContext="{Binding InventoryPanel}">
+                    <Border Padding="10" CornerRadius="10" BorderThickness="1" BorderBrush="{DynamicResource BorderSoftBrush}" Background="{DynamicResource CardBgBrush}"
+                            HorizontalAlignment="Left" VerticalAlignment="Top">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                <RadioButton GroupName="InvSection" Style="{StaticResource SectionTab}" Content="Inventory" IsChecked="{Binding IsInventorySection, Mode=TwoWay}"/>
+                                <RadioButton GroupName="InvSection" Style="{StaticResource SectionTab}" Content="Bank" IsChecked="{Binding IsBankSection, Mode=TwoWay}"/>
+                                <RadioButton GroupName="InvSection" Style="{StaticResource SectionTab}" Content="Shared Bank" IsChecked="{Binding IsSharedBankSection, Mode=TwoWay}"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <StackPanel Margin="0,0,16,0" Visibility="{Binding ShowWorn, Converter={StaticResource BoolToVisibility}}">
+                                    <TextBlock Text="Worn" Style="{StaticResource HintText}" Margin="0,0,0,4"/>
+                                    <ItemsControl ItemsSource="{Binding Worn}" ItemTemplate="{StaticResource SlotTemplate}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <UniformGrid Columns="4"/>
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                    </ItemsControl>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="{Binding ContainersTitle}" Style="{StaticResource HintText}" Margin="0,0,0,4"/>
+                                    <ItemsControl ItemsSource="{Binding Containers}" ItemTemplate="{StaticResource SlotTemplate}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <WrapPanel MaxWidth="{Binding DataContext.ContainerPanelWidth, RelativeSource={RelativeSource AncestorType=ItemsControl}}"/>
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </StackPanel>
+                            <StackPanel Margin="0,10,0,0" Visibility="{Binding HasOpenBag, Converter={StaticResource BoolToVisibility}}">
+                                <TextBlock Text="{Binding OpenTitle}" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                <ItemsControl ItemsSource="{Binding OpenContents}" ItemTemplate="{StaticResource SlotTemplate}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel MaxWidth="464"/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                </ItemsControl>
+                            </StackPanel>
+                            <TextBlock Margin="0,8,0,0" Style="{StaticResource HintText}" MaxWidth="460" HorizontalAlignment="Left"
+                                       Text="Hover a slot for the item, its count and its augment sockets (a dot means an augment is in it)."/>
+                        </StackPanel>
+                    </Border>
+                </ScrollViewer>
+                </Grid>
             </TabItem>
 
             <TabItem Header="Spellbook">
-                <DataGrid Margin="0,6,0,0" ItemsSource="{Binding SpellbookRows}" AutoGenerateColumns="False" CanUserAddRows="False"
+                <DockPanel Margin="0,6,0,0">
+                <TextBlock DockPanel.Dock="Top" Style="{StaticResource HintText}" Margin="0,0,0,6" Text="{Binding SpellbookNote}"/>
+                <DataGrid HorizontalAlignment="Left" ItemsSource="{Binding SpellbookRows}" AutoGenerateColumns="False" CanUserAddRows="False"
                           CanUserDeleteRows="False" IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="Level" Binding="{Binding Level, Mode=OneWay}" Width="Auto"
@@ -71,6 +215,7 @@
                         <DataGridTextColumn Header="Spell" Binding="{Binding Name, Mode=OneWay}" Width="Auto"/>
                     </DataGrid.Columns>
                 </DataGrid>
+                </DockPanel>
             </TabItem>
 
             <TabItem Header="Missing Spells">

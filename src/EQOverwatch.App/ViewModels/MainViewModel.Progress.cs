@@ -144,6 +144,17 @@ public sealed partial class MainViewModel
             _historyScanning = false;
         }
 
+        // Each character's class and level follow the persona that was on at the end of its log.
+        foreach ((_, string character, string server) in logs)
+        {
+            string persona = _pipeline.Progress.CurrentPersona(character, server);
+            if (persona.Length > 0)
+            {
+                int level = _pipeline.Progress.Personas(character, server).FirstOrDefault(p => p.Persona == persona)?.Level ?? 0;
+                _pipeline.Roster.LearnPlayer(character, persona, level, server);
+            }
+        }
+
         _ = Task.Run(() =>
         {
             _pipeline.Progress.Flush();
@@ -209,12 +220,13 @@ public sealed partial class MainViewModel
     // ───────────────────────── the character window's Skills, Tradeskills and Faction ─────────────────────────
 
     /// <summary>The character's skills (A to Z) with the most each can be for its class and level.</summary>
-    private IReadOnlyList<SkillRowView> SkillRowsFor(string character, string server)
+    private IReadOnlyList<SkillRowView> SkillRowsFor(string character, string server, string persona)
     {
         SkillCaps caps = CurrentSkillCaps();
-        string className = _pipeline.Roster.GetClass(character, server);
-        int level = _pipeline.Roster.GetLevel(character, server);
-        return _pipeline.Progress.Skills(character, server, DateTime.UtcNow)
+        PersonaInfo? info = _pipeline.Progress.Personas(character, server).FirstOrDefault(p => p.Persona == persona);
+        string className = persona.Length > 0 ? persona : _pipeline.Roster.GetClass(character, server);
+        int level = info is { Level: > 0 } ? info.Level : _pipeline.Roster.GetLevel(character, server);
+        return _pipeline.Progress.Skills(character, server, DateTime.UtcNow, persona)
             .Select(s =>
             {
                 int max = caps.Cap(className, s.Skill, level);
@@ -235,8 +247,8 @@ public sealed partial class MainViewModel
                 t.SuccessPercent.ToString("0", CultureInfo.CurrentCulture) + "%", DescribeWhen(t.LastUtc)))
             .ToList();
 
-    private IReadOnlyList<FactionRowView> FactionRowsFor(string character, string server) =>
-        _pipeline.Progress.Factions(character, server)
+    private IReadOnlyList<FactionRowView> FactionRowsFor(string character, string server, string persona) =>
+        _pipeline.Progress.Factions(character, server, persona)
             .Select(f => new FactionRowView(
                 f.Faction,
                 f.Session == 0 ? string.Empty : Signed(f.Session),
@@ -248,9 +260,17 @@ public sealed partial class MainViewModel
             .ToList();
 
     private CharacterProgressSource ProgressSourceFor(string character, string server) => new(
-        () => SkillRowsFor(character, server),
+        persona => SkillRowsFor(character, server, persona),
         () => TradeskillRowsFor(character, server),
-        () => FactionRowsFor(character, server));
+        persona => FactionRowsFor(character, server, persona),
+        () => _pipeline.Progress.Personas(character, server)
+            .Select(p => new PersonaChoice(
+                p.Persona,
+                (p.Persona.Length > 0 ? p.Persona : _pipeline.Roster.GetClass(character, server) is { Length: > 0 } known ? known : "Unknown class") + (p.Level > 0 ? " " + p.Level.ToString(CultureInfo.CurrentCulture) : string.Empty)
+                    + (p.IsCurrent ? " (current)" : string.Empty),
+                p.IsCurrent))
+            .ToList(),
+        persona => CreateFocusViewModel(character, server, persona));
 
     /// <summary>The game's skillcaps.txt, read again when the EverQuest folder changes.</summary>
     private SkillCaps CurrentSkillCaps()

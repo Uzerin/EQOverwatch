@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using EQOverwatch.Core.Pipeline;
+using EQOverwatch.Core.Roster;
 
 namespace EQOverwatch.Core.Progress;
 
@@ -22,8 +23,15 @@ public sealed record TradeskillProgress(string Recipe, int Made, int Failed, Dat
 /// </summary>
 public sealed record FactionProgress(string Faction, int Session, long AllTime, int Hits, int UsualHit, string ComesFrom, int Limit, DateTime LastUtc);
 
+/// <summary>One class persona of a character: its class name ("Cleric", or empty when not known yet) and level (0 when not seen).</summary>
+public sealed record PersonaInfo(string Persona, int Level, bool IsCurrent);
+
 /// <summary>
 /// Skill-ups, tradeskill combines and faction changes per character (and server), from live lines and each log's history.
+/// <para>A character can switch class persona ("You successfully loaded your Bard equipment set."). Skills, faction and level belong to
+/// the persona that was on when the line came; tradeskills belong to the character. Lines before a log's first persona line go to the
+/// persona that line names when it is "Your Cleric equipment set has been saved." or a /who of the character, and otherwise to the
+/// character's known class.</para>
 /// <list type="bullet">
 /// <item><description>"You have become better at Offense! (212)" sets Offense to 212.</description></item>
 /// <item><description>"You have fashioned the items together to create something new: X." made X; "You lacked the skills to fashion X." failed.</description></item>
@@ -54,6 +62,20 @@ public sealed partial class ProgressStore : ITriggerLineSink
     [GeneratedRegex(@"^(?:You have slain (?<mob>.+)|(?<mob>.+?) (?:was|has been) slain by .+)!$", RegexOptions.CultureInvariant)]
     private static partial Regex KillRegex();
 
+    [GeneratedRegex(@"^Your (?<persona>.+) equipment set has been saved\.$", RegexOptions.CultureInvariant)]
+    private static partial Regex SetSavedRegex();
+
+    [GeneratedRegex(@"^You successfully loaded your (?<persona>.+) equipment set\.$", RegexOptions.CultureInvariant)]
+    private static partial Regex SetLoadedRegex();
+
+    [GeneratedRegex(@"Welcome to level (?<level>\d+)!$", RegexOptions.CultureInvariant)]
+    private static partial Regex LevelUpRegex();
+
+    [GeneratedRegex(@"^\[(?<level>\d+) (?<class>[^\]]+)\] (?<name>[A-Za-z]+) ", RegexOptions.CultureInvariant)]
+    private static partial Regex WhoRegex();
+
+    private const int FileFormat = 2;
+
     private readonly object _gate = new();
     private readonly Dictionary<string, CharacterState> _characters = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, (long Time, string Mob)> _lastKill = new(StringComparer.OrdinalIgnoreCase);
@@ -61,6 +83,7 @@ public sealed partial class ProgressStore : ITriggerLineSink
     private readonly HashSet<string> _scanned = new(StringComparer.OrdinalIgnoreCase);
     private readonly long _sessionStart;
     private Func<string, bool> _isPlayer = _ => false;
+    private Func<string, string, string> _classOf = (_, _) => string.Empty;
     private string? _filePath;
     private bool _dirty;
     private long _version;
@@ -71,12 +94,24 @@ public sealed partial class ProgressStore : ITriggerLineSink
     /// <summary>Goes up whenever anything changes.</summary>
     public long Version => Interlocked.Read(ref _version);
 
+    /// <summary>
+    /// Raised (outside the lock) when a live line switches a character's persona or changes its level: character, server, persona
+    /// (class name) and level (0 when not known).
+    /// </summary>
+    public event Action<string, string, string, int>? PersonaChanged;
+
+    /// <summary>The character's known class, for the lines before a log names a persona.</summary>
+    public void SetClassProvider(Func<string, string, string> classOf) => _classOf = classOf;
+
     /// <summary>True for players and pets, whose deaths are not the kills that move faction.</summary>
     public void SetPlayerProbe(Func<string, bool> isPlayer) => _isPlayer = isPlayer;
 
     /// <summary>True for a line this store reads (a cheap test, used before parsing a log line's time).</summary>
     public static bool Wanted(string message) =>
         message.StartsWith("You have become better at ", StringComparison.Ordinal)
+        || message.Contains(" equipment set", StringComparison.Ordinal)
+        || message.Contains("Welcome to level ", StringComparison.Ordinal)
+        || (message.Length > 6 && message[0] == '[' && char.IsAsciiDigit(message[1]))
         || message.StartsWith("Your faction standing with ", StringComparison.Ordinal)
         || message.StartsWith("You have fashioned the items", StringComparison.Ordinal)
         || message.StartsWith("You lacked the skills to fashion ", StringComparison.Ordinal)
@@ -97,6 +132,7 @@ public sealed partial class ProgressStore : ITriggerLineSink
 
         string key = Key(characterName, serverName);
         long time = LogHistoryReader.ToUnix(receivedUtc);
+        (string Persona, int Level) before, after;
         lock (_gate)
         {
             if (_liveDuringScan.TryGetValue(key, out List<(string, long)>? held))
@@ -104,15 +140,30 @@ public sealed partial class ProgressStore : ITriggerLineSink
                 held.Add((text, time));
             }
 
-            if (Read(_characters, _lastKill, key, text, time))
+            before = CurrentOf(_characters, key);
+            if (Read(_characters, _lastKill, characterName, serverName, key, text, time))
             {
                 Changed();
             }
+
+            after = CurrentOf(_characters, key);
+        }
+
+        if (after != before && after.Persona.Length > 0)
+        {
+            PersonaChanged?.Invoke(characterName, serverName, after.Persona, after.Level);
         }
     }
 
+    private static (string Persona, int Level) CurrentOf(Dictionary<string, CharacterState> states, string key) =>
+        states.TryGetValue(key, out CharacterState? state)
+            ? (state.Current, state.Personas.GetValueOrDefault(state.Current)?.Level ?? 0)
+            : (string.Empty, 0);
+
     /// <summary>Applies one line to <paramref name="states"/>. True when something was counted.</summary>
-    private bool Read(Dictionary<string, CharacterState> states, Dictionary<string, (long Time, string Mob)> kills, string key, string text, long time)
+    private bool Read(
+        Dictionary<string, CharacterState> states, Dictionary<string, (long Time, string Mob)> kills, string character, string server,
+        string key, string text, long time)
     {
         if (text[^1] == '!' && KillRegex().Match(text) is { Success: true } kill)
         {
@@ -131,13 +182,43 @@ public sealed partial class ProgressStore : ITriggerLineSink
         }
 
         CharacterState state = State(states, key);
+        Match saved = SetSavedRegex().Match(text);
+        Match loaded = saved.Success ? Match.Empty : SetLoadedRegex().Match(text);
+        if ((saved.Success || loaded.Success) && EqClass.TryNormalize((saved.Success ? saved : loaded).Groups["persona"].Value, out string named))
+        {
+            // "saved" names the persona that was on; "loaded" names the next one, so what came before it is not known from it.
+            SwitchTo(state, named, unknownWasThis: saved.Success, character, server);
+            return true;
+        }
+
+        if (text[0] == '[' && WhoRegex().Match(text) is { Success: true } who
+            && who.Groups["name"].Value.Equals(character, StringComparison.OrdinalIgnoreCase)
+            && int.TryParse(who.Groups["level"].Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int whoLevel))
+        {
+            if (EqClass.TryNormalize(who.Groups["class"].Value, out string whoClass))
+            {
+                SwitchTo(state, whoClass, unknownWasThis: true, character, server);
+            }
+
+            SetLevel(Active(state), whoLevel, time); // a title such as "High Priest" still gives the level
+            return true;
+        }
+
+        if (LevelUpRegex().Match(text) is { Success: true } levelUp
+            && int.TryParse(levelUp.Groups["level"].Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int newLevel))
+        {
+            SetLevel(Active(state), newLevel, time);
+            return true;
+        }
+
+        PersonaState persona = Active(state);
         if (SkillRegex().Match(text) is { Success: true } skill
             && int.TryParse(skill.Groups["value"].Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int value))
         {
             string name = skill.Groups["skill"].Value.Trim();
-            if (!state.Skills.TryGetValue(name, out SkillState? s))
+            if (!persona.Skills.TryGetValue(name, out SkillState? s))
             {
-                state.Skills[name] = s = new SkillState();
+                persona.Skills[name] = s = new SkillState();
             }
 
             s.Value = value;
@@ -178,9 +259,9 @@ public sealed partial class ProgressStore : ITriggerLineSink
         }
 
         string factionName = (faction.Success ? faction : limit).Groups["faction"].Value.Trim();
-        if (!state.Factions.TryGetValue(factionName, out FactionState? f))
+        if (!persona.Factions.TryGetValue(factionName, out FactionState? f))
         {
-            state.Factions[factionName] = f = new FactionState();
+            persona.Factions[factionName] = f = new FactionState();
         }
 
         if (kills.TryGetValue(key, out (long Time, string Mob) last) && time - last.Time <= KillWindowSeconds && last.Mob.Length > 0)
@@ -208,6 +289,101 @@ public sealed partial class ProgressStore : ITriggerLineSink
         return true;
     }
 
+    private static PersonaState Active(CharacterState state)
+    {
+        if (!state.Personas.TryGetValue(state.Current, out PersonaState? persona))
+        {
+            state.Personas[state.Current] = persona = new PersonaState();
+        }
+
+        return persona;
+    }
+
+    private static void SetLevel(PersonaState persona, int level, long time)
+    {
+        if (level > 0 && time >= persona.LevelTime)
+        {
+            persona.Level = level;
+            persona.LevelTime = time;
+        }
+    }
+
+    /// <summary>
+    /// Makes <paramref name="persona"/> the one that is on. What was counted while no persona was known goes to it when the line says
+    /// it was already on, otherwise to the character's known class.
+    /// </summary>
+    private void SwitchTo(CharacterState state, string persona, bool unknownWasThis, string character, string server)
+    {
+        if (state.Current.Length == 0 && state.Personas.Remove(string.Empty, out PersonaState? unknown))
+        {
+            string owner = unknownWasThis ? persona
+                : EqClass.TryNormalize(_classOf(character, server), out string known) ? known : string.Empty;
+            if (!state.Personas.TryGetValue(owner, out PersonaState? into))
+            {
+                state.Personas[owner] = into = new PersonaState();
+            }
+
+            Merge(unknown, into);
+        }
+
+        state.Current = persona;
+    }
+
+    /// <summary>Adds the earlier numbers in <paramref name="from"/> to <paramref name="into"/>; a later skill value or level wins.</summary>
+    private static void Merge(PersonaState from, PersonaState into)
+    {
+        foreach ((string name, SkillState skill) in from.Skills)
+        {
+            if (!into.Skills.TryGetValue(name, out SkillState? have) || have.Last < skill.Last)
+            {
+                if (have is not null)
+                {
+                    skill.Ups.AddRange(have.Ups);
+                }
+
+                into.Skills[name] = skill;
+            }
+            else
+            {
+                have.Ups.AddRange(skill.Ups);
+            }
+        }
+
+        foreach ((string name, FactionState faction) in from.Factions)
+        {
+            if (!into.Factions.TryGetValue(name, out FactionState? have))
+            {
+                into.Factions[name] = faction;
+                continue;
+            }
+
+            have.AllTime += faction.AllTime;
+            have.Hits += faction.Hits;
+            have.Session += faction.Session;
+            foreach ((int amount, int count) in faction.Amounts)
+            {
+                have.Amounts[amount] = have.Amounts.GetValueOrDefault(amount) + count;
+            }
+
+            foreach ((string mob, int count) in faction.Mobs)
+            {
+                have.Mobs[mob] = have.Mobs.GetValueOrDefault(mob) + count;
+            }
+
+            if (faction.Last > have.Last)
+            {
+                have.Limit = faction.Limit;
+                have.Last = faction.Last;
+            }
+        }
+
+        if (from.LevelTime > into.LevelTime)
+        {
+            into.Level = from.Level;
+            into.LevelTime = from.LevelTime;
+        }
+    }
+
     // ───────────────────────── log history ─────────────────────────
 
     public bool IsScanned(string character, string server)
@@ -227,7 +403,7 @@ public sealed partial class ProgressStore : ITriggerLineSink
             _liveDuringScan[key] = new List<(string, long)>();
         }
 
-        return new LogScan(this, key);
+        return new LogScan(this, key, character, server);
     }
 
     /// <summary>One log being read from the start.</summary>
@@ -235,21 +411,25 @@ public sealed partial class ProgressStore : ITriggerLineSink
     {
         private readonly ProgressStore _store;
         private readonly string _key;
+        private readonly string _character;
+        private readonly string _server;
         private readonly Dictionary<string, CharacterState> _states = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, (long Time, string Mob)> _kills = new(StringComparer.OrdinalIgnoreCase);
         private long _last;
 
-        internal LogScan(ProgressStore store, string key)
+        internal LogScan(ProgressStore store, string key, string character, string server)
         {
             _store = store;
             _key = key;
+            _character = character;
+            _server = server;
         }
 
         public void Line(string message, long time)
         {
             if (Wanted(message))
             {
-                _store.Read(_states, _kills, _key, message, time);
+                _store.Read(_states, _kills, _character, _server, _key, message, time);
                 _last = time;
             }
         }
@@ -266,12 +446,18 @@ public sealed partial class ProgressStore : ITriggerLineSink
                 }
 
                 CharacterState state = _states.GetValueOrDefault(_key) ?? new CharacterState();
+                if (state.Current.Length == 0 && state.Personas.ContainsKey(string.Empty)
+                    && EqClass.TryNormalize(_store._classOf(_character, _server), out string known))
+                {
+                    _store.SwitchTo(state, known, unknownWasThis: true, _character, _server); // a log that never names a persona
+                }
+
                 _store._characters[_key] = state;
                 foreach ((string message, long time) in live ?? new List<(string, long)>())
                 {
                     if (time > _last + 1)
                     {
-                        _store.Read(_store._characters, _store._lastKill, _key, message, time);
+                        _store.Read(_store._characters, _store._lastKill, _character, _server, _key, message, time);
                     }
                 }
 
@@ -283,13 +469,50 @@ public sealed partial class ProgressStore : ITriggerLineSink
 
     // ───────────────────────── reading the numbers ─────────────────────────
 
-    /// <summary>A character's skills, A to Z.</summary>
-    public IReadOnlyList<SkillProgress> Skills(string character, string server, DateTime nowUtc)
+    /// <summary>The character's personas, A to Z, with their levels and which one is on.</summary>
+    public IReadOnlyList<PersonaInfo> Personas(string character, string server)
+    {
+        lock (_gate)
+        {
+            if (!_characters.TryGetValue(Key(character, server), out CharacterState? state))
+            {
+                return Array.Empty<PersonaInfo>();
+            }
+
+            return state.Personas
+                .Select(p => new PersonaInfo(p.Key, p.Value.Level, p.Key.Equals(state.Current, StringComparison.OrdinalIgnoreCase)))
+                .OrderBy(p => p.Persona.Length == 0 ? 1 : 0)
+                .ThenBy(p => p.Persona, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+    }
+
+    /// <summary>The persona that is on ("Cleric"), or empty when no log has said.</summary>
+    public string CurrentPersona(string character, string server)
+    {
+        lock (_gate)
+        {
+            return _characters.TryGetValue(Key(character, server), out CharacterState? state) ? state.Current : string.Empty;
+        }
+    }
+
+    private PersonaState? FindPersona(string character, string server, string? persona)
+    {
+        if (!_characters.TryGetValue(Key(character, server), out CharacterState? state))
+        {
+            return null;
+        }
+
+        return state.Personas.GetValueOrDefault(persona ?? state.Current);
+    }
+
+    /// <summary>A persona's skills (the current one when <paramref name="persona"/> is null), A to Z.</summary>
+    public IReadOnlyList<SkillProgress> Skills(string character, string server, DateTime nowUtc, string? persona = null)
     {
         DateTime today = nowUtc.ToLocalTime().Date;
         lock (_gate)
         {
-            if (!_characters.TryGetValue(Key(character, server), out CharacterState? state))
+            if (FindPersona(character, server, persona) is not { } state)
             {
                 return Array.Empty<SkillProgress>();
             }
@@ -320,12 +543,12 @@ public sealed partial class ProgressStore : ITriggerLineSink
         }
     }
 
-    /// <summary>A character's factions, A to Z.</summary>
-    public IReadOnlyList<FactionProgress> Factions(string character, string server)
+    /// <summary>A persona's factions (the current one when <paramref name="persona"/> is null), A to Z.</summary>
+    public IReadOnlyList<FactionProgress> Factions(string character, string server, string? persona = null)
     {
         lock (_gate)
         {
-            if (!_characters.TryGetValue(Key(character, server), out CharacterState? state))
+            if (FindPersona(character, server, persona) is not { } state)
             {
                 return Array.Empty<FactionProgress>();
             }
@@ -354,7 +577,8 @@ public sealed partial class ProgressStore : ITriggerLineSink
             _filePath = path;
             try
             {
-                if (File.Exists(path) && JsonSerializer.Deserialize<StoreFile>(File.ReadAllText(path)) is { } saved)
+                // An older file (before personas) is not read: the logs are read again instead, which takes seconds.
+                if (File.Exists(path) && JsonSerializer.Deserialize<StoreFile>(File.ReadAllText(path)) is { Format: FileFormat } saved)
                 {
                     foreach (string key in saved.Scanned)
                     {
@@ -363,11 +587,7 @@ public sealed partial class ProgressStore : ITriggerLineSink
 
                     foreach ((string key, CharacterState state) in saved.Characters)
                     {
-                        foreach (FactionState f in state.Factions.Values)
-                        {
-                            f.Session = 0; // a new session starts with the app
-                        }
-
+                        state.Personas = new Dictionary<string, PersonaState>(state.Personas, StringComparer.OrdinalIgnoreCase);
                         _characters[key] = state;
                     }
                 }
@@ -397,6 +617,7 @@ public sealed partial class ProgressStore : ITriggerLineSink
             path = _filePath;
             json = JsonSerializer.Serialize(new StoreFile
             {
+                Format = FileFormat,
                 Scanned = _scanned.OrderBy(s => s, StringComparer.OrdinalIgnoreCase).ToList(),
                 Characters = new Dictionary<string, CharacterState>(_characters, StringComparer.OrdinalIgnoreCase),
             });
@@ -438,6 +659,8 @@ public sealed partial class ProgressStore : ITriggerLineSink
 
     public sealed class StoreFile
     {
+        public int Format { get; set; }
+
         public List<string> Scanned { get; set; } = new();
 
         public Dictionary<string, CharacterState> Characters { get; set; } = new();
@@ -445,9 +668,23 @@ public sealed partial class ProgressStore : ITriggerLineSink
 
     public sealed class CharacterState
     {
-        public Dictionary<string, SkillState> Skills { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+        /// <summary>The persona that is on ("Cleric"); empty until a log names one.</summary>
+        public string Current { get; set; } = string.Empty;
 
+        /// <summary>Skills, faction and level per persona; the empty name holds what came before any persona was known.</summary>
+        public Dictionary<string, PersonaState> Personas { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>Tradeskills are the character's, whatever persona is on.</summary>
         public Dictionary<string, RecipeState> Recipes { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    }
+
+    public sealed class PersonaState
+    {
+        public int Level { get; set; }
+
+        public long LevelTime { get; set; }
+
+        public Dictionary<string, SkillState> Skills { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
         public Dictionary<string, FactionState> Factions { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     }

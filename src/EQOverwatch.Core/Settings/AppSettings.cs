@@ -212,6 +212,9 @@ public sealed class DurationProfileSetting
     public string CharacterName { get; set; } = string.Empty;
     public string ServerName { get; set; } = string.Empty;
 
+    /// <summary>The class persona ("Cleric") the choices are for; empty for choices saved before personas, which count for any.</summary>
+    public string Persona { get; set; } = string.Empty;
+
     /// <summary>Spell id of the chosen beneficial duration focus, or null for None.</summary>
     public int? BeneficialFocusId { get; set; }
 

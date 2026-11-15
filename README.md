@@ -22,7 +22,7 @@ as many characters as you play, without touching the game.
 - Loot, money and raid attendance tracking.
 
 **Your characters**
-- Inventory, spellbook and missing spells for every character, with the scrolls your other characters carry.
+- Inventory, spellbook and missing spells for every character and class persona, with the scrolls your other characters carry.
 - Experience and AA per hour, and experience by mob at each level.
 - Drop Table: drop rates by mob and item for each server, pooled online with other players if you like.
 - Maps: add your own labels to the in-game maps.
@@ -58,6 +58,12 @@ settings are kept.
 - Spell data comes from your own `spells_us.txt`.
 
 ## Changelog
+
+### 1.0.60
+
+- Class personas: skills, faction, level, spellbook, missing spells and focus effects are kept for each persona, with a Persona drop-down in the profile window.
+- Switching persona changes the character's class and level everywhere in the app.
+- The Inventory tab shows your gear, bags, bank and shared bank like the in-game window, with augment sockets.
 
 ### 1.0.59
 

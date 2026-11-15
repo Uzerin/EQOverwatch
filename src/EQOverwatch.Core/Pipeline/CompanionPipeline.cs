@@ -78,6 +78,8 @@ public sealed class CompanionPipeline : IAsyncDisposable
         Drops.SetZoneProvider((name, server) => zones.Get(name, server)?.Zone);
         Drops.SetPlayerProbe(name => IsMonitoredCharacter(name) || Roster.IsVerifiedPlayer(name) || Roster.IsPet(name));
         TellInbox.SetOwnCharacterProbe(IsMonitoredCharacter);
+        Progress.SetClassProvider((name, server) => Roster.GetClass(name, server));
+        Progress.PersonaChanged += (name, server, persona, level) => Roster.LearnPlayer(name, persona, level, server); // the class follows the persona
         Progress.SetPlayerProbe(name => IsMonitoredCharacter(name) || Roster.IsVerifiedPlayer(name) || Roster.IsPet(name));
         _monitor = new LiveLogMonitor(Logs, triggerSinks, LiveDps, RaiseError, Activity);
         _monitor.TailError += (config, ex) => TailError?.Invoke(config, ex);

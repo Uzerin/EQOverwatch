@@ -15,28 +15,28 @@ public sealed partial class MainViewModel
     private readonly Dictionary<string, DurationProfile> _durationProfiles = new(StringComparer.OrdinalIgnoreCase);
     private readonly object _durationGate = new();
 
-    private static string DurationKey(string character, string server) => $"{character}|{server}";
+    private static string DurationKey(string character, string server, string persona = "") => $"{character}|{server}|{persona}";
 
-    /// <summary>What was chosen for the character, or none.</summary>
-    public DurationProfile GetDurationProfile(string character, string server)
+    /// <summary>What was chosen for the character's persona (or, failing that, for the character before personas), or none.</summary>
+    public DurationProfile GetDurationProfile(string character, string server, string persona = "")
     {
         lock (_durationGate)
         {
-            return _durationProfiles.GetValueOrDefault(DurationKey(character, server)) ?? DurationProfile.None;
+            return _durationProfiles.GetValueOrDefault(DurationKey(character, server, persona))
+                   ?? _durationProfiles.GetValueOrDefault(DurationKey(character, server))
+                   ?? DurationProfile.None;
         }
     }
 
-    public void SetDurationProfile(string character, string server, DurationProfile profile)
+    public void SetDurationProfile(string character, string server, DurationProfile profile, string persona = "")
     {
         lock (_durationGate)
         {
-            if (profile.IsEmpty)
+            // Saved under the persona; an empty choice still overrides an older one made before personas.
+            _durationProfiles[DurationKey(character, server, persona)] = profile;
+            if (profile.IsEmpty && persona.Length == 0)
             {
-                _durationProfiles.Remove(DurationKey(character, server));
-            }
-            else
-            {
-                _durationProfiles[DurationKey(character, server)] = profile;
+                _durationProfiles.Remove(DurationKey(character, server, persona));
             }
         }
 
@@ -54,9 +54,9 @@ public sealed partial class MainViewModel
             foreach (DurationProfileSetting s in saved ?? Enumerable.Empty<DurationProfileSetting>())
             {
                 var profile = new DurationProfile(s.BeneficialFocusId, s.DetrimentalFocusId, Math.Clamp(s.AaPercent, 0, 100));
-                if (!string.IsNullOrWhiteSpace(s.CharacterName) && !profile.IsEmpty)
+                if (!string.IsNullOrWhiteSpace(s.CharacterName) && (!profile.IsEmpty || !string.IsNullOrEmpty(s.Persona)))
                 {
-                    _durationProfiles[DurationKey(s.CharacterName, s.ServerName ?? string.Empty)] = profile;
+                    _durationProfiles[DurationKey(s.CharacterName, s.ServerName ?? string.Empty, s.Persona ?? string.Empty)] = profile;
                 }
             }
         }
@@ -69,11 +69,12 @@ public sealed partial class MainViewModel
             return _durationProfiles
                 .Select(kv =>
                 {
-                    int bar = kv.Key.IndexOf('|');
+                    string[] parts = kv.Key.Split('|');
                     return new DurationProfileSetting
                     {
-                        CharacterName = kv.Key[..bar],
-                        ServerName = kv.Key[(bar + 1)..],
+                        CharacterName = parts[0],
+                        ServerName = parts.Length > 1 ? parts[1] : string.Empty,
+                        Persona = parts.Length > 2 ? parts[2] : string.Empty,
                         BeneficialFocusId = kv.Value.BeneficialFocusId,
                         DetrimentalFocusId = kv.Value.DetrimentalFocusId,
                         AaPercent = kv.Value.AaPercent,
@@ -93,20 +94,20 @@ public sealed partial class MainViewModel
             return null;
         }
 
-        DurationProfile profile = GetDurationProfile(log.CharacterName, log.ServerName);
+        // The class follows the persona that is on, and so do the focus choices.
+        bool known = EqClass.TryNormalize(_pipeline.Roster.GetClass(name, log.ServerName), out string className);
+        DurationProfile profile = GetDurationProfile(log.CharacterName, log.ServerName, known ? className : string.Empty);
         if (profile.IsEmpty)
         {
             return null;
         }
 
-        int classIndex = EqClass.TryNormalize(_pipeline.Roster.GetClass(name, log.ServerName), out string className)
-            ? EqClass.Names.ToList().IndexOf(className)
-            : -1;
+        int classIndex = known ? EqClass.Names.ToList().IndexOf(className) : -1;
         return new CasterDuration(classIndex, profile);
     }
 
-    private FocusEffectsViewModel CreateFocusViewModel(string name, string server) =>
-        new(_pipeline.Spells.Database.DurationFoci, GetDurationProfile(name, server), profile => SetDurationProfile(name, server, profile));
+    private FocusEffectsViewModel CreateFocusViewModel(string name, string server, string persona = "") =>
+        new(_pipeline.Spells.Database.DurationFoci, GetDurationProfile(name, server, persona), profile => SetDurationProfile(name, server, profile, persona));
 
     [RelayCommand]
     private void OpenFocusEffects(WatchedLogConfig? log)

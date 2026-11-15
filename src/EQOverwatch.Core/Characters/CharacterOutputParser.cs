@@ -34,8 +34,11 @@ public sealed record KeyRingEntry(string Type, string Name, int ItemId);
 /// <summary>One line of a spellbook or missing-spells file.</summary>
 public sealed record SpellListEntry(int Level, string Name);
 
-/// <summary>An inventory file split into its two tables.</summary>
-public sealed record InventoryFile(IReadOnlyList<InventoryItem> Items, IReadOnlyList<KeyRingEntry> KeyRing);
+/// <summary>
+/// An inventory file split into its two tables. <paramref name="Layout"/> is every row of the first table in file order, empty slots
+/// included (named "Empty"), for drawing the inventory the way the game shows it.
+/// </summary>
+public sealed record InventoryFile(IReadOnlyList<InventoryItem> Items, IReadOnlyList<KeyRingEntry> KeyRing, IReadOnlyList<InventoryItem>? Layout = null);
 
 /// <summary>Turns the location text of an inventory row into something readable.</summary>
 public static partial class InventoryLocation
@@ -187,6 +190,7 @@ public static class CharacterOutputParser
         ArgumentNullException.ThrowIfNull(lines);
 
         var items = new List<InventoryItem>();
+        var layout = new List<InventoryItem>();
         var keyRing = new List<KeyRingEntry>();
         bool inKeyRing = false;
 
@@ -213,6 +217,12 @@ public static class CharacterOutputParser
             }
 
             string name = columns[1].Trim();
+            if (!inKeyRing && name.Equals(EmptySlot, StringComparison.OrdinalIgnoreCase))
+            {
+                layout.Add(new InventoryItem(first, EmptySlot, 0, 0, 0));
+                continue;
+            }
+
             if (name.Length == 0 || name.Equals(EmptySlot, StringComparison.OrdinalIgnoreCase)
                 || !int.TryParse(columns[2].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int id))
             {
@@ -228,8 +238,9 @@ public static class CharacterOutputParser
             int count = columns.Length > 3 && int.TryParse(columns[3].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int c) ? c : 1;
             int slots = columns.Length > 4 && int.TryParse(columns[4].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int s) ? s : 0;
             items.Add(new InventoryItem(first, name, id, count, slots));
+            layout.Add(items[^1]);
         }
 
-        return new InventoryFile(items, keyRing);
+        return new InventoryFile(items, keyRing, layout);
     }
 }

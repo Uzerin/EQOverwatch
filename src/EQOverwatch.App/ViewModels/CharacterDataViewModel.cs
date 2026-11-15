@@ -21,11 +21,19 @@ public sealed record TradeskillRowView(string Recipe, int Combines, int Made, in
 
 public sealed record FactionRowView(string Faction, string Session, string AllTime, string Hits, string UsualHit, string ComesFrom, string Status);
 
-/// <summary>Where the Skills, Tradeskills and Faction tabs get their rows (read again each time the window refreshes).</summary>
+/// <summary>One entry of the Persona drop-down: the class name ("Cleric", empty when not known) and what the drop-down shows.</summary>
+public sealed record PersonaChoice(string Persona, string Label, bool IsCurrent);
+
+/// <summary>
+/// Where the per-persona tabs get their rows (read again each time the window refreshes): the personas, skills and faction of a
+/// persona, the character's tradeskills, and a persona's Focus Effects choices.
+/// </summary>
 public sealed record CharacterProgressSource(
-    Func<IReadOnlyList<SkillRowView>> Skills,
+    Func<string, IReadOnlyList<SkillRowView>> Skills,
     Func<IReadOnlyList<TradeskillRowView>> Tradeskills,
-    Func<IReadOnlyList<FactionRowView>> Factions);
+    Func<string, IReadOnlyList<FactionRowView>> Factions,
+    Func<IReadOnlyList<PersonaChoice>>? Personas = null,
+    Func<string, FocusEffectsViewModel>? FocusFor = null);
 
 /// <summary>
 /// One character's data window: inventory, spellbook, missing spells and key ring, read from the character's <c>/outputfile</c> files.
@@ -55,7 +63,7 @@ public sealed partial class CharacterDataViewModel : ObservableObject
         CharacterDataStore store, Func<string?> eqFolder, string characterName, string serverName, Func<string> classLabel, int tab,
         FocusEffectsViewModel? focus = null, CharacterProgressSource? progress = null, Action? forget = null)
     {
-        Focus = focus;
+        _focus = focus;
         _progress = progress;
         _forget = forget;
         _store = store ?? throw new ArgumentNullException(nameof(store));
@@ -64,13 +72,60 @@ public sealed partial class CharacterDataViewModel : ObservableObject
         CharacterName = characterName;
         ServerName = serverName ?? string.Empty;
         _selectedTabIndex = tab;
+        LoadPersonas();
         Rebuild();
     }
 
     public string CharacterName { get; }
 
-    /// <summary>The Focus Effects tab's data; null only in tests.</summary>
-    public FocusEffectsViewModel? Focus { get; }
+    /// <summary>The Focus Effects tab's data for the chosen persona; null only in tests.</summary>
+    [ObservableProperty]
+    private FocusEffectsViewModel? _focus;
+
+    /// <summary>The character's class personas, current one marked. Empty when the logs have not named one.</summary>
+    public System.Collections.ObjectModel.ObservableCollection<PersonaChoice> PersonaChoices { get; } = new();
+
+    public bool HasPersonas => PersonaChoices.Count > 0;
+
+    /// <summary>The persona the Spellbook, Missing Spells, Focus Effects, Skills and Faction tabs show.</summary>
+    [ObservableProperty]
+    private PersonaChoice? _selectedPersona;
+
+    private string PersonaName => SelectedPersona?.Persona ?? string.Empty;
+
+    partial void OnSelectedPersonaChanged(PersonaChoice? value)
+    {
+        if (_progress?.FocusFor is { } focusFor && value is not null)
+        {
+            Focus = focusFor(value.Persona);
+        }
+
+        Rebuild();
+    }
+
+    /// <summary>Fills the Persona drop-down, keeping the choice (or picking the current persona).</summary>
+    private void LoadPersonas()
+    {
+        if (_progress?.Personas is null)
+        {
+            return;
+        }
+
+        string? keep = SelectedPersona?.Persona;
+        IReadOnlyList<PersonaChoice> choices = _progress.Personas();
+        PersonaChoices.Clear();
+        foreach (PersonaChoice choice in choices)
+        {
+            PersonaChoices.Add(choice);
+        }
+
+        OnPropertyChanged(nameof(HasPersonas));
+        PersonaChoice? pick = choices.FirstOrDefault(c => c.Persona == keep) ?? choices.FirstOrDefault(c => c.IsCurrent) ?? choices.FirstOrDefault();
+        if (!Equals(pick, SelectedPersona))
+        {
+            SelectedPersona = pick;
+        }
+    }
 
     public string ServerName { get; }
 
@@ -109,6 +164,13 @@ public sealed partial class CharacterDataViewModel : ObservableObject
     [ObservableProperty]
     private IReadOnlyList<KeyRingRow> _keyRingRows = Array.Empty<KeyRingRow>();
 
+    /// <summary>The Inventory tab's picture of the worn gear, bags, bank and shared bank.</summary>
+    public InventoryPanelViewModel InventoryPanel { get; } = new();
+
+    /// <summary>Why the Spellbook tab is empty for the chosen persona, or empty.</summary>
+    [ObservableProperty]
+    private string _spellbookNote = string.Empty;
+
     [ObservableProperty]
     private IReadOnlyList<SkillRowView> _skillRows = Array.Empty<SkillRowView>();
 
@@ -146,6 +208,7 @@ public sealed partial class CharacterDataViewModel : ObservableObject
     public void Refresh()
     {
         _store.ScanAll(_eqFolder()); // this character's files, and the other characters' (their scrolls are listed too)
+        LoadPersonas();
         Rebuild();
     }
 
@@ -198,6 +261,7 @@ public sealed partial class CharacterDataViewModel : ObservableObject
             items.AddRange(shared.Items);
         }
 
+        InventoryPanel.Load(data?.InventoryLayout ?? new List<InventoryItem>());
         InventoryRows = items
             .Where(i => Match(i.Name) || Match(i.Where))
             .Select(i => new InventoryRow(i.Where, i.Name, i.ItemId, i.Count))
@@ -208,7 +272,12 @@ public sealed partial class CharacterDataViewModel : ObservableObject
             .Select(k => new KeyRingRow(k.Type, k.Name, k.ItemId))
             .ToList();
 
-        SpellbookRows = (data?.Spellbook ?? new List<SpellListEntry>())
+        // A persona's own lists come from the files with its class code; with no personas known, the newest lists are shown.
+        string code = EQOverwatch.Core.Roster.EqClass.Abbreviate(PersonaName);
+        PersonaBooks? books = data is null ? null
+            : code.Length > 0 ? data.Books(code)
+            : new PersonaBooks { SpellbookUtc = data.SpellbookUtc, Spellbook = data.Spellbook, MissingUtc = data.MissingUtc, Missing = data.Missing };
+        SpellbookRows = (books?.Spellbook ?? new List<SpellListEntry>())
             .Where(s => Match(s.Name))
             .OrderByDescending(s => s.Level) // highest level first, then by name
             .ThenBy(s => s.Name, StringComparer.OrdinalIgnoreCase)
@@ -259,7 +328,7 @@ public sealed partial class CharacterDataViewModel : ObservableObject
 
         var scrolls = holders.ToDictionary(p => p.Key, p => string.Join("; ", p.Value), StringComparer.OrdinalIgnoreCase);
 
-        List<SpellListEntry> missing = data?.Missing ?? new List<SpellListEntry>();
+        List<SpellListEntry> missing = books?.Missing ?? new List<SpellListEntry>();
         int withScroll = missing.Count(m => scrolls.ContainsKey(m.Name));
         MissingRows = missing
             .Where(m => Match(m.Name))
@@ -271,13 +340,18 @@ public sealed partial class CharacterDataViewModel : ObservableObject
 
         if (_progress is not null)
         {
-            SkillRows = _progress.Skills().Where(r => Match(r.Skill) && (!OnlyUnmaxedSkills || !r.IsMaxed)).ToList();
+            SkillRows = _progress.Skills(PersonaName).Where(r => Match(r.Skill) && (!OnlyUnmaxedSkills || !r.IsMaxed)).ToList();
             TradeskillRows = _progress.Tradeskills().Where(r => Match(r.Recipe)).ToList();
-            FactionRows = _progress.Factions().Where(r => Match(r.Faction) || Match(r.ComesFrom)).ToList();
+            FactionRows = _progress.Factions(PersonaName).Where(r => Match(r.Faction) || Match(r.ComesFrom)).ToList();
         }
 
-        MissingSummary = data is null || !data.Has(OutputFileKind.MissingSpells)
-            ? "Missing spells have not been read yet."
-            : $"Scribed: {data.Spellbook.Count:N0} · Missing: {missing.Count:N0} · Scrolls on hand for missing spells: {withScroll:N0}";
+        MissingSummary = books?.MissingUtc is null
+            ? (code.Length > 0
+                ? $"No missing spells for the {PersonaName} persona yet: type /outputfile missingspells in game while it is on."
+                : "Missing spells have not been read yet.")
+            : $"Scribed: {books.Spellbook.Count:N0} · Missing: {missing.Count:N0} · Scrolls on hand for missing spells: {withScroll:N0}";
+        SpellbookNote = books?.SpellbookUtc is null && code.Length > 0
+            ? $"No spellbook for the {PersonaName} persona yet: type /outputfile spellbook in game while it is on."
+            : string.Empty;
     }
 }

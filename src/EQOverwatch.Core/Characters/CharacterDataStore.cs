@@ -20,11 +20,27 @@ public sealed class CharacterData
     public List<InventoryItem> Inventory { get; set; } = new();
     public List<KeyRingEntry> KeyRing { get; set; } = new();
 
+    /// <summary>Every inventory row in file order, empty slots included (shared bank too), for the picture of the inventory.</summary>
+    public List<InventoryItem> InventoryLayout { get; set; } = new();
+
     public DateTime? SpellbookUtc { get; set; }
     public List<SpellListEntry> Spellbook { get; set; } = new();
 
     public DateTime? MissingUtc { get; set; }
     public List<SpellListEntry> Missing { get; set; } = new();
+
+    /// <summary>
+    /// Each class persona's own spellbook and missing spells, by class code ("CLR", "BRD"): the file names carry it. The lists above
+    /// are the newest of any persona.
+    /// </summary>
+    public Dictionary<string, PersonaBooks> Personas { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>A persona's spellbook and missing spells, or null when none of its files has been read.</summary>
+    public PersonaBooks? Books(string classCode) =>
+        classCode.Length > 0 && Personas.TryGetValue(classCode, out PersonaBooks? books) ? books
+        : classCode.Length > 0 && classCode.Equals(ClassCode, StringComparison.OrdinalIgnoreCase)
+            ? new PersonaBooks { SpellbookUtc = SpellbookUtc, Spellbook = Spellbook, MissingUtc = MissingUtc, Missing = Missing }
+            : null;
 
     /// <summary>The newest capture time of any part, or null when nothing has been read.</summary>
     [JsonIgnore]
@@ -36,6 +52,15 @@ public sealed class CharacterData
         OutputFileKind.Spellbook => SpellbookUtc is not null,
         _ => MissingUtc is not null,
     };
+}
+
+/// <summary>One class persona's spellbook and missing spells.</summary>
+public sealed class PersonaBooks
+{
+    public DateTime? SpellbookUtc { get; set; }
+    public List<SpellListEntry> Spellbook { get; set; } = new();
+    public DateTime? MissingUtc { get; set; }
+    public List<SpellListEntry> Missing { get; set; } = new();
 }
 
 /// <summary>The shared bank of one server. Every character's inventory file lists it, so it is kept once, from the newest file.</summary>
@@ -382,13 +407,15 @@ public sealed class CharacterDataStore
             switch (info.Kind)
             {
                 case OutputFileKind.Inventory:
-                    if (data.InventoryUtc is { } have && have >= stamp)
+                    // Data saved before the layout was kept is read again once, so the picture has its empty slots.
+                    if (data.InventoryUtc is { } have && have >= stamp && data.InventoryLayout.Count > 0)
                     {
                         break;
                     }
 
                     InventoryFile file = CharacterOutputParser.ParseInventory(lines);
                     data.Inventory = file.Items.Where(i => !i.IsShared).ToList();
+                    data.InventoryLayout = (file.Layout ?? file.Items).ToList();
                     data.KeyRing = file.KeyRing.ToList();
                     data.InventoryUtc = stamp;
                     changed = true;
@@ -402,37 +429,63 @@ public sealed class CharacterDataStore
 
                     break;
 
-                case OutputFileKind.Spellbook:
-                    if (data.SpellbookUtc is { } haveBook && haveBook >= stamp)
-                    {
-                        break;
-                    }
-
-                    data.Spellbook = CharacterOutputParser.ParseSpellList(lines);
-                    data.SpellbookUtc = stamp;
-                    changed = true;
-                    break;
-
                 default:
-                    if (data.MissingUtc is { } haveMissing && haveMissing >= stamp)
+                {
+                    // Each persona keeps its own list; the character's own lists are the newest of any persona.
+                    bool book = info.Kind == OutputFileKind.Spellbook;
+                    PersonaBooks? persona = null;
+                    if (info.ClassCode.Length > 0 && !data.Personas.TryGetValue(info.ClassCode, out persona))
                     {
-                        break;
+                        data.Personas[info.ClassCode] = persona = new PersonaBooks();
                     }
 
-                    data.Missing = CharacterOutputParser.ParseSpellList(lines);
-                    data.MissingUtc = stamp;
-                    changed = true;
+                    List<SpellListEntry>? parsed = null;
+                    if (persona is not null && !((book ? persona.SpellbookUtc : persona.MissingUtc) is { } havePersona && havePersona >= stamp))
+                    {
+                        parsed = CharacterOutputParser.ParseSpellList(lines);
+                        if (book)
+                        {
+                            persona.Spellbook = parsed;
+                            persona.SpellbookUtc = stamp;
+                        }
+                        else
+                        {
+                            persona.Missing = parsed;
+                            persona.MissingUtc = stamp;
+                        }
+
+                        changed = true;
+                    }
+
+                    if (!((book ? data.SpellbookUtc : data.MissingUtc) is { } haveNewest && haveNewest >= stamp))
+                    {
+                        parsed ??= CharacterOutputParser.ParseSpellList(lines);
+                        if (book)
+                        {
+                            data.Spellbook = parsed;
+                            data.SpellbookUtc = stamp;
+                        }
+                        else
+                        {
+                            data.Missing = parsed;
+                            data.MissingUtc = stamp;
+                        }
+
+                        if (info.ClassCode.Length > 0)
+                        {
+                            data.ClassCode = info.ClassCode;
+                        }
+
+                        changed = true;
+                    }
+
                     break;
+                }
             }
 
             if (!changed)
             {
                 return false;
-            }
-
-            if (info.ClassCode.Length > 0)
-            {
-                data.ClassCode = info.ClassCode;
             }
 
             data.FromPc = fromPc ?? string.Empty;
