@@ -34,6 +34,15 @@ public static class InventoryLayout
         "Secondary", "Fingers", "Fingers", "Chest", "Legs", "Feet", "Waist", "Power Source", "Ammo",
     };
 
+    private static readonly HashSet<string> WornNames = new(WornSlots, StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>True for a worn slot ("Head") or one of its augment sockets ("Head-Slot1").</summary>
+    public static bool IsWornRow(string location)
+    {
+        int dash = location.IndexOf('-', StringComparison.Ordinal);
+        return WornNames.Contains((dash < 0 ? location : location[..dash]).Trim());
+    }
+
     private sealed class Node
     {
         public required InventoryItem Row { get; init; }

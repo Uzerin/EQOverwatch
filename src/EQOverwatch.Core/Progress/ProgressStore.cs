@@ -65,7 +65,7 @@ public sealed partial class ProgressStore : ITriggerLineSink
     [GeneratedRegex(@"^Your (?<persona>.+) equipment set has been saved\.$", RegexOptions.CultureInvariant)]
     private static partial Regex SetSavedRegex();
 
-    [GeneratedRegex(@"^You successfully loaded your (?<persona>.+) equipment set\.$", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"^You (?:successfully loaded|loaded only part of) your (?<persona>.+?) equipment set\.", RegexOptions.CultureInvariant)]
     private static partial Regex SetLoadedRegex();
 
     [GeneratedRegex(@"Welcome to level (?<level>\d+)!$", RegexOptions.CultureInvariant)]
@@ -74,7 +74,8 @@ public sealed partial class ProgressStore : ITriggerLineSink
     [GeneratedRegex(@"^\[(?<level>\d+) (?<class>[^\]]+)\] (?<name>[A-Za-z]+) ", RegexOptions.CultureInvariant)]
     private static partial Regex WhoRegex();
 
-    private const int FileFormat = 2;
+    private const int MaxTimeline = 20000;
+    private const int FileFormat = 3; // 3: the persona timeline
 
     private readonly object _gate = new();
     private readonly Dictionary<string, CharacterState> _characters = new(StringComparer.OrdinalIgnoreCase);
@@ -187,7 +188,7 @@ public sealed partial class ProgressStore : ITriggerLineSink
         if ((saved.Success || loaded.Success) && EqClass.TryNormalize((saved.Success ? saved : loaded).Groups["persona"].Value, out string named))
         {
             // "saved" names the persona that was on; "loaded" names the next one, so what came before it is not known from it.
-            SwitchTo(state, named, unknownWasThis: saved.Success, character, server);
+            SwitchTo(state, named, unknownWasThis: saved.Success, character, server, time);
             return true;
         }
 
@@ -197,7 +198,7 @@ public sealed partial class ProgressStore : ITriggerLineSink
         {
             if (EqClass.TryNormalize(who.Groups["class"].Value, out string whoClass))
             {
-                SwitchTo(state, whoClass, unknownWasThis: true, character, server);
+                SwitchTo(state, whoClass, unknownWasThis: true, character, server, time);
             }
 
             SetLevel(Active(state), whoLevel, time); // a title such as "High Priest" still gives the level
@@ -312,12 +313,30 @@ public sealed partial class ProgressStore : ITriggerLineSink
     /// Makes <paramref name="persona"/> the one that is on. What was counted while no persona was known goes to it when the line says
     /// it was already on, otherwise to the character's known class.
     /// </summary>
-    private void SwitchTo(CharacterState state, string persona, bool unknownWasThis, string character, string server)
+    private void SwitchTo(CharacterState state, string persona, bool unknownWasThis, string character, string server, long time)
     {
+        string before = unknownWasThis ? persona
+            : EqClass.TryNormalize(_classOf(character, server), out string knownClass) ? knownClass : string.Empty;
+        if (state.Timeline.Count == 0)
+        {
+            if (before.Length > 0)
+            {
+                state.Timeline.Add(new PersonaMark { Since = 0, Persona = before }); // what was on before the first line that names one
+            }
+        }
+
+        if (state.Timeline.Count == 0 || !state.Timeline[^1].Persona.Equals(persona, StringComparison.OrdinalIgnoreCase))
+        {
+            state.Timeline.Add(new PersonaMark { Since = time, Persona = persona });
+            if (state.Timeline.Count > MaxTimeline)
+            {
+                state.Timeline.RemoveRange(0, state.Timeline.Count - MaxTimeline);
+            }
+        }
+
         if (state.Current.Length == 0 && state.Personas.Remove(string.Empty, out PersonaState? unknown))
         {
-            string owner = unknownWasThis ? persona
-                : EqClass.TryNormalize(_classOf(character, server), out string known) ? known : string.Empty;
+            string owner = before;
             if (!state.Personas.TryGetValue(owner, out PersonaState? into))
             {
                 state.Personas[owner] = into = new PersonaState();
@@ -449,7 +468,7 @@ public sealed partial class ProgressStore : ITriggerLineSink
                 if (state.Current.Length == 0 && state.Personas.ContainsKey(string.Empty)
                     && EqClass.TryNormalize(_store._classOf(_character, _server), out string known))
                 {
-                    _store.SwitchTo(state, known, unknownWasThis: true, _character, _server); // a log that never names a persona
+                    _store.SwitchTo(state, known, unknownWasThis: true, _character, _server, 0); // a log that never names a persona
                 }
 
                 _store._characters[_key] = state;
@@ -484,6 +503,30 @@ public sealed partial class ProgressStore : ITriggerLineSink
                 .OrderBy(p => p.Persona.Length == 0 ? 1 : 0)
                 .ThenBy(p => p.Persona, StringComparer.OrdinalIgnoreCase)
                 .ToList();
+        }
+    }
+
+    /// <summary>
+    /// The persona that was on at <paramref name="utc"/> ("Bard"), from the lines that switched personas, or empty when no log has
+    /// named one. A time before the first switch gives the persona that was on before it, when that is known.
+    /// </summary>
+    public string PersonaAt(string character, string server, DateTime utc)
+    {
+        long time = LogHistoryReader.ToUnix(utc);
+        lock (_gate)
+        {
+            if (!_characters.TryGetValue(Key(character, server), out CharacterState? state))
+            {
+                return string.Empty;
+            }
+
+            if (state.Timeline.Count == 0)
+            {
+                return state.Current;
+            }
+
+            PersonaMark? on = state.Timeline.LastOrDefault(m => m.Since <= time);
+            return (on ?? state.Timeline[0]).Persona;
         }
     }
 
@@ -588,6 +631,7 @@ public sealed partial class ProgressStore : ITriggerLineSink
                     foreach ((string key, CharacterState state) in saved.Characters)
                     {
                         state.Personas = new Dictionary<string, PersonaState>(state.Personas, StringComparer.OrdinalIgnoreCase);
+                        state.Timeline ??= new List<PersonaMark>();
                         _characters[key] = state;
                     }
                 }
@@ -674,8 +718,18 @@ public sealed partial class ProgressStore : ITriggerLineSink
         /// <summary>Skills, faction and level per persona; the empty name holds what came before any persona was known.</summary>
         public Dictionary<string, PersonaState> Personas { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
+        /// <summary>When each persona came on (oldest first), for which persona wore the gear in an inventory file.</summary>
+        public List<PersonaMark> Timeline { get; set; } = new();
+
         /// <summary>Tradeskills are the character's, whatever persona is on.</summary>
         public Dictionary<string, RecipeState> Recipes { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    }
+
+    public sealed class PersonaMark
+    {
+        public long Since { get; set; }
+
+        public string Persona { get; set; } = string.Empty;
     }
 
     public sealed class PersonaState

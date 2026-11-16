@@ -35,6 +35,27 @@ public sealed class CharacterData
     /// </summary>
     public Dictionary<string, PersonaBooks> Personas { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// Each class persona's worn gear (with its augments), by class code, from the newest inventory file written while that persona
+    /// was on. Bags, bank and shared bank are the character's whatever persona is on, so only the worn slots are kept here.
+    /// </summary>
+    public Dictionary<string, PersonaWorn> Worn { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>The capture time of the inventory file last filed under a persona, the persona's class code, and whether that was sure.</summary>
+    public DateTime? WornFiledUtc { get; set; }
+
+    public string WornFiledCode { get; set; } = string.Empty;
+
+    public bool WornFiledSure { get; set; }
+
+    /// <summary>A persona's worn gear, or null when no inventory file was written while it was on.</summary>
+    public PersonaWorn? WornFor(string classCode) =>
+        classCode.Length > 0 && Worn.TryGetValue(classCode, out PersonaWorn? worn) ? worn : null;
+
+    /// <summary>The inventory rows that are not worn gear (bags, bank, shared bank), in file order.</summary>
+    [JsonIgnore]
+    public IEnumerable<InventoryItem> UnwornLayout => InventoryLayout.Where(r => !EQOverwatch.Core.Characters.InventoryLayout.IsWornRow(r.Location));
+
     /// <summary>A persona's spellbook and missing spells, or null when none of its files has been read.</summary>
     public PersonaBooks? Books(string classCode) =>
         classCode.Length > 0 && Personas.TryGetValue(classCode, out PersonaBooks? books) ? books
@@ -52,6 +73,13 @@ public sealed class CharacterData
         OutputFileKind.Spellbook => SpellbookUtc is not null,
         _ => MissingUtc is not null,
     };
+}
+
+/// <summary>One class persona's worn gear: the worn rows (augment sockets included) of an inventory file.</summary>
+public sealed class PersonaWorn
+{
+    public DateTime CapturedUtc { get; set; }
+    public List<InventoryItem> Rows { get; set; } = new();
 }
 
 /// <summary>One class persona's spellbook and missing spells.</summary>
@@ -93,6 +121,14 @@ public sealed class CharacterDataStore
         _directory = string.IsNullOrWhiteSpace(directory) ? null : directory;
         Load();
     }
+
+    private Func<string, string, DateTime, (string ClassCode, bool Sure)>? _personaAt;
+
+    /// <summary>
+    /// Tells which persona (class code) was on for a character at a time, and whether that is sure (the log has been read). Worn gear
+    /// filed while it was not sure is filed again once it is.
+    /// </summary>
+    public void SetPersonaResolver(Func<string, string, DateTime, (string ClassCode, bool Sure)> personaAt) => _personaAt = personaAt;
 
     /// <summary>Raised after a file was read and changed what is stored. May run on any thread.</summary>
     public event Action? Changed;
@@ -247,6 +283,8 @@ public sealed class CharacterDataStore
                 {
                     data.Inventory = new List<InventoryItem>();
                     data.KeyRing = new List<KeyRingEntry>();
+                    data.Worn.Clear();
+                    data.WornFiledUtc = null;
                     data.InventoryUtc = null;
                     changed = true;
                     dropped++;
@@ -410,6 +448,7 @@ public sealed class CharacterDataStore
                     // Data saved before the layout was kept is read again once, so the picture has its empty slots.
                     if (data.InventoryUtc is { } have && have >= stamp && data.InventoryLayout.Count > 0)
                     {
+                        changed = FileWorn(data, have);
                         break;
                     }
 
@@ -418,6 +457,7 @@ public sealed class CharacterDataStore
                     data.InventoryLayout = (file.Layout ?? file.Items).ToList();
                     data.KeyRing = file.KeyRing.ToList();
                     data.InventoryUtc = stamp;
+                    FileWorn(data, stamp);
                     changed = true;
 
                     List<InventoryItem> sharedItems = file.Items.Where(i => i.IsShared).ToList();
@@ -504,6 +544,46 @@ public sealed class CharacterDataStore
         return true;
     }
 
+    /// <summary>
+    /// Files the worn rows of the stored inventory (captured at <paramref name="stamp"/>) under the persona that was on then. True when
+    /// that changed anything. A filing that was not sure moves once the persona is known.
+    /// </summary>
+    private bool FileWorn(CharacterData data, DateTime stamp)
+    {
+        (string code, bool sure) = _personaAt?.Invoke(data.Name, data.Server, stamp) ?? (data.ClassCode, true);
+        if (code.Length == 0)
+        {
+            code = data.ClassCode;
+            sure = false;
+        }
+
+        bool sameFile = data.WornFiledUtc == stamp;
+        if (sameFile && (data.WornFiledSure || !sure) && (data.WornFiledCode.Equals(code, StringComparison.OrdinalIgnoreCase) || !sure))
+        {
+            return false;
+        }
+
+        if (sameFile && data.WornFiledCode.Length > 0 && !data.WornFiledCode.Equals(code, StringComparison.OrdinalIgnoreCase)
+            && data.Worn.TryGetValue(data.WornFiledCode, out PersonaWorn? misfiled) && misfiled.CapturedUtc == stamp)
+        {
+            data.Worn.Remove(data.WornFiledCode);
+        }
+
+        if (code.Length > 0 && !(data.Worn.TryGetValue(code, out PersonaWorn? kept) && kept.CapturedUtc > stamp))
+        {
+            data.Worn[code] = new PersonaWorn
+            {
+                CapturedUtc = stamp,
+                Rows = data.InventoryLayout.Where(r => EQOverwatch.Core.Characters.InventoryLayout.IsWornRow(r.Location)).ToList(),
+            };
+        }
+
+        data.WornFiledUtc = stamp;
+        data.WornFiledCode = code;
+        data.WornFiledSure = sure && code.Length > 0;
+        return true;
+    }
+
     private static string Key(string name, string server) => $"{name}_{server}";
 
     private static List<string> ReadLines(string path)
@@ -551,6 +631,8 @@ public sealed class CharacterDataStore
                         data.KeyRing ??= new List<KeyRingEntry>();
                         data.Spellbook ??= new List<SpellListEntry>();
                         data.Missing ??= new List<SpellListEntry>();
+                        data.Worn = new Dictionary<string, PersonaWorn>(data.Worn ?? new(), StringComparer.OrdinalIgnoreCase);
+                        data.WornFiledCode ??= string.Empty;
                         _characters[Key(data.Name, data.Server)] = data;
                     }
                 }

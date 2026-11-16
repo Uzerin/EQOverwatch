@@ -15,16 +15,19 @@ public static class AppInfo
     /// <summary>Where the published versions can be downloaded.</summary>
     public const string ReleasesUrl = RepositoryUrl + "/releases/latest";
 
+    /// <summary>The EQ Overwatch Discord server's invite (it does not expire).</summary>
+    public const string DiscordUrl = "https://discord.gg/cDk3xTdkAW";
+
     /// <summary>Folder under <c>%LocalAppData%</c> that holds <c>settings.json</c>.</summary>
     public const string SettingsFolderName = "EQOverwatch";
 
     /// <summary>The folder earlier versions (EQ Companion) used; its settings are migrated on first start.</summary>
     public const string LegacySettingsFolderName = "EQCompanion";
 
-    /// <summary>"v1.0.60": the assembly's major.minor.build, read at run time so it can never disagree with the binary.</summary>
+    /// <summary>"v1.0.61": the assembly's major.minor.build, read at run time so it can never disagree with the binary.</summary>
     public static string Version { get; } = FormatVersion(typeof(AppInfo).Assembly);
 
-    /// <summary>"EQ Overwatch v1.0.60".</summary>
+    /// <summary>"EQ Overwatch v1.0.61".</summary>
     public static string Title => $"{Name} {Version}";
 
     /// <summary>"v{major}.{minor}.{build}" for <paramref name="assembly"/>.</summary>

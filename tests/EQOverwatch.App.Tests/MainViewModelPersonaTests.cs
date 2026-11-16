@@ -17,6 +17,7 @@ public partial class MainViewModelTests
         File.WriteAllText(Path.Combine(h.Dir, "Ream_frostreaver-CLR-Spellbook.txt"), "60\tComplete Heal\n");
         File.WriteAllText(Path.Combine(h.Dir, "Ream_frostreaver-Inventory.txt"),
             "Location\tName\tID\tCount\tSlots\nHead\tCrown of the Kromzek Kings\t25194\t1\t6\nHead-Slot1\tEmpty\t0\t0\t0\nGeneral 1\tLarge Bag\t1\t1\t2\nGeneral 1-Slot1\tBone Chips\t2\t12\t6\nGeneral 1-Slot2\tEmpty\t0\t0\t0\n");
+        File.SetLastWriteTimeUtc(Path.Combine(h.Dir, "Ream_frostreaver-Inventory.txt"), DateTime.UtcNow.AddMinutes(-1)); // written while the cleric was on
         h.Dialogs.LogFiles = new[] { h.CreateLog("Ream") };
         h.Vm.AddLogCommand.Execute(null);
         WatchedLogConfig ream = h.Vm.Logs.Single();
@@ -54,5 +55,14 @@ public partial class MainViewModelTests
         Assert.Equal("12", panel.OpenContents[0].CountText);
         panel.OpenCommand.Execute(panel.Containers[0]);
         Assert.False(panel.HasOpenBag);
+        Assert.Equal("Worn (Cleric)", panel.WornTitle);
+        Assert.Equal(string.Empty, window.InventoryNote);
+
+        // The bard has no inventory file of its own: its worn slots are empty, the bags are the same.
+        window.SelectedPersona = window.PersonaChoices.Single(p => p.Persona == "Bard");
+        Assert.True(window.InventoryPanel.Worn.Single(s => s.Label == "Head").IsEmpty);
+        Assert.Contains("/outputfile inventory", window.InventoryNote);
+        Assert.Contains(window.InventoryRows, r => r.Item == "Large Bag");
+        Assert.DoesNotContain(window.InventoryRows, r => r.Item == "Crown of the Kromzek Kings");
     }
 }

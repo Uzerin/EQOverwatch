@@ -68,6 +68,9 @@ public sealed partial class InventoryPanelViewModel : ObservableObject
     private string _openTitle = string.Empty;
 
     [ObservableProperty]
+    private string _wornTitle = "Worn";
+
+    [ObservableProperty]
     private string _containersTitle = "Bags (click one to open it)";
 
     public bool IsInventorySection { get => Section == InventorySection; set { if (value) Section = InventorySection; } }
@@ -100,9 +103,10 @@ public sealed partial class InventoryPanelViewModel : ObservableObject
     partial void OnOpenContentsChanged(IReadOnlyList<SlotView> value) => OnPropertyChanged(nameof(HasOpenBag));
 
     /// <summary>Shows a character's inventory rows (every row of its file, empty slots included).</summary>
-    public void Load(IReadOnlyList<InventoryItem> rows)
+    public void Load(IReadOnlyList<InventoryItem> rows, string wornTitle = "Worn")
     {
         _rows = rows;
+        WornTitle = wornTitle;
         OnPropertyChanged(nameof(HasData));
         Rebuild();
     }

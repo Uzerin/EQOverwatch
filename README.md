@@ -22,7 +22,7 @@ as many characters as you play, without touching the game.
 - Loot, money and raid attendance tracking.
 
 **Your characters**
-- Inventory, spellbook and missing spells for every character and class persona, with the scrolls your other characters carry.
+- Inventory, worn gear, spellbook and missing spells for every character and class persona, with the scrolls your other characters carry.
 - Experience and AA per hour, and experience by mob at each level.
 - Drop Table: drop rates by mob and item for each server, pooled online with other players if you like.
 - Maps: add your own labels to the in-game maps.
@@ -34,8 +34,9 @@ as many characters as you play, without touching the game.
 - Six movable overlays that only show for characters who are logged in.
 - Sync between several PCs, backups, and saved overlay layouts.
 - Updates itself from inside the app.
+- A friendly [Discord server](https://discord.gg/cDk3xTdkAW) for news, help and ideas.
 
-Download: https://github.com/Uzerin/EQOverwatch/releases/latest
+Download: https://github.com/Uzerin/EQOverwatch/releases/latest · Join us on Discord: https://discord.gg/cDk3xTdkAW
 
 ## Install
 
@@ -59,65 +60,24 @@ settings are kept.
 
 ## Changelog
 
-### 1.0.60
+### 1.0.61
 
-- Class personas: skills, faction, level, spellbook, missing spells and focus effects are kept for each persona, with a Persona drop-down in the profile window.
-- Switching persona changes the character's class and level everywhere in the app.
-- The Inventory tab shows your gear, bags, bank and shared bank like the in-game window, with augment sockets.
+- Worn gear is kept for each class persona; bags, bank and shared bank stay shared.
+- Overwatch Discord button at the top of the app.
 
-### 1.0.59
+### 1.0.51 to 1.0.60
 
-- One Inventory / Profile button per character opens a window with every character tab, including the new ones.
-- New Skills tab in the character window: each skill A to Z with its max for your class and level.
-- New Tradeskills tab in the character window: success rate for each recipe.
-- New Faction tab in the character window: faction changes, usual hit and the mob that causes them.
-- New Tells tab and optional Tells overlay for unanswered tells across all your characters.
-
-### 1.0.58
-
-- Fixed Install update failing when an old update folder was read-only.
-
-### 1.0.57
-
-- Drop Table can pool drops online with other players on your server (two switches under Sharing, both off by default).
-- Tables on the Encounter DPS, Drop Table and Experience tabs fit their contents.
-- Long lines in the Items & Scrolls tables wrap.
-- Every tab name starts each word with a capital letter.
-
-### 1.0.56
-
-- Fixed a loading crash under certain circumstances.
-- New Drop Table tab: drop rates by mob and item for each server, from your logs, shareable as files.
-
-### 1.0.55
-
-- New Maps tab: add, move and edit your own labels on the in-game maps.
-
-### 1.0.54
-
-- Windows open where you last left them.
-
-### 1.0.53
-
-- Levels, classes, pets and additional characters are kept per server.
-- Experience by mob table on the Experience tab.
-- Debuff bars show their counters and end when cured.
-- AA and discipline bars for other raid members now show.
-
-### 1.0.52
-
-- Songs track themselves, with an option to show every bard's songs.
-- Charm watch with a break alarm.
-- New Experience tab.
-- Mob resists on Mob History, shareable with the raid.
-- New Log Search tab.
-- Fixed a crash when opening a color swatch.
-
-### 1.0.51
-
-- Damage shields are their own attack type, and a mob's shield counts as damage taken.
-- Tagged misses are counted, and avoidance is broken down by type.
-- Color wheel for every color swatch.
+- Class personas: skills, faction, level, spellbook, missing spells and focus effects for each persona, and switching one changes class and level everywhere.
+- One Inventory / Profile window per character, with an in-game style inventory, bank and shared bank.
+- Skills with their caps, tradeskill success rates and faction for each character.
+- Tells tab and optional Tells overlay for unanswered tells.
+- Drop Table from your logs, shareable as files or pooled online with other players.
+- New Experience, Log Search and Maps tabs.
+- Songs track themselves, charm break alarm, and debuff counters that end when cured.
+- Damage shields are their own attack type, and avoidance is broken down by type.
+- Levels, classes, pets and characters are kept per server, and windows open where you left them.
+- Color wheel for every swatch, tables that fit their contents, and Title Case tab names.
+- Fixes for a loading crash, a color swatch crash and Install update with a read-only folder.
 
 ### 1.0.41 to 1.0.50
 

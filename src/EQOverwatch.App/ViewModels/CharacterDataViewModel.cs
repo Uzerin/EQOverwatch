@@ -167,6 +167,10 @@ public sealed partial class CharacterDataViewModel : ObservableObject
     /// <summary>The Inventory tab's picture of the worn gear, bags, bank and shared bank.</summary>
     public InventoryPanelViewModel InventoryPanel { get; } = new();
 
+    /// <summary>Why the chosen persona has no worn gear, or empty.</summary>
+    [ObservableProperty]
+    private string _inventoryNote = string.Empty;
+
     /// <summary>Why the Spellbook tab is empty for the chosen persona, or empty.</summary>
     [ObservableProperty]
     private string _spellbookNote = string.Empty;
@@ -250,10 +254,24 @@ public sealed partial class CharacterDataViewModel : ObservableObject
             ? "No /outputfile data has been read yet."
             : $"Inventory {Describe(data.InventoryUtc)} · Spellbook {Describe(data.SpellbookUtc)} · Missing spells {Describe(data.MissingUtc)}";
 
+        // Worn gear is each persona's own; bags, bank and shared bank are the same for every persona.
+        string code = EQOverwatch.Core.Roster.EqClass.Abbreviate(PersonaName);
+        bool byPersona = data is not null && code.Length > 0 && data.Worn.Count > 0;
+        PersonaWorn? worn = byPersona ? data!.WornFor(code) : null;
+        List<InventoryItem> layout = data is null ? new List<InventoryItem>()
+            : byPersona ? (worn?.Rows ?? new List<InventoryItem>()).Concat(data.UnwornLayout).ToList()
+            : data.InventoryLayout;
+        InventoryNote = byPersona && worn is null
+            ? $"No worn gear for the {PersonaName} persona yet: type /outputfile inventory in game while it is on. Bags and bank are the same for every persona."
+            : string.Empty;
+
         var items = new List<InventoryItem>();
         if (data is not null)
         {
-            items.AddRange(data.Inventory);
+            items.AddRange(byPersona
+                ? (worn?.Rows ?? new List<InventoryItem>()).Where(i => !i.Name.Equals("Empty", StringComparison.OrdinalIgnoreCase))
+                    .Concat(data.Inventory.Where(i => !InventoryLayout.IsWornRow(i.Location)))
+                : data.Inventory);
         }
 
         if (shared is not null)
@@ -261,7 +279,7 @@ public sealed partial class CharacterDataViewModel : ObservableObject
             items.AddRange(shared.Items);
         }
 
-        InventoryPanel.Load(data?.InventoryLayout ?? new List<InventoryItem>());
+        InventoryPanel.Load(layout, byPersona ? $"Worn ({PersonaName})" : "Worn");
         InventoryRows = items
             .Where(i => Match(i.Name) || Match(i.Where))
             .Select(i => new InventoryRow(i.Where, i.Name, i.ItemId, i.Count))
@@ -273,7 +291,6 @@ public sealed partial class CharacterDataViewModel : ObservableObject
             .ToList();
 
         // A persona's own lists come from the files with its class code; with no personas known, the newest lists are shown.
-        string code = EQOverwatch.Core.Roster.EqClass.Abbreviate(PersonaName);
         PersonaBooks? books = data is null ? null
             : code.Length > 0 ? data.Books(code)
             : new PersonaBooks { SpellbookUtc = data.SpellbookUtc, Spellbook = data.Spellbook, MissingUtc = data.MissingUtc, Missing = data.Missing };

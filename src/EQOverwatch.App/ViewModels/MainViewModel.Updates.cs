@@ -278,6 +278,20 @@ public sealed partial class MainViewModel
         }
     }
 
+    /// <summary>The top bar's Overwatch Discord button: opens the server's invite in the browser.</summary>
+    [RelayCommand]
+    private void OpenDiscord()
+    {
+        try
+        {
+            _openUrl?.Invoke(AppInfo.DiscordUrl);
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Could not open {AppInfo.DiscordUrl}: {ex.Message}";
+        }
+    }
+
     /// <summary>Opens the new release's page in the browser.</summary>
     [RelayCommand]
     private void OpenUpdate()

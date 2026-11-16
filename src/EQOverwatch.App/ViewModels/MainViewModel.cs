@@ -114,6 +114,7 @@ public sealed partial class MainViewModel : ObservableObject
         Restore(settings);
         InitializeReleaseFeatures();
         ConfigureDiscord(discordPoster, renderEncounterPng);
+        _characterData.SetPersonaResolver(PersonaWhenWritten); // worn gear is filed under the persona that was on
         _characterData.ScanAll(EqFolderPath); // output files written while the app was closed
         _characterData.PruneMissingFiles(EqFolderPath); // saved data whose output file has since been deleted
         RefreshCharacterInfo();

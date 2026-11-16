@@ -161,6 +161,22 @@ public sealed partial class MainViewModel
             _pipeline.TellInbox.Flush();
         });
         RebuildTells();
+
+        // Inventory files read before the logs said which persona was on are filed again now that it is known.
+        _characterData.ScanAll(EqFolderPath);
+    }
+
+    /// <summary>The persona (class code) that was on when a character's inventory file was written, and whether the log has said.</summary>
+    private (string ClassCode, bool Sure) PersonaWhenWritten(string character, string server, DateTime utc)
+    {
+        string persona = _pipeline.Progress.PersonaAt(character, server, utc);
+        bool read = _pipeline.Progress.IsScanned(character, server);
+        if (persona.Length == 0)
+        {
+            persona = _pipeline.Roster.GetClass(character, server);
+        }
+
+        return (Core.Roster.EqClass.Abbreviate(persona), read);
     }
 
     private void RefreshProgress(DateTime nowUtc)

@@ -142,4 +142,93 @@ public sealed class PersonaAndInventoryTests : IDisposable
         Assert.Equal("Water Flask", InventoryLayout.Containers(file.Layout!, "Bank", "Bank").Single().Contents[0].Item);
         Assert.Equal("Peridot", InventoryLayout.Containers(file.Layout!, "SharedBank", "Shared bank").Single().Item);
     }
+
+    [Fact]
+    public void The_persona_timeline_tells_which_persona_was_on_at_any_time()
+    {
+        var store = new ProgressStore();
+        store.SetClassProvider((_, _) => "Warrior");
+        Assert.Equal(string.Empty, store.PersonaAt("Ream", "frostreaver", T0));
+        Line(store, "You have become better at Bash! (100)", 0);
+        Line(store, "You successfully loaded your Monk equipment set.", 100);
+        Line(store, "[60 Grandmaster] Ream (Iksar) ZONE: The Overthere", 110);
+        Line(store, "Your Monk equipment set has been saved.", 150); // still the monk: no new mark
+        Line(store, "You loaded only part of your Bard equipment set. At least one item was not found.", 200);
+
+        Assert.Equal("Warrior", store.PersonaAt("Ream", "frostreaver", T0.AddSeconds(50))); // before the first load: the known class
+        Assert.Equal("Monk", store.PersonaAt("Ream", "frostreaver", T0.AddSeconds(100)));
+        Assert.Equal("Monk", store.PersonaAt("Ream", "frostreaver", T0.AddSeconds(199)));
+        Assert.Equal("Bard", store.PersonaAt("Ream", "frostreaver", T0.AddHours(5)));
+    }
+
+    [Fact]
+    public void Worn_gear_is_kept_per_persona_while_bags_and_bank_are_shared()
+    {
+        string game = Path.Combine(_dir, "game");
+        Directory.CreateDirectory(game);
+        string path = Path.Combine(game, "Ream_frostreaver-Inventory.txt");
+        void Write(DateTime at, string helm, string bag)
+        {
+            File.WriteAllLines(path, new[]
+            {
+                "Location	Name	ID	Count	Slots",
+                $"Head	{helm}	1	1	6",
+                "Head-Slot1	Empty	0	0	0",
+                "Chest	Empty	0	0	0",
+                $"General 1	{bag}	2	1	6",
+                "General 1-Slot1	Empty	0	0	0",
+            });
+            File.SetLastWriteTimeUtc(path, at);
+        }
+
+        DateTime bardFrom = DateTime.UtcNow.AddHours(-1);
+        bool sure = false;
+        (string, bool) PersonaAt(string name, string server, DateTime utc) => (utc < bardFrom ? "CLR" : "BRD", sure);
+
+        var store = new CharacterDataStore(Path.Combine(_dir, "store"));
+        store.SetPersonaResolver(PersonaAt);
+        Write(DateTime.UtcNow.AddHours(-2), "Cleric Helm", "Old Bag");
+        store.ScanAll(game);
+        sure = true;
+        Assert.True(store.ScanAll(game) == 1); // filed again once the persona is sure, without the file changing
+        Assert.False(store.ScanAll(game) == 1);
+        Write(DateTime.UtcNow.AddMinutes(-5), "Bard Hat", "New Bag");
+        store.ScanAll(game);
+
+        CharacterData ream = store.Find("Ream", "frostreaver")!;
+        Assert.Equal(new[] { "Head", "Head-Slot1", "Chest" }, ream.WornFor("CLR")!.Rows.Select(r => r.Location));
+        Assert.Equal("Cleric Helm", ream.WornFor("CLR")!.Rows[0].Name);
+        Assert.Equal("Bard Hat", ream.WornFor("BRD")!.Rows[0].Name);
+        Assert.Null(ream.WornFor("WAR"));
+        Assert.Equal("New Bag", ream.UnwornLayout.First().Name); // bags come from the newest file whatever the persona
+
+        var again = new CharacterDataStore(Path.Combine(_dir, "store"));
+        Assert.Equal(2, again.Find("Ream", "frostreaver")!.Worn.Count);
+
+        IReadOnlyList<ItemHit> Find(string text) => CharacterPlanner.FindItems(new[] { ream }, Array.Empty<SharedBankData>(), text, null);
+        Assert.Equal("Worn (Cleric) · Head", Find("Cleric Helm").Single().Where);
+        Assert.Equal("Worn (Bard) · Head", Find("Bard Hat").Single().Where); // once, though the newest file lists it too
+        Assert.Equal("General 1", Find("New Bag").Single().Where);
+    }
+
+    [Fact]
+    public void A_file_filed_under_a_guessed_persona_moves_once_the_log_says_which_was_on()
+    {
+        string game = Path.Combine(_dir, "game");
+        Directory.CreateDirectory(game);
+        string path = Path.Combine(game, "Ream_frostreaver-Inventory.txt");
+        File.WriteAllLines(path, new[] { "Location	Name	ID	Count	Slots", "Head	Shiny Helm	1	1	0" });
+
+        (string, bool) answer = ("WAR", false);
+        var store = new CharacterDataStore();
+        store.SetPersonaResolver((_, _, _) => answer);
+        store.ScanAll(game);
+        Assert.NotNull(store.Find("Ream")!.WornFor("WAR"));
+
+        answer = ("MNK", true);
+        store.ScanAll(game);
+        CharacterData ream = store.Find("Ream")!;
+        Assert.Null(ream.WornFor("WAR"));
+        Assert.Equal("Shiny Helm", ream.WornFor("MNK")!.Rows.Single().Name);
+    }
 }

@@ -40,9 +40,22 @@ public static class CharacterPlanner
         var hits = new List<ItemHit>();
         foreach (CharacterData character in characters.OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase))
         {
-            foreach (InventoryItem item in character.Inventory.Where(i => i.Name.Contains(needle, StringComparison.OrdinalIgnoreCase)))
+            string who = character.FromPc.Length > 0 ? $"{character.Name} ({character.FromPc})" : character.Name;
+            bool byPersona = character.Worn.Count > 0; // each persona's worn gear, then the bags and bank every persona shares
+            foreach (InventoryItem item in character.Inventory.Where(i => i.Name.Contains(needle, StringComparison.OrdinalIgnoreCase)
+                                                                          && !(byPersona && InventoryLayout.IsWornRow(i.Location))))
             {
-                hits.Add(new ItemHit(character.FromPc.Length > 0 ? $"{character.Name} ({character.FromPc})" : character.Name, item.Where, item.Name, item.Count));
+                hits.Add(new ItemHit(who, item.Where, item.Name, item.Count));
+            }
+
+            foreach ((string code, PersonaWorn worn) in character.Worn.OrderBy(w => w.Key, StringComparer.OrdinalIgnoreCase))
+            {
+                string persona = Roster.EqClass.TryNormalize(code, out string name) ? name : code;
+                foreach (InventoryItem item in worn.Rows.Where(i => !i.Name.Equals("Empty", StringComparison.OrdinalIgnoreCase)
+                                                                    && i.Name.Contains(needle, StringComparison.OrdinalIgnoreCase)))
+                {
+                    hits.Add(new ItemHit(who, $"Worn ({persona}) · {item.Where}", item.Name, item.Count));
+                }
             }
         }
 

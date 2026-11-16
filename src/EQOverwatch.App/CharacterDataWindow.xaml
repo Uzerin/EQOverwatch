@@ -114,7 +114,7 @@
             <ComboBox DockPanel.Dock="Left" Width="200" ItemsSource="{Binding PersonaChoices}" SelectedItem="{Binding SelectedPersona, Mode=TwoWay}"
                       DisplayMemberPath="Label" VerticalAlignment="Center"/>
             <TextBlock Style="{StaticResource HintText}" VerticalAlignment="Center" Margin="14,0,0,0"
-                       Text="Spellbook, Missing Spells, Focus Effects, Skills and Faction follow the persona. Inventory, Key Ring and Tradeskills are shared by all personas."/>
+                       Text="Worn gear, Spellbook, Missing Spells, Focus Effects, Skills and Faction follow the persona. Bags, Bank, Key Ring and Tradeskills are shared by all personas."/>
         </DockPanel>
 
         <!-- Filter, refresh and where the data came from. -->
@@ -136,7 +136,9 @@
         <TabControl SelectedIndex="{Binding SelectedTabIndex, Mode=TwoWay}">
 
             <TabItem Header="Inventory">
-                <Grid Margin="0,6,0,0">
+                <DockPanel Margin="0,6,0,0">
+                <TextBlock DockPanel.Dock="Top" Style="{StaticResource HintText}" Margin="0,0,0,6" TextWrapping="Wrap" Text="{Binding InventoryNote}"/>
+                <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" MaxWidth="560"/>
                         <ColumnDefinition Width="16"/>
@@ -166,7 +168,7 @@
                             </StackPanel>
                             <StackPanel Orientation="Horizontal">
                                 <StackPanel Margin="0,0,16,0" Visibility="{Binding ShowWorn, Converter={StaticResource BoolToVisibility}}">
-                                    <TextBlock Text="Worn" Style="{StaticResource HintText}" Margin="0,0,0,4"/>
+                                    <TextBlock Text="{Binding WornTitle}" Style="{StaticResource HintText}" Margin="0,0,0,4"/>
                                     <ItemsControl ItemsSource="{Binding Worn}" ItemTemplate="{StaticResource SlotTemplate}">
                                         <ItemsControl.ItemsPanel>
                                             <ItemsPanelTemplate>
@@ -202,6 +204,7 @@
                     </Border>
                 </ScrollViewer>
                 </Grid>
+                </DockPanel>
             </TabItem>
 
             <TabItem Header="Spellbook">
