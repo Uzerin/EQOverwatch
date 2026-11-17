@@ -420,7 +420,7 @@ public sealed partial class DropStore : ITriggerLineSink
     {
         lock (_gate)
         {
-            return _events.Where(e => e.Kind == EventKind.Drop).Select(e => e.Server).Distinct()
+            return _events.Where(e => e.Kind == EventKind.Drop).Select(e => e.Server).Concat(_merged.Keys).Distinct()
                 .Select(_names.ServerName).Where(s => s.Length > 0)
                 .OrderBy(s => s, StringComparer.OrdinalIgnoreCase).ToList();
         }
@@ -446,6 +446,15 @@ public sealed partial class DropStore : ITriggerLineSink
 
             IEnumerable<Event> events = _events.Where(e => e.Server == serverId
                 && (e.Source == OwnSource || scope == DropScope.Everyone || (scope == DropScope.ImportedFiles && !_sources[e.Source].Shared)));
+
+            // With the merged table: everyone's counts from the last daily merge, plus this PC's own events since the upload it holds.
+            Merged? merged = scope == DropScope.Everyone && _merged.TryGetValue(serverId, out Merged? m) ? m : null;
+            if (merged is not null)
+            {
+                long since = OwnSinceLocked(serverId, merged);
+                events = events.Where(e => (e.Source == OwnSource && e.Time > since) || (e.Source != OwnSource && !_sources[e.Source].Shared));
+            }
+
             var kills = new Dictionary<(int Zone, int Mob), int>();
             var drops = new Dictionary<(int Zone, int Mob), Dictionary<int, int>>();
             foreach (IGrouping<(EventKind Kind, int Zone, int Mob, int Item), Event> group in events.GroupBy(e => (e.Kind, e.Zone, e.Mob, e.Item)))
@@ -463,6 +472,24 @@ public sealed partial class DropStore : ITriggerLineSink
                     }
 
                     items[group.Key.Item] = count;
+                }
+            }
+
+            if (merged is not null)
+            {
+                foreach (((int zone, int mob), int count) in merged.Kills)
+                {
+                    kills[(zone, mob)] = kills.GetValueOrDefault((zone, mob)) + count;
+                }
+
+                foreach (((int zone, int mob, int item), int count) in merged.Drops)
+                {
+                    if (!drops.TryGetValue((zone, mob), out Dictionary<int, int>? items))
+                    {
+                        drops[(zone, mob)] = items = new Dictionary<int, int>();
+                    }
+
+                    items[item] = items.GetValueOrDefault(item) + count;
                 }
             }
 
@@ -574,18 +601,32 @@ public sealed partial class DropStore : ITriggerLineSink
     }
 
     /// <summary>
-    /// This PC's own kills and drops on one server as a gzip drops file for the online shared table, without the tag. Null when there
-    /// are no drops on that server.
+    /// This PC's own kills and drops on one server as a gzip drops file for the online shared table, without the tag: everything since
+    /// the last upload (with a few minutes' overlap, which the service ignores), or everything when nothing was uploaded yet. Null when
+    /// nothing new happened since the last upload, or there are no drops on that server at all.
     /// </summary>
     public SharedDropsUpload? ExportShared(string server)
     {
         DropFile file;
+        long through;
         lock (_gate)
         {
-            file = OwnFile(server, string.Empty);
+            int serverId = _names.FindServer(server);
+            long last = serverId >= 0 ? LastUploadLocked(serverId)?.Through ?? long.MinValue : long.MinValue;
+            if (last != long.MinValue && !_events.Any(e => e.Source == OwnSource && e.Server == serverId && e.Time > last))
+            {
+                return null;
+            }
+
+            file = OwnFile(server, string.Empty, last == long.MinValue ? long.MinValue : last - UploadOverlapSeconds);
+            through = Math.Max(last, file.Kills.Concat(file.Drops).Select(e => e[0]).DefaultIfEmpty(long.MinValue).Max());
+            if (last == long.MinValue && !_events.Any(e => e.Source == OwnSource && e.Server == serverId && e.Kind == EventKind.Drop))
+            {
+                return null;
+            }
         }
 
-        if (file.Drops.Count == 0)
+        if (file.Kills.Count + file.Drops.Count == 0)
         {
             return null;
         }
@@ -596,11 +637,11 @@ public sealed partial class DropStore : ITriggerLineSink
             JsonSerializer.Serialize(gzip, file);
         }
 
-        return new SharedDropsUpload(file.Server, file.Kills.Count, file.Drops.Count, buffer.ToArray());
+        return new SharedDropsUpload(file.Server, file.Kills.Count, file.Drops.Count, buffer.ToArray(), through);
     }
 
     /// <summary>This PC's own events on a server as a drops file. Call inside the lock.</summary>
-    private DropFile OwnFile(string server, string tag)
+    private DropFile OwnFile(string server, string tag, long since = long.MinValue)
     {
         Compact();
         int serverId = _names.FindServer(server);
@@ -619,7 +660,7 @@ public sealed partial class DropStore : ITriggerLineSink
             return index;
         }
 
-        foreach (Event e in _events.Where(e => e.Source == OwnSource && e.Server == serverId).OrderBy(e => e.Time))
+        foreach (Event e in _events.Where(e => e.Source == OwnSource && e.Server == serverId && e.Time >= since).OrderBy(e => e.Time))
         {
             int zone = Index(zones, file.Zones, e.Zone, _names.ZoneName(e.Zone));
             int mob = Index(mobs, file.Mobs, e.Mob, _names.MobName(e.Mob));
@@ -976,6 +1017,26 @@ public sealed partial class DropStore : ITriggerLineSink
                 : ObserverFor((_sources[source].Shared ? SharedPrefix : "import:") + _sources[source].Tag);
             _events.Add(new Event(kind, e[1], servers[e[2]], zones[e[3]], mobs[e[4]], item, observer, source));
         }
+
+        foreach (SavedUpload u in saved.Uploads)
+        {
+            _uploads.Add((_names.Server(u.Server), u.At, u.Through));
+        }
+
+        foreach (SavedMerged m in saved.Merged)
+        {
+            try
+            {
+                if (ParseMerged(m.Gzip) is { } parsed)
+                {
+                    LoadMergedLocked(m.Server, m.Updated, m.Players, m.Gzip, parsed);
+                }
+            }
+            catch (InvalidDataException)
+            {
+                // a damaged copy is fetched again
+            }
+        }
     }
 
     /// <summary>Writes the file when anything changed since the last write.</summary>
@@ -1018,6 +1079,16 @@ public sealed partial class DropStore : ITriggerLineSink
                 {
                     file.Events.Add(new[] { (long)e.Kind, e.Time, e.Server, e.Zone, e.Mob, e.Item, source });
                 }
+            }
+
+            foreach ((int server, long at, long through) in _uploads)
+            {
+                file.Uploads.Add(new SavedUpload { Server = _names.ServerName(server), At = at, Through = through });
+            }
+
+            foreach ((int server, Merged m) in _merged)
+            {
+                file.Merged.Add(new SavedMerged { Server = _names.ServerName(server), Updated = m.Updated, Players = m.Players, Gzip = m.Gzip });
             }
 
             json = JsonSerializer.Serialize(file);
@@ -1215,5 +1286,33 @@ public sealed partial class DropStore : ITriggerLineSink
 
         /// <summary>[kind, unix time, server, zone, mob, item, source]</summary>
         public List<long[]> Events { get; set; } = new();
+
+        /// <summary>This PC's uploads to the shared table: when, and up to which event time.</summary>
+        public List<SavedUpload> Uploads { get; set; } = new();
+
+        /// <summary>The merged shared table of each server, as downloaded.</summary>
+        public List<SavedMerged> Merged { get; set; } = new();
+    }
+
+    public sealed class SavedUpload
+    {
+        public string Server { get; set; } = string.Empty;
+
+        /// <summary>When it was uploaded (unix seconds).</summary>
+        public long At { get; set; }
+
+        /// <summary>The time of the newest event in it (unix seconds).</summary>
+        public long Through { get; set; }
+    }
+
+    public sealed class SavedMerged
+    {
+        public string Server { get; set; } = string.Empty;
+
+        public long Updated { get; set; }
+
+        public int Players { get; set; }
+
+        public byte[] Gzip { get; set; } = Array.Empty<byte>();
     }
 }

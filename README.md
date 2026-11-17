@@ -47,6 +47,9 @@ Download: https://github.com/Uzerin/EQOverwatch/releases/latest · Join us on Di
 
 Type `/log on` in game so EverQuest writes logs. Settings are saved in `%LocalAppData%\EQOverwatch`.
 
+**Player count:** once a day the app sends a random id and its version number, so we know how many people use it. No names and no IP
+addresses are kept. Untick **Count me in the anonymous player count** on Settings to stop it.
+
 ## Updating
 
 When a new version is out, a bar at the top offers **Install update**, which downloads it, checks it and restarts the app. Your
@@ -59,6 +62,14 @@ settings are kept.
 - Spell data comes from your own `spells_us.txt`.
 
 ## Changelog
+
+### 1.0.62
+
+- Several mobs fought at once (mezzed adds too) are one live fight, "Boss +8"; each mob gets its own row when it dies.
+- Discord picture in three columns: DPS, Healing, and Tanking with Deaths, plus the killing blow on each death.
+- Shared drops are merged once a day at 10:00 UTC; your new drops upload at most once a day.
+- Anonymous player count (can be switched off in Settings).
+- Install update reopens the app reliably, and errors are written to `crash.log`.
 
 ### 1.0.61
 

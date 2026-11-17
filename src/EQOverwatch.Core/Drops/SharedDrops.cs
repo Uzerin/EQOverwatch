@@ -4,23 +4,31 @@ using System.Text.Json;
 
 namespace EQOverwatch.Core.Drops;
 
-/// <summary>This PC's drops on one server, packed for the online shared table.</summary>
-public sealed record SharedDropsUpload(string Server, int Kills, int Drops, byte[] Gzip);
+/// <summary>This PC's new drops on one server, packed for the online shared table. <see cref="Through"/> is the newest event's time.</summary>
+public sealed record SharedDropsUpload(string Server, int Kills, int Drops, byte[] Gzip, long Through = 0);
 
-/// <summary>One player's file in the online shared table.</summary>
-public sealed record SharedDropsEntry(string Id, long Updated, int Kills, int Drops);
+/// <summary>
+/// A server's merged shared table as the service answered: <see cref="Gzip"/> is null when the one held is still the newest.
+/// <see cref="LastMerge"/> is when the service last ran its daily merge (unix seconds, 0 when it did not say).
+/// </summary>
+public sealed record MergedDropsDownload(long Updated, int Players, byte[]? Gzip, long LastMerge);
 
-/// <summary>The online shared drop table: each install keeps one file per server there, and the app merges everyone's files itself.</summary>
+/// <summary>
+/// The online shared drop table: each install uploads its new kills and drops at most once a day, the service merges everyone's once a
+/// day, and the app downloads one merged file per server. It also takes the anonymous daily player count.
+/// </summary>
 public interface ISharedDropsService
 {
-    Task<IReadOnlyList<SharedDropsEntry>> ListAsync(string server, CancellationToken cancellation = default);
+    /// <summary>The merged table of a server when it is newer than <paramref name="have"/>; null when the server has none yet.</summary>
+    Task<MergedDropsDownload?> DownloadMergedAsync(string server, long have, CancellationToken cancellation = default);
 
-    Task<byte[]> DownloadAsync(string server, string id, CancellationToken cancellation = default);
-
-    /// <summary>Uploads (or replaces) this install's file. False when the service says it was uploaded too recently.</summary>
+    /// <summary>Uploads this install's new kills and drops. False when the service says it was uploaded too recently.</summary>
     Task<bool> UploadAsync(string id, string key, SharedDropsUpload upload, CancellationToken cancellation = default);
 
     Task DeleteAsync(string server, string id, string key, CancellationToken cancellation = default);
+
+    /// <summary>Counts this install (a random id, not a name) as using the app today, with its version.</summary>
+    Task PingAsync(string id, string version, CancellationToken cancellation = default);
 }
 
 /// <summary>The EQ Overwatch shared drops service (a Cloudflare Worker; see server/drops-worker).</summary>
@@ -37,34 +45,42 @@ public sealed class HttpSharedDropsService : ISharedDropsService
         _base = new Uri(address.EndsWith('/') ? address : address + "/");
     }
 
-    public async Task<IReadOnlyList<SharedDropsEntry>> ListAsync(string server, CancellationToken cancellation = default)
+    public async Task<MergedDropsDownload?> DownloadMergedAsync(string server, long have, CancellationToken cancellation = default)
     {
-        using HttpResponseMessage response = await _http.GetAsync(new Uri(_base, $"v1/drops/{Uri.EscapeDataString(server.ToLowerInvariant())}"), cancellation)
-            .ConfigureAwait(false);
-        await ThrowIfFailed(response, cancellation).ConfigureAwait(false);
-        using JsonDocument doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellation).ConfigureAwait(false));
-        var list = new List<SharedDropsEntry>();
-        if (doc.RootElement.TryGetProperty("files", out JsonElement files) && files.ValueKind == JsonValueKind.Array)
+        var address = new Uri(_base,
+            $"v1/merged/{Uri.EscapeDataString(server.ToLowerInvariant())}?have={have.ToString(System.Globalization.CultureInfo.InvariantCulture)}");
+        using HttpResponseMessage response = await _http.GetAsync(address, cancellation).ConfigureAwait(false);
+        long lastMerge = Header(response, "X-Last-Merge");
+        if (response.StatusCode == HttpStatusCode.NotFound)
         {
-            foreach (JsonElement f in files.EnumerateArray())
-            {
-                list.Add(new SharedDropsEntry(
-                    f.GetProperty("id").GetString() ?? string.Empty,
-                    f.GetProperty("updated").GetInt64(),
-                    f.GetProperty("kills").GetInt32(),
-                    f.GetProperty("drops").GetInt32()));
-            }
+            return lastMerge > 0 ? new MergedDropsDownload(0, 0, null, lastMerge) : null;
         }
 
-        return list;
+        long updated = Header(response, "X-Updated");
+        int players = (int)Math.Min(int.MaxValue, Header(response, "X-Players"));
+        if (response.StatusCode == HttpStatusCode.NotModified)
+        {
+            return new MergedDropsDownload(updated, players, null, lastMerge);
+        }
+
+        await ThrowIfFailed(response, cancellation).ConfigureAwait(false);
+        byte[] bytes = await response.Content.ReadAsByteArrayAsync(cancellation).ConfigureAwait(false);
+        return new MergedDropsDownload(updated, players, bytes, lastMerge);
     }
 
-    public async Task<byte[]> DownloadAsync(string server, string id, CancellationToken cancellation = default)
+    public async Task PingAsync(string id, string version, CancellationToken cancellation = default)
     {
-        using HttpResponseMessage response = await _http.GetAsync(new Uri(_base, FilePath(server, id)), cancellation).ConfigureAwait(false);
+        string body = JsonSerializer.Serialize(new { id, version });
+        using var content = new StringContent(body, System.Text.Encoding.UTF8, "application/json");
+        using HttpResponseMessage response = await _http.PostAsync(new Uri(_base, "v1/ping"), content, cancellation).ConfigureAwait(false);
         await ThrowIfFailed(response, cancellation).ConfigureAwait(false);
-        return await response.Content.ReadAsByteArrayAsync(cancellation).ConfigureAwait(false);
     }
+
+    private static long Header(HttpResponseMessage response, string name) =>
+        response.Headers.TryGetValues(name, out IEnumerable<string>? values)
+        && long.TryParse(values.FirstOrDefault(), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out long value)
+            ? value
+            : 0;
 
     public async Task<bool> UploadAsync(string id, string key, SharedDropsUpload upload, CancellationToken cancellation = default)
     {

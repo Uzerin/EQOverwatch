@@ -177,6 +177,15 @@ public sealed class AppSettings
     /// <summary>The secret that lets only this install replace or remove its online file.</summary>
     public string SharedDropsKey { get; set; } = string.Empty;
 
+    /// <summary>Send the anonymous player count once a day (a random id and the app version, nothing else).</summary>
+    public bool CountMeIn { get; set; } = true;
+
+    /// <summary>The random id the player count uses (not the shared drops id; never a character name).</summary>
+    public string PlayerCountId { get; set; } = string.Empty;
+
+    /// <summary>The UTC day ("2026-11-16") this install was last counted.</summary>
+    public string PlayerCountDay { get; set; } = string.Empty;
+
     /// <summary>A version ("v1.0.12") the user chose to skip: it is not announced again (a newer one still is).</summary>
     public string SkippedUpdateVersion { get; set; } = string.Empty;
 

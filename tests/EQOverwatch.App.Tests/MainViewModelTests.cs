@@ -681,7 +681,7 @@ public partial class MainViewModelTests
         h.Vm.Refresh();
         EncounterRowViewModel first = h.Vm.SelectedEncounter!;
 
-        h.Pipeline.LiveDps.OnCombatEvent(Hit("Stackprime", "a gnoll", 50, 3));
+        h.Pipeline.LiveDps.OnCombatEvent(Hit("Ream", "a gnoll", 50, 3)); // another camp
         h.Vm.Refresh();
 
         Assert.Equal(2, h.Vm.Encounters.Count);

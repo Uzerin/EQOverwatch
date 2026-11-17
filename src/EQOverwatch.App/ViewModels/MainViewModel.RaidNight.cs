@@ -24,7 +24,7 @@ public sealed record UptimeDisplayRow(string Spell, string Target, string Up, st
 public sealed record HealingDisplayRow(int Rank, string Name, long Effective, double Hps, double OverhealPercent, int Heals, int MaxHeal, string TopSpell);
 
 /// <summary>One death of the selected fight, with how far into the fight it happened.</summary>
-public sealed record DeathDisplayRow(string When, string Name, string KilledBy);
+public sealed record DeathDisplayRow(string When, string Name, string KilledBy, string KillingBlow = "");
 
 public sealed record LootLineRow(string Time, string Item, string Looter, string Mob, string Roll);
 
@@ -211,7 +211,7 @@ public sealed partial class MainViewModel
             {
                 double seconds = Math.Max(0.0, (d.Time - encounter.StartTime).TotalSeconds);
                 string when = d.Time == default ? string.Empty : $"{(int)seconds / 60}:{(int)seconds % 60:00}";
-                return new DeathDisplayRow(when, d.Name, d.KilledBy);
+                return new DeathDisplayRow(when, d.Name, d.KilledBy, string.IsNullOrEmpty(d.KillingBlow) ? "—" : d.KillingBlow);
             })
             .ToArray();
         if (!deaths.SequenceEqual(DeathRows))

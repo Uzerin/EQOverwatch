@@ -7,22 +7,33 @@ using EQOverwatch.Core.Drops;
 
 namespace EQOverwatch.App.ViewModels;
 
-// The online shared drop table: two switches, both off to start. "Share my drops" uploads this PC's own kills and drops (no character
-// names) once in a while; "Use shared drops" downloads the other players' files and adds them to the table, where a fight several
-// players logged still counts once.
+// The online shared drop table: two switches, both off to start. "Share my drops" uploads this PC's new kills and drops (no character
+// names) at most once a day; "Use shared drops" downloads the merged table the service makes from everyone's uploads at 10:00 UTC each
+// day, where a fight several players logged counts once. The anonymous player count (on unless switched off) is sent once a day.
 public sealed partial class MainViewModel
 {
     public const string DropSourceEveryone = "You and all players";
-    private static readonly TimeSpan SharedDropsSyncEvery = TimeSpan.FromHours(1);
-    private static readonly TimeSpan SharedDropsRetryEvery = TimeSpan.FromMinutes(15);
-    private static readonly TimeSpan SharedDropsUploadEvery = TimeSpan.FromHours(6);
 
-    private readonly Dictionary<string, (int Kills, int Drops, DateTime AtUtc)> _sharedUploads = new(StringComparer.OrdinalIgnoreCase);
+    /// <summary>How often the tick looks whether an upload or a merged table is due (the checks themselves are local).</summary>
+    private static readonly TimeSpan SharedDropsSyncEvery = TimeSpan.FromMinutes(15);
+    private static readonly TimeSpan SharedDropsRetryEvery = TimeSpan.FromMinutes(15);
+
+    /// <summary>Each server gets at most one upload a day.</summary>
+    public static readonly TimeSpan SharedDropsUploadEvery = TimeSpan.FromHours(24);
+
+    /// <summary>After the daily merge, the next one is looked for this long after it is due (it takes a few minutes to run).</summary>
+    private static readonly TimeSpan MergedCheckGrace = TimeSpan.FromMinutes(20);
+
+    private readonly Dictionary<string, DateTime> _nextMergedCheckUtc = new(StringComparer.OrdinalIgnoreCase);
     private ISharedDropsService? _sharedDrops;
     private DateTime _nextSharedDropsSyncUtc = DateTime.MinValue;
     private bool _sharedDropsBusy;
     private string _sharedDropsId = string.Empty;
     private string _sharedDropsKey = string.Empty;
+    private string _playerCountId = string.Empty;
+    private string _playerCountDay = string.Empty;
+    private DateTime _nextPlayerCountUtc = DateTime.MinValue;
+    private bool _playerCountBusy;
 
     [ObservableProperty]
     private bool _useSharedDrops;
@@ -30,26 +41,83 @@ public sealed partial class MainViewModel
     [ObservableProperty]
     private bool _shareMyDrops;
 
+    /// <summary>Send the anonymous player count once a day: a random id and the app version, nothing else.</summary>
+    [ObservableProperty]
+    private bool _countMeIn = true;
+
     [ObservableProperty]
     private string _sharedDropsStatus = "Both are off. Nothing is sent or downloaded until you switch one on.";
 
     /// <summary>The last sync (for tests).</summary>
     public Task SharedDropsTask { get; private set; } = Task.CompletedTask;
 
-    /// <summary>Connects the online shared drop table. Without it the switches do nothing.</summary>
+    /// <summary>The last player count (for tests).</summary>
+    public Task PlayerCountTask { get; private set; } = Task.CompletedTask;
+
+    /// <summary>Connects the online shared drop table and the player count. Without it the switches do nothing.</summary>
     public void ConfigureSharedDrops(ISharedDropsService service)
     {
         _sharedDrops = service;
         _nextSharedDropsSyncUtc = DateTime.MinValue;
+        _nextPlayerCountUtc = DateTime.MinValue;
     }
 
     private void RestoreSharedDrops(Core.Settings.AppSettings settings)
     {
         _sharedDropsId = settings.SharedDropsId ?? string.Empty;
         _sharedDropsKey = settings.SharedDropsKey ?? string.Empty;
+        _playerCountId = settings.PlayerCountId ?? string.Empty;
+        _playerCountDay = settings.PlayerCountDay ?? string.Empty;
+        CountMeIn = settings.CountMeIn;
         UseSharedDrops = settings.UseSharedDrops;
         ShareMyDrops = settings.ShareMyDrops;
         UpdateDropSources();
+    }
+
+    partial void OnCountMeInChanged(bool value)
+    {
+        if (!_restoring)
+        {
+            RequestSave();
+        }
+    }
+
+    /// <summary>Once a day (UTC), counts this install as using the app: a random id and the version. Retries hourly when it fails.</summary>
+    private void RefreshPlayerCount(DateTime nowUtc)
+    {
+        string today = nowUtc.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        if (_sharedDrops is null || !CountMeIn || _playerCountBusy || today == _playerCountDay || nowUtc < _nextPlayerCountUtc)
+        {
+            return;
+        }
+
+        _nextPlayerCountUtc = nowUtc.AddHours(1);
+        PlayerCountTask = SendPlayerCountAsync(today);
+    }
+
+    private async Task SendPlayerCountAsync(string today)
+    {
+        if (_playerCountId.Length == 0)
+        {
+            _playerCountId = HttpSharedDropsService.NewInstall().Id;
+            RequestSave();
+        }
+
+        _playerCountBusy = true;
+        try
+        {
+            await _sharedDrops!.PingAsync(_playerCountId, Core.AppInfo.Version);
+            _playerCountDay = today;
+            RequestSave();
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        {
+            // tried again in an hour
+        }
+        finally
+        {
+            _playerCountBusy = false;
+        }
     }
 
     partial void OnUseSharedDropsChanged(bool value)
@@ -64,6 +132,7 @@ public sealed partial class MainViewModel
         if (value)
         {
             SelectedDropSource = DropSourceEveryone;
+            _nextMergedCheckUtc.Clear();
             SharedDropsTask = SyncSharedDropsAsync();
         }
         else
@@ -85,7 +154,6 @@ public sealed partial class MainViewModel
         RequestSave();
         if (value)
         {
-            _sharedUploads.Clear();
             SharedDropsTask = SyncSharedDropsAsync();
         }
         else
@@ -117,9 +185,10 @@ public sealed partial class MainViewModel
         _ => DropScope.ImportedFiles,
     };
 
-    /// <summary>Called on every refresh: syncs once an hour while a switch is on (not while the log history is being read).</summary>
+    /// <summary>Called on every refresh: every few minutes, uploads or downloads whatever is due (not while the log history is read).</summary>
     private void RefreshSharedDrops(DateTime nowUtc)
     {
+        RefreshPlayerCount(nowUtc);
         if (_sharedDrops is null || (!UseSharedDrops && !ShareMyDrops) || _dropsScanning || _sharedDropsBusy || nowUtc < _nextSharedDropsSyncUtc)
         {
             return;
@@ -132,7 +201,10 @@ public sealed partial class MainViewModel
     [RelayCommand]
     private Task SyncSharedDropsNow() => SharedDropsTask = SyncSharedDropsAsync(force: true);
 
-    /// <summary>Uploads this PC's drops (when sharing) and reads other players' new files (when using shared drops).</summary>
+    /// <summary>
+    /// Uploads this PC's new drops (when sharing, at most once a day per server) and downloads a server's merged table when a newer one
+    /// is out (when using shared drops: after each daily merge). <paramref name="force"/> ("Check now") skips the local waits.
+    /// </summary>
     private async Task SyncSharedDropsAsync(bool force = false)
     {
         if (_sharedDrops is null || _sharedDropsBusy || (!UseSharedDrops && !ShareMyDrops))
@@ -142,10 +214,9 @@ public sealed partial class MainViewModel
 
         _sharedDropsBusy = true;
         DropStore store = _pipeline.Drops;
-        int uploaded = 0, read = 0, players = 0;
+        int uploaded = 0, read = 0;
         try
         {
-            SharedDropsStatus = "Talking to the shared drops service…";
             List<string> servers = store.Servers()
                 .Concat(WatchedLogsForDrops().Select(l => l.Server))
                 .Where(s => s.Length > 0)
@@ -158,22 +229,22 @@ public sealed partial class MainViewModel
                 EnsureSharedDropsInstall();
                 foreach (string server in servers)
                 {
+                    DateTime now = DateTime.UtcNow;
+                    if (!force && store.LastSharedUpload(server) is { } last && now - last < SharedDropsUploadEvery)
+                    {
+                        continue; // once a day
+                    }
+
                     SharedDropsUpload? upload = await Task.Run(() => store.ExportShared(server));
                     if (upload is null)
                     {
-                        continue;
+                        continue; // nothing new
                     }
 
-                    DateTime now = DateTime.UtcNow;
-                    if (_sharedUploads.TryGetValue(server, out var last)
-                        && ((last.Kills == upload.Kills && last.Drops == upload.Drops) || (!force && now - last.AtUtc < SharedDropsUploadEvery)))
-                    {
-                        continue; // nothing new, or uploaded a short while ago
-                    }
-
+                    SharedDropsStatus = "Uploading your new drops…";
                     if (await _sharedDrops.UploadAsync(_sharedDropsId, _sharedDropsKey, upload))
                     {
-                        _sharedUploads[server] = (upload.Kills, upload.Drops, now);
+                        store.RecordSharedUpload(server, now, upload.Through);
                         uploaded++;
                     }
                 }
@@ -183,57 +254,34 @@ public sealed partial class MainViewModel
             {
                 foreach (string server in servers)
                 {
-                    IReadOnlyList<SharedDropsEntry> files = await _sharedDrops.ListAsync(server);
-                    IReadOnlyDictionary<string, long> have = store.SharedFiles(server);
-                    foreach (SharedDropsEntry file in files)
+                    DateTime now = DateTime.UtcNow;
+                    if (!force && _nextMergedCheckUtc.TryGetValue(server, out DateTime next) && now < next)
                     {
-                        if (file.Id == _sharedDropsId || file.Id.Length == 0)
-                        {
-                            continue; // our own upload is already in the table
-                        }
+                        continue;
+                    }
 
-                        players++;
-                        if (have.TryGetValue(file.Id, out long updated) && updated >= file.Updated)
-                        {
-                            continue;
-                        }
-
+                    SharedDropsStatus = "Checking the shared drops…";
+                    MergedDropsDownload? merged = await _sharedDrops.DownloadMergedAsync(server, store.MergedInfo(server)?.Updated ?? 0);
+                    if (merged?.Gzip is { } gzip)
+                    {
                         try
                         {
-                            byte[] bytes = await _sharedDrops.DownloadAsync(server, file.Id);
-                            await Task.Run(() => store.ImportShared(file.Id, server, file.Updated, bytes));
+                            await Task.Run(() => store.ImportMerged(server, merged.Updated, merged.Players, gzip));
                             read++;
                         }
                         catch (InvalidDataException)
                         {
-                            // a damaged file is skipped
+                            // a damaged file is fetched again next time
                         }
                     }
 
-                    var listed = files.Select(f => f.Id).ToHashSet(StringComparer.Ordinal);
-                    foreach (string gone in have.Keys.Where(id => !listed.Contains(id)))
-                    {
-                        store.RemoveShared(server, gone); // taken down by its owner or the admin
-                    }
+                    _nextMergedCheckUtc[server] = NextMergedCheck(merged?.LastMerge ?? 0, now);
                 }
 
                 _ = Task.Run(store.Flush);
             }
 
-            string time = _clock().ToString("t", CultureInfo.CurrentCulture);
-            var parts = new List<string>();
-            if (ShareMyDrops)
-            {
-                parts.Add(uploaded > 0 ? $"uploaded your drops on {uploaded} server{(uploaded == 1 ? string.Empty : "s")}" : "your shared drops are up to date");
-            }
-
-            if (UseSharedDrops)
-            {
-                parts.Add($"{players:N0} other player{(players == 1 ? string.Empty : "s")} shared drops" + (read > 0 ? $" ({read:N0} new or updated)" : string.Empty));
-            }
-
-            string text = string.Join("; ", parts);
-            SharedDropsStatus = char.ToUpper(text[0], CultureInfo.CurrentCulture) + text[1..] + $". Checked at {time}.";
+            SharedDropsStatus = SharedDropsSummary(servers, uploaded, read);
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException)
         {
@@ -248,10 +296,65 @@ public sealed partial class MainViewModel
         RebuildDrops(tableToo: true);
     }
 
+    /// <summary>
+    /// When to look for a server's next merged table: shortly after the next daily merge is due (a day after the last one finished), or in
+    /// an hour when that time has passed and no new merge was seen yet.
+    /// </summary>
+    public static DateTime NextMergedCheck(long lastMergeUnix, DateTime nowUtc)
+    {
+        if (lastMergeUnix <= 0)
+        {
+            return nowUtc.AddHours(6);
+        }
+
+        DateTime due = DateTimeOffset.FromUnixTimeSeconds(lastMergeUnix).UtcDateTime + TimeSpan.FromDays(1) + MergedCheckGrace;
+        return due > nowUtc ? due : nowUtc.AddHours(1);
+    }
+
+    /// <summary>"Shared drops from 12 players, updated today 10:04 UTC. Your new drops are uploaded once a day (last: today 9:12 AM)."</summary>
+    private string SharedDropsSummary(IReadOnlyList<string> servers, int uploaded, int read)
+    {
+        DropStore store = _pipeline.Drops;
+        DateTime nowUtc = DateTime.UtcNow;
+        var parts = new List<string>();
+        if (UseSharedDrops)
+        {
+            (string Server, MergedDropsInfo Info)? best = servers
+                .Select(s => (Server: s, Info: store.MergedInfo(s)))
+                .Where(x => x.Info is not null)
+                .Select(x => ((string, MergedDropsInfo)?)(x.Server, x.Info!))
+                .OrderByDescending(x => x!.Value.Item2.Players)
+                .FirstOrDefault();
+            if (best is { } b)
+            {
+                DateTime made = DateTimeOffset.FromUnixTimeSeconds(b.Info.Updated).UtcDateTime;
+                string when = made.Date == nowUtc.Date ? "today" : made.Date == nowUtc.Date.AddDays(-1) ? "yesterday"
+                    : made.ToString("MMM d", CultureInfo.InvariantCulture);
+                parts.Add($"Shared drops from {b.Info.Players:N0} player{(b.Info.Players == 1 ? string.Empty : "s")}, updated {when} " +
+                          $"{made.ToString("HH:mm", CultureInfo.InvariantCulture)} UTC" + (read > 0 ? " (just downloaded)." : "."));
+            }
+            else
+            {
+                parts.Add("No merged shared drops yet: the service merges everyone's uploads at 10:00 UTC each day.");
+            }
+        }
+
+        if (ShareMyDrops)
+        {
+            DateTime? last = servers.Select(store.LastSharedUpload).Where(d => d is not null).Max();
+            parts.Add(uploaded > 0
+                ? "Your new drops were uploaded; they join the table at the next merge."
+                : last is { } l
+                    ? $"Your new drops are uploaded once a day (last: {l.ToLocalTime().ToString("ddd h:mm tt", CultureInfo.CurrentCulture)})."
+                    : "Your drops are uploaded once there is a drop to share.");
+        }
+
+        return string.Join(" ", parts);
+    }
+
     /// <summary>Takes this install's files off the service when sharing is switched off.</summary>
     private async Task DeleteMySharedDropsAsync()
     {
-        _sharedUploads.Clear();
         if (_sharedDrops is null || _sharedDropsId.Length == 0)
         {
             SharedDropsStatus = "Your drops are not shared.";
@@ -267,7 +370,8 @@ public sealed partial class MainViewModel
                 await _sharedDrops.DeleteAsync(server, _sharedDropsId, _sharedDropsKey);
             }
 
-            SharedDropsStatus = "Your drops are no longer shared; your files were taken off the service.";
+            _pipeline.Drops.ForgetSharedUploads();
+            SharedDropsStatus = "Your drops are no longer shared; they were taken off the service and leave the table at the next merge.";
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
         {

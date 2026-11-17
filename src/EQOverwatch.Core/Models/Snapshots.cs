@@ -82,8 +82,11 @@ public sealed record BossCastSnapshot(DateTime Time, string Spell);
 /// <summary>A spell a player (or pet) began casting during a fight; <see cref="Failed"/> when the log showed it fizzle or be interrupted.</summary>
 public sealed record PlayerCastSnapshot(DateTime Time, string Caster, string Spell, bool Failed = false);
 
-/// <summary>A player or pet that died during a fight; <see cref="KilledBy"/> is empty when the log did not say.</summary>
-public sealed record DeathSnapshot(DateTime Time, string Name, string KilledBy);
+/// <summary>
+/// A player or pet that died during a fight; <see cref="KilledBy"/> is empty when the log did not say. <see cref="KillingBlow"/> is the
+/// killer's last hit on the victim ("175 punch", "2,400 Judgment"), or empty when the log did not show it.
+/// </summary>
+public sealed record DeathSnapshot(DateTime Time, string Name, string KilledBy, string KillingBlow = "");
 
 /// <summary>What one healer healed during a fight. Overheal is what the spells could have healed beyond what landed.</summary>
 public sealed record HealingSnapshot(
@@ -206,6 +209,93 @@ public sealed record EncounterSnapshot(
             Array.AsReadOnly(encounter.PlayerCasts.ToArray()), encounter.BuildTimeline(), encounter.ShieldSummary())
         {
             Server = encounter.Server,
+        };
+    }
+
+    /// <summary>
+    /// Several mobs fought at once as one live fight: the totals of all of them, named after the mob taking the most damage plus how
+    /// many others ("Blood of Ssraeshza +8"). Heals and spell casts are filed under every mob in progress, so they are counted once.
+    /// The id is the negative of the lowest mob's, so it never clashes with a mob's own row.
+    /// </summary>
+    public static EncounterSnapshot Combine(IReadOnlyList<EncounterSnapshot> parts)
+    {
+        ArgumentNullException.ThrowIfNull(parts);
+        if (parts.Count == 1)
+        {
+            return parts[0];
+        }
+
+        EncounterSnapshot[] ordered = parts.OrderByDescending(p => p.TotalDamage).ThenBy(p => p.Id).ToArray();
+        DateTime start = parts.Min(p => p.StartTime);
+        DateTime end = parts.Max(p => p.EndTime);
+        double duration = Math.Max(0.0, (end - start).TotalSeconds);
+        double seconds = Math.Max(1.0, duration);
+        long total = parts.Sum(p => p.TotalDamage);
+
+        DeathSnapshot[] deaths = parts.SelectMany(p => p.DeathRows)
+            .GroupBy(d => (d.Time, d.Name))
+            .Select(g => g.OrderByDescending(d => d.KillingBlow.Length).First())
+            .OrderBy(d => d.Time)
+            .ToArray();
+        int DeathsOf(string name) => deaths.Count(d => d.Name == name);
+
+        ParticipantSnapshot[] participants = parts.SelectMany(p => p.Participants)
+            .GroupBy(p => p.Name, StringComparer.Ordinal)
+            .Select(g =>
+            {
+                long damage = g.Sum(p => p.TotalDamage);
+                int hits = g.Sum(p => p.Hits);
+                int misses = g.Sum(p => p.Misses);
+                int crits = g.Sum(p => p.CritHitCount);
+                double active = Math.Min(seconds, g.Sum(p => p.Dps > 0 ? p.TotalDamage / p.Dps : 0.0));
+                var slices = g.SelectMany(p => p.Attacks ?? Array.Empty<AttackSlice>())
+                    .GroupBy(a => a.Type)
+                    .Select(a => new AttackSlice(a.Key, a.Sum(x => x.Normal), a.Sum(x => x.Crit)))
+                    .OrderByDescending(a => a.Total).ThenBy(a => a.Type)
+                    .ToList();
+                return new ParticipantSnapshot(
+                    g.Key, damage, total > 0 ? 100.0 * damage / total : 0.0, active > 0 ? damage / active : damage / seconds, damage / seconds,
+                    g.Max(p => p.MaxHit), hits, misses, hits + misses == 0 ? 0.0 : (double)hits / (hits + misses),
+                    g.Max(p => p.MaxCritHit), crits, hits == 0 ? 0.0 : 100.0 * crits / hits,
+                    g.Select(p => p.Class).FirstOrDefault(c => c.Length > 0) ?? string.Empty,
+                    DeathsOf(g.Key), g.Max(p => p.MaxNonCritHit), new AttackSliceList(slices));
+            })
+            .OrderByDescending(p => p.TotalDamage)
+            .ThenBy(p => p.Name, StringComparer.Ordinal)
+            .ToArray();
+
+        long takenTotal = parts.Sum(p => p.TotalDamageTaken);
+        DamageTakenSnapshot[] taken = parts.SelectMany(p => p.TakenRows)
+            .GroupBy(t => t.Name, StringComparer.Ordinal)
+            .Select(g =>
+            {
+                long damage = g.Sum(t => t.TotalDamage);
+                return new DamageTakenSnapshot(
+                    g.Key, damage, takenTotal > 0 ? 100.0 * damage / takenTotal : 0.0, g.Sum(t => t.Hits), g.Max(t => t.MaxHit), DeathsOf(g.Key),
+                    g.Sum(t => t.Avoided), g.Sum(t => t.Dodges), g.Sum(t => t.Parries), g.Sum(t => t.Blocks), g.Sum(t => t.Ripostes),
+                    g.Sum(t => t.Missed), g.Sum(t => t.OtherAvoids), g.Sum(t => t.ShieldDamage));
+            })
+            .OrderByDescending(t => t.TotalDamage)
+            .ThenBy(t => t.Name, StringComparer.Ordinal)
+            .ToArray();
+
+        // Heals went to every mob in progress: each healer's figures from the mob that was fought longest are the whole fight's.
+        HealingSnapshot[] healing = parts.SelectMany(p => p.HealingRows)
+            .GroupBy(h => h.Name, StringComparer.Ordinal)
+            .Select(g => g.OrderByDescending(h => h.Effective).First() is { } h ? h with { Hps = h.Effective / seconds } : null!)
+            .OrderByDescending(h => h.Effective)
+            .ThenBy(h => h.Name, StringComparer.Ordinal)
+            .ToArray();
+
+        PlayerCastSnapshot[] casts = parts.SelectMany(p => p.PlayerCastRows).Distinct().OrderBy(c => c.Time).ToArray();
+        BossCastSnapshot[] bossCasts = parts.SelectMany(p => p.CastRows).OrderBy(c => c.Time).ToArray();
+
+        return new EncounterSnapshot(
+            -parts.Min(p => p.Id), $"{ordered[0].TargetName} +{parts.Count - 1}", start, end, duration, total, parts.Any(p => p.IsActive),
+            Array.AsReadOnly(participants), Array.AsReadOnly(taken), Array.AsReadOnly(bossCasts), Array.AsReadOnly(healing),
+            Array.AsReadOnly(deaths), Killed: false, Array.AsReadOnly(casts), ordered[0].Timeline, null)
+        {
+            Server = ordered[0].Server,
         };
     }
 }

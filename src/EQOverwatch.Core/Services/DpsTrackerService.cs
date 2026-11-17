@@ -297,7 +297,13 @@ public partial class DpsTrackerService : IDpsEventSink
                     // The older announcement line is consumed even if the hit is not counted (e.g. an NPC's crit); the current client
                     // instead tags the damage line itself: "... points of damage. (Critical)".
                     bool isCritical = ConsumeCrit(combatEvent) || combatEvent.IsCritical;
-                    if (IsAttack(combatEvent))
+                    bool isAttack = IsAttack(combatEvent);
+                    if (!isAttack && Classify(combatEvent.Target) != NameKind.Npc && Classify(FoeName(combatEvent.Source)) == NameKind.Npc)
+                    {
+                        RememberHitOnPlayer(combatEvent);
+                    }
+
+                    if (isAttack)
                     {
                         GetOrStart(combatEvent.Target, combatEvent.Timestamp)
                             .AddDamage(combatEvent.Timestamp, Attacker(combatEvent.Source), combatEvent.Amount, isCritical,
@@ -310,6 +316,7 @@ public partial class DpsTrackerService : IDpsEventSink
                              && Classify(combatEvent.Target) != NameKind.Npc)
                     {
                         // The fight's target hurt a player or pet: that is damage taken in this fight.
+                        foe.AddWitness(_logOwner);
                         if (combatEvent.DamageKind == DamageKind.DamageShield)
                         {
                             foe.AddShieldTaken(combatEvent.Timestamp, combatEvent.Target, combatEvent.Amount);
@@ -333,6 +340,7 @@ public partial class DpsTrackerService : IDpsEventSink
                 case CombatEventKind.Miss when _active.TryGetValue(FoeName(combatEvent.Source), out CombatEncounter? missingFoe)
                                                && Classify(combatEvent.Target) != NameKind.Npc:
                     // The fight's target swung at a player or pet and missed: the player avoided the attack.
+                    missingFoe.AddWitness(_logOwner);
                     missingFoe.AddAvoided(combatEvent.Target, combatEvent.Avoid);
                     changed = true;
                     break;
@@ -630,9 +638,10 @@ public partial class DpsTrackerService : IDpsEventSink
     /// </summary>
     private bool RecordPlayerDeath(in CombatEvent death)
     {
+        string blow = KillingBlowFor(death);
         if (!string.IsNullOrEmpty(death.Source) && _active.TryGetValue(FoeName(death.Source), out CombatEncounter? killerFight))
         {
-            killerFight.AddDeath(death.Target, death.Timestamp, death.Source ?? string.Empty);
+            killerFight.AddDeath(death.Target, death.Timestamp, death.Source ?? string.Empty, blow);
             return true;
         }
 
@@ -641,12 +650,82 @@ public partial class DpsTrackerService : IDpsEventSink
         {
             if (encounter.Involves(death.Target))
             {
-                encounter.AddDeath(death.Target, death.Timestamp, death.Source ?? string.Empty);
+                encounter.AddDeath(death.Target, death.Timestamp, death.Source ?? string.Empty, blow);
                 recorded = true;
             }
         }
 
         return recorded;
+    }
+
+    private readonly record struct HitOnPlayer(DateTime Time, int Amount, string Label);
+
+    /// <summary>The last hit each NPC landed on each player or pet, keyed victim and attacker, for the killing blow on a death.</summary>
+    private readonly Dictionary<string, HitOnPlayer> _lastHitsOnPlayers = new(StringComparer.OrdinalIgnoreCase);
+    private const int MaxRememberedHits = 2000;
+
+    /// <summary>A killing blow is only shown when the killer's last hit on the victim came at most this long before the death.</summary>
+    public static readonly TimeSpan KillingBlowWindow = TimeSpan.FromSeconds(30);
+
+    private static string HitKey(string victim, string attacker) => victim.Trim() + "|" + FoeName(attacker.Trim());
+
+    private void RememberHitOnPlayer(in CombatEvent hit)
+    {
+        if (_lastHitsOnPlayers.Count >= MaxRememberedHits)
+        {
+            _lastHitsOnPlayers.Clear();
+        }
+
+        _lastHitsOnPlayers[HitKey(hit.Target, hit.Source)] =
+            new HitOnPlayer(hit.Timestamp, hit.Amount, KillingBlowLabel(hit.DamageKind, hit.Detail));
+    }
+
+    /// <summary>"175 punch": the killer's last hit on the victim, or empty when the log did not show one shortly before the death.</summary>
+    private string KillingBlowFor(in CombatEvent death)
+    {
+        if (string.IsNullOrWhiteSpace(death.Source)
+            || !_lastHitsOnPlayers.Remove(HitKey(death.Target, death.Source), out HitOnPlayer hit)
+            || death.Timestamp - hit.Time > KillingBlowWindow)
+        {
+            return string.Empty;
+        }
+
+        return hit.Amount.ToString("N0", CultureInfo.InvariantCulture) + " " + hit.Label;
+    }
+
+    /// <summary>What kind of hit it was, as a short word: "punch" for "punches", the spell name, or "damage shield".</summary>
+    public static string KillingBlowLabel(DamageKind kind, string? detail)
+    {
+        string text = (detail ?? string.Empty).Trim();
+        switch (kind)
+        {
+            case DamageKind.DamageShield:
+                return "damage shield";
+            case DamageKind.NonMelee or DamageKind.DamageOverTime:
+                // A spell name is capitalised ("Judgment"); "X hits Y for 50 points of non-melee damage" carries only the verb.
+                return text.Length > 0 && char.IsUpper(text[0]) ? text : "non-melee";
+        }
+
+        if (text.Length == 0)
+        {
+            return "hit";
+        }
+
+        if (text.StartsWith("frenz", StringComparison.OrdinalIgnoreCase))
+        {
+            return "frenzy";
+        }
+
+        // Third-person verbs to the plain form: punches -> punch, slashes -> slash, bites -> bite, hits -> hit.
+        foreach (string ending in new[] { "ches", "shes", "sses", "xes", "zes" })
+        {
+            if (text.EndsWith(ending, StringComparison.OrdinalIgnoreCase))
+            {
+                return text[..^2];
+            }
+        }
+
+        return text.EndsWith('s') && text.Length > 2 ? text[..^1] : text;
     }
 
     /// <summary>Remembers "X scores a critical hit/blast" for the attacker's next damage line.</summary>
@@ -778,13 +857,17 @@ public partial class DpsTrackerService : IDpsEventSink
                     encounter.AddCast(cast.Time, cast.Spell);
                 }
             }
-
         }
 
+        encounter.AddWitness(_logOwner);
         return encounter;
     }
 
-    /// <summary>Moves the log clock forward and closes encounters idle for longer than the timeout.</summary>
+    /// <summary>
+    /// Moves the log clock forward and closes encounters idle for longer than the timeout. Mobs fought at the same time by the same
+    /// people are one combined fight: none of them times out while any of them is still busy (a mezzed add waits for the fight), and
+    /// they all end together once the whole fight has been quiet for the timeout. A mob that dies still ends at once.
+    /// </summary>
     private bool AdvanceClock(DateTime timestamp)
     {
         if (timestamp > _logClock)
@@ -792,17 +875,18 @@ public partial class DpsTrackerService : IDpsEventSink
             _logClock = timestamp;
         }
 
-        if (_active.Count == 0)
+        if (_active.Count == 0 || !_active.Values.Any(e => _logClock - e.EndTime > _inactivityTimeout))
         {
             return false;
         }
 
         List<CombatEncounter>? expired = null;
-        foreach (CombatEncounter encounter in _active.Values)
+        foreach (List<CombatEncounter> group in ActiveGroups())
         {
-            if (_logClock - encounter.EndTime > _inactivityTimeout)
+            DateTime lastActivity = group.Max(e => e.EndTime);
+            if (_logClock - lastActivity > _inactivityTimeout)
             {
-                (expired ??= new List<CombatEncounter>()).Add(encounter);
+                (expired ??= new List<CombatEncounter>()).AddRange(group);
             }
         }
 
@@ -813,11 +897,67 @@ public partial class DpsTrackerService : IDpsEventSink
 
         foreach (CombatEncounter encounter in expired.OrderBy(e => e.EndTime).ThenBy(e => e.Id))
         {
-            _active.Remove(encounter.TargetName);
+            if (ActiveKey(encounter.TargetName) is { } key)
+            {
+                _active.Remove(key);
+            }
+
             CloseEncounter(encounter, encounter.EndTime);
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// The fights in progress, grouped: mobs that share someone who hit them or was hit by them, or that the same character's log shows
+    /// (a raid fighting a boss while its adds are tanked and mezzed nearby), are one combined fight. A camp no shared player or log sees
+    /// is a fight of its own.
+    /// </summary>
+    private List<List<CombatEncounter>> ActiveGroups()
+    {
+        List<CombatEncounter> encounters = _active.Values.OrderBy(e => e.Id).ToList();
+        if (encounters.Count < 2)
+        {
+            return encounters.Select(e => new List<CombatEncounter> { e }).ToList();
+        }
+
+        int[] parent = Enumerable.Range(0, encounters.Count).ToArray();
+        int Find(int i)
+        {
+            while (parent[i] != i)
+            {
+                parent[i] = parent[parent[i]];
+                i = parent[i];
+            }
+
+            return i;
+        }
+
+        var seenIn = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        for (int i = 0; i < encounters.Count; i++)
+        {
+            foreach (string person in encounters[i].People)
+            {
+                if (seenIn.TryGetValue(person, out int other))
+                {
+                    int a = Find(i), b = Find(other);
+                    if (a != b)
+                    {
+                        parent[Math.Max(a, b)] = Math.Min(a, b);
+                    }
+                }
+                else
+                {
+                    seenIn[person] = i;
+                }
+            }
+        }
+
+        return Enumerable.Range(0, encounters.Count)
+            .GroupBy(Find)
+            .OrderBy(g => g.Key)
+            .Select(g => g.Select(i => encounters[i]).ToList())
+            .ToList();
     }
 
     private void CloseAllActiveLocked()
@@ -851,6 +991,7 @@ public partial class DpsTrackerService : IDpsEventSink
         _nextId = 1;
 
         _pendingCrits.Clear();
+        _lastHitsOnPlayers.Clear();
         _recentCasts.Clear();
         _recentPlayerCasts.Clear();
         _confirmedNpcs.Clear();
@@ -877,16 +1018,18 @@ public partial class DpsTrackerService : IDpsEventSink
             _completedDirty = false;
         }
 
-        var active = new EncounterSnapshot[_active.Count];
-        int i = 0;
-        foreach (CombatEncounter encounter in _active.Values)
+        // A combined fight (several mobs at once) is published as one live fight; each mob gets its own row when it dies or the fight ends.
+        var active = new List<EncounterSnapshot>(_active.Count);
+        foreach (List<CombatEncounter> group in ActiveGroups())
         {
-            active[i++] = EncounterSnapshot.From(encounter);
+            active.Add(group.Count == 1
+                ? EncounterSnapshot.From(group[0])
+                : EncounterSnapshot.Combine(group.Select(EncounterSnapshot.From).ToList()));
         }
 
-        Array.Sort(active, static (a, b) => a.Id.CompareTo(b.Id));
+        active.Sort(static (a, b) => Math.Abs(a.Id).CompareTo(Math.Abs(b.Id)));
 
-        Volatile.Write(ref _snapshot, new DpsSnapshot(++_version, _completedView, Array.AsReadOnly(active)));
+        Volatile.Write(ref _snapshot, new DpsSnapshot(++_version, _completedView, active.AsReadOnly()));
     }
 }
 

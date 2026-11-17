@@ -12,6 +12,7 @@ using EQOverwatch.Core.Settings;
 using EQOverwatch.Core.Theming;
 using EQOverwatch.Core.Updates;
 using System.Net.Http;
+using System.Runtime.InteropServices;
 
 namespace EQOverwatch.App;
 
@@ -34,6 +35,22 @@ public partial class CompanionApp : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+
+        // Unhandled errors go to crash.log in the settings folder, so a crash can be looked into.
+        string crashFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), AppInfo.SettingsFolderName);
+        DispatcherUnhandledException += (_, args) => CrashLog.Write(crashFolder, "UI thread", args.Exception, AppInfo.Version, DateTime.UtcNow);
+        AppDomain.CurrentDomain.UnhandledException += (_, args) =>
+            CrashLog.Write(crashFolder, "background thread", args.ExceptionObject as Exception, AppInfo.Version, DateTime.UtcNow);
+        TaskScheduler.UnobservedTaskException += (_, args) =>
+            CrashLog.Write(crashFolder, "unobserved task", args.Exception, AppInfo.Version, DateTime.UtcNow);
+
+        // Before any file is touched: after Install update, wait for the old copy to finish saving and close; a second copy opened by
+        // accident brings the open one to the front instead.
+        if (!PassInstanceGate(e.Args))
+        {
+            Shutdown();
+            return;
+        }
 
         // The brushes every window refers to must exist before the first window is created; MainViewModel then applies the saved theme.
         var themeManager = new ThemeManagerService();
@@ -127,7 +144,12 @@ public partial class CompanionApp : Application
             new EQOverwatch.Core.Updates.UpdateInstaller(_updateHttp), exePath,
             exe =>
             {
-                Process.Start(new ProcessStartInfo(exe) { UseShellExecute = true, WorkingDirectory = Path.GetDirectoryName(exe) ?? string.Empty });
+                Process.Start(new ProcessStartInfo(exe)
+                {
+                    UseShellExecute = true,
+                    WorkingDirectory = Path.GetDirectoryName(exe) ?? string.Empty,
+                    Arguments = $"{InstanceGate.AfterUpdateArgument} {Environment.ProcessId.ToString(System.Globalization.CultureInfo.InvariantCulture)}",
+                });
                 Shutdown();
             });
 
@@ -150,6 +172,105 @@ public partial class CompanionApp : Application
         // Tell the user when a newer version has been published (does nothing when switched off in Settings; failures are silent).
         _ = _viewModel.StartUpdateCheckAsync();
     }
+
+    /// <summary>True when this copy may start: no other copy from this folder is running (or the one being replaced has closed).</summary>
+    private static bool PassInstanceGate(string[] args)
+    {
+        string? exe = Environment.ProcessPath;
+        string? folder = string.IsNullOrEmpty(exe) ? null : Path.GetDirectoryName(exe);
+        if (string.IsNullOrEmpty(exe) || string.IsNullOrEmpty(folder))
+        {
+            return true;
+        }
+
+        (InstanceGateResult result, int otherId) = InstanceGate.Wait(
+            () => OtherCopies(exe, folder), InstanceGate.UpdatedFrom(args), InstanceGate.DefaultTimeout, () => DateTime.UtcNow, Thread.Sleep);
+        switch (result)
+        {
+            case InstanceGateResult.AlreadyRunning:
+                BringToFront(otherId);
+                return false;
+            case InstanceGateResult.StillRunning:
+                MessageBox.Show("EQ Overwatch is already running. Close it, then open EQ Overwatch again.", AppInfo.Name,
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+                return false;
+            default:
+                return true;
+        }
+    }
+
+    /// <summary>
+    /// Other EQOverwatch processes started from this folder. The old copy's file is renamed to EQOverwatch.exe.old during an update, so
+    /// the folder is compared, not the full path.
+    /// </summary>
+    private static IReadOnlyList<OtherInstance> OtherCopies(string exe, string folder)
+    {
+        var found = new List<OtherInstance>();
+        foreach (Process process in Process.GetProcessesByName(Path.GetFileNameWithoutExtension(exe)))
+        {
+            using (process)
+            {
+                try
+                {
+                    if (process.Id == Environment.ProcessId || process.HasExited)
+                    {
+                        continue;
+                    }
+
+                    string? path = process.MainModule?.FileName;
+                    if (path is null || !string.Equals(Path.GetDirectoryName(path), folder, StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    process.Refresh();
+                    found.Add(new OtherInstance(process.Id, process.MainWindowHandle != IntPtr.Zero));
+                }
+                catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception or NotSupportedException)
+                {
+                    // exited meanwhile, or not ours to look at
+                }
+            }
+        }
+
+        return found;
+    }
+
+    private static void BringToFront(int processId)
+    {
+        try
+        {
+            using Process other = Process.GetProcessById(processId);
+            IntPtr window = other.MainWindowHandle;
+            if (window == IntPtr.Zero)
+            {
+                return;
+            }
+
+            if (IsIconic(window))
+            {
+                ShowWindow(window, 9); // SW_RESTORE
+            }
+
+            SetForegroundWindow(window);
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+        {
+            // it closed meanwhile
+        }
+    }
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool IsIconic(IntPtr hWnd);
 
     private void OnDisplaySettingsChanged(object? sender, EventArgs e) =>
         Dispatcher.BeginInvoke(new Action(() => _viewModel?.OnDisplayConfigurationChanged()));

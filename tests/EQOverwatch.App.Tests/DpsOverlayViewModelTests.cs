@@ -76,12 +76,17 @@ public class DpsOverlayViewModelTests
     {
         var tracker = new LiveDpsTracker();
         tracker.OnCombatEvent(Hit("Stackprime", Giant, 100, 1));
-        tracker.OnCombatEvent(Hit("Stackprime", "a gnoll", 50, 3));
+        tracker.OnCombatEvent(Hit("Ream", "a gnoll", 50, 3)); // another camp: nobody fights both, so two fights
         var vm = new DpsOverlayViewModel(() => tracker.Snapshot);
 
         vm.Tick();
 
         Assert.Equal("a gnoll", vm.TargetName);
+
+        // Someone fighting both makes them one combined fight, named after the mob taking the most damage.
+        tracker.OnCombatEvent(Hit("Stackprime", "a gnoll", 10, 4));
+        vm.Tick();
+        Assert.Equal("a frost giant +1", vm.TargetName);
     }
 
     [Fact]

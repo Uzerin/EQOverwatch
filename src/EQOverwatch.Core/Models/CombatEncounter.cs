@@ -121,17 +121,31 @@ public sealed class CombatEncounter : ObservableObject
             _participants.OrderByDescending(p => p.TotalDamage).ThenBy(p => p.Name, StringComparer.Ordinal).Select(p => p.Name).ToArray());
 
     /// <summary>A player or pet died during the fight.</summary>
-    internal void AddDeath(string name, DateTime time = default, string killedBy = "")
+    internal void AddDeath(string name, DateTime time = default, string killedBy = "", string killingBlow = "")
     {
         _deaths[name] = _deaths.GetValueOrDefault(name) + 1;
         if (_deathLog.Count < 200)
         {
-            _deathLog.Add(new DeathSnapshot(time, name, killedBy ?? string.Empty));
+            _deathLog.Add(new DeathSnapshot(time, name, killedBy ?? string.Empty, killingBlow ?? string.Empty));
         }
     }
 
     /// <summary>Each death in order, with the log time and the killer when known.</summary>
     internal IReadOnlyList<DeathSnapshot> DeathLog => _deathLog;
+
+    private readonly HashSet<string> _witnesses = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>A character whose log showed this fight.</summary>
+    internal void AddWitness(string logOwner)
+    {
+        if (!string.IsNullOrEmpty(logOwner))
+        {
+            _witnesses.Add(logOwner);
+        }
+    }
+
+    /// <summary>Everyone who hit the target or was hit by it, and the characters whose logs showed the fight.</summary>
+    internal IEnumerable<string> People => _byName.Keys.Concat(_takenByName.Keys).Concat(_witnesses);
 
     /// <summary>True when <paramref name="name"/> dealt or took damage in this fight.</summary>
     internal bool Involves(string name) => _byName.ContainsKey(name) || _takenByName.ContainsKey(name);

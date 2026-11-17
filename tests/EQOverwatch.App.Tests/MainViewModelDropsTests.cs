@@ -113,78 +113,140 @@ public partial class MainViewModelTests
 
     private sealed class FakeSharedDrops : ISharedDropsService
     {
-        public Dictionary<(string Server, string Id), (long Updated, byte[] Bytes, int Kills, int Drops)> Files { get; } = new();
+        /// <summary>The merged table of each server: when it was made, by how many players, and the file.</summary>
+        public Dictionary<string, (long Updated, int Players, byte[] Gzip)> Merged { get; } = new();
+
+        public long LastMerge { get; set; }
 
         public List<string> Calls { get; } = new();
 
-        public Task<IReadOnlyList<SharedDropsEntry>> ListAsync(string server, CancellationToken cancellation = default)
-        {
-            Calls.Add("list " + server);
-            return Task.FromResult<IReadOnlyList<SharedDropsEntry>>(Files.Where(f => f.Key.Server == server)
-                .Select(f => new SharedDropsEntry(f.Key.Id, f.Value.Updated, f.Value.Kills, f.Value.Drops)).ToList());
-        }
+        public List<(string Id, string Version)> Pings { get; } = new();
 
-        public Task<byte[]> DownloadAsync(string server, string id, CancellationToken cancellation = default)
+        public Task<MergedDropsDownload?> DownloadMergedAsync(string server, long have, CancellationToken cancellation = default)
         {
-            Calls.Add("get " + id);
-            return Task.FromResult(Files[(server, id)].Bytes);
+            Calls.Add("merged " + server);
+            if (!Merged.TryGetValue(server, out var m))
+            {
+                return Task.FromResult<MergedDropsDownload?>(null);
+            }
+
+            return Task.FromResult<MergedDropsDownload?>(new MergedDropsDownload(m.Updated, m.Players, have >= m.Updated ? null : m.Gzip, LastMerge));
         }
 
         public Task<bool> UploadAsync(string id, string key, SharedDropsUpload upload, CancellationToken cancellation = default)
         {
             Calls.Add("put " + upload.Server);
-            Files[(upload.Server, id)] = (1, upload.Gzip, upload.Kills, upload.Drops);
             return Task.FromResult(true);
         }
 
         public Task DeleteAsync(string server, string id, string key, CancellationToken cancellation = default)
         {
             Calls.Add("delete " + server);
-            Files.Remove((server, id));
+            return Task.CompletedTask;
+        }
+
+        public Task PingAsync(string id, string version, CancellationToken cancellation = default)
+        {
+            Pings.Add((id, version));
             return Task.CompletedTask;
         }
     }
 
+    /// <summary>A merged table the service would make: orc pawn killed <paramref name="kills"/> times, with that many Orc Scalps.</summary>
+    private static byte[] MergedFile(int kills)
+    {
+        var file = new DropStore.MergedFile
+        {
+            Format = "EQOverwatchDropsMerged", Version = 1, Server = "frostreaver",
+            Zones = { "Clan Crushbone" }, Mobs = { "orc pawn" }, Items = { "Orc Scalp" },
+            Kills = { new long[] { 0, 0, kills, 1 } }, Drops = { new long[] { 0, 0, 0, kills, 1 } },
+        };
+        using var buffer = new MemoryStream();
+        using (var gzip = new System.IO.Compression.GZipStream(buffer, System.IO.Compression.CompressionLevel.Fastest, leaveOpen: true))
+        {
+            System.Text.Json.JsonSerializer.Serialize(gzip, file);
+        }
+
+        return buffer.ToArray();
+    }
+
     [Fact]
-    public async Task The_shared_drop_switches_upload_yours_add_everyone_elses_and_take_them_back_out()
+    public async Task Shared_drops_use_the_daily_merged_table_plus_your_own_drops_since_your_last_upload()
     {
         using var h = new Harness();
-        FillDrops(h.Pipeline.Drops);
+        FillDrops(h.Pipeline.Drops); // 4 orc pawn kills of your own
         var service = new FakeSharedDrops();
         h.Vm.ConfigureSharedDrops(service);
         Assert.Equal(new[] { MainViewModel.DropSourceAll, MainViewModel.DropSourceMine }, h.Vm.DropSources);
 
-        // Someone else's upload is waiting on the service.
-        var friend = new DropStore();
-        friend.SetZoneProvider((_, _) => "Clan Crushbone");
-        Drop(friend, "Orc pawn was slain by Kel!", 1000, character: "Kel");
-        Drop(friend, "--Kel has looted a Torch from orc pawn's corpse.--", 1002, character: "Kel");
-        SharedDropsUpload theirs = friend.ExportShared("frostreaver")!;
-        service.Files[("frostreaver", "friendfriendfriend")] = (77, theirs.Gzip, theirs.Kills, theirs.Drops);
+        // This morning's merge: 10 kills by 5 other players.
+        long morning = DateTimeOffset.UtcNow.AddHours(-1).ToUnixTimeSeconds();
+        service.LastMerge = morning;
+        service.Merged["frostreaver"] = (morning, 5, MergedFile(10));
 
         h.Vm.UseSharedDrops = true;
         await h.Vm.SharedDropsTask;
         Assert.Equal(MainViewModel.DropSourceEveryone, h.Vm.SelectedDropSource);
-        Assert.Equal(MainViewModel.DropSourceEveryone, h.Vm.DropSources[0]);
         Assert.DoesNotContain(service.Calls, c => c.StartsWith("put", StringComparison.Ordinal)); // nothing of yours is sent
-        Assert.Equal("5", h.Vm.DropRows.First(r => r.Name == "orc pawn").Kills);
-        Assert.StartsWith("1 other player shared drops (1 new or updated).", h.Vm.SharedDropsStatus, StringComparison.Ordinal);
+        Assert.Equal("14", h.Vm.DropRows.First(r => r.Name == "orc pawn").Kills); // the merged 10 and your own 4
+        Assert.StartsWith("Shared drops from 5 players, updated today ", h.Vm.SharedDropsStatus, StringComparison.Ordinal);
+        Assert.Equal(new MergedDropsInfo(morning, 5), h.Pipeline.Drops.MergedInfo("frostreaver"));
 
+        // Sharing uploads each server's drops; your 4 kills still count on top, as the merge does not have them yet.
         h.Vm.ShareMyDrops = true;
         await h.Vm.SharedDropsTask;
-        Assert.Contains("put frostreaver", service.Calls);
+        Assert.Single(service.Calls, c => c == "put frostreaver");
         Assert.Contains("put oakwynd", service.Calls);
-        Assert.Single(service.Calls, c => c.StartsWith("get", StringComparison.Ordinal)); // read once; your own file is never read back
+        Assert.Equal("14", h.Vm.DropRows.First(r => r.Name == "orc pawn").Kills);
+
+        // The next merge has your upload in it: your 4 kills are not added twice, and nothing new is uploaded again.
+        long next = DateTimeOffset.UtcNow.AddMinutes(1).ToUnixTimeSeconds();
+        service.LastMerge = next;
+        service.Merged["frostreaver"] = (next, 6, MergedFile(14));
+        await h.Vm.SyncSharedDropsNowCommand.ExecuteAsync(null);
+        Assert.Equal("14", h.Vm.DropRows.First(r => r.Name == "orc pawn").Kills);
+        Assert.Single(service.Calls, c => c == "put frostreaver");
+        Assert.Equal(6, h.Pipeline.Drops.MergedInfo("frostreaver")!.Players);
+
+        // Without the merged table nothing else is downloaded until after the next daily merge.
+        Assert.True(MainViewModel.NextMergedCheck(next, DateTime.UtcNow) > DateTime.UtcNow.AddHours(23));
+        Assert.True(MainViewModel.NextMergedCheck(DateTimeOffset.UtcNow.AddDays(-2).ToUnixTimeSeconds(), DateTime.UtcNow) <= DateTime.UtcNow.AddHours(1));
 
         h.Vm.ShareMyDrops = false;
         await h.Vm.SharedDropsTask;
         Assert.Contains("delete frostreaver", service.Calls);
-        Assert.Equal("Your drops are no longer shared; your files were taken off the service.", h.Vm.SharedDropsStatus);
+        Assert.StartsWith("Your drops are no longer shared", h.Vm.SharedDropsStatus, StringComparison.Ordinal);
 
         h.Vm.UseSharedDrops = false;
         Assert.Equal(MainViewModel.DropSourceAll, h.Vm.SelectedDropSource);
         Assert.DoesNotContain(MainViewModel.DropSourceEveryone, h.Vm.DropSources);
         Assert.Equal("4", h.Vm.DropRows.First(r => r.Name == "orc pawn").Kills);
-        Assert.Empty(h.Pipeline.Drops.SharedFiles("frostreaver"));
+    }
+
+    [Fact]
+    public async Task The_anonymous_player_count_is_sent_once_a_day_unless_switched_off()
+    {
+        using var h = new Harness();
+        var service = new FakeSharedDrops();
+        h.Vm.ConfigureSharedDrops(service);
+        Assert.True(h.Vm.CountMeIn); // on by default
+
+        h.Vm.Refresh();
+        await h.Vm.PlayerCountTask;
+        (string id, string version) = Assert.Single(service.Pings);
+        Assert.Equal(EQOverwatch.Core.AppInfo.Version, version);
+        Assert.InRange(id.Length, 16, 40);
+
+        h.Vm.Refresh();
+        await h.Vm.PlayerCountTask;
+        Assert.Single(service.Pings); // once a day
+
+        using var off = new Harness();
+        var quiet = new FakeSharedDrops();
+        off.Vm.ConfigureSharedDrops(quiet);
+        off.Vm.CountMeIn = false;
+        off.Vm.Refresh();
+        await off.Vm.PlayerCountTask;
+        Assert.Empty(quiet.Pings);
     }
 }

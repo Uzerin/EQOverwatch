@@ -1537,6 +1537,9 @@ public sealed partial class MainViewModel : ObservableObject
         ShareMyDrops = ShareMyDrops,
         SharedDropsId = _sharedDropsId,
         SharedDropsKey = _sharedDropsKey,
+        CountMeIn = CountMeIn,
+        PlayerCountId = _playerCountId,
+        PlayerCountDay = _playerCountDay,
     };
 
     private readonly Dictionary<string, WindowPlacementSetting> _windowPlacements = new(StringComparer.OrdinalIgnoreCase);

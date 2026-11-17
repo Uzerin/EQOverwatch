@@ -9,15 +9,16 @@ using EQOverwatch.Core.Theming;
 namespace EQOverwatch.App.Services;
 
 /// <summary>
-/// Draws the "Copy Image for Discord" picture in two halves under the encounter summary. The left half is the damage dealt (Total, SDPS,
-/// Max Hit, Max Crit, Crit %) with every attacker. The right half stacks tanking (damage taken), healing and the deaths. Every character is
-/// listed, the product footer runs along the bottom, and everything uses the active theme's colors. Rendered at twice the layout size so it
+/// Draws the "Copy Image for Discord" picture in three columns under the encounter summary and graph: the damage dealt (Total, SDPS,
+/// Max Hit, Max Crit, Crit %) with every attacker, then healing, then tanking (damage taken) with the deaths and killing blows under it.
+/// Every row is listed, the product footer runs along the bottom, and everything uses the active theme's colors. Rendered at twice the layout size so it
 /// stays sharp when Discord scales it. Call on the UI thread.
 /// </summary>
 public static class EncounterImageRenderer
 {
     private const double Scale = 2.0;
     private const double MinContentWidth = 540;
+    private const double MinSideWidth = 300;
     private const double MaxNameWidth = 280;
     private const double ColumnGap = 16;
     private const double Padding = 22;
@@ -94,65 +95,58 @@ public static class EncounterImageRenderer
             }).ToList());
 
         Table? deathTable = deaths.Count == 0 ? null : new Table(
-            new[] { "#", "Name", "Time", "Killed by" },
-            new[] { false, false, true, false }, flexColumn: 3,
+            new[] { "#", "Name", "Time", "Killed by", "Killing Blow" },
+            new[] { false, false, true, false, false }, flexColumn: 4,
             deaths.Select((d, i) => new[]
             {
                 (i + 1).ToString(CultureInfo.InvariantCulture), d.Name,
                 EncounterExport.FormatDuration((d.Time - encounter.StartTime).TotalSeconds),
                 string.IsNullOrWhiteSpace(d.KilledBy) ? "—" : d.KilledBy,
+                string.IsNullOrWhiteSpace(d.KillingBlow) ? "—" : d.KillingBlow,
             }).ToList());
 
         string dpsTotalText = $"{encounter.TotalDamage.ToString("N0", CultureInfo.InvariantCulture)} total";
-        string takenTitle = $"Tanking: damage taken from {encounter.TargetName}";
+        const string takenTitle = "Tanking";
         string takenTotalText = $"{encounter.TotalDamageTaken.ToString("N0", CultureInfo.InvariantCulture)} total";
-        string healTitle = healing.Any(h => h.CritHeals > 0) ? "Healing  (lighter shade = critical heals)" : "Healing";
+        string healTitle = healing.Any(h => h.CritHeals > 0) ? "Healing  (lighter shade = crits)" : "Healing";
         string healTotalText = $"{healTotal.ToString("N0", CultureInfo.InvariantCulture)} total";
         string deathTotalText = deaths.Count == 0 ? "none" : $"{deaths.Count.ToString("N0", CultureInfo.InvariantCulture)} total";
 
-        // Each half is as wide as its widest table or title line needs.
-        double leftContent = Math.Max(MinContentWidth, Math.Max(
-            dpsTable.NaturalWidth, TitleWidth("DPS", dpsTotalText)));
-        double rightContent = Math.Max(MinContentWidth, new[]
+        // Three columns side by side (DPS, Healing, Tanking with Deaths under it), each as wide as its widest table or title needs.
+        double dpsContent = Math.Max(MinContentWidth, Math.Max(dpsTable.NaturalWidth, TitleWidth("DPS", dpsTotalText)));
+        double healContent = Math.Max(MinSideWidth, Math.Max(healTable?.NaturalWidth ?? 0, TitleWidth(healTitle, healTotalText)));
+        double tankContent = Math.Max(MinSideWidth, new[]
         {
-            takenTable?.NaturalWidth ?? 0, healTable?.NaturalWidth ?? 0, deathTable?.NaturalWidth ?? 0,
-            takenTable is null ? 0 : TitleWidth(takenTitle, takenTotalText),
-            healTable is null ? 0 : TitleWidth(healTitle, healTotalText),
-            TitleWidth("Deaths", deathTotalText),
+            takenTable?.NaturalWidth ?? 0, deathTable?.NaturalWidth ?? 0,
+            TitleWidth(takenTitle, takenTotalText), TitleWidth("Deaths", deathTotalText),
         }.Max());
 
-        dpsTable.FitTo(leftContent);
-        takenTable?.FitTo(rightContent);
-        healTable?.FitTo(rightContent);
-        deathTable?.FitTo(rightContent);
+        dpsTable.FitTo(dpsContent);
+        healTable?.FitTo(healContent);
+        takenTable?.FitTo(tankContent);
+        deathTable?.FitTo(tankContent);
 
-        double leftHalf = leftContent + (2 * Padding);
-        double rightHalf = rightContent + (2 * Padding);
-        double width = leftHalf + rightHalf;
+        double dpsColumn = dpsContent + (2 * Padding);
+        double healColumn = healContent + (2 * Padding);
+        double tankColumn = tankContent + (2 * Padding);
+        double width = dpsColumn + healColumn + tankColumn;
 
-        int legendPerLine = Math.Max(1, (int)Math.Floor(leftContent / LegendEntryWidth));
+        int legendPerLine = Math.Max(1, (int)Math.Floor(dpsContent / LegendEntryWidth));
         double legendHeight = legend.Count == 0 ? 0 : LegendCaptionHeight + (Math.Ceiling(legend.Count / (double)legendPerLine) * LegendLineHeight) + 6;
 
-        double leftHeight = TitleHeight + TableHeaderHeight + (Math.Max(1, rows.Count) * RowHeight) + legendHeight;
-        double rightHeight = 0;
-        if (taken.Count > 0)
-        {
-            rightHeight += TitleHeight + TableHeaderHeight + (taken.Count * RowHeight) + SectionGap;
-        }
+        static double SectionBlock(int rowCount) => TitleHeight + (rowCount == 0 ? RowHeight : TableHeaderHeight + (rowCount * RowHeight));
 
-        if (healing.Count > 0)
-        {
-            rightHeight += TitleHeight + TableHeaderHeight + (healing.Count * RowHeight) + SectionGap;
-        }
+        double dpsHeight = TitleHeight + TableHeaderHeight + (Math.Max(1, rows.Count) * RowHeight) + legendHeight;
+        double healHeight = SectionBlock(healing.Count);
+        double tankHeight = SectionBlock(taken.Count) + SectionGap + SectionBlock(deaths.Count);
 
-        rightHeight += TitleHeight + (deaths.Count == 0 ? RowHeight : TableHeaderHeight + (deaths.Count * RowHeight));
         // The graph runs the full width of the picture, between the mob's name and the tables.
         DpsTimeline? timeline = encounter.Timeline;
         double graphWidth = width - (2 * Padding);
         double graphHeight = timeline is null ? 0 : DpsGraph.TotalHeight(timeline, graphWidth, GraphPlotHeight, Scale);
         double graphBlock = timeline is null ? 0 : TitleHeight + graphHeight + SectionGap;
         double bodyTop = HeaderHeight + graphBlock;
-        double height = bodyTop + Math.Max(leftHeight, rightHeight) + FooterHeight;
+        double height = bodyTop + Math.Max(dpsHeight, Math.Max(healHeight, tankHeight)) + FooterHeight;
 
         Brush window = Solid(palette.WindowBg);
         Brush card = Solid(palette.CardBg);
@@ -170,7 +164,7 @@ public static class EncounterImageRenderer
             dc.DrawRoundedRectangle(card, null, new Rect(10, 10, width - 20, height - 20), 12, 12);
             dc.DrawRoundedRectangle(accent, null, new Rect(10, 10, 6, height - 20), 3, 3);
 
-            // header, across both halves
+            // header, across all three columns
             Draw(dc, encounter.TargetName, Bold, 22, text, Padding + 6, 20, width - (2 * Padding) - 6, TextAlignment.Left);
             Draw(dc, SummaryLine(encounter), Regular, 13, muted, Padding + 6, 52, width - (2 * Padding) - 6, TextAlignment.Left);
 
@@ -180,22 +174,25 @@ public static class EncounterImageRenderer
                 DpsGraph.Draw(dc, timeline, new Rect(Padding, HeaderHeight + TitleHeight, graphWidth, graphHeight), GraphPlotHeight, text, muted, line, text, Scale);
             }
 
-            // a thin divider between the halves
-            dc.DrawRectangle(Solid(palette.TextPrimary, 0x20), null, new Rect(leftHalf - 0.5, bodyTop + 4, 1, Math.Max(0, height - bodyTop - FooterHeight - 4)));
+            // thin dividers between the columns
+            Brush divider = Solid(palette.TextPrimary, 0x20);
+            double dividerHeight = Math.Max(0, height - bodyTop - FooterHeight - 4);
+            dc.DrawRectangle(divider, null, new Rect(dpsColumn - 0.5, bodyTop + 4, 1, dividerHeight));
+            dc.DrawRectangle(divider, null, new Rect(dpsColumn + healColumn - 0.5, bodyTop + 4, 1, dividerHeight));
 
-            // ── left half: damage dealt ──
+            // ── first column: damage dealt ──
             double y = bodyTop;
-            DrawTitle(dc, "DPS", dpsTotalText, leftContent, y, text, muted, Bold);
+            DrawTitle(dc, "DPS", dpsTotalText, dpsContent, y, text, muted, Bold);
             y += SectionHeight - SectionGap;
 
             dpsTable.DrawHeader(dc, y, muted);
             y += TableHeaderHeight;
-            dc.DrawRectangle(line, null, new Rect(Padding, y - 2, leftContent, 1));
+            dc.DrawRectangle(line, null, new Rect(Padding, y - 2, dpsContent, 1));
 
             for (int i = 0; i < rows.Count; i++)
             {
                 EncounterExportRow row = rows[i];
-                double barWidth = leftContent * Math.Clamp(row.Fill, 0, 1);
+                double barWidth = dpsContent * Math.Clamp(row.Fill, 0, 1);
                 if (barWidth > 0)
                 {
                     DrawDamageBar(dc, new Rect(Padding, y + 2, barWidth, RowHeight - 4), row.Attacks, colors, barFill);
@@ -214,7 +211,7 @@ public static class EncounterImageRenderer
             {
                 y += 4;
                 Draw(dc, "Bar colors: each attack type's color is for regular hits, the lighter shade is crits.", Regular, 12, muted,
-                    Padding + 6, y, leftContent, TextAlignment.Left);
+                    Padding + 6, y, dpsContent, TextAlignment.Left);
                 y += LegendCaptionHeight;
                 for (int i = 0; i < legend.Count; i++)
                 {
@@ -226,23 +223,59 @@ public static class EncounterImageRenderer
                 }
             }
 
-            // ── right half: tanking, healing, deaths ──
-            dc.PushTransform(new TranslateTransform(leftHalf, 0));
-            double ry = bodyTop;
-
-            if (takenTable is not null)
+            // ── second column: healing ──
+            dc.PushTransform(new TranslateTransform(dpsColumn, 0));
+            double hy = bodyTop;
+            DrawTitle(dc, healTitle, healTotalText, healContent, hy, text, muted, Bold);
+            hy += SectionHeight - SectionGap;
+            if (healTable is null)
             {
-                DrawTitle(dc, takenTitle, takenTotalText, rightContent, ry, text, muted, Bold);
-                ry += SectionHeight - SectionGap;
+                Draw(dc, "No heals.", Regular, 14, muted, Padding + 6, hy + 4, 400, TextAlignment.Left);
+            }
+            else
+            {
+                healTable.DrawHeader(dc, hy, muted);
+                hy += TableHeaderHeight;
+                dc.DrawRectangle(line, null, new Rect(Padding, hy - 2, healContent, 1));
 
+                long topHeal = healing.Max(h => h.Effective);
+                for (int i = 0; i < healing.Count; i++)
+                {
+                    HealingSnapshot h = healing[i];
+                    double barWidth = topHeal > 0 ? healContent * ((double)h.Effective / topHeal) : 0;
+                    if (barWidth > 0)
+                    {
+                        DrawSegments(dc, new Rect(Padding, hy + 2, barWidth, RowHeight - 4),
+                            new[] { (h.Effective - h.CritEffective, colors.Healing), (h.CritEffective, colors.HealingCrit) });
+                    }
+
+                    healTable.DrawRow(dc, i, hy, text);
+                    hy += RowHeight;
+                }
+            }
+
+            dc.Pop();
+
+            // ── third column: tanking, with the deaths under it ──
+            dc.PushTransform(new TranslateTransform(dpsColumn + healColumn, 0));
+            double ry = bodyTop;
+            DrawTitle(dc, takenTitle, takenTotalText, tankContent, ry, text, muted, Bold);
+            ry += SectionHeight - SectionGap;
+            if (takenTable is null)
+            {
+                Draw(dc, "No damage taken.", Regular, 14, muted, Padding + 6, ry + 4, 400, TextAlignment.Left);
+                ry += RowHeight;
+            }
+            else
+            {
                 takenTable.DrawHeader(dc, ry, muted);
                 ry += TableHeaderHeight;
-                dc.DrawRectangle(line, null, new Rect(Padding, ry - 2, rightContent, 1));
+                dc.DrawRectangle(line, null, new Rect(Padding, ry - 2, tankContent, 1));
 
                 long top = taken.Max(t => t.TotalDamage);
                 for (int i = 0; i < taken.Count; i++)
                 {
-                    double barWidth = top > 0 ? rightContent * ((double)taken[i].TotalDamage / top) : 0;
+                    double barWidth = top > 0 ? tankContent * ((double)taken[i].TotalDamage / top) : 0;
                     if (barWidth > 0)
                     {
                         dc.DrawRoundedRectangle(takenFill, null, new Rect(Padding, ry + 2, barWidth, RowHeight - 4), 5, 5);
@@ -251,39 +284,12 @@ public static class EncounterImageRenderer
                     takenTable.DrawRow(dc, i, ry, text);
                     ry += RowHeight;
                 }
-
-                ry += SectionGap;
             }
 
-            if (healTable is not null)
-            {
-                DrawTitle(dc, healTitle, healTotalText, rightContent, ry, text, muted, Bold);
-                ry += SectionHeight - SectionGap;
+            ry += SectionGap;
 
-                healTable.DrawHeader(dc, ry, muted);
-                ry += TableHeaderHeight;
-                dc.DrawRectangle(line, null, new Rect(Padding, ry - 2, rightContent, 1));
-
-                long topHeal = healing.Max(h => h.Effective);
-                for (int i = 0; i < healing.Count; i++)
-                {
-                    HealingSnapshot h = healing[i];
-                    double barWidth = topHeal > 0 ? rightContent * ((double)h.Effective / topHeal) : 0;
-                    if (barWidth > 0)
-                    {
-                        DrawSegments(dc, new Rect(Padding, ry + 2, barWidth, RowHeight - 4),
-                            new[] { (h.Effective - h.CritEffective, colors.Healing), (h.CritEffective, colors.HealingCrit) });
-                    }
-
-                    healTable.DrawRow(dc, i, ry, text);
-                    ry += RowHeight;
-                }
-
-                ry += SectionGap;
-            }
-
-            // Deaths: who died and when in the fight. Always shown, so the layout is the same from fight to fight.
-            DrawTitle(dc, "Deaths", deathTotalText, rightContent, ry, text, muted, Bold);
+            // Deaths: who died, when in the fight, who killed them and with what. Always shown, so the layout is the same from fight to fight.
+            DrawTitle(dc, "Deaths", deathTotalText, tankContent, ry, text, muted, Bold);
             ry += SectionHeight - SectionGap;
 
             if (deathTable is null)
@@ -294,7 +300,7 @@ public static class EncounterImageRenderer
             {
                 deathTable.DrawHeader(dc, ry, muted);
                 ry += TableHeaderHeight;
-                dc.DrawRectangle(line, null, new Rect(Padding, ry - 2, rightContent, 1));
+                dc.DrawRectangle(line, null, new Rect(Padding, ry - 2, tankContent, 1));
 
                 for (int i = 0; i < deaths.Count; i++)
                 {
@@ -492,9 +498,16 @@ public static class EncounterImageRenderer
             new("Brell", 100500, 30000, 23.0, 200, 1800, 493, "Celestial Elixir", 12000, 6),
         };
 
+        DamageTakenSnapshot[] taken =
+        {
+            new("Gruk", 61204, 70.0, 210, 1820, 0, 150, 60, 40, 30, 10, 10),
+            new("Stackprime", 26100, 30.0, 70, 1544, 1, 20, 10, 5, 0, 5, 0),
+        };
+
         DateTime start = new(2026, 1, 1, 21, 0, 0);
+        DeathSnapshot[] deaths = { new(start.AddSeconds(134), "Stackprime", "Sample fight", "1,544 punch") };
         var encounter = new EncounterSnapshot(
-            0, "Sample fight", start, start.AddSeconds(204), 204, sum, false, participants, null, null, healing, null, true);
+            0, "Sample fight", start, start.AddSeconds(204), 204, sum, false, participants, taken, null, healing, deaths, true);
         return Render(encounter, palette, footer, EncounterExport.AllAttackers, colors);
     }
 
