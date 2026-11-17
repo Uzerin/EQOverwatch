@@ -20,6 +20,25 @@ public static partial class CombatLineParser
     /// <param name="selfName">Character that owns the log; "You"/"YOU"/"Your" are normalized to this name.</param>
     public static bool TryParse(string line, DateTime timestamp, string selfName, out CombatEvent combatEvent)
     {
+        if (!TryParseLine(line, timestamp, selfName, out combatEvent))
+        {
+            return false;
+        }
+
+        // Some mobs are written with two spaces after the name ("Emperor Ssraeshza  hits ..."): the space is not part of the name, or
+        // the fight would never match the mob's death line.
+        if (HasOuterSpace(combatEvent.Source) || HasOuterSpace(combatEvent.Target))
+        {
+            combatEvent = combatEvent with { Source = combatEvent.Source.Trim(), Target = combatEvent.Target.Trim() };
+        }
+
+        return true;
+
+        static bool HasOuterSpace(string? name) => name is { Length: > 0 } && (name[0] == ' ' || name[^1] == ' ');
+    }
+
+    private static bool TryParseLine(string line, DateTime timestamp, string selfName, out CombatEvent combatEvent)
+    {
         combatEvent = default;
 
         const int start = LogLineFormat.MessageOffset;

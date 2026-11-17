@@ -36,14 +36,15 @@ public sealed partial class MainViewModel
 
     private IUpdateInstaller? _updateInstaller;
     private string _installExePath = string.Empty;
-    private Action<string>? _restartApp;
+    private Action<string, bool>? _restartApp;
     private UpdateAssets? _updateAssets;
 
     /// <summary>
     /// Switches on the "Install update" button. <paramref name="exePath"/> is the running EQOverwatch.exe; <paramref name="restart"/> starts it
-    /// again and ends this process (it is only called after the new exe is in place and settings are saved).
+    /// again and ends this process at once. It is called after settings are saved and the exe swapped; its second argument is false when
+    /// the swap failed and the old version was kept.
     /// </summary>
-    public void ConfigureUpdateInstall(IUpdateInstaller installer, string? exePath, Action<string> restart)
+    public void ConfigureUpdateInstall(IUpdateInstaller installer, string? exePath, Action<string, bool> restart)
     {
         _updateInstaller = installer;
         _restartApp = restart;
@@ -139,7 +140,33 @@ public sealed partial class MainViewModel
                 throw new UpdateInstallException("A fight started while the update was downloading, so it was not installed. Try again after the fight.");
             }
 
-            UpdateSwapper.Swap(_installExePath, newExe);
+            InstallSwapStarted?.Invoke();
+            UpdateInstallHint = "Restarting…";
+
+            // Save and close everything while the old exe is still in place: closing loads parts of the program (speech, for one) from
+            // EQOverwatch.exe, which fails once the new version has taken its place. Whatever goes wrong here, the restart still happens.
+            try
+            {
+                Shutdown();
+            }
+            catch (Exception ex)
+            {
+                UpdateShutdownError = ex;
+            }
+
+            bool installed = true;
+            try
+            {
+                UpdateSwapper.Swap(_installExePath, newExe);
+            }
+            catch (UpdateInstallException ex)
+            {
+                installed = false; // the old exe is back in place: it opens again and says the update was not installed
+                UpdateShutdownError = ex;
+            }
+
+            // Start the new copy (or the old one again) and end this process at once: nothing more runs from the swapped file.
+            _restartApp?.Invoke(_installExePath, installed);
         }
         catch (UpdateInstallException ex)
         {
@@ -147,13 +174,21 @@ public sealed partial class MainViewModel
             StatusMessage = ex.Message;
             UpdateInstallHint = ex.Message;
             IsInstallingUpdate = false;
-            return;
         }
+    }
 
-        // The new exe is in place: save everything, then start it. Nothing runs after the restart call.
-        UpdateInstallHint = "Restarting…";
-        Shutdown();
-        _restartApp?.Invoke(_installExePath);
+    /// <summary>Raised after the download is checked, just before the app closes to install it (tests use it to see the order).</summary>
+    public event Action? InstallSwapStarted;
+
+    /// <summary>What went wrong while closing for an update, or why the swap failed (written to the crash log by the app).</summary>
+    public Exception? UpdateShutdownError { get; private set; }
+
+    /// <summary>Shown when this copy was opened again because an update could not be put in place.</summary>
+    public void ReportFailedUpdate()
+    {
+        const string text = "The update couldn't be installed, so the previous version was opened again. Try Install update again later.";
+        UpdateStatus = text;
+        StatusMessage = text;
     }
 
     /// <summary>Completes when the last update check has finished.</summary>

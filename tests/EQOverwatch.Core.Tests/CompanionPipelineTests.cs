@@ -53,7 +53,6 @@ public sealed class CompanionPipelineTests : IDisposable
         pipeline.Error += errors.Add;
 
         WatchedLogConfig live = pipeline.Logs.AddFile(livePath);
-        live.IsPrimaryDps = true;
         pipeline.Triggers.SetTriggers(new[]
         {
             new TriggerDefinition

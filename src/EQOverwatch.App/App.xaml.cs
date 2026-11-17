@@ -32,12 +32,30 @@ public partial class CompanionApp : Application
     private HttpClient? _updateHttp;
     private HttpClient? _sharedDropsHttp;
 
+    /// <summary>Passed to the old copy when an update could not be put in place, so it says so when it opens again.</summary>
+    private const string UpdateFailedArgument = "--update-failed";
+
+    private string _crashFolder = string.Empty;
+
+    private void WriteCrashLog(string source, Exception error)
+    {
+        try
+        {
+            CrashLog.Write(_crashFolder, source, error, AppInfo.Version, DateTime.UtcNow);
+        }
+        catch
+        {
+            // Nothing more can be done about it while closing.
+        }
+    }
+
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
 
         // Unhandled errors go to crash.log in the settings folder, so a crash can be looked into.
         string crashFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), AppInfo.SettingsFolderName);
+        _crashFolder = crashFolder;
         DispatcherUnhandledException += (_, args) => CrashLog.Write(crashFolder, "UI thread", args.Exception, AppInfo.Version, DateTime.UtcNow);
         AppDomain.CurrentDomain.UnhandledException += (_, args) =>
             CrashLog.Write(crashFolder, "background thread", args.ExceptionObject as Exception, AppInfo.Version, DateTime.UtcNow);
@@ -142,15 +160,30 @@ public partial class CompanionApp : Application
 
         _viewModel.ConfigureUpdateInstall(
             new EQOverwatch.Core.Updates.UpdateInstaller(_updateHttp), exePath,
-            exe =>
+            (exe, installed) =>
             {
-                Process.Start(new ProcessStartInfo(exe)
+                if (_viewModel.UpdateShutdownError is { } problem)
                 {
-                    UseShellExecute = true,
-                    WorkingDirectory = Path.GetDirectoryName(exe) ?? string.Empty,
-                    Arguments = $"{InstanceGate.AfterUpdateArgument} {Environment.ProcessId.ToString(System.Globalization.CultureInfo.InvariantCulture)}",
-                });
-                Shutdown();
+                    WriteCrashLog("Update install", problem);
+                }
+
+                try
+                {
+                    Process.Start(new ProcessStartInfo(exe)
+                    {
+                        UseShellExecute = true,
+                        WorkingDirectory = Path.GetDirectoryName(exe) ?? string.Empty,
+                        Arguments = $"{InstanceGate.AfterUpdateArgument} {Environment.ProcessId.ToString(System.Globalization.CultureInfo.InvariantCulture)}"
+                                    + (installed ? string.Empty : " " + UpdateFailedArgument),
+                    });
+                }
+                catch (Exception ex)
+                {
+                    WriteCrashLog("Update restart", ex);
+                }
+
+                // End at once: the exe this process runs from has been replaced, so no more of it may be loaded.
+                Environment.Exit(0);
             });
 
         // The online shared drop table (both of its switches start off).
@@ -162,7 +195,12 @@ public partial class CompanionApp : Application
         MainWindow = main; // closing it ends the app (ShutdownMode=OnMainWindowClose)
         main.Show();
 
-        // Catch the DPS meter up from the Primary DPS log and start live monitoring, so opening the app mid-fight shows the fight.
+        if (e.Args.Contains(UpdateFailedArgument, StringComparer.OrdinalIgnoreCase))
+        {
+            _viewModel.ReportFailedUpdate();
+        }
+
+        // Catch the DPS meter up from every log and start live monitoring, so opening the app mid-fight shows the fight.
         _ = _viewModel.StartSessionAsync();
 
         // Layouts saved for a monitor setup: switch when Windows says the monitors changed (only if the user turned that on).

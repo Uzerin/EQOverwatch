@@ -6,16 +6,17 @@ using EQOverwatch.Core.Parsing;
 
 namespace EQOverwatch.Core.Pipeline;
 
-public sealed record HistoricalImportResult(string CharacterName, long LinesRead, long LinesQueued, TimeSpan Elapsed);
+/// <summary>What an import read. <paramref name="CharacterName"/> is the log's character, or "N logs" when several were read together.</summary>
+public sealed record HistoricalImportResult(string CharacterName, long LinesRead, long LinesQueued, TimeSpan Elapsed, int Logs = 1);
 
 /// <summary>
-/// Historical mode: streams one log file from the beginning and feeds the DPS sink only. There is deliberately no
+/// Historical mode: streams one log file, or several merged in time order, and feeds the DPS sink only. There is deliberately no
 /// trigger sink parameter, so triggers cannot fire during an import. The sink is bracketed by
 /// <see cref="IDpsEventSink.BeginBatch"/> / <see cref="IDpsEventSink.EndBatch"/> so it can suppress per-event UI redraws
 /// until the import completes.
 /// <para>
-/// Because the file is the primary DPS source by definition, "You"/"Your" are normalized to the character parsed from
-/// the file name. Timestamps are only parsed for the date filter, or lazily by the consumer when no filter is set.
+/// "You"/"Your" are normalized to the character parsed from each file's name. With a start time, each file is searched for it first
+/// (logs are in time order), so only the part wanted is read.
 /// </para>
 /// </summary>
 public sealed class HistoricalLogImporter
@@ -42,7 +43,7 @@ public sealed class HistoricalLogImporter
     /// <param name="startTime">Inclusive lower bound on the line timestamp (log clock), or null.</param>
     /// <param name="endTime">Inclusive upper bound on the line timestamp (log clock), or null.</param>
     /// <param name="progress">Receives 0..1 based on bytes consumed. Reports are throttled.</param>
-    public async Task<HistoricalImportResult> ImportAsync(
+    public Task<HistoricalImportResult> ImportAsync(
         string filePath,
         DateTime? startTime = null,
         DateTime? endTime = null,
@@ -50,13 +51,33 @@ public sealed class HistoricalLogImporter
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
+        return ImportAsync(new[] { filePath }, startTime, endTime, progress, cancellationToken);
+    }
+
+    /// <summary>
+    /// Reads several characters' logs as one, line by line in time order (lines with the same second keep the order of
+    /// <paramref name="filePaths"/>). A line several logs saw is counted once by the DPS tracker.
+    /// </summary>
+    public async Task<HistoricalImportResult> ImportAsync(
+        IReadOnlyList<string> filePaths,
+        DateTime? startTime = null,
+        DateTime? endTime = null,
+        IProgress<double>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(filePaths);
+        if (filePaths.Count == 0 || filePaths.Any(string.IsNullOrWhiteSpace))
+        {
+            throw new ArgumentException("At least one log file is needed.", nameof(filePaths));
+        }
+
         if (startTime.HasValue && endTime.HasValue && startTime.Value > endTime.Value)
         {
             throw new ArgumentException("startTime must not be later than endTime.", nameof(startTime));
         }
 
-        string characterName = LogFileName.GetCharacterName(filePath);
-        string serverName = LogFileName.TryParse(filePath, out _, out string parsedServer) ? parsedServer : string.Empty;
+        string[] characters = filePaths.Select(LogFileName.GetCharacterName).ToArray();
+        string characterName = characters.Length == 1 ? characters[0] : $"{characters.Length} logs";
         var stopwatch = Stopwatch.StartNew();
         var counters = new ImportCounters();
 
@@ -74,10 +95,10 @@ public sealed class HistoricalLogImporter
         _dpsSink.BeginBatch();
         try
         {
-            _dpsSink.OnLogOwner(characterName);
+            _dpsSink.OnLogOwner(characters[0]);
 
             Task producer = Task.Run(
-                () => ProduceAsync(filePath, characterName, serverName, startTime, endTime, channel.Writer, progress, counters, token),
+                () => ProduceAsync(filePaths, startTime, endTime, channel.Writer, progress, counters, token),
                 CancellationToken.None);
 
             Task consumer = Task.Run(
@@ -100,13 +121,37 @@ public sealed class HistoricalLogImporter
 
         progress?.Report(1.0);
         stopwatch.Stop();
-        return new HistoricalImportResult(characterName, counters.Read, counters.Queued, stopwatch.Elapsed);
+        return new HistoricalImportResult(characterName, counters.Read, counters.Queued, stopwatch.Elapsed, filePaths.Count);
+    }
+
+    /// <summary>One log being read: its reader, and its next line with that line's time.</summary>
+    private sealed class Source : IDisposable
+    {
+        public required FileStream Stream { get; init; }
+
+        public required StreamReader Reader { get; init; }
+
+        public required string Character { get; init; }
+
+        public required string Server { get; init; }
+
+        public long StartOffset { get; init; }
+
+        public string? Line { get; set; }
+
+        public DateTime Time { get; set; }
+
+        public bool Done { get; set; }
+
+        public void Dispose()
+        {
+            Reader.Dispose();
+            Stream.Dispose();
+        }
     }
 
     private static async Task ProduceAsync(
-        string filePath,
-        string characterName,
-        string serverName,
+        IReadOnlyList<string> filePaths,
         DateTime? startTime,
         DateTime? endTime,
         ChannelWriter<LogEvent> writer,
@@ -115,48 +160,69 @@ public sealed class HistoricalLogImporter
         CancellationToken cancellationToken)
     {
         Exception? error = null;
+        var sources = new List<Source>();
         try
         {
-            // bufferSize 1 disables FileStream's buffer; the StreamReader supplies the 64KB read buffer.
-            using var stream = new FileStream(
-                filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite, bufferSize: 1,
-                FileOptions.SequentialScan | FileOptions.Asynchronous);
-            using var reader = new StreamReader(stream, Encoding.Latin1, detectEncodingFromByteOrderMarks: false, ReadBufferSize);
+            foreach (string path in filePaths)
+            {
+                // bufferSize 1 disables FileStream's buffer; the StreamReader supplies the 64KB read buffer.
+                var stream = new FileStream(
+                    path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite, bufferSize: 1,
+                    FileOptions.SequentialScan | FileOptions.Asynchronous);
+                long offset = 0;
+                if (startTime.HasValue && startTime.Value > DateTime.MinValue + EarlyExitSlack)
+                {
+                    // The slack keeps lines just before a daylight-saving change; the start filter below drops them.
+                    offset = LogSeek.FindOffset(stream, startTime.Value - EarlyExitSlack);
+                    stream.Position = offset;
+                }
 
-            long totalBytes = stream.Length;
-            bool filtered = startTime.HasValue || endTime.HasValue;
+                sources.Add(new Source
+                {
+                    Stream = stream,
+                    Reader = new StreamReader(stream, Encoding.Latin1, detectEncodingFromByteOrderMarks: false, ReadBufferSize),
+                    Character = LogFileName.GetCharacterName(path),
+                    Server = LogFileName.TryParse(path, out _, out string parsedServer) ? parsedServer : string.Empty,
+                    StartOffset = offset,
+                });
+            }
+
+            long totalBytes = sources.Sum(s => Math.Max(0, s.Stream.Length - s.StartOffset));
             DateTime earlyExitAfter = endTime.HasValue && endTime.Value < DateTime.MaxValue - EarlyExitSlack
                 ? endTime.Value + EarlyExitSlack
                 : DateTime.MaxValue;
             double lastReported = 0;
 
-            while (await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false) is { } line)
+            foreach (Source source in sources)
             {
-                counters.Read++;
+                await AdvanceAsync(source, earlyExitAfter, counters, cancellationToken).ConfigureAwait(false);
+            }
 
-                bool queue = line.Length > LogLineFormat.MessageOffset;
-                DateTime timestamp = default;
-
-                if (queue && filtered)
+            while (true)
+            {
+                // The next line in time: the earliest of each log's next line (the first log listed wins a tie).
+                Source? next = null;
+                foreach (Source source in sources)
                 {
-                    if (!LogLineFormat.TryParseTimestamp(line, out timestamp))
+                    if (!source.Done && (next is null || source.Time < next.Time))
                     {
-                        queue = false;
-                    }
-                    else if (timestamp > earlyExitAfter)
-                    {
-                        break;
-                    }
-                    else if ((startTime.HasValue && timestamp < startTime.Value) ||
-                             (endTime.HasValue && timestamp > endTime.Value))
-                    {
-                        queue = false;
+                        next = source;
                     }
                 }
 
+                if (next is null)
+                {
+                    break;
+                }
+
+                string line = next.Line!;
+                DateTime timestamp = next.Time;
+                bool queue = timestamp != default
+                             && !(startTime.HasValue && timestamp < startTime.Value)
+                             && !(endTime.HasValue && timestamp > endTime.Value);
                 if (queue)
                 {
-                    var evt = new LogEvent(characterName, line, default, LogRoute.Dps, timestamp, serverName);
+                    var evt = new LogEvent(next.Character, line, default, LogRoute.Dps, timestamp, next.Server);
                     if (!writer.TryWrite(evt))
                     {
                         await writer.WriteAsync(evt, cancellationToken).ConfigureAwait(false);
@@ -165,9 +231,12 @@ public sealed class HistoricalLogImporter
                     counters.Queued++;
                 }
 
+                await AdvanceAsync(next, earlyExitAfter, counters, cancellationToken).ConfigureAwait(false);
+
                 if (progress is not null && totalBytes > 0 && (counters.Read & (ProgressLineInterval - 1)) == 0)
                 {
-                    double fraction = Math.Min(1.0, (double)stream.Position / totalBytes);
+                    long done = sources.Sum(s => Math.Max(0, (s.Done ? s.Stream.Length : s.Stream.Position) - s.StartOffset));
+                    double fraction = Math.Min(1.0, (double)done / totalBytes);
                     if (fraction - lastReported >= ProgressMinStep)
                     {
                         lastReported = fraction;
@@ -183,8 +252,38 @@ public sealed class HistoricalLogImporter
         }
         finally
         {
+            foreach (Source source in sources)
+            {
+                source.Dispose();
+            }
+
             writer.TryComplete(error);
         }
+    }
+
+    /// <summary>Reads a log's next line that has a timestamp (other lines are skipped). Past the end filter the log is done.</summary>
+    private static async Task AdvanceAsync(Source source, DateTime earlyExitAfter, ImportCounters counters, CancellationToken cancellationToken)
+    {
+        while (await source.Reader.ReadLineAsync(cancellationToken).ConfigureAwait(false) is { } line)
+        {
+            counters.Read++;
+            if (line.Length <= LogLineFormat.MessageOffset || !LogLineFormat.TryParseTimestamp(line, out DateTime timestamp))
+            {
+                continue;
+            }
+
+            if (timestamp > earlyExitAfter)
+            {
+                break;
+            }
+
+            source.Line = line;
+            source.Time = timestamp;
+            return;
+        }
+
+        source.Done = true;
+        source.Line = null;
     }
 
     private sealed class ImportCounters

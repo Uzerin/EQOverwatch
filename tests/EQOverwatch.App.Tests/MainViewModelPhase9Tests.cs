@@ -14,7 +14,7 @@ public partial class MainViewModelTests
     private static string LogLine(DateTime at, string message) =>
         $"[{at.ToString("ddd MMM dd HH:mm:ss yyyy", CultureInfo.InvariantCulture)}] {message}";
 
-    /// <summary>A harness whose settings watch Stackprime's log (already on disk, Primary DPS) with the given lines.</summary>
+    /// <summary>A harness whose settings watch Stackprime's log (already on disk) with the given lines.</summary>
     private static Harness HarnessWithPrimaryLog(Func<DateTime, string[]> lines, Action<AppSettings>? tweak = null) =>
         new((settings, dir) =>
         {
@@ -22,7 +22,7 @@ public partial class MainViewModelTests
             File.WriteAllText(path, string.Join("\n", lines(BootNow)) + "\n");
             settings.WatchedLogs.Add(new WatchedLogSettings
             {
-                FilePath = path, CharacterName = "Stackprime", IsPrimaryDps = true, IsTriggerEnabled = true,
+                FilePath = path, CharacterName = "Stackprime", IsTriggerEnabled = true,
             });
             tweak?.Invoke(settings);
         });

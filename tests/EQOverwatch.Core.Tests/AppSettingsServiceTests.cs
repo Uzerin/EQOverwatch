@@ -21,7 +21,7 @@ public sealed class AppSettingsServiceTests : IDisposable
     {
         WatchedLogs =
         {
-            new WatchedLogSettings { FilePath = @"C:\EQ\eqlog_Stackprime_Frostreaver.txt", CharacterName = "Stackprime", IsTriggerEnabled = true, IsPrimaryDps = true },
+            new WatchedLogSettings { FilePath = @"C:\EQ\eqlog_Stackprime_Frostreaver.txt", CharacterName = "Stackprime", IsTriggerEnabled = true },
             new WatchedLogSettings { FilePath = @"C:\EQ\eqlog_Oodles_Frostreaver.txt", CharacterName = "Oodles", IsTriggerEnabled = false },
         },
         Triggers =
@@ -80,7 +80,6 @@ public sealed class AppSettingsServiceTests : IDisposable
 
         Assert.Equal(2, loaded.WatchedLogs.Count);
         Assert.Equal("Stackprime", loaded.WatchedLogs[0].CharacterName);
-        Assert.True(loaded.WatchedLogs[0].IsPrimaryDps);
         Assert.False(loaded.WatchedLogs[1].IsTriggerEnabled);
 
         TriggerRule rule = Assert.Single(loaded.Triggers);

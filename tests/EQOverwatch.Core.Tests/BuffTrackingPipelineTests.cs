@@ -68,7 +68,6 @@ public sealed class BuffTrackingPipelineTests : IDisposable
         await using var pipeline = CreatePipeline();
         WatchedLogConfig log = pipeline.Logs.AddFile(path);
         log.IsTriggerEnabled = false;
-        log.IsPrimaryDps = true; // DPS only
         pipeline.StartLive();
         try
         {

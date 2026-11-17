@@ -104,6 +104,7 @@ public partial class DpsTrackerService : IDpsEventSink
     private const int MaxPendingCastNames = 32;
     private readonly Dictionary<string, List<BossCastSnapshot>> _recentCasts = new(StringComparer.OrdinalIgnoreCase);
     private string _logOwner = string.Empty;
+    private readonly RepeatFilter _repeats = new();
     private string _server = string.Empty;
     private readonly List<PlayerCastSnapshot> _recentPlayerCasts = new();
     private static readonly TimeSpan PlayerCastLead = TimeSpan.FromSeconds(10);
@@ -214,6 +215,11 @@ public partial class DpsTrackerService : IDpsEventSink
 
         lock (_gate)
         {
+            if (string.Equals(_logOwner, characterName, StringComparison.Ordinal))
+            {
+                return; // called for every line of every log: nothing to do while the same log goes on
+            }
+
             _logOwner = characterName;
             ConfirmPlayerLocked(characterName);
         }
@@ -286,6 +292,17 @@ public partial class DpsTrackerService : IDpsEventSink
             }
 
             bool changed = AdvanceClock(combatEvent.Timestamp);
+
+            // Every character's log is read: a hit, miss or death another log already gave is counted once.
+            if (_repeats.IsRepeat(CombatKey(combatEvent), combatEvent.Timestamp, _logOwner))
+            {
+                if (changed)
+                {
+                    Publish();
+                }
+
+                return;
+            }
 
             switch (combatEvent.Kind)
             {
@@ -367,6 +384,13 @@ public partial class DpsTrackerService : IDpsEventSink
             }
         }
     }
+
+    /// <summary>
+    /// What makes two logs' lines the same line. The wording is left out ("You shoot" and "Myriad shoots" are one shot), and so is the way
+    /// a miss was avoided, which reads differently from the player's own side.
+    /// </summary>
+    private static string CombatKey(in CombatEvent e) =>
+        string.Create(CultureInfo.InvariantCulture, $"c{(int)e.Kind}|{e.Source}|{e.Target}|{e.Amount}|{(int)e.DamageKind}");
 
     /// <summary>Called with the mob's name and level for every /consider line that shows one, while a log is tailed, imported or caught up.</summary>
     public Action<string, int>? MobLevelSeen { get; set; }
@@ -467,6 +491,12 @@ public partial class DpsTrackerService : IDpsEventSink
 
         lock (_gate)
         {
+            string who = caster.Equals("You", StringComparison.OrdinalIgnoreCase) ? _logOwner : caster;
+            if (who.Length > 0 && _repeats.IsRepeat("s|" + who + "|" + spell, _logClock, _logOwner))
+            {
+                return; // the same cast seen in another character's log
+            }
+
             if (caster.Equals("You", StringComparison.OrdinalIgnoreCase))
             {
                 if (_logOwner.Length == 0)
@@ -595,6 +625,17 @@ public partial class DpsTrackerService : IDpsEventSink
             if (_active.Count == 0 || Classify(healer) == NameKind.Npc)
             {
                 return;
+            }
+
+            string target = match.Groups["target"].Value;
+            if (target.Equals("you", StringComparison.OrdinalIgnoreCase) || target.Equals("yourself", StringComparison.OrdinalIgnoreCase))
+            {
+                target = _logOwner;
+            }
+
+            if (_repeats.IsRepeat(string.Create(CultureInfo.InvariantCulture, $"h|{healer}|{target}|{actual}|{match.Groups["spell"].Value}"), _logClock, _logOwner))
+            {
+                return; // the same heal seen in another character's log
             }
 
             foreach (CombatEncounter encounter in _active.Values)
@@ -991,6 +1032,7 @@ public partial class DpsTrackerService : IDpsEventSink
         _nextId = 1;
 
         _pendingCrits.Clear();
+        _repeats.Clear();
         _lastHitsOnPlayers.Clear();
         _recentCasts.Clear();
         _recentPlayerCasts.Clear();

@@ -196,6 +196,37 @@ public class ArchiveAndSyncDataTests
         Assert.Equal(1, Assert.Single(BossHistoryStore.Summarize(store.Fights(), 1)).Kills);
     }
 
+    [Fact]
+    public void A_fight_read_from_every_log_replaces_one_characters_copy_and_keeps_its_server()
+    {
+        var store = new BossHistoryStore();
+        var start = new DateTime(2026, 11, 16, 21, 0, 0);
+        store.Record(new[] { Snap("Emperor Ssraeshza", start, 60, killed: false) }, "Stackprime", "frostreaver");
+        store.Record(new[] { Snap("Emperor Ssraeshza", start, 90, killed: true) with { Server = "frostreaver" } });
+
+        BossFight fight = Assert.Single(store.Fights());
+        Assert.Null(fight.Character);
+        Assert.Equal("frostreaver", fight.Server);
+        Assert.Equal(90, fight.Seconds);
+
+        // One character's log of the same fight read again later does not replace the combined one.
+        store.Record(new[] { Snap("Emperor Ssraeshza", start, 60, killed: true) }, "Oodles", "frostreaver");
+        Assert.Equal(90, Assert.Single(store.Fights()).Seconds);
+    }
+
+    [Fact]
+    public void Fights_are_shown_for_the_server_chosen_and_an_unknown_server_shows_everywhere()
+    {
+        var store = new BossHistoryStore();
+        var start = new DateTime(2026, 11, 16, 21, 0, 0);
+        store.Record(new[] { Snap("Lady Vox", start, 30, killed: true) with { Server = "teek" } });
+        store.Record(new[] { Snap("Lord Nagafen", start, 30, killed: true) with { Server = "frostreaver" } });
+        store.Record(new[] { Snap("Lord Yelinak", start, 30, killed: true) }); // saved before servers were known
+
+        Assert.Equal(3, BossHistoryStore.OnServer(store.Fights(), null).Count);
+        Assert.Equal(new[] { "Lady Vox", "Lord Yelinak" }, BossHistoryStore.OnServer(store.Fights(), "Teek").Select(f => f.Boss).Order());
+    }
+
     private static EncounterSnapshot Snap(string boss, DateTime start, int seconds, bool killed)
     {
         var tracker = new LiveDpsTracker();

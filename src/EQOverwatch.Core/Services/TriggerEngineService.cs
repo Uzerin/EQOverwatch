@@ -14,7 +14,7 @@ namespace EQOverwatch.Core.Services;
 /// restarts it rather than stacking duplicates, while the same trigger on two characters yields two timers.
 /// </para>
 /// </summary>
-public sealed class TriggerEngineService : ITriggerLineSink
+public sealed partial class TriggerEngineService : ITriggerLineSink
 {
     public static readonly TimeSpan MatchTimeout = TimeSpan.FromMilliseconds(50);
 
@@ -499,6 +499,17 @@ public sealed class TriggerEngineService : ITriggerLineSink
 
         lock (_gate)
         {
+            // A line several characters' logs saw (a boss emote, a raid shout) alerts once, under the log that saw it first. Lines about
+            // yourself ("Your protective skin fades.") are each character's own and alert for each of them.
+            if (!IsAboutYou(line!))
+            {
+                fired.RemoveAll(e => _sharedLines.IsRepeat(e.TriggerId + "|" + line, receivedUtc, characterName));
+                if (fired.Count == 0)
+                {
+                    return Array.Empty<TriggerFiredEvent>();
+                }
+            }
+
             PruneLocked(receivedUtc);
             foreach (TriggerFiredEvent e in fired)
             {
@@ -522,6 +533,14 @@ public sealed class TriggerEngineService : ITriggerLineSink
 
         return fired;
     }
+
+    private readonly RepeatFilter _sharedLines = new();
+
+    /// <summary>True when the line is about the log's own character: "You", "Your", "yourself" and so on as a word.</summary>
+    public static bool IsAboutYou(string line) => AboutYouRegex().IsMatch(line);
+
+    [GeneratedRegex(@"\b(?:you|your|yours|yourself)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex AboutYouRegex();
 
     private static TriggerFiredEvent Build(CompiledTrigger trigger, Match match, string characterName, DateTime receivedUtc)
     {

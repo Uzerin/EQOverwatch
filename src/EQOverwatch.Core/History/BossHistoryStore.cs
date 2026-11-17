@@ -120,7 +120,8 @@ public sealed class BossHistoryStore
 
     /// <summary>
     /// Adds the finished fights in <paramref name="snapshots"/>, tagged with the <paramref name="character"/> and <paramref name="server"/> of the
-    /// log they came from (the tag is kept in the background). Returns how many were new.
+    /// log they came from (the tag is kept in the background). With no character the fights came from every log combined: each keeps its
+    /// own server, and replaces the same fight read from any one character's log. Returns how many were new.
     /// </summary>
     public int Record(IEnumerable<EncounterSnapshot> snapshots, string? character = null, string? server = null)
     {
@@ -138,7 +139,7 @@ public sealed class BossHistoryStore
                     s.TargetName, s.StartTime, s.DurationSeconds, s.TotalDamage,
                     s.Participants.Count, s.DeathRows.Count, s.Killed,
                     string.IsNullOrWhiteSpace(character) ? null : character.Trim(),
-                    string.IsNullOrWhiteSpace(character) || string.IsNullOrWhiteSpace(server) ? null : server.Trim());
+                    !string.IsNullOrWhiteSpace(server) ? server.Trim() : string.IsNullOrWhiteSpace(s.Server) ? null : s.Server.Trim());
                 string key = Key(fight);
                 if (_fights.TryGetValue(key, out BossFight? same) && same == fight)
                 {
@@ -160,6 +161,11 @@ public sealed class BossHistoryStore
                 if (!fight.Killed && overlapping.Any(k => _fights[k].Killed))
                 {
                     continue; // a partial read must not undo a kill already on record
+                }
+
+                if (fight.Character is not null && overlapping.Any(k => IsCombined(_fights[k])))
+                {
+                    continue; // one character's log of a fight already read from every log combined
                 }
 
                 foreach (string old in overlapping)
@@ -212,12 +218,23 @@ public sealed class BossHistoryStore
         Changed?.Invoke();
     }
 
-    /// <summary>True when two fights may be the same fight: either has no character, or both came from the same character's log.</summary>
+    /// <summary>
+    /// True when two fights may be the same fight: on the same server (when both know it), and either has no character (read from every
+    /// log combined, or saved by an older build) or both came from the same character's log.
+    /// </summary>
     private static bool SameSource(BossFight a, BossFight b) =>
-        string.IsNullOrEmpty(a.Character) || string.IsNullOrEmpty(b.Character)
-        || (a.Character.Equals(b.Character, StringComparison.OrdinalIgnoreCase)
-            && (string.IsNullOrEmpty(a.Server) || string.IsNullOrEmpty(b.Server)
-                || a.Server.Equals(b.Server, StringComparison.OrdinalIgnoreCase)));
+        (string.IsNullOrEmpty(a.Server) || string.IsNullOrEmpty(b.Server) || a.Server.Equals(b.Server, StringComparison.OrdinalIgnoreCase))
+        && (string.IsNullOrEmpty(a.Character) || string.IsNullOrEmpty(b.Character)
+            || a.Character.Equals(b.Character, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>A fight read from every log combined (1.0.63 on): no character, but a server.</summary>
+    private static bool IsCombined(BossFight fight) => string.IsNullOrEmpty(fight.Character) && !string.IsNullOrEmpty(fight.Server);
+
+    /// <summary>The fights on <paramref name="server"/> (fights whose server is not known count for every server); every fight with no server.</summary>
+    public static IReadOnlyList<BossFight> OnServer(IEnumerable<BossFight> fights, string? server) =>
+        string.IsNullOrWhiteSpace(server)
+            ? fights.ToList()
+            : fights.Where(f => string.IsNullOrEmpty(f.Server) || f.Server.Equals(server, StringComparison.OrdinalIgnoreCase)).ToList();
 
     /// <summary>
     /// The fights that belong to the log of <paramref name="character"/> on <paramref name="server"/>: the ones tagged with that character,

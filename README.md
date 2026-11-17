@@ -16,7 +16,7 @@ as many characters as you play, without touching the game.
 - Charm break alerts, and tells read aloud.
 
 **Damage and raids**
-- Live DPS meter and fight history, with tanking, healing, deaths, spell casts and boss abilities.
+- Live DPS meter from all your characters' logs and fight history, with tanking, healing, deaths, spell casts and boss abilities.
 - One-click Discord picture of any fight, or automatic posts when a boss dies.
 - Mob History with kill times, mob levels and resists shared by the raid.
 - Loot, money and raid attendance tracking.
@@ -62,6 +62,16 @@ settings are kept.
 - Spell data comes from your own `spells_us.txt`.
 
 ## Changelog
+
+### 1.0.63
+
+- DPS is parsed from all your logs at once, with each hit counted once, so a fight keeps going when one character dies or is out of range. The Primary DPS choice is gone.
+- A one-time offer to load the whole history of every log into Mob History, and a Reload All Logs button in Settings.
+- Mob History and the DPS tab's fights follow the Server box.
+- The map shows every character's last /loc in the zone, with their name.
+- A custom trigger line that several of your logs see alerts once; lines about you still alert for each character.
+- Install update closes the app before replacing the program file, so it reopens (from 1.0.63 on).
+- Mobs written with a double space after the name (Emperor Ssraeshza) are now matched to their death.
 
 ### 1.0.62
 

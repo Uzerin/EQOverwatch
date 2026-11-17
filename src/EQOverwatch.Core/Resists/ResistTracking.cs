@@ -365,10 +365,9 @@ public sealed class ResistImportSink : IDpsEventSink
     private readonly IDpsEventSink _inner;
     private readonly MobResistStore _store;
     private readonly ResistObserver _observer;
+    private readonly Dictionary<string, (DateTime First, DateTime Last)> _read = new(StringComparer.OrdinalIgnoreCase);
     private string _owner = string.Empty;
     private DateTime _clock;
-    private DateTime _first;
-    private DateTime _last;
 
     public ResistImportSink(IDpsEventSink inner, MobResistStore store, ResistObserver observer)
     {
@@ -389,9 +388,10 @@ public sealed class ResistImportSink : IDpsEventSink
     {
         try
         {
-            if (_owner.Length > 0 && _first != default)
+            // Several logs can be read at once: each character's part read is marked as counted.
+            foreach ((string owner, (DateTime first, DateTime last)) in _read)
             {
-                _store.AddCovered(_owner, _first, _last);
+                _store.AddCovered(owner, first, last);
             }
 
             _store.Flush();
@@ -411,12 +411,8 @@ public sealed class ResistImportSink : IDpsEventSink
 
     public void OnLogOwner(string characterName)
     {
-        if (_owner.Length == 0)
-        {
-            _owner = characterName;
-        }
-
-        _inner.OnLogOwner(characterName);
+        _owner = characterName ?? string.Empty;
+        _inner.OnLogOwner(characterName!);
     }
 
     public void OnLogServer(string serverName) => _inner.OnLogServer(serverName);
@@ -432,19 +428,17 @@ public sealed class ResistImportSink : IDpsEventSink
 
     private void Note(DateTime time)
     {
-        if (time == default)
+        if (time == default || _owner.Length == 0)
         {
             return;
         }
 
-        if (_first == default || time < _first)
+        if (!_read.TryGetValue(_owner, out (DateTime First, DateTime Last) range))
         {
-            _first = time;
+            _read[_owner] = (time, time);
+            return;
         }
 
-        if (time > _last)
-        {
-            _last = time;
-        }
+        _read[_owner] = (time < range.First ? time : range.First, time > range.Last ? time : range.Last);
     }
 }

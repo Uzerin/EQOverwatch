@@ -144,11 +144,12 @@ public sealed class MapCanvas : FrameworkElement
             dc.DrawText(Text(label.Text, FontSize(label.Size), brush, ppd), new Point(at.X + 7, at.Y - FontSize(label.Size) * 0.7));
         }
 
-        if (maps.PlayerSpot is { } player)
+        // Each character's last known /loc in this zone, with its name.
+        foreach (MapPlayerSpot player in maps.PlayerSpots)
         {
             Point at = ToScreen(player.X, player.Y);
             dc.DrawEllipse(null, new Pen(PlayerBrush, 2), at, 5, 5);
-            dc.DrawText(Text("/loc", 11, PlayerBrush, ppd), new Point(at.X + 7, at.Y + 2));
+            dc.DrawText(Text(player.Name, 11, PlayerBrush, ppd), new Point(at.X + 7, at.Y + 2));
         }
 
         if (maps.Pending is { } pending && maps.SelectedLabel is null)

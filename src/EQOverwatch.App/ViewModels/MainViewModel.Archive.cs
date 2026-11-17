@@ -20,8 +20,8 @@ public sealed record BossKillRow(
     int Number, string Started, string ClearTime, string Dps, int Players, int Deaths, string Damage, bool IsFastest, bool IsBestDps);
 
 /// <summary>
-/// One mob on the Mob History tab. The mob and its level range are the same whichever log is loaded; the rest of the row is the loaded
-/// (Primary DPS) character's own record against it.
+/// One mob on the Mob History tab. The mob and its level range cover every server; the rest of the row is the record against it on the
+/// server chosen in the Server box.
 /// </summary>
 public sealed record BossHistoryRow(
     string Boss, string HighestLevel, string LowestLevel, int Kills, int Attempts, string Fastest, string Average, string BestDps, int Players, string LastFought,
@@ -61,11 +61,9 @@ public sealed partial class MainViewModel
             DpsSnapshot imported = _pipeline.HistoricalDps.Snapshot;
             if (live.Version != _bossLiveVersion)
             {
-                // Live and caught-up fights come from the Primary DPS character's log; each fight is filed under that character and server
-                // (kept in the background, never shown).
+                // Live and caught-up fights come from every log combined; each is filed under its own server.
                 _bossLiveVersion = live.Version;
-                WatchedLogConfig? primary = Logs.PrimaryDpsLog;
-                _bossHistory.Record(live.Completed, primary?.CharacterName, primary?.ServerName);
+                _bossHistory.Record(live.Completed);
                 PostFinishedFightsToDiscord(live);
             }
 
@@ -85,9 +83,20 @@ public sealed partial class MainViewModel
 
     // ───────────────────────── mob history ─────────────────────────
 
-    /// <summary>Remembers whose log a manual import reads, so the fights it produces are filed under that character and server.</summary>
-    private void NoteHistoricalSource(string path)
+    /// <summary>
+    /// Remembers whose log an import reads, so the fights it produces are filed under that character and server. Several logs read as one
+    /// file their fights under no character, each with its own server.
+    /// </summary>
+    private void NoteHistoricalSource(IReadOnlyList<string> paths)
     {
+        if (paths.Count != 1)
+        {
+            _historicalCharacter = null;
+            _historicalServer = null;
+            return;
+        }
+
+        string path = paths[0];
         if (LogFileName.TryParse(path, out string character, out string server))
         {
             _historicalCharacter = character;
@@ -100,12 +109,8 @@ public sealed partial class MainViewModel
         }
     }
 
-    /// <summary>The fights of the loaded log: the Primary DPS character's own, or every fight when no character is chosen.</summary>
-    private IReadOnlyList<BossFight> LoadedLogFights()
-    {
-        WatchedLogConfig? primary = Logs.PrimaryDpsLog;
-        return BossHistoryStore.ForLog(_bossHistory.Fights(), primary?.CharacterName, primary?.ServerName);
-    }
+    /// <summary>The fights on the server chosen in the Server box (every fight with All servers).</summary>
+    private IReadOnlyList<BossFight> LoadedLogFights() => BossHistoryStore.OnServer(_bossHistory.Fights(), ToolsServerFilter);
 
     public IReadOnlyList<string> BossHistorySizes { get; } = new[] { "Any size", "6+ players", "12+ players", "24+ players" };
 
@@ -211,12 +216,12 @@ public sealed partial class MainViewModel
         RebuildBossKills();
         RebuildResistPanel();
 
-        WatchedLogConfig? primaryLog = Logs.PrimaryDpsLog;
+        string? server = ToolsServerFilter;
         BossHistoryStatus = fights.Count == 0
             ? "No finished fights recorded yet. Fights are added as they finish, and from the history you load in Settings."
             : $"{rows.Length:N0} mob{(rows.Length == 1 ? string.Empty : "s")} from {fights.Count:N0} recorded fight{(fights.Count == 1 ? string.Empty : "s")}. " +
-              "The mobs and their levels cover every log; the kills, times and DPS are " +
-              (primaryLog is null ? "from every log." : $"{primaryLog.CharacterName}'s (the Primary DPS character). ") +
+              "The mobs and their levels cover every server; the kills, times and DPS are " +
+              (server is null ? "from every server. " : $"from {server}. ") +
               "An attempt is a fight that ended without the mob dying.";
     }
 

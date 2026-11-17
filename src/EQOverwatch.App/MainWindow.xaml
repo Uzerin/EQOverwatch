@@ -160,7 +160,7 @@
                                   ToolTip="Silences every spoken alert and sound."/>
                     <TextBlock Text="Server" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="{DynamicResource TextMutedBrush}"/>
                     <ComboBox Width="150" Margin="0,3,14,3" ItemsSource="{Binding ToolsServers}" SelectedItem="{Binding SelectedToolsServer, Mode=TwoWay}"
-                              ToolTip="Filters the Characters, Loot, Attendance and Items &amp; Scrolls tabs. Starts on the Primary DPS character's server; pick another server, or All servers."/>
+                              ToolTip="Filters the Characters, Loot, Attendance, Items &amp; Scrolls and Mob History tabs and the DPS tab's fights. Starts on the server of the character you played last; pick another server, or All servers."/>
                     <Button Content="Test overlays" Command="{Binding TestOverlaysCommand}" Style="{StaticResource SecondaryButton}" Margin="0,3,0,3"
                             ToolTip="Sends sample alerts, a bar for each timer overlay and a synthetic encounter."/>
                 </WrapPanel>
@@ -271,14 +271,6 @@
                                     <DataTemplate>
                                         <CheckBox HorizontalAlignment="Center" VerticalAlignment="Center"
                                                   IsChecked="{Binding IsTriggerEnabled, UpdateSourceTrigger=PropertyChanged}"/>
-                                    </DataTemplate>
-                                </DataGridTemplateColumn.CellTemplate>
-                            </DataGridTemplateColumn>
-                            <DataGridTemplateColumn Header="Primary DPS" Width="Auto">
-                                <DataGridTemplateColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <RadioButton GroupName="PrimaryDps" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                     IsChecked="{Binding IsPrimaryDps, UpdateSourceTrigger=PropertyChanged}"/>
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
@@ -1028,7 +1020,7 @@
                         </WrapPanel>
                     </DockPanel>
 
-                    <!-- The Primary DPS log loads by itself; this line only reports on it. -->
+                    <!-- Every log loads by itself; this line only reports on it. -->
                     <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10">
                         <TextBlock VerticalAlignment="Center" Style="{StaticResource HintText}" Text="{Binding ImportStatus}"/>
                         <ProgressBar Width="200" Height="8" Margin="12,0,0,0" Minimum="0" Maximum="100" Value="{Binding ImportProgress}">
@@ -1345,8 +1337,8 @@
                                  Text="{Binding LootFilter, UpdateSourceTrigger=PropertyChanged}"/>
                         <ComboBox Width="130" Margin="0,0,14,6" ItemsSource="{Binding LootRanges}" SelectedIndex="{Binding LootRangeIndex}"
                                   ToolTip="How far back to look."/>
-                        <Button Content="Read Primary DPS log" Margin="0,0,8,6" Command="{Binding ScanLootFromPrimaryLogCommand}"
-                                ToolTip="Adds the loot from the Primary DPS character's log (the number of days set in Settings)."/>
+                        <Button Content="Read All Logs" Margin="0,0,8,6" Command="{Binding ScanLootFromPrimaryLogCommand}"
+                                ToolTip="Adds the loot from every character's log (the number of days set in Settings). Loot seen in several logs counts once."/>
                         <Button Content="Read a log file…" Margin="0,0,8,6" Style="{StaticResource SecondaryButton}" Command="{Binding ScanLootLogCommand}"/>
                         <Button Content="Copy" Margin="0,0,8,6" Style="{StaticResource SecondaryButton}" Command="{Binding CopyLootCommand}"
                                 ToolTip="Copies the list you are looking at as text for Discord."/>
@@ -2183,7 +2175,7 @@
                         <RadioButton GroupName="MapsSubTabs" Style="{StaticResource MapsSubTab}" Content="Select Zone" IsChecked="{Binding IsSelectZoneTab, Mode=TwoWay}"/>
                     </StackPanel>
 
-                    <!-- Expansion, Zone and Map pack in one row (Current zone shows where the Primary DPS character is instead of the first two) -->
+                    <!-- Expansion, Zone and Map pack in one row (Current zone shows where the character you played last is instead of the first two) -->
                     <Grid Grid.Row="1" Margin="0,0,0,8">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
@@ -2262,7 +2254,7 @@
                                     <TextBlock Grid.Row="1" Style="{StaticResource FieldLabel}" Text="/loc"/>
                                     <DockPanel Grid.Row="1" Grid.Column="1" Margin="0,0,0,6">
                                         <Button DockPanel.Dock="Right" Margin="6,0,0,0" Content="Use my /loc" Style="{StaticResource SecondaryButton}" Command="{Binding UseMyLocCommand}"
-                                                ToolTip="The Primary DPS character's last /loc in this zone."/>
+                                                ToolTip="The last /loc in this zone of the character you played last."/>
                                         <TextBox Text="{Binding EditLoc, UpdateSourceTrigger=PropertyChanged}" ToolTip="Y, X, Z as /loc prints them."/>
                                     </DockPanel>
                                     <TextBlock Grid.Row="2" Style="{StaticResource FieldLabel}" Text="Color"/>
@@ -2613,8 +2605,12 @@
                                              Text="{Binding EncounterTimeoutSeconds, UpdateSourceTrigger=LostFocus, StringFormat=0.##}"/>
                                 </WrapPanel>
                                 <TextBlock Style="{StaticResource HintText}"
-                                           Text="When the app opens it loads the Primary DPS character's recent log into the DPS meter, so a fight already in progress shows as if the app had been open all along. All fights, live and imported, share one list on the DPS tab, newest first."/>
-                                <TextBlock Style="{StaticResource HintText}" Text="{Binding ImportStatus}"/>
+                                           Text="When the app opens it loads every character's recent log into the DPS meter, so a fight already in progress shows as if the app had been open all along. A hit seen in several logs counts once. All fights, live and imported, share one list on the DPS tab, newest first."/>
+                                <WrapPanel>
+                                    <Button Content="Reload All Logs" Margin="0,4,12,4" Command="{Binding ReloadHistoryCommand}"
+                                            ToolTip="Reads every character's log again for the Historical Days to Load, and adds the fights to Mob History."/>
+                                    <TextBlock Style="{StaticResource HintText}" VerticalAlignment="Center" Text="{Binding ImportStatus}"/>
+                                </WrapPanel>
                             </StackPanel>
                         </GroupBox>
 
@@ -2733,7 +2729,7 @@
                                 </WrapPanel>
                                 <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,0,0,4" Text="{Binding DiscordStatus}"/>
                                 <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap"
-                                           Text="Fights come from your Primary DPS log, so each one is posted once. Only fights that have just ended are posted, never old ones read from a log. Anyone who has the webhook address can post to your channel, so keep it private."/>
+                                           Text="Fights come from all your logs combined, so each one is posted once. Only fights that have just ended are posted, never old ones read from a log. Anyone who has the webhook address can post to your channel, so keep it private."/>
                             </StackPanel>
                         </GroupBox>
 

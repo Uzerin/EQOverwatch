@@ -19,10 +19,10 @@ public sealed partial class MainViewModel
     /// <summary>"EQ Overwatch".</summary>
     public string AppName => AppInfo.Name;
 
-    /// <summary>"v1.0.62", read from this assembly's version.</summary>
+    /// <summary>"v1.0.63", read from this assembly's version.</summary>
     public string AppVersion { get; } = AppInfo.FormatVersion(typeof(MainViewModel).Assembly);
 
-    /// <summary>"EQ Overwatch v1.0.62": the window title, and the footer of the Discord picture.</summary>
+    /// <summary>"EQ Overwatch v1.0.63": the window title, and the footer of the Discord picture.</summary>
     public string WindowTitle => $"{AppName} {AppVersion}";
 
     // ───────────────────────── EverQuest folder ─────────────────────────
@@ -510,8 +510,9 @@ public sealed partial class MainViewModel
     public Task SessionStartTask { get; private set; } = Task.CompletedTask;
 
     /// <summary>
-    /// Opening the app mid-fight: reads the Primary DPS log (the last <see cref="HistoricalDaysLimit"/> days) into the live DPS
+    /// Opening the app mid-fight: reads every character's log (the last <see cref="HistoricalDaysLimit"/> days) into the live DPS
     /// meter as if the app had been open all along, then starts live monitoring (which then runs for as long as the app is open).
+    /// The first time, it then offers to read every log's whole history into Mob History.
     /// Called once by the application after the window exists; failures are reported in <see cref="ImportStatus"/>.
     /// </summary>
     public Task StartSessionAsync() => SessionStartTask = RunStartSessionAsync();
@@ -520,10 +521,10 @@ public sealed partial class MainViewModel
     {
         try
         {
-            WatchedLogConfig? primary = Logs.PrimaryDpsLog;
-            if (primary is not null && File.Exists(primary.FilePath))
+            IReadOnlyList<string> paths = ExistingLogPaths();
+            if (paths.Count > 0)
             {
-                await CatchUpLiveDpsAsync(primary);
+                await CatchUpLiveDpsAsync(paths);
             }
 
             if (!_pipeline.IsLiveRunning)
@@ -542,41 +543,7 @@ public sealed partial class MainViewModel
         UpdateLiveStatus();
         _lastLiveVersion = -1;
         Refresh();
-    }
-
-    private async Task CatchUpLiveDpsAsync(WatchedLogConfig primary)
-    {
-        using var cts = new CancellationTokenSource();
-        _importCts = cts;
-        IsImporting = true;
-        ImportProgress = 0;
-
-        DateTime now = _clock();
-        string window = AppSettings.DescribeHistoricalDays(HistoricalDaysLimit);
-        ImportStatus = $"Loading {window} of {primary.CharacterName}'s log into the DPS meter…";
-
-        var progress = new Progress<double>(fraction => ImportProgress = fraction * 100.0);
-        try
-        {
-            HistoricalImportResult result = await _pipeline.BackfillLiveAsync(
-                primary.FilePath, AppSettings.GetHistoricalStart(HistoricalDaysLimit, now), now, progress, cts.Token);
-            ImportProgress = 100;
-            ImportStatus = $"Loaded {result.LinesRead:N0} lines for {result.CharacterName} in {result.Elapsed.TotalSeconds:0.0}s: " +
-                           $"{_pipeline.LiveDps.Snapshot.All.Count():N0} encounters.";
-        }
-        catch (OperationCanceledException)
-        {
-            ImportStatus = "Loading the log was cancelled.";
-        }
-        catch (Exception ex)
-        {
-            ImportStatus = $"Could not load {primary.CharacterName}'s log: {ex.Message}";
-        }
-        finally
-        {
-            _importCts = null;
-            IsImporting = false;
-        }
+        OfferAllLogsLoad();
     }
 
     partial void OnIsCooldownTrackerEnabledChanged(bool value)
@@ -592,7 +559,7 @@ public sealed partial class MainViewModel
 
     public IReadOnlyList<HistoricalDaysOption> HistoricalDaysOptions => HistoricalDaysOption.All;
 
-    /// <summary>Days of history loaded for the Primary DPS character (0 = all history). Seven by default.</summary>
+    /// <summary>Days of history loaded from every log (0 = all history). Seven by default.</summary>
     [ObservableProperty]
     private int _historicalDaysLimit = AppSettings.DefaultHistoricalDaysLimit;
 
@@ -612,62 +579,12 @@ public sealed partial class MainViewModel
         QueueAutoImport();
     }
 
+    /// <summary>Reload All Logs: reads every character's log again for the Historical Days to Load.</summary>
     [RelayCommand]
-    private void ReloadHistory()
-    {
-        if (Logs.PrimaryDpsLog is null)
-        {
-            ImportStatus = "Choose a Primary DPS character on the Characters tab first.";
-            return;
-        }
+    private void ReloadHistory() => QueueAutoImport();
 
-        QueueAutoImport();
-    }
-
-    /// <summary>Starts loading the Primary DPS log's recent history in the background (nothing happens without a Primary DPS log).</summary>
-    private void QueueAutoImport()
-    {
-        WatchedLogConfig? primary = Logs.PrimaryDpsLog;
-        if (primary is null)
-        {
-            return;
-        }
-
-        AutoImportTask = AutoImportAsync(primary.FilePath, primary.CharacterName, HistoricalDaysLimit);
-    }
-
-    private async Task AutoImportAsync(string path, string character, int days)
-    {
-        int sequence = Interlocked.Increment(ref _autoImportSequence);
-
-        if (!File.Exists(path))
-        {
-            ImportStatus = $"The log for {character} was not found: {path}";
-            return;
-        }
-
-        // A newer request replaces a running import: cancel it and wait (briefly) until the pipeline is free again.
-        if (IsImporting)
-        {
-            CancelImport();
-            for (int i = 0; i < 500 && IsImporting; i++)
-            {
-                await Task.Delay(10);
-            }
-        }
-
-        if (sequence != Volatile.Read(ref _autoImportSequence))
-        {
-            return; // an even newer request is on its way
-        }
-
-        DateTime? start = AppSettings.GetHistoricalStart(days, _clock());
-        string window = AppSettings.DescribeHistoricalDays(days);
-        await RunImportAsync(
-            path, start, null,
-            startStatus: $"Loading {window} of history for {character}…",
-            successSuffix: string.Empty);
-    }
+    /// <summary>Starts loading every log's recent history (the Historical Days to Load) in the background.</summary>
+    private void QueueAutoImport() => AutoImportTask = LoadAllLogsAsync(HistoricalDaysLimit);
 }
 
 /// <summary>One line of the "additional characters" table. Its server can be changed in the list.</summary>

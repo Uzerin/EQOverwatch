@@ -250,7 +250,7 @@ public sealed partial class MainViewModel
             List<string> servers = store.Servers().ToList();
             string? keep = SelectedDropServer;
             ObservableSync.SyncValues(DropServers, servers);
-            string? primaryServer = Logs.FirstOrDefault(l => l.IsPrimaryDps)?.ServerName;
+            string? primaryServer = LastPlayedLog()?.ServerName;
             string? server = keep is not null && servers.Contains(keep, StringComparer.OrdinalIgnoreCase) ? keep
                 : servers.FirstOrDefault(s => string.Equals(s, primaryServer, StringComparison.OrdinalIgnoreCase)) ?? servers.FirstOrDefault();
             if (server != SelectedDropServer)

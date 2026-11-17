@@ -14,23 +14,6 @@ public class WatchedLogCollectionTests
         Assert.Equal("Stackprime", config.CharacterName);
         Assert.Equal("Frostreaver", config.ServerName);
         Assert.True(config.IsTriggerEnabled);
-        Assert.False(config.IsPrimaryDps);
-    }
-
-    [Fact]
-    public void Only_one_log_can_be_primary_dps()
-    {
-        var logs = new WatchedLogCollection();
-        WatchedLogConfig a = logs.AddFile(Path("Stackprime"));
-        WatchedLogConfig b = logs.AddFile(Path("Oodles"));
-
-        a.IsPrimaryDps = true;
-        Assert.Same(a, logs.PrimaryDpsLog);
-
-        b.IsPrimaryDps = true;
-        Assert.False(a.IsPrimaryDps);
-        Assert.True(b.IsPrimaryDps);
-        Assert.Same(b, logs.PrimaryDpsLog);
     }
 
     [Fact]
@@ -44,20 +27,6 @@ public class WatchedLogCollectionTests
         b.IsTriggerEnabled = true;
 
         Assert.True(a.IsTriggerEnabled && b.IsTriggerEnabled);
-    }
-
-    [Fact]
-    public void Adding_a_config_that_is_already_primary_demotes_the_existing_primary()
-    {
-        var logs = new WatchedLogCollection();
-        WatchedLogConfig a = logs.AddFile(Path("Stackprime"));
-        a.IsPrimaryDps = true;
-
-        var b = new WatchedLogConfig(Path("Oodles")) { IsPrimaryDps = true };
-        logs.Add(b);
-
-        Assert.False(a.IsPrimaryDps);
-        Assert.Same(b, logs.PrimaryDpsLog);
     }
 
     [Fact]

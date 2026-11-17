@@ -121,15 +121,11 @@ internal sealed class TailWorker : IDisposable
 
     private LogRoute GetRoutes()
     {
-        LogRoute routes = LogRoute.None;
+        // Every log feeds the DPS parse (a line several logs saw is counted once there).
+        LogRoute routes = LogRoute.Dps;
         if (_config.IsTriggerEnabled)
         {
             routes |= LogRoute.Triggers;
-        }
-
-        if (_config.IsPrimaryDps)
-        {
-            routes |= LogRoute.Dps;
         }
 
         return routes;

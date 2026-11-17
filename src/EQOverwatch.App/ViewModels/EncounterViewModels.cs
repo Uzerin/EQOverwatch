@@ -17,7 +17,7 @@ public sealed partial class EncounterRowViewModel : ObservableObject
     /// <summary>Id within its tracker (the live and the imported tracker number their fights separately).</summary>
     public int Id { get; }
 
-    /// <summary>True for a fight loaded with "Import log file…"; false for one seen live or caught up from the Primary DPS log.</summary>
+    /// <summary>True for a fight loaded with "Import log file…"; false for one seen live or caught up from the logs.</summary>
     public bool IsImported { get; }
 
     /// <summary>Unique across both trackers.</summary>

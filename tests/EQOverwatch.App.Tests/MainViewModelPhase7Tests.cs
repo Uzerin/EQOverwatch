@@ -30,8 +30,8 @@ public partial class MainViewModelTests
         using var h = new Harness();
 
         Assert.Equal("EQ Overwatch", h.Vm.AppName);
-        Assert.Equal("v1.0.62", h.Vm.AppVersion);
-        Assert.Equal("EQ Overwatch v1.0.62", h.Vm.WindowTitle);
+        Assert.Equal("v1.0.63", h.Vm.AppVersion);
+        Assert.Equal("EQ Overwatch v1.0.63", h.Vm.WindowTitle);
     }
 
     [Fact]
@@ -190,7 +190,7 @@ public partial class MainViewModelTests
     }
 
     [Fact]
-    public async Task Choosing_a_primary_dps_character_imports_the_last_seven_days_automatically()
+    public async Task Reload_all_logs_imports_the_last_seven_days()
     {
         using var h = new Harness();
         // The log's fight is on Oct 21; the injected clock is Oct 26 12:00, i.e. 5 days later.
@@ -198,9 +198,7 @@ public partial class MainViewModelTests
         h.Vm.AddLogCommand.Execute(null);
         await h.Vm.AutoImportTask;
 
-        WatchedLogConfig log = h.Vm.Logs.Single();
-        log.IsPrimaryDps = false;
-        log.IsPrimaryDps = true;
+        h.Vm.ReloadHistoryCommand.Execute(null);
         await h.Vm.AutoImportTask;
 
         Assert.NotEmpty(h.Pipeline.HistoricalDps.Snapshot.All);
@@ -213,7 +211,7 @@ public partial class MainViewModelTests
         using var h = new Harness();
         h.Dialogs.LogFiles = new[] { h.CreateLog("Stackprime", SampleLog) };
         h.Vm.AddLogCommand.Execute(null);
-        h.Vm.Logs.Single().IsPrimaryDps = true;
+        h.Vm.ReloadHistoryCommand.Execute(null);
         await h.Vm.AutoImportTask;
         Assert.NotEmpty(h.Pipeline.HistoricalDps.Snapshot.All);
 
@@ -253,7 +251,7 @@ public partial class MainViewModelTests
 
         var image = Assert.Single(h.Clipboard.Images);
         Assert.Equal(Giant, image.Encounter.TargetName);
-        Assert.Equal("EQ Overwatch v1.0.62", image.Footer);
+        Assert.Equal("EQ Overwatch v1.0.63", image.Footer);
         Assert.Equal(EncounterExport.AllAttackers, image.TopCount); // the picture lists everyone, not just the top 12
     }
 

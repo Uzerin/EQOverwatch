@@ -40,7 +40,7 @@ public sealed class MapsViewModelTests : IDisposable
 
         string log = Path.Combine(_eq, "Logs", "eqlog_Ream_frostreaver.txt");
         File.WriteAllText(log, string.Empty);
-        _logs.Add(new WatchedLogConfig(log) { IsPrimaryDps = true });
+        _logs.Add(new WatchedLogConfig(log));
     }
 
     public void Dispose()
@@ -79,11 +79,11 @@ public sealed class MapsViewModelTests : IDisposable
         vm.Refresh(_logs[0]);
 
         Assert.Equal("letalis", vm.ShownZone);
-        Assert.Equal("Primary DPS Ream is in Mons Letalis", vm.CurrentZoneText);
+        Assert.Equal("Ream is in Mons Letalis", vm.CurrentZoneText);
         Assert.Equal(3, vm.SelectedLayer);
         Assert.Equal("Boss spawn", vm.Labels.Single().Text);
         Assert.Equal("letalis_3.txt", vm.LayerFileText);
-        Assert.Equal((-1020.0, 655.0), vm.PlayerSpot); // the /loc marker
+        Assert.Equal(new MapPlayerSpot("Ream", -1020.0, 655.0), Assert.Single(vm.PlayerSpots)); // the /loc marker, with the name
 
         vm.SelectedLayer = 0;
         Assert.Equal("Gate", vm.Labels.Single().Text);

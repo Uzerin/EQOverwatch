@@ -4,16 +4,13 @@ using System.ComponentModel;
 namespace EQOverwatch.Core.Models;
 
 /// <summary>
-/// Observable list of watched logs that enforces two invariants:
-/// at most one log has <see cref="WatchedLogConfig.IsPrimaryDps"/> set, at most one log holds each non-zero
+/// Observable list of watched logs that enforces two invariants: at most one log holds each non-zero
 /// <see cref="WatchedLogConfig.ChChainPosition"/>, and a file path appears only once.
 /// Intended to be mutated on the UI thread (it raises <see cref="ObservableCollection{T}.CollectionChanged"/>).
 /// </summary>
 public sealed class WatchedLogCollection : ObservableCollection<WatchedLogConfig>
 {
     private bool _enforcing;
-
-    public WatchedLogConfig? PrimaryDpsLog => this.FirstOrDefault(l => l.IsPrimaryDps);
 
     /// <summary>Adds a log by path, or returns the existing entry if that path is already watched.</summary>
     public WatchedLogConfig AddFile(string filePath)
@@ -76,11 +73,6 @@ public sealed class WatchedLogCollection : ObservableCollection<WatchedLogConfig
     private void Attach(WatchedLogConfig item)
     {
         item.PropertyChanged += OnItemPropertyChanged;
-        if (item.IsPrimaryDps)
-        {
-            EnforceSinglePrimary(item);
-        }
-
         if (item.ChChainPosition > 0)
         {
             EnforceUniquePosition(item);
@@ -91,13 +83,7 @@ public sealed class WatchedLogCollection : ObservableCollection<WatchedLogConfig
 
     private void OnItemPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(WatchedLogConfig.IsPrimaryDps)
-            && sender is WatchedLogConfig changed
-            && changed.IsPrimaryDps)
-        {
-            EnforceSinglePrimary(changed);
-        }
-        else if (e.PropertyName == nameof(WatchedLogConfig.ChChainPosition)
+        if (e.PropertyName == nameof(WatchedLogConfig.ChChainPosition)
                  && sender is WatchedLogConfig positioned
                  && positioned.ChChainPosition > 0)
         {
@@ -121,30 +107,6 @@ public sealed class WatchedLogCollection : ObservableCollection<WatchedLogConfig
                 if (!ReferenceEquals(other, winner) && other.ChChainPosition == winner.ChChainPosition)
                 {
                     other.ChChainPosition = 0;
-                }
-            }
-        }
-        finally
-        {
-            _enforcing = false;
-        }
-    }
-
-    private void EnforceSinglePrimary(WatchedLogConfig winner)
-    {
-        if (_enforcing)
-        {
-            return;
-        }
-
-        _enforcing = true;
-        try
-        {
-            foreach (WatchedLogConfig other in this)
-            {
-                if (!ReferenceEquals(other, winner) && other.IsPrimaryDps)
-                {
-                    other.IsPrimaryDps = false;
                 }
             }
         }

@@ -304,12 +304,10 @@ public sealed partial class MainViewModel : ObservableObject
         {
             WatchedLogConfig log = Logs.AddFile(path);
             _pipeline.LiveDps.AddKnownPlayer(log.CharacterName);
-
-            if (Logs.PrimaryDpsLog is null)
-            {
-                log.IsPrimaryDps = true; // the first log becomes the DPS source until the user picks another
-            }
         }
+
+        ForgetLastPlayedLog();
+        OfferAllLogsLoad(); // a new install's first logs: offer to read their history once
 
         StatusMessage = $"{Logs.Count} log file(s) watched.";
         ScanUnreadMobExperience();
@@ -580,15 +578,22 @@ public sealed partial class MainViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Loads <paramref name="path"/> into the historical tracker. Shared by the manual "Import log file…" button and the automatic
-    /// import of the Primary DPS log. Reports through <see cref="ImportStatus"/> and never throws.
+    /// Loads <paramref name="path"/> into the historical tracker (the manual "Import log file…" button). Reports through
+    /// <see cref="ImportStatus"/> and never throws.
+    /// </summary>
+    private Task RunImportAsync(string path, DateTime? start, DateTime? end, string startStatus, string successSuffix) =>
+        RunImportAsync(new[] { path }, start, end, startStatus, successSuffix);
+
+    /// <summary>
+    /// Loads <paramref name="paths"/> into the historical tracker: one log, or every character's log read as one (a line several logs saw
+    /// counts once). Reports through <see cref="ImportStatus"/> and never throws.
     /// </summary>
     private async Task RunImportAsync(
-        string path, DateTime? start, DateTime? end, string startStatus, string successSuffix)
+        IReadOnlyList<string> paths, DateTime? start, DateTime? end, string startStatus, string successSuffix)
     {
         using var cts = new CancellationTokenSource();
         _importCts = cts;
-        NoteHistoricalSource(path); // the fights this import produces are filed under this log's character
+        NoteHistoricalSource(paths); // one log's fights are filed under its character; every log's under their own servers
         IsImporting = true;
         ImportProgress = 0;
         ImportStatus = startStatus;
@@ -604,7 +609,7 @@ public sealed partial class MainViewModel : ObservableObject
 
         try
         {
-            HistoricalImportResult result = await _pipeline.ImportHistoricalAsync(path, start, end, progress, cts.Token);
+            HistoricalImportResult result = await _pipeline.ImportHistoricalAsync(paths, start, end, progress, cts.Token);
             finished = true;
             ImportProgress = 100;
             ImportStatus =
@@ -824,6 +829,13 @@ public sealed partial class MainViewModel : ObservableObject
         public long Key => ((Imported ? 1L : 0L) << 32) | (uint)Snapshot.Id;
     }
 
+    /// <summary>True when a fight is on the server chosen in the Server box (a fight whose server is not known shows under every server).</summary>
+    private static bool OnShownServer(EncounterSnapshot encounter, string? server) =>
+        server is null || string.IsNullOrEmpty(encounter.Server) || encounter.Server.Equals(server, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Shows the DPS tab's fights again after the Server box changed.</summary>
+    private void RefilterEncounters() => SyncEncounters(_pipeline.LiveDps.Snapshot, _pipeline.HistoricalDps.Snapshot, rebuild: true);
+
     private const int EncounterRebuildThreshold = 50;
     private const double SameFightSeconds = 3.0;
 
@@ -834,9 +846,13 @@ public sealed partial class MainViewModel : ObservableObject
     private void SyncEncounters(DpsSnapshot live, DpsSnapshot imported, bool rebuild)
     {
         var entries = new List<EncounterEntry>(live.Active.Count + live.Completed.Count + imported.Active.Count + imported.Completed.Count);
+        string? server = ToolsServerFilter;
         foreach (EncounterSnapshot encounter in live.All)
         {
-            entries.Add(new EncounterEntry(encounter, Imported: false));
+            if (OnShownServer(encounter, server))
+            {
+                entries.Add(new EncounterEntry(encounter, Imported: false));
+            }
         }
 
         Dictionary<string, DateTime[]> liveStarts = live.All
@@ -851,7 +867,10 @@ public sealed partial class MainViewModel : ObservableObject
                 continue;
             }
 
-            entries.Add(new EncounterEntry(encounter, Imported: true));
+            if (OnShownServer(encounter, server))
+            {
+                entries.Add(new EncounterEntry(encounter, Imported: true));
+            }
         }
 
         EncounterEntry[] ordered = entries
@@ -980,9 +999,8 @@ public sealed partial class MainViewModel : ObservableObject
         bool running = _pipeline.IsLiveRunning;
         IsLiveRunning = running;
 
-        WatchedLogConfig? primary = Logs.PrimaryDpsLog;
         LiveStatusText = running
-            ? $"Live: watching {Logs.Count} log(s)" + (primary is null ? ", no primary DPS log" : $", DPS from {primary.CharacterName}")
+            ? $"Live: watching {LogsText(Logs.Count)}, DPS from all of them"
             : "Stopped";
     }
 
@@ -1339,7 +1357,6 @@ public sealed partial class MainViewModel : ObservableObject
 
                 WatchedLogConfig log = Logs.AddFile(saved.FilePath);
                 log.IsTriggerEnabled = saved.IsTriggerEnabled;
-                log.IsPrimaryDps = saved.IsPrimaryDps;
                 log.ChChainPosition = saved.ChChainPosition;
             }
 
@@ -1478,7 +1495,6 @@ public sealed partial class MainViewModel : ObservableObject
             FilePath = l.FilePath,
             CharacterName = l.CharacterName,
             IsTriggerEnabled = l.IsTriggerEnabled,
-            IsPrimaryDps = l.IsPrimaryDps,
             ChChainPosition = l.ChChainPosition,
         }).ToList(),
         Triggers = Rules.Select(r => r.ToRule()).ToList(),
@@ -1538,6 +1554,7 @@ public sealed partial class MainViewModel : ObservableObject
         SharedDropsId = _sharedDropsId,
         SharedDropsKey = _sharedDropsKey,
         CountMeIn = CountMeIn,
+        AllLogsLoadOffered = _allLogsLoadOffered,
         PlayerCountId = _playerCountId,
         PlayerCountDay = _playerCountDay,
     };
@@ -1588,16 +1605,6 @@ public sealed partial class MainViewModel : ObservableObject
         if (e.PropertyName == nameof(WatchedLogConfig.ChChainPosition))
         {
             SyncChainPositions();
-        }
-        else if (e.PropertyName == nameof(WatchedLogConfig.IsPrimaryDps)
-                 && sender is WatchedLogConfig { IsPrimaryDps: true }
-                 && !_restoring)
-        {
-            // The list only shows fights the Primary DPS character saw: drop the previous character's fights, then load the new one's.
-            _pipeline.LiveDps.Reset();
-            _pipeline.HistoricalDps.Reset();
-            _bossHistoryDirty = true; // Mob History shows the new Primary DPS character's figures
-            QueueAutoImport(); // a newly chosen Primary DPS character gets its recent history loaded
         }
 
         RequestSave();

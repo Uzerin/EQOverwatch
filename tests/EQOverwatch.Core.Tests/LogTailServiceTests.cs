@@ -30,7 +30,7 @@ public sealed class LogTailServiceTests : IDisposable
     [Fact]
     public async Task Seeks_to_end_on_startup_and_applies_routing_flags()
     {
-        var config = new WatchedLogConfig(_path) { IsPrimaryDps = true }; // triggers default to enabled
+        var config = new WatchedLogConfig(_path); // triggers default to enabled; every log feeds DPS
         var channel = Channel.CreateUnbounded<LogEvent>();
         var tail = new LogTailService(channel.Writer, TimeSpan.FromMilliseconds(10));
         try
@@ -71,7 +71,7 @@ public sealed class LogTailServiceTests : IDisposable
             LogEvent evt = await ReadAsync(channel);
 
             Assert.Equal("Your protective skin fades.", evt.Line[LogLineFormat.MessageOffset..]);
-            Assert.Equal(LogRoute.Triggers, evt.Routes);
+            Assert.Equal(LogRoute.Triggers | LogRoute.Dps, evt.Routes); // every log feeds the DPS parse
         }
         finally
         {
@@ -80,7 +80,7 @@ public sealed class LogTailServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task Skips_lines_while_no_route_is_enabled_and_resumes_when_one_is()
+    public async Task A_log_with_triggers_off_still_feeds_the_dps_parse()
     {
         var config = new WatchedLogConfig(_path) { IsTriggerEnabled = false };
         var channel = Channel.CreateUnbounded<LogEvent>();
@@ -90,15 +90,16 @@ public sealed class LogTailServiceTests : IDisposable
             tail.AddLog(config);
             tail.Start();
 
-            await File.AppendAllTextAsync(_path, Line("nobody is listening") + "\n");
-            await Task.Delay(150);
-            Assert.False(channel.Reader.TryRead(out _));
+            await File.AppendAllTextAsync(_path, Line("You slash a frost giant for 142 points of damage.") + "\n");
+            LogEvent evt = await ReadAsync(channel);
+            Assert.Equal(LogRoute.Dps, evt.Routes);
 
             config.IsTriggerEnabled = true;
             await File.AppendAllTextAsync(_path, Line("now somebody is") + "\n");
-            LogEvent evt = await ReadAsync(channel);
+            evt = await ReadAsync(channel);
 
             Assert.Equal("now somebody is", evt.Line[LogLineFormat.MessageOffset..]);
+            Assert.Equal(LogRoute.Triggers | LogRoute.Dps, evt.Routes);
         }
         finally
         {

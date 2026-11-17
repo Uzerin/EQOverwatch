@@ -191,8 +191,17 @@ public sealed class CompanionPipeline : IAsyncDisposable
     /// Loads one log into <see cref="HistoricalDps"/> (replacing any previous import). Live monitoring is unaffected.
     /// Only one import may run at a time.
     /// </summary>
-    public async Task<HistoricalImportResult> ImportHistoricalAsync(
+    public Task<HistoricalImportResult> ImportHistoricalAsync(
         string filePath,
+        DateTime? startTime = null,
+        DateTime? endTime = null,
+        IProgress<double>? progress = null,
+        CancellationToken cancellationToken = default) =>
+        ImportHistoricalAsync(new[] { filePath }, startTime, endTime, progress, cancellationToken);
+
+    /// <summary>Loads several characters' logs into <see cref="HistoricalDps"/> as one, in time order; a line several logs saw counts once.</summary>
+    public async Task<HistoricalImportResult> ImportHistoricalAsync(
+        IReadOnlyList<string> filePaths,
         DateTime? startTime = null,
         DateTime? endTime = null,
         IProgress<double>? progress = null,
@@ -208,7 +217,7 @@ public sealed class CompanionPipeline : IAsyncDisposable
         {
             // The log's own spells on mobs are read for resist tracking too.
             var importer = new HistoricalLogImporter(Resists.WrapImport(HistoricalDps), RaiseError);
-            return await importer.ImportAsync(filePath, startTime, endTime, progress, cancellationToken).ConfigureAwait(false);
+            return await importer.ImportAsync(filePaths, startTime, endTime, progress, cancellationToken).ConfigureAwait(false);
         }
         finally
         {
@@ -224,8 +233,17 @@ public sealed class CompanionPipeline : IAsyncDisposable
     /// <see cref="StartLive"/> (lines tailed during the catch-up would be out of order); live monitoring then continues from
     /// the end of the file. Only one import or catch-up may run at a time.
     /// </summary>
-    public async Task<HistoricalImportResult> BackfillLiveAsync(
+    public Task<HistoricalImportResult> BackfillLiveAsync(
         string filePath,
+        DateTime? startTime,
+        DateTime nowLocal,
+        IProgress<double>? progress = null,
+        CancellationToken cancellationToken = default) =>
+        BackfillLiveAsync(new[] { filePath }, startTime, nowLocal, progress, cancellationToken);
+
+    /// <summary>The catch-up from every character's log at once, in time order (see the one-log overload).</summary>
+    public async Task<HistoricalImportResult> BackfillLiveAsync(
+        IReadOnlyList<string> filePaths,
         DateTime? startTime,
         DateTime nowLocal,
         IProgress<double>? progress = null,
@@ -245,7 +263,7 @@ public sealed class CompanionPipeline : IAsyncDisposable
             {
                 var importer = new HistoricalLogImporter(LiveDps, RaiseError);
                 HistoricalImportResult result =
-                    await importer.ImportAsync(filePath, startTime, null, progress, cancellationToken).ConfigureAwait(false);
+                    await importer.ImportAsync(filePaths, startTime, null, progress, cancellationToken).ConfigureAwait(false);
                 LiveDps.OnLogClock(nowLocal); // closes fights that ended long ago; a fight in progress stays open
                 return result;
             }

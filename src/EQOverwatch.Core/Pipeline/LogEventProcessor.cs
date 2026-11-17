@@ -55,6 +55,11 @@ public static class LogEventProcessor
             try
             {
                 dpsSink.OnLogServer(evt.ServerName);
+                if (evt.CharacterName.Length > 0)
+                {
+                    dpsSink.OnLogOwner(evt.CharacterName); // every log feeds the parse: each line belongs to its own log's character
+                }
+
                 DateTime timestamp = evt.LogTimestamp;
                 if (timestamp == default && !LogLineFormat.TryParseTimestamp(evt.Line, out timestamp))
                 {

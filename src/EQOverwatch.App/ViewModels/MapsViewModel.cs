@@ -61,8 +61,11 @@ public sealed partial class MapLabelItem : ObservableObject
     }
 }
 
+/// <summary>A character's last known /loc on the map shown (map coordinates).</summary>
+public sealed record MapPlayerSpot(string Name, double X, double Y);
+
 /// <summary>
-/// The Maps tab: shows a zone's map (the zone the Primary DPS character is in, or one picked from the list), and adds, moves, edits
+/// The Maps tab: shows a zone's map (the zone of the character you played last, or one picked from the list), and adds, moves, edits
 /// and deletes the labels of one layer file in the EQ folder's map pack. Only labels change; the map's lines are never touched.
 /// </summary>
 public sealed partial class MapsViewModel : ObservableObject
@@ -126,7 +129,7 @@ public sealed partial class MapsViewModel : ObservableObject
 
     public ObservableCollection<MapZoneChoice> ZoneChoices { get; } = new();
 
-    /// <summary>When the Primary DPS character's zone name fits more than one map (a zone and its later version), the maps to pick from.</summary>
+    /// <summary>When the followed character's zone name fits more than one map (a zone and its later version), the maps to pick from.</summary>
     public ObservableCollection<MapZoneChoice> CurrentChoices { get; } = new();
 
     /// <summary>The labels of the layer being edited.</summary>
@@ -141,8 +144,8 @@ public sealed partial class MapsViewModel : ObservableObject
     /// <summary>Where a new label will go (map coordinates), or null.</summary>
     public (double X, double Y)? Pending { get; private set; }
 
-    /// <summary>The Primary DPS character's last /loc in the zone shown (map coordinates), or null.</summary>
-    public (double X, double Y)? PlayerSpot { get; private set; }
+    /// <summary>Each character's last known /loc in the zone shown (map coordinates), with its name; characters with none there are left out.</summary>
+    public IReadOnlyList<MapPlayerSpot> PlayerSpots { get; private set; } = Array.Empty<MapPlayerSpot>();
 
     [ObservableProperty]
     private string _currentZoneText = string.Empty;
@@ -388,6 +391,7 @@ public sealed partial class MapsViewModel : ObservableObject
     /// <summary>Reads the map packs and zone names from the EQ folder, and where each character is from the end of its log.</summary>
     public void Initialize(WatchedLogConfig? primary)
     {
+        _followed = primary;
         string folder = _eqFolder();
         _loadedFolder = folder;
         _directory = ZoneDirectory.Load(folder);
@@ -417,9 +421,13 @@ public sealed partial class MapsViewModel : ObservableObject
         });
     }
 
-    /// <summary>Called by the app's refresh timer: follows the Primary DPS character to a new zone and moves its /loc marker.</summary>
+    /// <summary>
+    /// Called by the app's refresh timer with the log of the character you played last: follows that character to a new zone and moves
+    /// every character's /loc marker.
+    /// </summary>
     public void Refresh(WatchedLogConfig? primary)
     {
+        _followed = primary;
         if (!string.Equals(_eqFolder(), _loadedFolder, StringComparison.OrdinalIgnoreCase))
         {
             if (!IsDirty)
@@ -452,7 +460,10 @@ public sealed partial class MapsViewModel : ObservableObject
 
     private static string Key(WatchedLogConfig? log) => log is null ? string.Empty : log.CharacterName + "|" + log.ServerName;
 
-    private WatchedLogConfig? Primary() => _logs().FirstOrDefault(l => l.IsPrimaryDps);
+    private WatchedLogConfig? _followed;
+
+    /// <summary>The character the map follows: the one you played last.</summary>
+    private WatchedLogConfig? Primary() => _followed;
 
     /// <summary>Re-reads the map packs and the zone shown (after files were changed outside the app).</summary>
     [RelayCommand]
@@ -510,7 +521,7 @@ public sealed partial class MapsViewModel : ObservableObject
         }
     }
 
-    /// <summary>Shows the zone the sub-tab calls for: the Primary DPS character's, or the one picked.</summary>
+    /// <summary>Shows the zone the sub-tab calls for: the followed character's, or the one picked.</summary>
     private void ShowZone()
     {
         string? zone = IsCurrentZoneTab ? CurrentZone() : SelectedZone?.ShortName;
@@ -550,7 +561,7 @@ public sealed partial class MapsViewModel : ObservableObject
 
     private bool _reloadFiles;
 
-    /// <summary>The map of the Primary DPS character's zone in the chosen pack, and the line saying where they are.</summary>
+    /// <summary>The map of the followed character's zone in the chosen pack, and the line saying where they are.</summary>
     private string? CurrentZone()
     {
         CurrentChoices.Clear();
@@ -558,25 +569,25 @@ public sealed partial class MapsViewModel : ObservableObject
         WatchedLogConfig? primary = Primary();
         if (primary is null)
         {
-            CurrentZoneText = "No Primary DPS character is set. Pick one on the Characters tab.";
+            CurrentZoneText = "No character logs yet. Add them on the Characters tab.";
             return null;
         }
 
         string who = primary.CharacterName;
         if (_zones.Get(who, primary.ServerName) is not { } where)
         {
-            CurrentZoneText = $"Primary DPS {who}: zone not known yet. It shows after {who} zones.";
+            CurrentZoneText = $"{who}: zone not known yet. It shows after {who} zones.";
             return null;
         }
 
         List<ZoneInfo> maps = _directory.ByName(where.Zone).Where(z => _zonesInPack.Contains(z.ShortName)).ToList();
         if (maps.Count == 0)
         {
-            CurrentZoneText = $"Primary DPS {who} is in {where.Zone}, which has no map in {SelectedPack?.Label ?? "the maps folder"}.";
+            CurrentZoneText = $"{who} is in {where.Zone}, which has no map in {SelectedPack?.Label ?? "the maps folder"}.";
             return null;
         }
 
-        CurrentZoneText = $"Primary DPS {who} is in {where.Zone}";
+        CurrentZoneText = $"{who} is in {where.Zone}";
         if (maps.Count > 1)
         {
             foreach (ZoneInfo map in maps)
@@ -596,16 +607,24 @@ public sealed partial class MapsViewModel : ObservableObject
 
     private void UpdatePlayerSpot()
     {
-        (double X, double Y)? spot = null;
-        if (ShownZone is { } zone && Primary() is { } primary && _zones.Get(primary.CharacterName, primary.ServerName) is { Loc: { } loc } where
-            && _directory.ByName(where.Zone).Any(z => string.Equals(z.ShortName, zone, StringComparison.OrdinalIgnoreCase)))
+        var spots = new List<MapPlayerSpot>();
+        if (ShownZone is { } zone)
         {
-            spot = (-loc.X, -loc.Y);
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (WatchedLogConfig log in _logs())
+            {
+                if (seen.Add(log.CharacterName + "|" + log.ServerName)
+                    && _zones.Get(log.CharacterName, log.ServerName) is { Loc: { } loc } where
+                    && _directory.ByName(where.Zone).Any(z => string.Equals(z.ShortName, zone, StringComparison.OrdinalIgnoreCase)))
+                {
+                    spots.Add(new MapPlayerSpot(log.CharacterName, -loc.X, -loc.Y));
+                }
+            }
         }
 
-        if (spot != PlayerSpot)
+        if (!spots.SequenceEqual(PlayerSpots))
         {
-            PlayerSpot = spot;
+            PlayerSpots = spots;
             RaiseScene();
         }
     }
@@ -819,13 +838,13 @@ public sealed partial class MapsViewModel : ObservableObject
         RaiseScene();
     }
 
-    /// <summary>Puts the Primary DPS character's last /loc in the /loc box (moving the selected label there).</summary>
+    /// <summary>Puts the followed character's last /loc in the /loc box (moving the selected label there).</summary>
     [RelayCommand]
     private void UseMyLoc()
     {
         if (Primary() is not { } primary || _zones.Get(primary.CharacterName, primary.ServerName) is not { } where)
         {
-            ErrorText = "No /loc from the Primary DPS character yet. Type /loc in game first.";
+            ErrorText = "No /loc from the character you played last yet. Type /loc in game first.";
             return;
         }
 

@@ -101,6 +101,26 @@ public sealed class CharacterActivityService : ILogActivityObserver
         }
     }
 
+    /// <summary>The character whose log had the newest line, or null before any line arrived.</summary>
+    public string? MostRecentCharacter()
+    {
+        lock (_gate)
+        {
+            string? best = null;
+            DateTime newest = default;
+            foreach ((string name, Seen seen) in _characters)
+            {
+                if (seen.LastLineUtc > newest)
+                {
+                    newest = seen.LastLineUtc;
+                    best = name;
+                }
+            }
+
+            return best;
+        }
+    }
+
     private static bool IsRecent(DateTime lastUtc, DateTime nowUtc) => lastUtc != default && nowUtc - lastUtc <= ActiveWindow;
 
     private Seen Entry(string character)

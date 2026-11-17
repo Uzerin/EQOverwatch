@@ -99,7 +99,7 @@ public sealed partial class MainViewModel
             RebuildLoot();
         }
 
-        string primaryServer = Logs.PrimaryDpsLog?.ServerName ?? string.Empty;
+        string primaryServer = LastPlayedLog()?.ServerName ?? string.Empty;
         if (!primaryServer.Equals(_lastPrimaryServer, StringComparison.Ordinal))
         {
             _lastPrimaryServer = primaryServer;
@@ -488,14 +488,32 @@ public sealed partial class MainViewModel
     [RelayCommand]
     private async Task ScanLootFromPrimaryLogAsync()
     {
-        WatchedLogConfig? primary = Logs.PrimaryDpsLog;
-        if (primary is null || !File.Exists(primary.FilePath))
+        IReadOnlyList<string> paths = ExistingLogPaths();
+        if (paths.Count == 0)
         {
-            LootStatus = "Choose a Primary DPS character on the Characters tab first.";
+            LootStatus = "Add your characters' logs on the Characters tab first.";
             return;
         }
 
-        await ScanLootAsync(primary.FilePath, AppSettings.GetHistoricalStart(HistoricalDaysLimit, _clock()));
+        // Loot seen in several logs is recorded once.
+        DateTime? from = AppSettings.GetHistoricalStart(HistoricalDaysLimit, _clock());
+        int added = 0;
+        foreach (string path in paths)
+        {
+            LootStatus = $"Reading loot from {Path.GetFileName(path)}…";
+            try
+            {
+                added += await Task.Run(() => _pipeline.Loot.ScanLog(path, from));
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                LootStatus = $"Could not read {Path.GetFileName(path)}: {ex.Message}";
+                return;
+            }
+        }
+
+        RebuildLoot();
+        LootStatus = $"Added {added:N0} looted item{(added == 1 ? string.Empty : "s")} from {LogsText(paths.Count)}.";
     }
 
     private async Task ScanLootAsync(string path, DateTime? from)
@@ -784,6 +802,8 @@ public sealed partial class MainViewModel
         RebuildAttendance();
         RebuildLoot();
         RebuildCharacterTools();
+        _bossHistoryDirty = true; // Mob History shows the chosen server's fights
+        RefilterEncounters();
     }
 
     /// <summary>
@@ -808,7 +828,7 @@ public sealed partial class MainViewModel
     private string? ToolsServerFilter =>
         string.IsNullOrEmpty(SelectedToolsServer) || SelectedToolsServer == AllServers ? null : SelectedToolsServer;
 
-    /// <summary>Keeps the server list current and, until you pick one yourself, follows the Primary DPS character's server.</summary>
+    /// <summary>Keeps the server list current and, until you pick one yourself, follows the server of the character you played last.</summary>
     private bool SyncToolsServers(IReadOnlyList<CharacterData> characters, IReadOnlyList<SharedBankData> banks)
     {
         bool selectionChanged = false;
@@ -832,7 +852,7 @@ public sealed partial class MainViewModel
                 ToolsServers = servers;
             }
 
-            string primaryServer = Logs.PrimaryDpsLog?.ServerName ?? string.Empty;
+            string primaryServer = LastPlayedLog()?.ServerName ?? string.Empty;
             string? wanted = SelectedToolsServer;
             if (!_toolsServerPickedByUser)
             {
@@ -880,10 +900,12 @@ public sealed partial class MainViewModel
         IReadOnlyList<SharedBankData> banks = _characterData.SharedBanks();
         if (SyncToolsServers(characters, banks))
         {
-            // The Server box moved on its own (the Primary DPS character changed): the other tabs follow it.
+            // The Server box moved on its own (you played a character on another server): the other tabs follow it.
             RebuildSortedCharacters();
             RebuildAttendance();
             _lootDirty = true;
+            _bossHistoryDirty = true;
+            RefilterEncounters();
         }
 
         RebuildItemSearch();

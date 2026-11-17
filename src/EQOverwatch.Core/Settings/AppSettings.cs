@@ -186,6 +186,12 @@ public sealed class AppSettings
     /// <summary>The UTC day ("2026-11-16") this install was last counted.</summary>
     public string PlayerCountDay { get; set; } = string.Empty;
 
+    /// <summary>
+    /// True once the one-time load of every log's full history into Mob History was done or declined (asked on the first open of
+    /// 1.0.63, or of a new install once it has logs).
+    /// </summary>
+    public bool AllLogsLoadOffered { get; set; }
+
     /// <summary>A version ("v1.0.12") the user chose to skip: it is not announced again (a newer one still is).</summary>
     public string SkippedUpdateVersion { get; set; } = string.Empty;
 
@@ -238,7 +244,6 @@ public sealed class WatchedLogSettings
     public string FilePath { get; set; } = string.Empty;
     public string CharacterName { get; set; } = string.Empty;
     public bool IsTriggerEnabled { get; set; } = true;
-    public bool IsPrimaryDps { get; set; }
 
     /// <summary>Complete Heal chain position (1-12), or 0 for none.</summary>
     public int ChChainPosition { get; set; }

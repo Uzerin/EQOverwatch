@@ -69,6 +69,7 @@ public sealed partial class MainViewModel
         _playerCountId = settings.PlayerCountId ?? string.Empty;
         _playerCountDay = settings.PlayerCountDay ?? string.Empty;
         CountMeIn = settings.CountMeIn;
+        _allLogsLoadOffered = settings.AllLogsLoadOffered;
         UseSharedDrops = settings.UseSharedDrops;
         ShareMyDrops = settings.ShareMyDrops;
         UpdateDropSources();

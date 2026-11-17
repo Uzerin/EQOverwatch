@@ -390,6 +390,11 @@ public sealed class LootTracker : ITriggerLineSink
         using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
         using (var reader = new StreamReader(stream))
         {
+            if (from.HasValue && from.Value > DateTime.MinValue.AddHours(2))
+            {
+                stream.Position = EQOverwatch.Core.Pipeline.LogSeek.FindOffset(stream, from.Value.AddHours(-2)); // skip what is older
+            }
+
             string? line;
             while ((line = reader.ReadLine()) is not null)
             {

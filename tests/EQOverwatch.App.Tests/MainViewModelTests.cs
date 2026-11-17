@@ -64,6 +64,17 @@ public partial class MainViewModelTests
         public string? PickDropsExportPath(string suggestedName) => DropsExportPath;
 
         public string? PickDropsImportFile() => DropsImportFile;
+
+        /// <summary>The answer to every Yes/No question (No unless a test says otherwise), and the questions asked.</summary>
+        public bool ConfirmAnswer { get; set; }
+
+        public List<string> Questions { get; } = new();
+
+        public bool Confirm(string title, string message)
+        {
+            Questions.Add(title);
+            return ConfirmAnswer;
+        }
     }
 
     private sealed class FakeClipboard : IClipboardService
@@ -147,7 +158,14 @@ public partial class MainViewModelTests
         public bool IsEnabled { get; set; } = true;
         public int DisposeCount { get; private set; }
 
-        public void Dispose() => DisposeCount++;
+        /// <summary>Runs when the app closes its audio (a test can look at the program file at that moment).</summary>
+        public Action? Disposing { get; set; }
+
+        public void Dispose()
+        {
+            DisposeCount++;
+            Disposing?.Invoke();
+        }
     }
 
     private sealed class Harness : IDisposable
@@ -281,7 +299,7 @@ public partial class MainViewModelTests
             s.WatchedLogs.Add(new WatchedLogSettings
             {
                 FilePath = Path.Combine(tempDir, "eqlog_Stackprime_Frostreaver.txt"), CharacterName = "Stackprime",
-                IsTriggerEnabled = true, IsPrimaryDps = true,
+                IsTriggerEnabled = true,
             });
             s.WatchedLogs.Add(new WatchedLogSettings
             {
@@ -303,7 +321,7 @@ public partial class MainViewModelTests
         });
 
         Assert.Equal(2, h.Vm.Logs.Count);
-        Assert.Equal("Stackprime", h.Vm.Logs.PrimaryDpsLog!.CharacterName);
+        Assert.Equal("Stackprime", h.Vm.Logs[0].CharacterName);
         Assert.False(h.Vm.Logs[1].IsTriggerEnabled);
 
         TriggerRuleViewModel rule = Assert.Single(h.Vm.Rules);
@@ -341,7 +359,7 @@ public partial class MainViewModelTests
     // ───────────────────────────── logs ─────────────────────────────
 
     [Fact]
-    public void Adding_a_log_registers_the_character_makes_the_first_one_primary_and_saves()
+    public void Adding_a_log_registers_the_character_and_saves()
     {
         using var h = new Harness();
         string first = h.CreateLog("Stackprime");
@@ -351,8 +369,6 @@ public partial class MainViewModelTests
         h.Vm.AddLogCommand.Execute(null);
 
         Assert.Equal(2, h.Vm.Logs.Count);
-        Assert.True(h.Vm.Logs[0].IsPrimaryDps);
-        Assert.False(h.Vm.Logs[1].IsPrimaryDps);
 
         // Both characters are known players, so hitting an unknown single-word boss is tracked right away.
         h.Pipeline.LiveDps.OnCombatEvent(Hit("Oodles", "Tormax", 100, 1));
@@ -361,7 +377,6 @@ public partial class MainViewModelTests
         AppSettings saved = h.Saved();
         Assert.Equal(new[] { "Stackprime", "Oodles" }, saved.WatchedLogs.Select(l => l.CharacterName));
         Assert.Equal(Path.GetFullPath(first), saved.WatchedLogs[0].FilePath);
-        Assert.True(saved.WatchedLogs[0].IsPrimaryDps);
     }
 
     [Fact]
@@ -376,20 +391,17 @@ public partial class MainViewModelTests
     }
 
     [Fact]
-    public void Primary_dps_is_exclusive_and_toggles_are_saved()
+    public void Trigger_toggles_are_saved()
     {
         using var h = new Harness();
         h.Dialogs.LogFiles = new[] { h.CreateLog("Stackprime"), h.CreateLog("Oodles") };
         h.Vm.AddLogCommand.Execute(null);
 
-        h.Vm.Logs[1].IsPrimaryDps = true;
         h.Vm.Logs[0].IsTriggerEnabled = false;
 
-        Assert.False(h.Vm.Logs[0].IsPrimaryDps);
         AppSettings saved = h.Saved();
-        Assert.False(saved.WatchedLogs[0].IsPrimaryDps);
-        Assert.True(saved.WatchedLogs[1].IsPrimaryDps);
         Assert.False(saved.WatchedLogs[0].IsTriggerEnabled);
+        Assert.True(saved.WatchedLogs[1].IsTriggerEnabled);
     }
 
     [Fact]
@@ -422,7 +434,7 @@ public partial class MainViewModelTests
         Assert.True(h.Pipeline.IsLiveRunning);
         Assert.True(h.Vm.IsLiveRunning);
         Assert.Contains("1 log", h.Vm.LiveStatusText);
-        Assert.Contains("Stackprime", h.Vm.LiveStatusText);
+        Assert.Contains("DPS from all", h.Vm.LiveStatusText);
     }
 
     // ───────────────────────────── triggers ─────────────────────────────

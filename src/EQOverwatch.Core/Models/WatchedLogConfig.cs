@@ -5,9 +5,8 @@ using EQOverwatch.Core.Parsing;
 namespace EQOverwatch.Core.Models;
 
 /// <summary>
-/// A log file under watch. <see cref="IsTriggerEnabled"/> may be set on any number of logs;
-/// <see cref="IsPrimaryDps"/> is mutually exclusive across a <see cref="WatchedLogCollection"/>.
-/// The tail service reads both flags per line, so toggling takes effect immediately without a restart.
+/// A log file under watch. Every log feeds the DPS parse; <see cref="IsTriggerEnabled"/> may be set on any number of logs.
+/// The tail service reads the flag per line, so toggling takes effect immediately without a restart.
 /// </summary>
 public sealed partial class WatchedLogConfig : ObservableObject
 {
@@ -58,9 +57,6 @@ public sealed partial class WatchedLogConfig : ObservableObject
 
     [ObservableProperty]
     private bool _isTriggerEnabled = true;
-
-    [ObservableProperty]
-    private bool _isPrimaryDps;
 
     /// <summary>Highest Complete Heal chain position a character can hold.</summary>
     public const int MaxChChainPosition = 12;

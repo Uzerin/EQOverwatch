@@ -26,7 +26,7 @@ public sealed partial class MainViewModel
             }
         });
 
-    private void InitializeMaps() => Maps.Initialize(Logs.FirstOrDefault(l => l.IsPrimaryDps));
+    private void InitializeMaps() => Maps.Initialize(LastPlayedLog());
 
-    private void RefreshMaps() => Maps.Refresh(Logs.FirstOrDefault(l => l.IsPrimaryDps));
+    private void RefreshMaps() => Maps.Refresh(LastPlayedLog());
 }

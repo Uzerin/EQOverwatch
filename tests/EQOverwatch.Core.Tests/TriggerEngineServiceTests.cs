@@ -234,4 +234,38 @@ public class TriggerEngineServiceTests
             engine.Snapshot.Timers.Select(t => t.Text).OrderBy(t => t));
         Assert.All(engine.Snapshot.Timers, t => Assert.Equal(Now, t.StartedUtc));
     }
+
+    [Fact]
+    public void A_line_several_logs_saw_alerts_once_under_the_first_log_but_lines_about_you_alert_for_each()
+    {
+        var engine = new TriggerEngineService();
+        var fired = new List<TriggerFiredEvent>();
+        engine.TriggerFired += fired.Add;
+        engine.SetTriggers(new[]
+        {
+            SkinFades(),
+            new TriggerDefinition
+            {
+                Name = "Rage", Pattern = @"^Emperor Ssraeshza begins casting Rage of Ssraeshza\.$",
+                Actions = TriggerActions.TextOverlay | TriggerActions.Audio, DurationSeconds = 6, DisplayText = "Rage incoming",
+            },
+        });
+        DateTime t = new(2026, 11, 16, 21, 15, 0, DateTimeKind.Utc);
+
+        foreach (string box in new[] { "Myriad", "Stackprime", "Oodles", "Plethora", "Abundancei" })
+        {
+            engine.OnLine(box, "Emperor Ssraeshza begins casting Rage of Ssraeshza.", t.AddMilliseconds(300));
+        }
+
+        TriggerFiredEvent rage = Assert.Single(fired);
+        Assert.Equal("Myriad", rage.CharacterName);
+
+        engine.OnLine("Stackprime", "Your protective skin fades.", t.AddSeconds(1));
+        engine.OnLine("Oodles", "Your protective skin fades.", t.AddSeconds(1));
+        Assert.Equal(3, fired.Count);
+
+        // The next cast, later on, alerts again.
+        engine.OnLine("Oodles", "Emperor Ssraeshza begins casting Rage of Ssraeshza.", t.AddSeconds(30));
+        Assert.Equal(4, fired.Count);
+    }
 }
