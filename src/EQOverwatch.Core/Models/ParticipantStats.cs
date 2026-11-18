@@ -108,6 +108,22 @@ public sealed class ParticipantStats : ObservableObject
         Touch(timestamp);
     }
 
+    private Dictionary<string, (long Damage, int Hits, int Misses)>? _pets;
+
+    /// <summary>A merged pet's own share of this row: its damage, hits and misses.</summary>
+    internal void RecordPet(string pet, int amount, bool hit)
+    {
+        _pets ??= new Dictionary<string, (long, int, int)>(StringComparer.Ordinal);
+        (long damage, int hits, int misses) = _pets.GetValueOrDefault(pet);
+        _pets[pet] = hit ? (damage + amount, hits + 1, misses) : (damage, hits, misses + 1);
+    }
+
+    /// <summary>The pets merged into this row, most damage first (empty when none).</summary>
+    internal IEnumerable<(string Pet, long Damage, int Hits, int Misses)> Pets() =>
+        _pets is null
+            ? Enumerable.Empty<(string, long, int, int)>()
+            : _pets.Select(p => (p.Key, p.Value.Damage, p.Value.Hits, p.Value.Misses)).OrderByDescending(p => p.Item2);
+
     internal void Recalculate(long groupTotalDamage, double encounterSeconds)
     {
         PercentOfGroupDamage = groupTotalDamage > 0 ? 100.0 * TotalDamage / groupTotalDamage : 0.0;
@@ -172,6 +188,17 @@ internal sealed class DamageTakenStats
             case AvoidKind.Other: OtherAvoids++; break;
             default: Misses++; break; // a plain miss, or a miss line whose reason was not read
         }
+    }
+
+    /// <summary>Rampage attacks on this player (hits and misses) and the damage the rampage hits did.</summary>
+    public int Rampages { get; private set; }
+
+    public long RampageDamage { get; private set; }
+
+    public void RecordRampage(int amount)
+    {
+        Rampages++;
+        RampageDamage += amount;
     }
 
     public void Record(int amount)

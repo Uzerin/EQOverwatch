@@ -1085,7 +1085,21 @@
                                 <DataGrid ItemsSource="{Binding Participants}" HorizontalAlignment="Left"
                                           AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
                                           HeadersVisibility="Column" GridLinesVisibility="Horizontal"
-                                          FrozenColumnCount="2" HorizontalScrollBarVisibility="Auto">
+                                          FrozenColumnCount="2" HorizontalScrollBarVisibility="Auto"
+                                          RowDetailsVisibilityMode="Visible">
+                                    <DataGrid.RowDetailsTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding PetText}" Style="{StaticResource HintText}" Margin="34,0,0,3">
+                                                <TextBlock.Visibility>
+                                                    <Binding Path="HasPets">
+                                                        <Binding.Converter>
+                                                            <BooleanToVisibilityConverter/>
+                                                        </Binding.Converter>
+                                                    </Binding>
+                                                </TextBlock.Visibility>
+                                            </TextBlock>
+                                        </DataTemplate>
+                                    </DataGrid.RowDetailsTemplate>
                                     <DataGrid.Columns>
                                         <DataGridTextColumn Header="#" Binding="{Binding Rank}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                                         <DataGridTextColumn Header="Name" Binding="{Binding DisplayName, Mode=OneWay}" Width="Auto"/>
@@ -1695,8 +1709,11 @@
                 <Grid Margin="6">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="2*"/>
+                        <RowDefinition Height="*" MinHeight="110"/>
                     </Grid.RowDefinitions>
+
+
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="12"/>
@@ -1704,6 +1721,21 @@
                         <ColumnDefinition Width="12"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
+
+                    <DockPanel Grid.Row="2" Grid.ColumnSpan="5" Margin="0,12,0,0">
+                        <TextBlock DockPanel.Dock="Top" FontWeight="SemiBold" Margin="0,0,0,6" Text="Idle in boss fights"/>
+                        <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource HintText}" Margin="0,6,0,0" TextWrapping="Wrap"
+                                   Text="Boss kills from the Encounter DPS list near the selected raid's dump, with the raid members who did no damage, healing or casting in them."/>
+                        <DataGrid ItemsSource="{Binding IdleFightRows}" HorizontalAlignment="Left" AutoGenerateColumns="False" CanUserAddRows="False"
+                                  IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Fight" Binding="{Binding Fight, Mode=OneWay}" Width="Auto"/>
+                                <DataGridTextColumn Header="Start" Binding="{Binding When, Mode=OneWay}" Width="Auto"/>
+                                <DataGridTextColumn Header="Idle" Binding="{Binding IdleCount, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                <DataGridTextColumn Header="Who" Binding="{Binding Idle, Mode=OneWay}" Width="Auto" MaxWidth="900" ElementStyle="{StaticResource WrapCell}"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </DockPanel>
 
                     <WrapPanel Grid.Row="0" Grid.ColumnSpan="5" Margin="0,0,0,8">
                         <Button Content="Read new dumps" Margin="0,0,8,6" Command="{Binding RefreshAttendanceCommand}"
@@ -2128,6 +2160,90 @@
                         </DataGrid.Columns>
                     </DataGrid>
                     <TextBlock Grid.Row="6" Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,8,0,0" Text="{Binding MobExperienceStatus}"/>
+                </Grid>
+            </TabItem>
+
+            <!-- ═════════ Session ═════════ -->
+            <TabItem Header="Session">
+                <Grid Margin="6">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0" Style="{StaticResource HintText}" Margin="0,0,0,8" TextWrapping="Wrap" Text="{Binding SessionStatus}"/>
+                    <DataGrid Grid.Row="1" ItemsSource="{Binding SessionRows}" SelectedItem="{Binding SelectedSessionRow, Mode=TwoWay}" HorizontalAlignment="Left"
+                              AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" SelectionMode="Single"
+                              HeadersVisibility="Column" GridLinesVisibility="Horizontal">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Character" Binding="{Binding Character, Mode=OneWay}" Width="Auto"/>
+                            <DataGridTextColumn Header="Played" Binding="{Binding Played, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                            <DataGridTextColumn Header="XP" Binding="{Binding Xp, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                            <DataGridTextColumn Header="Platinum" Binding="{Binding Platinum, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                            <DataGridTextColumn Header="Kills" Binding="{Binding Kills, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                            <DataGridTextColumn Header="Skill-ups" Binding="{Binding SkillUps, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <TextBlock Grid.Row="2" FontWeight="SemiBold" Margin="0,14,0,6" Text="Zone timeline (select a character above)"/>
+                    <ctl:ZoneTimelineControl Grid.Row="3" Stretches="{Binding SelectedZoneStretches}" Margin="0,0,0,8"/>
+                    <DataGrid Grid.Row="4" ItemsSource="{Binding ZoneRows}" HorizontalAlignment="Left" VerticalAlignment="Top"
+                              AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
+                              HeadersVisibility="Column" GridLinesVisibility="Horizontal">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Zone" Binding="{Binding Zone, Mode=OneWay}" Width="Auto"/>
+                            <DataGridTextColumn Header="From" Binding="{Binding From, Mode=OneWay}" Width="Auto"/>
+                            <DataGridTextColumn Header="To" Binding="{Binding To, Mode=OneWay}" Width="Auto"/>
+                            <DataGridTextColumn Header="Time" Binding="{Binding Length, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </TabItem>
+
+            <!-- ═════════ Spell Stats ═════════ -->
+            <TabItem Header="Spell Stats">
+                <Grid Margin="6">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <WrapPanel Grid.Row="0" Margin="0,0,0,8">
+                        <ComboBox Width="180" Margin="0,0,12,0" ItemsSource="{Binding SpellStatCharacters}" SelectedItem="{Binding SpellStatCharacter}"/>
+                        <TextBlock Style="{StaticResource HintText}" VerticalAlignment="Center" Text="Today since midnight, from your characters' logs."/>
+                    </WrapPanel>
+                    <TextBlock Grid.Row="1" FontWeight="SemiBold" Margin="0,0,0,6" Text="Casts"/>
+                    <DataGrid Grid.Row="2" ItemsSource="{Binding SpellStatRows}" HorizontalAlignment="Left" VerticalAlignment="Top"
+                              AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
+                              HeadersVisibility="Column" GridLinesVisibility="Horizontal">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Character" Binding="{Binding Character, Mode=OneWay}" Width="Auto"/>
+                            <DataGridTextColumn Header="Spell" Binding="{Binding Spell, Mode=OneWay}" Width="Auto"/>
+                            <DataGridTextColumn Header="Casts" Binding="{Binding Casts, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                            <DataGridTextColumn Header="Fizzles" Binding="{Binding Fizzles, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                            <DataGridTextColumn Header="Fizzle %" Binding="{Binding FizzlePercent, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                            <DataGridTextColumn Header="Interrupts" Binding="{Binding Interrupts, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                            <DataGridTextColumn Header="Interrupt %" Binding="{Binding InterruptPercent, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                            <DataGridTextColumn Header="Didn't take hold" Binding="{Binding Blocked, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                            <DataGridTextColumn Header="Blocked by" Binding="{Binding BlockedBy, Mode=OneWay}" Width="Auto"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <TextBlock Grid.Row="3" FontWeight="SemiBold" Margin="0,12,0,6" Text="Resists"/>
+                    <DataGrid Grid.Row="4" ItemsSource="{Binding ResistStatRows}" HorizontalAlignment="Left" VerticalAlignment="Top"
+                              AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
+                              HeadersVisibility="Column" GridLinesVisibility="Horizontal">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Character" Binding="{Binding Character, Mode=OneWay}" Width="Auto"/>
+                            <DataGridTextColumn Header="Spell" Binding="{Binding Spell, Mode=OneWay}" Width="Auto"/>
+                            <DataGridTextColumn Header="Mob" Binding="{Binding Mob, Mode=OneWay}" Width="Auto"/>
+                            <DataGridTextColumn Header="Landed" Binding="{Binding Landed, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                            <DataGridTextColumn Header="Resisted" Binding="{Binding Resisted, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                            <DataGridTextColumn Header="Resist %" Binding="{Binding ResistPercent, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
                 </Grid>
             </TabItem>
 
@@ -2635,6 +2751,16 @@
                                           ToolTip="Says &quot;Myriad out of range&quot; or &quot;Myriad can't see the target&quot; when one of your characters can't reach its target during a fight."/>
                                 <CheckBox Content="Show how far along a fight is on the DPS overlay" Margin="0,0,0,6" IsChecked="{Binding ShowFightProgress}"
                                           ToolTip="A bar and &quot;~62% · about 1:40 left&quot;, from the damage the recorded kills of the same mob took on this server (needs 2 kills)."/>
+                                <CheckBox Content="Buff didn't take hold" Margin="0,0,0,6" IsChecked="{Binding TakeHoldAlert}"
+                                          ToolTip="Says which buff blocked yours, at most once a minute per spell."/>
+                                <CheckBox Content="Resist streak" Margin="0,0,0,6" IsChecked="{Binding ResistStreakAlert}"
+                                          ToolTip="Says when the same mob resisted one of your spells 3 times in a row."/>
+                                <CheckBox Content="Feign death failed" Margin="0,0,0,6" IsChecked="{Binding FeignDeathAlert}"
+                                          ToolTip="Says when one of your characters fell to the ground instead of feigning."/>
+                                <CheckBox Content="Root or mez broke" Margin="0,0,0,6" IsChecked="{Binding RootMezAlert}"
+                                          ToolTip="Says when your root or mez wears off or breaks."/>
+                                <CheckBox Content="Log went quiet" Margin="0,0,0,6" IsChecked="{Binding QuietLogAlert}"
+                                          ToolTip="Says when a character's log has had no lines for 2 minutes during a fight (a disconnect or crash)."/>
                             </StackPanel>
                         </GroupBox>
 

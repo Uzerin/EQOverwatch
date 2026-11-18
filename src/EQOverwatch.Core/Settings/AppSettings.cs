@@ -221,6 +221,21 @@ public sealed class AppSettings
     /// <summary>Show how far along a fight is on the DPS overlay, from the recorded kills of the same mob.</summary>
     public bool ShowFightProgress { get; set; } = true;
 
+    /// <summary>Speak when one of your character's buffs did not take hold.</summary>
+    public bool TakeHoldAlert { get; set; } = true;
+
+    /// <summary>Speak when the same mob resisted one of your spells 3 times in a row.</summary>
+    public bool ResistStreakAlert { get; set; } = true;
+
+    /// <summary>Speak when one of your characters' feign death failed.</summary>
+    public bool FeignDeathAlert { get; set; } = true;
+
+    /// <summary>Speak when your root or mez wears off or breaks.</summary>
+    public bool RootMezAlert { get; set; } = true;
+
+    /// <summary>Speak when a character's log has been quiet for 2 minutes during a fight.</summary>
+    public bool QuietLogAlert { get; set; } = true;
+
     /// <summary>Where the mob card overlay goes; it shows when you /con a mob the app knows something about.</summary>
     public OverlaySettings MobCardOverlay { get; set; } = OverlaySettings.DefaultMobCard;
 

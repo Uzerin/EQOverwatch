@@ -357,7 +357,8 @@ public partial class DpsTrackerService : IDpsEventSink
                             .AddDamage(combatEvent.Timestamp, Attacker(combatEvent.Source), combatEvent.Amount, isCritical,
                                 combatEvent.DamageKind != DamageKind.DamageShield && _roster is not null && _roster.IsPet(combatEvent.Source, _server)
                                     ? AttackType.Pet
-                                    : AttackTypes.Classify(combatEvent.DamageKind, combatEvent.Detail));
+                                    : AttackTypes.Classify(combatEvent.DamageKind, combatEvent.Detail),
+                                MergedPet(combatEvent.Source));
                         changed = true;
                     }
                     else if (_active.TryGetValue(FoeName(combatEvent.Source), out CombatEncounter? foe)
@@ -376,7 +377,7 @@ public partial class DpsTrackerService : IDpsEventSink
                         }
                         else
                         {
-                            foe.AddDamageTaken(combatEvent.Target, combatEvent.Amount);
+                            foe.AddDamageTaken(combatEvent.Target, combatEvent.Amount, combatEvent.IsRampage);
                         }
 
                         changed = true;
@@ -386,7 +387,7 @@ public partial class DpsTrackerService : IDpsEventSink
 
                 case CombatEventKind.Miss when IsAttack(combatEvent):
                     GetOrStart(combatEvent.Target, combatEvent.Timestamp)
-                        .AddMiss(combatEvent.Timestamp, Attacker(combatEvent.Source));
+                        .AddMiss(combatEvent.Timestamp, Attacker(combatEvent.Source), MergedPet(combatEvent.Source));
                     changed = true;
                     break;
 
@@ -394,7 +395,7 @@ public partial class DpsTrackerService : IDpsEventSink
                                                && Classify(combatEvent.Target) != NameKind.Npc:
                     // The fight's target swung at a player or pet and missed: the player avoided the attack.
                     missingFoe.AddWitness(_logOwner);
-                    missingFoe.AddAvoided(combatEvent.Target, combatEvent.Avoid);
+                    missingFoe.AddAvoided(combatEvent.Target, combatEvent.Avoid, combatEvent.IsRampage);
                     if (!combatEvent.IsRampage && _batchDepth == 0)
                     {
                         attacked = (combatEvent.Target, missingFoe.TargetName);
@@ -879,6 +880,10 @@ public partial class DpsTrackerService : IDpsEventSink
     /// <summary>The row a hit is credited to: the owner when the attacker is a known pet and merging is on.</summary>
     private string Attacker(string source) =>
         _roster is { MergePetDamage: true } roster && roster.TryGetOwner(source, _server, out string owner) ? owner : source;
+
+    /// <summary>The pet's own name when its damage is credited to its owner's row; otherwise null.</summary>
+    private string? MergedPet(string source) =>
+        _roster is { MergePetDamage: true } roster && roster.TryGetOwner(source, _server, out _) ? source : null;
 
     private NameKind Classify(string name)
     {

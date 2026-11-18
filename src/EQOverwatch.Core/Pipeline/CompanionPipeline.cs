@@ -50,6 +50,7 @@ public sealed class CompanionPipeline : IAsyncDisposable
         HistoricalDps = new HistoricalDpsTracker(inactivityTimeout, Roster);
         Songs = new SongTrackerService(Spells, Triggers);
         Charm = new CharmWatchService(Spells, Triggers);
+        SpellAlerts = new SpellAlertService(Spells, Triggers);
         Experience = new ExperienceTracker(DateTime.UtcNow);
         MobExperience = new MobExperienceStore();
         Zones = new ZoneTracker();
@@ -66,7 +67,7 @@ public sealed class CompanionPipeline : IAsyncDisposable
 
         // Every sink sees every line of every trigger-enabled log. Historical imports use none of them.
         var triggerSinks = new CompositeTriggerSink(
-            new ITriggerLineSink[] { Triggers, Buffs, Songs, Charm, TimerPause, RaidBosses, ChChain, Cooldowns, Abilities, SharedTriggers, Roster, Loot, Tells, Experience, MobExperience, Resists, Zones, Drops, Progress, TellInbox }, RaiseError);
+            new ITriggerLineSink[] { Triggers, Buffs, Songs, Charm, SpellAlerts, TimerPause, RaidBosses, ChChain, Cooldowns, Abilities, SharedTriggers, Roster, Loot, Tells, Experience, MobExperience, Resists, Zones, Drops, Progress, TellInbox }, RaiseError);
         Activity = new CharacterActivityService();
         Songs.SetOwnCharacterProbe(IsMonitoredCharacter);
         Songs.SetActivityProbe(Activity.IsActive);
@@ -120,6 +121,9 @@ public sealed class CompanionPipeline : IAsyncDisposable
 
     /// <summary>Countdown and break alarm for your characters' own charms.</summary>
     public CharmWatchService Charm { get; }
+
+    /// <summary>Spoken alerts: a buff that did not take hold, a resist streak, a failed feign death, root or mez breaking.</summary>
+    public SpellAlertService SpellAlerts { get; }
 
     /// <summary>Experience, levels and AA points gained this session.</summary>
     public ExperienceTracker Experience { get; }

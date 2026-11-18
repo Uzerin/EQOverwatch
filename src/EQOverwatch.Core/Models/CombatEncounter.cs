@@ -50,16 +50,22 @@ public sealed class CombatEncounter : ObservableObject
     public string DisplayName =>
         $"{TargetName} — {StartTime:HH:mm:ss} ({DurationSeconds:0}s, {TotalDamage:N0} dmg){(IsActive ? " • live" : string.Empty)}";
 
-    internal void AddDamage(DateTime timestamp, string source, int amount, bool isCritical = false, AttackType attack = AttackType.Hit)
+    internal void AddDamage(DateTime timestamp, string source, int amount, bool isCritical = false, AttackType attack = AttackType.Hit, string? pet = null)
     {
-        GetOrAdd(source).RecordHit(timestamp, amount, isCritical, attack);
+        ParticipantStats row = GetOrAdd(source);
+        row.RecordHit(timestamp, amount, isCritical, attack);
+        if (pet is not null)
+        {
+            row.RecordPet(pet, amount, hit: true);
+        }
+
         _timeline.Record(source, (int)(timestamp - StartTime).TotalSeconds, amount);
         TotalDamage += amount;
         Touch(timestamp);
     }
 
     /// <summary>Damage the fight's target dealt to <paramref name="victim"/> (a player or pet) during the fight.</summary>
-    internal void AddDamageTaken(string victim, int amount)
+    internal void AddDamageTaken(string victim, int amount, bool isRampage = false)
     {
         if (!_takenByName.TryGetValue(victim, out DamageTakenStats? stats))
         {
@@ -68,6 +74,11 @@ public sealed class CombatEncounter : ObservableObject
         }
 
         stats.Record(amount);
+        if (isRampage)
+        {
+            stats.RecordRampage(amount);
+        }
+
         TotalDamageTaken += amount;
     }
 
@@ -103,7 +114,7 @@ public sealed class CombatEncounter : ObservableObject
         _shieldHits == 0 ? null : new DamageShieldSummary(_shieldTotal, _shieldHits, _shieldFirst, _shieldLast);
 
     /// <summary>The fight's target attacked <paramref name="victim"/> and missed (the victim dodged, parried, blocked...).</summary>
-    internal void AddAvoided(string victim, AvoidKind kind = AvoidKind.Miss)
+    internal void AddAvoided(string victim, AvoidKind kind = AvoidKind.Miss, bool isRampage = false)
     {
         if (!_takenByName.TryGetValue(victim, out DamageTakenStats? stats))
         {
@@ -112,6 +123,11 @@ public sealed class CombatEncounter : ObservableObject
         }
 
         stats.RecordAvoid(kind);
+        if (isRampage)
+        {
+            stats.RecordRampage(0);
+        }
+
     }
 
     /// <summary>Damage per second across the fight for the group and the <see cref="DpsTimeline.MaxPlayers"/> top dealers, or null when too short.</summary>
@@ -216,9 +232,15 @@ public sealed class CombatEncounter : ObservableObject
     /// <summary>Total damage the target dealt to players and pets.</summary>
     public long TotalDamageTaken { get; private set; }
 
-    internal void AddMiss(DateTime timestamp, string source)
+    internal void AddMiss(DateTime timestamp, string source, string? pet = null)
     {
-        GetOrAdd(source).RecordMiss(timestamp);
+        ParticipantStats row = GetOrAdd(source);
+        row.RecordMiss(timestamp);
+        if (pet is not null)
+        {
+            row.RecordPet(pet, 0, hit: false);
+        }
+
         Touch(timestamp);
     }
 

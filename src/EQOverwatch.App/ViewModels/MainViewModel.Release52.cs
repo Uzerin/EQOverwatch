@@ -141,6 +141,7 @@ public sealed partial class MainViewModel
         RefreshMaps();
         RefreshDrops(nowUtc);
         RefreshProgress(nowUtc);
+        RefreshDayStats(nowUtc);
     }
 
     /// <summary>Drops song rows from a saved Spells list: songs now reach the Songs overlay on their own.</summary>

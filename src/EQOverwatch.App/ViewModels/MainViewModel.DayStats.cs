@@ -1,0 +1,269 @@
+using System.Globalization;
+using CommunityToolkit.Mvvm.ComponentModel;
+using EQOverwatch.Core.Attendance;
+using EQOverwatch.Core.Models;
+using EQOverwatch.Core.Services;
+using EQOverwatch.Core.Session;
+
+namespace EQOverwatch.App.ViewModels;
+
+/// <summary>One character's row on the Session tab.</summary>
+public sealed record SessionRowView(string Character, string Played, string Xp, string Platinum, int Kills, int SkillUps, IReadOnlyList<ZoneStretch> Zones);
+
+/// <summary>One zone stretch under the Session tab's timeline.</summary>
+public sealed record ZoneRowView(string Zone, string From, string To, string Length);
+
+/// <summary>One spell on the Spell Stats tab's Casts table.</summary>
+public sealed record SpellStatRowView(string Character, string Spell, int Casts, int Fizzles, string FizzlePercent, int Interrupts, string InterruptPercent, int Blocked, string BlockedBy);
+
+/// <summary>One spell on one mob on the Spell Stats tab's Resists table.</summary>
+public sealed record ResistStatRowView(string Character, string Spell, string Mob, int Landed, int Resisted, string ResistPercent);
+
+/// <summary>A boss fight under the selected raid on the Attendance tab, with who did nothing in it.</summary>
+public sealed record IdleFightRowView(string Fight, string When, int IdleCount, string Idle);
+
+// Spell alerts and the quiet-log alert, the Session and Spell Stats tabs (today's numbers from each log), and the idle list on Attendance.
+public sealed partial class MainViewModel
+{
+    private const string AllSpellCharacters = "All characters";
+    private static readonly TimeSpan DayScanEvery = TimeSpan.FromSeconds(30);
+
+    private DayScanner? _dayScanner;
+    private DateTime _lastDayScan;
+    private int _dayScanRunning;
+    private readonly QuietLogWatch _quietLogs = new();
+
+    // ─────────────────────────── alert switches ───────────────────────────
+
+    [ObservableProperty]
+    private bool _takeHoldAlert = true;
+
+    [ObservableProperty]
+    private bool _resistStreakAlert = true;
+
+    [ObservableProperty]
+    private bool _feignDeathAlert = true;
+
+    [ObservableProperty]
+    private bool _rootMezAlert = true;
+
+    [ObservableProperty]
+    private bool _quietLogAlert = true;
+
+    partial void OnTakeHoldAlertChanged(bool value)
+    {
+        _pipeline.SpellAlerts.TakeHoldAlert = value;
+        SaveUnlessRestoring();
+    }
+
+    partial void OnResistStreakAlertChanged(bool value)
+    {
+        _pipeline.SpellAlerts.ResistAlert = value;
+        SaveUnlessRestoring();
+    }
+
+    partial void OnFeignDeathAlertChanged(bool value)
+    {
+        _pipeline.SpellAlerts.FeignDeathAlert = value;
+        SaveUnlessRestoring();
+    }
+
+    partial void OnRootMezAlertChanged(bool value)
+    {
+        _pipeline.SpellAlerts.RootMezAlert = value;
+        SaveUnlessRestoring();
+    }
+
+    partial void OnQuietLogAlertChanged(bool value) => SaveUnlessRestoring();
+
+    /// <summary>Says "X's log went quiet" for a watched character whose log stopped during a fight.</summary>
+    private void CheckQuietLogs(DateTime nowUtc)
+    {
+        if (!QuietLogAlert)
+        {
+            return;
+        }
+
+        var watched = new HashSet<string>(Logs.Select(l => l.CharacterName), StringComparer.OrdinalIgnoreCase);
+        bool fighting = _pipeline.LiveDps.Snapshot.Active.Count > 0;
+        foreach (string character in _quietLogs.Check(nowUtc, _pipeline.Activity.LastLines().Where(l => watched.Contains(l.Character)), fighting))
+        {
+            string text = $"{character}'s log went quiet";
+            _pipeline.Triggers.StartAlert(BoxAlertSourceId, BoxAlertSourceName, character, text, AggroBannerSeconds, nowUtc);
+            _pipeline.Triggers.PublishAudio(BoxAlertSourceId, BoxAlertSourceName, character, text, nowUtc);
+        }
+    }
+
+    // ─────────────────────────── Session and Spell Stats tabs ───────────────────────────
+
+    [ObservableProperty]
+    private IReadOnlyList<SessionRowView> _sessionRows = Array.Empty<SessionRowView>();
+
+    [ObservableProperty]
+    private SessionRowView? _selectedSessionRow;
+
+    [ObservableProperty]
+    private IReadOnlyList<ZoneStretch> _selectedZoneStretches = Array.Empty<ZoneStretch>();
+
+    [ObservableProperty]
+    private IReadOnlyList<ZoneRowView> _zoneRows = Array.Empty<ZoneRowView>();
+
+    [ObservableProperty]
+    private string _sessionStatus = "Reading today's logs…";
+
+    [ObservableProperty]
+    private IReadOnlyList<string> _spellStatCharacters = new[] { AllSpellCharacters };
+
+    [ObservableProperty]
+    private string _spellStatCharacter = AllSpellCharacters;
+
+    [ObservableProperty]
+    private IReadOnlyList<SpellStatRowView> _spellStatRows = Array.Empty<SpellStatRowView>();
+
+    [ObservableProperty]
+    private IReadOnlyList<ResistStatRowView> _resistStatRows = Array.Empty<ResistStatRowView>();
+
+    private IReadOnlyList<SpellDayRow> _spellDay = Array.Empty<SpellDayRow>();
+    private IReadOnlyList<ResistDayRow> _resistDay = Array.Empty<ResistDayRow>();
+
+    partial void OnSelectedSessionRowChanged(SessionRowView? value) => ShowZones(value);
+
+    partial void OnSpellStatCharacterChanged(string value) => FilterSpellStats();
+
+    private sealed record DayResult(IReadOnlyList<SessionSummary> Sessions, IReadOnlyList<SpellDayRow> Spells, IReadOnlyList<ResistDayRow> Resists);
+
+    private DayResult? _dayResult;
+
+    private void RefreshDayStats(DateTime nowUtc)
+    {
+        CheckQuietLogs(nowUtc);
+        if (Interlocked.Exchange(ref _dayResult, null) is { } result)
+        {
+            ShowDayStats(result.Sessions, result.Spells, result.Resists);
+        }
+
+        if (nowUtc - _lastDayScan < DayScanEvery || Logs.Count == 0 || Interlocked.CompareExchange(ref _dayScanRunning, 1, 0) != 0)
+        {
+            return;
+        }
+
+        _lastDayScan = nowUtc;
+        _dayScanner ??= new DayScanner(name => _pipeline.Spells.Database.FindByName(name));
+        DayScanner scanner = _dayScanner;
+        var logs = Logs.Select(l => (l.FilePath, l.CharacterName)).ToList();
+        DateTime nowLocal = _clock();
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                scanner.Update(logs, nowLocal);
+                Interlocked.Exchange(ref _dayResult, new DayResult(scanner.Sessions(nowLocal), scanner.Spells(), scanner.Resists())); // shown on the next tick
+            }
+            catch (Exception)
+            {
+                // read again next time
+            }
+            finally
+            {
+                Interlocked.Exchange(ref _dayScanRunning, 0);
+            }
+        });
+    }
+
+    /// <summary>Puts today's numbers on the Session and Spell Stats tabs (UI thread).</summary>
+    public void ShowDayStats(IReadOnlyList<SessionSummary> sessions, IReadOnlyList<SpellDayRow> spells, IReadOnlyList<ResistDayRow> resists)
+    {
+        CultureInfo culture = CultureInfo.CurrentCulture;
+        string? selected = SelectedSessionRow?.Character;
+        SessionRows = sessions
+            .Select(s => new SessionRowView(
+                s.Character,
+                FormatPlayed(s.PlayedSeconds),
+                s.XpPercent.ToString("0.0", culture) + "%",
+                s.Platinum.ToString("N0", culture),
+                s.Kills,
+                s.SkillUps,
+                s.Zones))
+            .ToList();
+        SelectedSessionRow = SessionRows.FirstOrDefault(r => r.Character.Equals(selected, StringComparison.OrdinalIgnoreCase)) ?? SessionRows.FirstOrDefault();
+        SessionStatus = SessionRows.Count == 0
+            ? "Nobody has played today yet."
+            : $"Today since midnight. Played time leaves out gaps over {DayAccumulator.OfflineGap.TotalMinutes:0} minutes; kills are mobs your characters saw die.";
+
+        _spellDay = spells;
+        _resistDay = resists;
+        var names = spells.Select(s => s.Character).Concat(resists.Select(r => r.Character))
+            .Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(n => n, StringComparer.OrdinalIgnoreCase).ToList();
+        names.Insert(0, AllSpellCharacters);
+        if (!names.SequenceEqual(SpellStatCharacters))
+        {
+            string keep = SpellStatCharacter;
+            SpellStatCharacters = names;
+            SpellStatCharacter = names.Contains(keep) ? keep : AllSpellCharacters;
+        }
+
+        FilterSpellStats();
+    }
+
+    private void FilterSpellStats()
+    {
+        CultureInfo culture = CultureInfo.CurrentCulture;
+        bool all = SpellStatCharacter is null or AllSpellCharacters;
+        SpellStatRows = _spellDay
+            .Where(s => all || s.Character.Equals(SpellStatCharacter, StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(s => s.Casts).ThenBy(s => s.Character, StringComparer.OrdinalIgnoreCase).ThenBy(s => s.Spell, StringComparer.OrdinalIgnoreCase)
+            .Select(s => new SpellStatRowView(s.Character, s.Spell, s.Casts, s.Fizzles, s.FizzlePercent.ToString("0.0", culture) + "%",
+                s.Interrupts, s.InterruptPercent.ToString("0.0", culture) + "%", s.Blocked, s.BlockedBy))
+            .ToList();
+        ResistStatRows = _resistDay
+            .Where(r => all || r.Character.Equals(SpellStatCharacter, StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(r => r.Resisted).ThenBy(r => r.Spell, StringComparer.OrdinalIgnoreCase).ThenBy(r => r.Mob, StringComparer.OrdinalIgnoreCase)
+            .Select(r => new ResistStatRowView(r.Character, r.Spell, r.Mob, r.Landed, r.Resisted, r.ResistPercent.ToString("0", culture) + "%"))
+            .ToList();
+    }
+
+    private void ShowZones(SessionRowView? row)
+    {
+        IReadOnlyList<ZoneStretch> zones = row?.Zones ?? Array.Empty<ZoneStretch>();
+        SelectedZoneStretches = zones;
+        ZoneRows = zones
+            .Select(z => new ZoneRowView(
+                z.Zone.Length > 0 ? z.Zone : "(before the first zone change)",
+                z.Start.ToString("HH:mm", CultureInfo.CurrentCulture),
+                z.End.ToString("HH:mm", CultureInfo.CurrentCulture),
+                FormatPlayed(z.Seconds)))
+            .ToList();
+    }
+
+    internal static string FormatPlayed(double seconds)
+    {
+        var span = TimeSpan.FromSeconds(Math.Max(0, seconds));
+        return span.TotalHours >= 1
+            ? $"{(int)span.TotalHours}h {span.Minutes:00}m"
+            : $"{span.Minutes}m";
+    }
+
+    // ─────────────────────────── Attendance: idle in boss fights ───────────────────────────
+
+    [ObservableProperty]
+    private IReadOnlyList<IdleFightRowView> _idleFightRows = Array.Empty<IdleFightRowView>();
+
+    private void RebuildIdleFights()
+    {
+        if (SelectedAttendanceRaid is not { } raid)
+        {
+            IdleFightRows = Array.Empty<IdleFightRowView>();
+            return;
+        }
+
+        IEnumerable<EncounterSnapshot> fights = Encounters.Select(e => e.Snapshot).OfType<EncounterSnapshot>();
+        IdleFightRows = RaidIdle.Find(raid.Record, fights)
+            .OrderByDescending(f => f.Start)
+            .Select(f => new IdleFightRowView(
+                f.Boss,
+                f.Start.ToString("HH:mm", CultureInfo.CurrentCulture),
+                f.Idle.Count,
+                f.Idle.Count == 0 ? "Everyone took part" : string.Join(", ", f.Idle)))
+            .ToList();
+    }
+}

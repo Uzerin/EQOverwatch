@@ -19,6 +19,9 @@ public sealed record SkillRowView(string Skill, int Value, string Max, string To
 
 public sealed record TradeskillRowView(string Recipe, int Combines, int Made, int Failed, string Success, string Last);
 
+/// <summary>A character flag on the Flags tab: the log's words and when it came.</summary>
+public sealed record FlagRowView(string Flag, string Received);
+
 public sealed record FactionRowView(string Faction, string Session, string AllTime, string Hits, string UsualHit, string ComesFrom, string Status);
 
 /// <summary>One entry of the Persona drop-down: the class name ("Cleric", empty when not known) and what the drop-down shows.</summary>
@@ -33,7 +36,8 @@ public sealed record CharacterProgressSource(
     Func<IReadOnlyList<TradeskillRowView>> Tradeskills,
     Func<string, IReadOnlyList<FactionRowView>> Factions,
     Func<IReadOnlyList<PersonaChoice>>? Personas = null,
-    Func<string, FocusEffectsViewModel>? FocusFor = null);
+    Func<string, FocusEffectsViewModel>? FocusFor = null,
+    Func<IReadOnlyList<FlagRowView>>? Flags = null);
 
 /// <summary>
 /// One character's data window: inventory, spellbook, missing spells and key ring, read from the character's <c>/outputfile</c> files.
@@ -49,6 +53,7 @@ public sealed partial class CharacterDataViewModel : ObservableObject
     public const int SkillsTab = 5;
     public const int TradeskillsTab = 6;
     public const int FactionTab = 7;
+    public const int FlagsTab = 8;
 
     private const string ScrollPrefix = "Spell: ";
     private const string None = "—";
@@ -183,6 +188,9 @@ public sealed partial class CharacterDataViewModel : ObservableObject
 
     [ObservableProperty]
     private IReadOnlyList<FactionRowView> _factionRows = Array.Empty<FactionRowView>();
+
+    [ObservableProperty]
+    private IReadOnlyList<FlagRowView> _flagRows = Array.Empty<FlagRowView>();
 
     /// <summary>Hides skills already at their most for the character's class and level.</summary>
     [ObservableProperty]
@@ -360,6 +368,7 @@ public sealed partial class CharacterDataViewModel : ObservableObject
             SkillRows = _progress.Skills(PersonaName).Where(r => Match(r.Skill) && (!OnlyUnmaxedSkills || !r.IsMaxed)).ToList();
             TradeskillRows = _progress.Tradeskills().Where(r => Match(r.Recipe)).ToList();
             FactionRows = _progress.Factions(PersonaName).Where(r => Match(r.Faction) || Match(r.ComesFrom)).ToList();
+            FlagRows = (_progress.Flags?.Invoke() ?? Array.Empty<FlagRowView>()).Where(r => Match(r.Flag)).ToList();
         }
 
         MissingSummary = books?.MissingUtc is null

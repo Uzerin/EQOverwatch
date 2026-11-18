@@ -21,13 +21,24 @@ public sealed record ParticipantSnapshot(
     string Class = "",
     int Deaths = 0,
     int MaxNonCritHit = -1,
-    IReadOnlyList<AttackSlice>? Attacks = null)
+    IReadOnlyList<AttackSlice>? Attacks = null,
+    ValueList<PetLine>? Pets = null)
 {
+    /// <summary>The pets whose damage is counted in this row (empty when none).</summary>
+    public IReadOnlyList<PetLine> PetRows => Pets ?? (IReadOnlyList<PetLine>)Array.Empty<PetLine>();
+
     /// <summary>The name, followed by " (Deaths: 2)" when the player died during the fight.</summary>
     public string DisplayName => Deaths > 0 ? $"{Name} (Deaths: {Deaths})" : Name;
 
     /// <summary>The largest hit that was not a critical hit: the figure shown as "Max Hit". Falls back to <see cref="MaxHit"/> when it was not recorded.</summary>
     public int MaxHitNoCrit => MaxNonCritHit >= 0 ? MaxNonCritHit : MaxHit;
+}
+
+/// <summary>A pet's own figures inside its owner's row: damage, hits, misses and deaths.</summary>
+public sealed record PetLine(string Name, long Damage, int Hits, int Misses, int Deaths)
+{
+    /// <summary>Hits / (hits + misses) in percent.</summary>
+    public double HitPercent => Hits + Misses == 0 ? 0 : 100.0 * Hits / (Hits + Misses);
 }
 
 /// <summary>Damage one player or pet took from the fight's target.</summary>
@@ -45,7 +56,9 @@ public sealed record DamageTakenSnapshot(
     int Ripostes = 0,
     int Missed = 0,
     int OtherAvoids = 0,
-    long ShieldDamage = 0)
+    long ShieldDamage = 0,
+    int Rampages = 0,
+    long RampageDamage = 0)
 {
     public string DisplayName => Deaths > 0 ? $"{Name} (Deaths: {Deaths})" : Name;
 
@@ -176,7 +189,8 @@ public sealed record EncounterSnapshot(
         ParticipantSnapshot[] participants = encounter.ParticipantStats
             .Select(p => new ParticipantSnapshot(
                 p.Name, p.TotalDamage, p.PercentOfGroupDamage, p.Dps, p.ScaledDps, p.MaxHit, p.Hits, p.Misses, p.HitRate,
-                p.MaxCritHit, p.CritHitCount, p.CritRatePercent, Deaths: encounter.DeathsOf(p.Name), MaxNonCritHit: p.MaxNonCritHit, Attacks: p.AttackSlices()))
+                p.MaxCritHit, p.CritHitCount, p.CritRatePercent, Deaths: encounter.DeathsOf(p.Name), MaxNonCritHit: p.MaxNonCritHit, Attacks: p.AttackSlices(),
+                Pets: PetsOf(p, encounter)))
             .OrderByDescending(p => p.TotalDamage)
             .ThenBy(p => p.Name, StringComparer.Ordinal)
             .ToArray();
@@ -185,7 +199,7 @@ public sealed record EncounterSnapshot(
         DamageTakenSnapshot[] taken = encounter.TakenStats
             .Select(t => new DamageTakenSnapshot(
                 t.Name, t.TotalDamage, takenTotal > 0 ? 100.0 * t.TotalDamage / takenTotal : 0.0, t.Hits, t.MaxHit, encounter.DeathsOf(t.Name), t.Avoided,
-                t.Dodges, t.Parries, t.Blocks, t.Ripostes, t.Misses, t.OtherAvoids, t.ShieldDamage))
+                t.Dodges, t.Parries, t.Blocks, t.Ripostes, t.Misses, t.OtherAvoids, t.ShieldDamage, t.Rampages, t.RampageDamage))
             .OrderByDescending(t => t.TotalDamage)
             .ThenBy(t => t.Name, StringComparer.Ordinal)
             .ToArray();
@@ -212,11 +226,27 @@ public sealed record EncounterSnapshot(
         };
     }
 
+    private static ValueList<PetLine>? PetsOf(ParticipantStats row, CombatEncounter encounter)
+    {
+        PetLine[] pets = row.Pets().Select(p => new PetLine(p.Pet, p.Damage, p.Hits, p.Misses, encounter.DeathsOf(p.Pet))).ToArray();
+        return pets.Length == 0 ? null : new ValueList<PetLine>(pets);
+    }
+
     /// <summary>
     /// Several mobs fought at once as one live fight: the totals of all of them, named after the mob taking the most damage plus how
     /// many others ("Blood of Ssraeshza +8"). Heals and spell casts are filed under every mob in progress, so they are counted once.
     /// The id is the negative of the lowest mob's, so it never clashes with a mob's own row.
     /// </summary>
+    private static ValueList<PetLine>? CombinePets(IEnumerable<ParticipantSnapshot> rows, Func<string, int> deathsOf)
+    {
+        PetLine[] pets = rows.SelectMany(r => r.PetRows)
+            .GroupBy(p => p.Name, StringComparer.Ordinal)
+            .Select(g => new PetLine(g.Key, g.Sum(p => p.Damage), g.Sum(p => p.Hits), g.Sum(p => p.Misses), deathsOf(g.Key)))
+            .OrderByDescending(p => p.Damage)
+            .ToArray();
+        return pets.Length == 0 ? null : new ValueList<PetLine>(pets);
+    }
+
     public static EncounterSnapshot Combine(IReadOnlyList<EncounterSnapshot> parts)
     {
         ArgumentNullException.ThrowIfNull(parts);
@@ -258,7 +288,7 @@ public sealed record EncounterSnapshot(
                     g.Max(p => p.MaxHit), hits, misses, hits + misses == 0 ? 0.0 : (double)hits / (hits + misses),
                     g.Max(p => p.MaxCritHit), crits, hits == 0 ? 0.0 : 100.0 * crits / hits,
                     g.Select(p => p.Class).FirstOrDefault(c => c.Length > 0) ?? string.Empty,
-                    DeathsOf(g.Key), g.Max(p => p.MaxNonCritHit), new AttackSliceList(slices));
+                    DeathsOf(g.Key), g.Max(p => p.MaxNonCritHit), new AttackSliceList(slices), CombinePets(g, DeathsOf));
             })
             .OrderByDescending(p => p.TotalDamage)
             .ThenBy(p => p.Name, StringComparer.Ordinal)
@@ -273,7 +303,7 @@ public sealed record EncounterSnapshot(
                 return new DamageTakenSnapshot(
                     g.Key, damage, takenTotal > 0 ? 100.0 * damage / takenTotal : 0.0, g.Sum(t => t.Hits), g.Max(t => t.MaxHit), DeathsOf(g.Key),
                     g.Sum(t => t.Avoided), g.Sum(t => t.Dodges), g.Sum(t => t.Parries), g.Sum(t => t.Blocks), g.Sum(t => t.Ripostes),
-                    g.Sum(t => t.Missed), g.Sum(t => t.OtherAvoids), g.Sum(t => t.ShieldDamage));
+                    g.Sum(t => t.Missed), g.Sum(t => t.OtherAvoids), g.Sum(t => t.ShieldDamage), g.Sum(t => t.Rampages), g.Sum(t => t.RampageDamage));
             })
             .OrderByDescending(t => t.TotalDamage)
             .ThenBy(t => t.Name, StringComparer.Ordinal)

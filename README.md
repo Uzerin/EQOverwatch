@@ -63,49 +63,46 @@ settings are kept.
 
 ## Changelog
 
+### 1.0.67
+
+- New Session and Spell Stats tabs.
+- New alerts for blocked buffs, resists, failed feign death, root and mez breaks, and quiet logs.
+- Pet stats under their owner, and rampage targets in Damage Taken.
+- Character flags in the Profile window, and idle raiders in Attendance.
+
 ### 1.0.66
 
-- CH chain auto-press now presses your CH key only (default 2); the mouse click, click spot and click delay are gone.
-- Optional assist key (default 1), pressed 1.0 s and again 0.5 s before the CH key, on the chat cue or in timed mode.
+- Removed the mouse click option from CH Chain auto-press.
 
 ### 1.0.65
 
-- CH chain auto-click moves to Settings → Cleric CH chain → Advanced, with a live line showing the position and tag it follows.
-- Set Position: click your Complete Heal button once; the pointer is held there for each click and put back after your cast starts.
-- From the chain's pace it holds the spot half a second before your call.
-- A red outline shows round the CH Chain overlay (or Raid Triggers) while auto-click is on; it stays on as you left it, with no auto-off.
-- Auto-click can fire every 10–60 s after your own last Complete Heal instead of on chat, and can press a key instead of clicking.
-- No late-cast alarm when you started a Complete Heal in the last 10 seconds.
+- CH Chain auto-click settings updated and moved to Advanced.
 
 ### 1.0.64
 
-- Mob Card overlay: /con a mob to see its kills and times on your server, raid resist rates and drops.
-- The DPS overlay shows how far along a boss fight is, from your recorded kills of it.
-- Aggro alert: "Plethora is being attacked by …" when a mob goes after one of your characters that isn't a tank (new Tank column).
-- Range alert: "Myriad out of range" or "can't see the target" during a fight.
+- New Mob Card overlay with kill history, resists and drops.
+- Boss fight progress on the DPS overlay.
+- New aggro and range alerts.
 
 ### 1.0.63
 
-- DPS is parsed from all your logs at once, with each hit counted once, so a fight keeps going when one character dies or is out of range. The Primary DPS choice is gone.
-- A one-time offer to load the whole history of every log into Mob History, and a Reload All Logs button in Settings.
-- Mob History and the DPS tab's fights follow the Server box.
-- The map shows every character's last /loc in the zone, with their name.
-- A custom trigger line that several of your logs see alerts once; lines about you still alert for each character.
-- Install update closes the app before replacing the program file, so it reopens (from 1.0.63 on).
-- Mobs written with a double space after the name (Emperor Ssraeshza) are now matched to their death.
+- DPS is parsed from all active logs.
+- Option to load your full log history, and a Reload All Logs button.
+- The map shows the last /loc used by each character.
+- Triggers no longer repeat when several logs see the same line.
+- Fixed Install update not reopening the app, and a mob name matching issue.
 
 ### 1.0.62
 
-- Several mobs fought at once (mezzed adds too) are one live fight, "Boss +8"; each mob gets its own row when it dies.
-- Discord picture in three columns: DPS, Healing, and Tanking with Deaths, plus the killing blow on each death.
-- Shared drops are merged once a day at 10:00 UTC; your new drops upload at most once a day.
-- Anonymous player count (can be switched off in Settings).
-- Install update reopens the app reliably, and errors are written to `crash.log`.
+- Several mobs fought at once are tracked as one fight.
+- Redesigned Discord picture.
+- Shared drop updates and an optional anonymous player count.
+- Install update reliability fixes.
 
 ### 1.0.61
 
-- Worn gear is kept for each class persona; bags, bank and shared bank stay shared.
-- Overwatch Discord button at the top of the app.
+- Worn gear is kept per class persona.
+- Overwatch Discord button.
 
 ### 1.0.51 to 1.0.60
 

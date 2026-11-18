@@ -125,8 +125,22 @@ public sealed partial class ParticipantRowViewModel : ObservableObject
 
     partial void OnDeathsChanged(int value) => OnPropertyChanged(nameof(DisplayName));
 
+    /// <summary>One line per pet whose damage is counted in this row, e.g. "↳ Koal (pet): 48,210 damage · 71.0% hit · died 2×"; empty when none.</summary>
+    [ObservableProperty]
+    private string _petText = string.Empty;
+
+    public bool HasPets => PetText.Length > 0;
+
+    partial void OnPetTextChanged(string value) => OnPropertyChanged(nameof(HasPets));
+
+    public static string DescribePets(IReadOnlyList<PetLine> pets) =>
+        string.Join("\n", pets.Select(p =>
+            string.Create(System.Globalization.CultureInfo.CurrentCulture,
+                $"↳ {p.Name} (pet): {p.Damage:N0} damage · {p.HitPercent:0.0}% hit") + (p.Deaths > 0 ? $" · died {p.Deaths}×" : string.Empty)));
+
     public void Update(int rank, ParticipantSnapshot participant, long topDamage = 0)
     {
+        PetText = DescribePets(participant.PetRows);
         Rank = rank;
         Name = participant.Name;
         Deaths = participant.Deaths;

@@ -938,6 +938,16 @@ public sealed partial class MainViewModel : ObservableObject
                $"from {Clock(shield.FirstSeconds)} to {Clock(shield.LastSeconds)} into the fight ({shield.ActiveSeconds:0}s).";
     }
 
+    /// <summary>"\nRampage: Teek 12 (3,400), Abundancei 5 (900)" — who the target's rampages went to, most first; empty when none.</summary>
+    public static string RampageSummaryText(EncounterSnapshot encounter)
+    {
+        List<DamageTakenSnapshot> hit = encounter.TakenRows.Where(t => t.Rampages > 0)
+            .OrderByDescending(t => t.Rampages).ThenByDescending(t => t.RampageDamage).ThenBy(t => t.Name, StringComparer.Ordinal).ToList();
+        return hit.Count == 0
+            ? string.Empty
+            : "\nRampage: " + string.Join(", ", hit.Select(t => $"{t.Name} {t.Rampages:N0} ({t.RampageDamage:N0})"));
+    }
+
     private void RefreshParticipants()
     {
         EncounterSnapshot? encounter = SelectedEncounter?.Snapshot;
@@ -981,7 +991,7 @@ public sealed partial class MainViewModel : ObservableObject
             DamageTaken.RemoveAt(DamageTaken.Count - 1);
         }
 
-        DamageTakenSummary = $"Damage taken from {encounter.TargetName}: {encounter.TotalDamageTaken:N0}" + ShieldSummaryText(encounter);
+        DamageTakenSummary = $"Damage taken from {encounter.TargetName}: {encounter.TotalDamageTaken:N0}" + ShieldSummaryText(encounter) + RampageSummaryText(encounter);
         if (!Equals(EncounterTimeline, encounter.Timeline))
         {
             EncounterTimeline = encounter.Timeline;
@@ -1481,6 +1491,11 @@ public sealed partial class MainViewModel : ObservableObject
             AggroAlert = settings.AggroAlert;
             RangeAlert = settings.RangeAlert;
             ShowFightProgress = settings.ShowFightProgress;
+            TakeHoldAlert = settings.TakeHoldAlert;
+            ResistStreakAlert = settings.ResistStreakAlert;
+            FeignDeathAlert = settings.FeignDeathAlert;
+            RootMezAlert = settings.RootMezAlert;
+            QuietLogAlert = settings.QuietLogAlert;
             // The Tells and mob card overlays are newer than most saved settings, so they follow the others' lock rather than deciding it.
             AreOverlaysLocked = OverlayKindExtensions.All.Where(kind => !FollowsLock(kind)).All(kind => GetOverlaySettings(settings, kind).IsLocked);
             foreach (OverlayKind follower in OverlayKindExtensions.All.Where(FollowsLock))
@@ -1555,6 +1570,11 @@ public sealed partial class MainViewModel : ObservableObject
         AggroAlert = AggroAlert,
         RangeAlert = RangeAlert,
         ShowFightProgress = ShowFightProgress,
+        TakeHoldAlert = TakeHoldAlert,
+        ResistStreakAlert = ResistStreakAlert,
+        FeignDeathAlert = FeignDeathAlert,
+        RootMezAlert = RootMezAlert,
+        QuietLogAlert = QuietLogAlert,
         TellKeepDays = TellKeepDays,
         RaidBossTimers = RaidRules.Select(r => r.ToRule()).ToList(),
         Theme = _theme.Clone(),

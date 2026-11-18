@@ -26,6 +26,9 @@ public sealed record FactionProgress(string Faction, int Session, long AllTime, 
 /// <summary>One class persona of a character: its class name ("Cleric", or empty when not known yet) and level (0 when not seen).</summary>
 public sealed record PersonaInfo(string Persona, int Level, bool IsCurrent);
 
+/// <summary>A character flag the log announced, with when it came.</summary>
+public sealed record CharacterFlag(string Text, DateTime Utc);
+
 /// <summary>
 /// Skill-ups, tradeskill combines and faction changes per character (and server), from live lines and each log's history.
 /// <para>A character can switch class persona ("You successfully loaded your Bard equipment set."). Skills, faction and level belong to
@@ -75,7 +78,7 @@ public sealed partial class ProgressStore : ITriggerLineSink
     private static partial Regex WhoRegex();
 
     private const int MaxTimeline = 20000;
-    private const int FileFormat = 3; // 3: the persona timeline
+    private const int FileFormat = 4; // 3: the persona timeline; 4: character flags (the logs are read again for them)
 
     private readonly object _gate = new();
     private readonly Dictionary<string, CharacterState> _characters = new(StringComparer.OrdinalIgnoreCase);
@@ -116,7 +119,12 @@ public sealed partial class ProgressStore : ITriggerLineSink
         || message.StartsWith("Your faction standing with ", StringComparison.Ordinal)
         || message.StartsWith("You have fashioned the items", StringComparison.Ordinal)
         || message.StartsWith("You lacked the skills to fashion ", StringComparison.Ordinal)
+        || IsFlagLine(message)
         || (message.Length > 10 && message[^1] == '!' && message.Contains(" slain ", StringComparison.Ordinal));
+
+    /// <summary>True for a line announcing a character flag, such as "You receive a character flag!".</summary>
+    public static bool IsFlagLine(string message) =>
+        message.StartsWith("You ", StringComparison.Ordinal) && message.Contains("character flag", StringComparison.OrdinalIgnoreCase);
 
     // ───────────────────────── live lines ─────────────────────────
 
@@ -183,6 +191,17 @@ public sealed partial class ProgressStore : ITriggerLineSink
         }
 
         CharacterState state = State(states, key);
+        if (IsFlagLine(text))
+        {
+            state.Flags ??= new List<FlagMark>();
+            if (!state.Flags.Any(f => f.Time == time && f.Text == text))
+            {
+                state.Flags.Add(new FlagMark { Time = time, Text = text });
+            }
+
+            return true;
+        }
+
         Match saved = SetSavedRegex().Match(text);
         Match loaded = saved.Success ? Match.Empty : SetLoadedRegex().Match(text);
         if ((saved.Success || loaded.Success) && EqClass.TryNormalize((saved.Success ? saved : loaded).Groups["persona"].Value, out string named))
@@ -569,6 +588,20 @@ public sealed partial class ProgressStore : ITriggerLineSink
         }
     }
 
+    /// <summary>The character flags a character's log announced, oldest first.</summary>
+    public IReadOnlyList<CharacterFlag> Flags(string character, string server)
+    {
+        lock (_gate)
+        {
+            if (!_characters.TryGetValue(Key(character, server), out CharacterState? state) || state.Flags is null)
+            {
+                return Array.Empty<CharacterFlag>();
+            }
+
+            return state.Flags.OrderBy(f => f.Time).Select(f => new CharacterFlag(f.Text, LogHistoryReader.FromUnix(f.Time))).ToList();
+        }
+    }
+
     /// <summary>A character's recipes, A to Z.</summary>
     public IReadOnlyList<TradeskillProgress> Tradeskills(string character, string server)
     {
@@ -723,6 +756,16 @@ public sealed partial class ProgressStore : ITriggerLineSink
 
         /// <summary>Tradeskills are the character's, whatever persona is on.</summary>
         public Dictionary<string, RecipeState> Recipes { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>Character flags, oldest first.</summary>
+        public List<FlagMark>? Flags { get; set; }
+    }
+
+    public sealed class FlagMark
+    {
+        public long Time { get; set; }
+
+        public string Text { get; set; } = string.Empty;
     }
 
     public sealed class PersonaMark

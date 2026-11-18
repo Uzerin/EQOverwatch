@@ -686,6 +686,7 @@ public sealed partial class MainViewModel
                 .ThenBy(m => m.Name, StringComparer.OrdinalIgnoreCase)
                 .Select(m => new RosterDisplayRow(m.Group, m.Name, m.Level, m.Class, m.Role))
                 .ToList();
+        RebuildIdleFights();
     }
 
     [RelayCommand]

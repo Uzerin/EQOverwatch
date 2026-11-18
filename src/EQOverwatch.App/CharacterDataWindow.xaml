@@ -324,6 +324,20 @@
                     </DataGrid>
                 </DockPanel>
             </TabItem>
+
+            <TabItem Header="Flags">
+                <DockPanel Margin="0,6,0,0">
+                    <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource HintText}" Margin="0,6,0,0"
+                               Text="Character flags this character's log announced."/>
+                    <DataGrid HorizontalAlignment="Left" ItemsSource="{Binding FlagRows}" AutoGenerateColumns="False" CanUserAddRows="False"
+                              CanUserDeleteRows="False" IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Flag" Binding="{Binding Flag, Mode=OneWay}" Width="Auto"/>
+                            <DataGridTextColumn Header="Received" Binding="{Binding Received, Mode=OneWay}" Width="Auto"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </TabItem>
         </TabControl>
     </DockPanel>
 </Window>

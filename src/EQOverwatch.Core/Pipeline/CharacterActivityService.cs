@@ -74,6 +74,15 @@ public sealed class CharacterActivityService : ILogActivityObserver
         }
     }
 
+    /// <summary>When each character's log last had a line (UTC).</summary>
+    public IReadOnlyList<(string Character, DateTime LastLineUtc)> LastLines()
+    {
+        lock (_gate)
+        {
+            return _characters.Select(p => (p.Key, p.Value.LastLineUtc)).ToList();
+        }
+    }
+
     /// <summary>True when at least one character is active.</summary>
     public bool AnyActive(DateTime nowUtc)
     {
