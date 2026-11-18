@@ -192,6 +192,18 @@ public sealed class AppSettings
     /// </summary>
     public bool AllLogsLoadOffered { get; set; }
 
+    /// <summary>Speak and show "X is being attacked by Y" when a mob attacks one of your characters that is not a tank.</summary>
+    public bool AggroAlert { get; set; } = true;
+
+    /// <summary>Speak "X out of range" / "X can't see the target" when one of your characters can't reach its target in a fight.</summary>
+    public bool RangeAlert { get; set; } = true;
+
+    /// <summary>Show how far along a fight is on the DPS overlay, from the recorded kills of the same mob.</summary>
+    public bool ShowFightProgress { get; set; } = true;
+
+    /// <summary>Where the mob card overlay goes; it shows when you /con a mob the app knows something about.</summary>
+    public OverlaySettings MobCardOverlay { get; set; } = OverlaySettings.DefaultMobCard;
+
     /// <summary>A version ("v1.0.12") the user chose to skip: it is not announced again (a newer one still is).</summary>
     public string SkippedUpdateVersion { get; set; } = string.Empty;
 
@@ -245,6 +257,9 @@ public sealed class WatchedLogSettings
     public string CharacterName { get; set; } = string.Empty;
     public bool IsTriggerEnabled { get; set; } = true;
 
+    /// <summary>The Tank box as chosen on the Characters tab; null follows the class (warriors, paladins and shadow knights).</summary>
+    public bool? IsTank { get; set; }
+
     /// <summary>Complete Heal chain position (1-12), or 0 for none.</summary>
     public int ChChainPosition { get; set; }
 }
@@ -263,6 +278,9 @@ public sealed class OverlayProfile
 
     /// <summary>Null in layouts saved before the Tells overlay existed: applying one leaves the Tells overlay as it is.</summary>
     public OverlaySettings? Tells { get; set; }
+
+    /// <summary>Null in layouts saved before the mob card existed: applying one leaves the mob card as it is.</summary>
+    public OverlaySettings? MobCard { get; set; }
 }
 
 /// <summary>
@@ -307,6 +325,8 @@ public sealed record OverlaySettings
     public static readonly OverlaySettings DefaultTimer = new() { Left = 100, Top = 100, Width = 320, Height = 240 };
 
     public static readonly OverlaySettings DefaultDps = new() { Left = 700, Top = 340, Width = 300, Height = 230 };
+
+    public static readonly OverlaySettings DefaultMobCard = new() { Left = 1020, Top = 240, Width = 340, Height = 150, IsVisible = true };
 
     public static readonly OverlaySettings DefaultTells = new() { Left = 1020, Top = 60, Width = 320, Height = 160, IsVisible = false };
 

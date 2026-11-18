@@ -65,6 +65,20 @@ public sealed partial class DpsOverlayViewModel : ObservableObject
 
     private readonly Func<string, string>? _classOf;
 
+    /// <summary>
+    /// When set, estimates how far along a live fight is from the recorded kills of the same mob (null when there are too few). Shown under
+    /// the mob's name; a fight against several mobs at once gets none.
+    /// </summary>
+    public Func<EncounterSnapshot, EQOverwatch.Core.History.FightEstimate?>? Progress { get; set; }
+
+    /// <summary>"~62% · about 1:40 left (from 3 kills)", or empty.</summary>
+    [ObservableProperty]
+    private string _progressText = string.Empty;
+
+    /// <summary>0 to 1 for the progress bar.</summary>
+    [ObservableProperty]
+    private double _progressFraction;
+
     /// <summary>When set, classes are looked up on the server of the log that recorded the fight (used instead of the name-only lookup).</summary>
     public Func<string, string, string>? ClassOnServer { get; init; }
     private readonly Func<string, bool>? _isMine;
@@ -150,9 +164,15 @@ public sealed partial class DpsOverlayViewModel : ObservableObject
             DurationText = OverlayFormat.Duration(0);
             GroupDpsText = "0";
             IsLive = false;
+            ProgressText = string.Empty;
+            ProgressFraction = 0;
             Rows.Clear();
             return;
         }
+
+        EQOverwatch.Core.History.FightEstimate? estimate = encounter.IsActive && encounter.Id > 0 ? Progress?.Invoke(encounter) : null;
+        ProgressText = estimate?.Describe() ?? string.Empty;
+        ProgressFraction = estimate?.Fraction ?? 0;
 
         TargetName = encounter.TargetName;
         DurationText = OverlayFormat.Duration(encounter.DurationSeconds);

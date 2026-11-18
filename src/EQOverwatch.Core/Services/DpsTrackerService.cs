@@ -282,7 +282,38 @@ public partial class DpsTrackerService : IDpsEventSink
         }
     }
 
+    /// <summary>
+    /// A mob in a fight in progress swung at a player (hit or miss, not a rampage, not a spell): the player and the mob. Live lines only
+    /// (not while a log is read in). Raised outside the tracker's lock.
+    /// </summary>
+    public event Action<string, string>? PlayerAttacked;
+
+    /// <summary>
+    /// A log's own character could not reach its target during a fight ("Your target is too far away, get closer!"): the character and
+    /// whether it was out of sight ("You cannot see your target.") rather than out of range. Live lines only.
+    /// </summary>
+    public event Action<string, bool>? TargetOutOfReach;
+
+    /// <summary>A log's own character used /consider on a mob that showed its level: the character, the mob and its level. Live lines only.</summary>
+    public event Action<string, string, int>? MobConsidered;
+
     public void OnCombatEvent(in CombatEvent combatEvent)
+    {
+        (string Player, string Mob)? attacked = null;
+        try
+        {
+            OnCombatEventLocked(in combatEvent, ref attacked);
+        }
+        finally
+        {
+            if (attacked is { } a)
+            {
+                PlayerAttacked?.Invoke(a.Player, a.Mob);
+            }
+        }
+    }
+
+    private void OnCombatEventLocked(in CombatEvent combatEvent, ref (string Player, string Mob)? attacked)
     {
         lock (_gate)
         {
@@ -334,6 +365,11 @@ public partial class DpsTrackerService : IDpsEventSink
                     {
                         // The fight's target hurt a player or pet: that is damage taken in this fight.
                         foe.AddWitness(_logOwner);
+                        if (combatEvent.DamageKind == DamageKind.Melee && !combatEvent.IsRampage && _batchDepth == 0)
+                        {
+                            attacked = (combatEvent.Target, foe.TargetName);
+                        }
+
                         if (combatEvent.DamageKind == DamageKind.DamageShield)
                         {
                             foe.AddShieldTaken(combatEvent.Timestamp, combatEvent.Target, combatEvent.Amount);
@@ -359,6 +395,11 @@ public partial class DpsTrackerService : IDpsEventSink
                     // The fight's target swung at a player or pet and missed: the player avoided the attack.
                     missingFoe.AddWitness(_logOwner);
                     missingFoe.AddAvoided(combatEvent.Target, combatEvent.Avoid);
+                    if (!combatEvent.IsRampage && _batchDepth == 0)
+                    {
+                        attacked = (combatEvent.Target, missingFoe.TargetName);
+                    }
+
                     changed = true;
                     break;
 
@@ -408,9 +449,22 @@ public partial class DpsTrackerService : IDpsEventSink
 
         // /consider lines that show a level ("... (Lvl: 62)") feed the shared mob level ranges.
         Action<string, int>? levelSeen = MobLevelSeen;
-        if (levelSeen is not null && EQOverwatch.Core.Parsing.ConLineParser.TryParse(message, out string conMob, out int conLevel))
+        if ((levelSeen is not null || MobConsidered is not null)
+            && EQOverwatch.Core.Parsing.ConLineParser.TryParse(message, out string conMob, out int conLevel))
         {
-            levelSeen(conMob, conLevel);
+            levelSeen?.Invoke(conMob, conLevel);
+            if (LiveOwner() is { } consider)
+            {
+                MobConsidered?.Invoke(consider, conMob, conLevel);
+            }
+        }
+
+        // A box that cannot reach its target during a fight (a ranger past bow range, or out of sight).
+        bool tooFar = message.SequenceEqual("Your target is too far away, get closer!") || message.SequenceEqual("Your target is out of range, get closer!");
+        bool unseen = !tooFar && message.SequenceEqual("You cannot see your target.");
+        if ((tooFar || unseen) && TargetOutOfReach is not null && LiveOwner(inFight: true) is { } reacher)
+        {
+            TargetOutOfReach(reacher, unseen);
         }
 
         // Boss casts and heals are not combat events, so they arrive here with the log clock set by the line's own timestamp.
@@ -430,6 +484,15 @@ public partial class DpsTrackerService : IDpsEventSink
         else if (message.IndexOf(" healed ", StringComparison.Ordinal) > 0 && message.IndexOf(" hit point", StringComparison.Ordinal) > 0)
         {
             ObserveHeal(message.ToString());
+        }
+    }
+
+    /// <summary>The log owner of a live line (none while a log is read in); with <paramref name="inFight"/>, only during a fight.</summary>
+    private string? LiveOwner(bool inFight = false)
+    {
+        lock (_gate)
+        {
+            return _batchDepth == 0 && _logOwner.Length > 0 && (!inFight || _active.Count > 0) ? _logOwner : null;
         }
     }
 

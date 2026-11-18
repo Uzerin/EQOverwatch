@@ -476,6 +476,7 @@ public sealed partial class MainViewModel
         OverlayKind.RaidTriggers => profile.RaidTriggers,
         OverlayKind.ChChain => profile.ChChain,
         OverlayKind.Tells => profile.Tells ?? _overlays.Capture(OverlayKind.Tells),
+        OverlayKind.MobCard => profile.MobCard ?? _overlays.Capture(OverlayKind.MobCard),
         _ => profile.Dps,
     };
 
@@ -506,6 +507,7 @@ public sealed partial class MainViewModel
             ChChain = _overlays.Capture(OverlayKind.ChChain),
             Dps = _overlays.Capture(OverlayKind.Dps),
             Tells = _overlays.Capture(OverlayKind.Tells),
+            MobCard = _overlays.Capture(OverlayKind.MobCard),
         };
 
         _overlayProfiles.RemoveAll(p => p.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
@@ -560,11 +562,15 @@ public sealed partial class MainViewModel
         IsChChainOverlayVisible = profile.ChChain.IsVisible;
         IsDpsOverlayVisible = profile.Dps.IsVisible;
         IsTellsOverlayVisible = ProfileSettings(profile, OverlayKind.Tells).IsVisible;
-        AreOverlaysLocked = OverlayKindExtensions.All.Where(kind => kind != OverlayKind.Tells).All(kind => ProfileSettings(profile, kind).IsLocked);
-        OverlaySettings tells = ProfileSettings(profile, OverlayKind.Tells);
-        if (AreOverlaysLocked && !tells.IsLocked)
+        IsMobCardOverlayVisible = ProfileSettings(profile, OverlayKind.MobCard).IsVisible;
+        AreOverlaysLocked = OverlayKindExtensions.All.Where(kind => !FollowsLock(kind)).All(kind => ProfileSettings(profile, kind).IsLocked);
+        foreach (OverlayKind follower in OverlayKindExtensions.All.Where(FollowsLock))
         {
-            _overlays.Apply(OverlayKind.Tells, tells with { IsLocked = true });
+            OverlaySettings saved = ProfileSettings(profile, follower);
+            if (AreOverlaysLocked && !saved.IsLocked)
+            {
+                _overlays.Apply(follower, saved with { IsLocked = true });
+            }
         }
 
         RequestSave();

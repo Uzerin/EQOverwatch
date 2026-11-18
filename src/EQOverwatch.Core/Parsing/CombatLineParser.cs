@@ -134,7 +134,8 @@ public static partial class CombatLineParser
                     amount,
                     match.Groups["nonmelee"].Success ? DamageKind.NonMelee : DamageKind.Melee,
                     match.Groups["verb"].Value,
-                    IsCriticalTag(match));
+                    IsCriticalTag(match),
+                    IsRampage: IsRampageTag(match.Groups["tag"]));
                 return true;
             }
 
@@ -175,7 +176,8 @@ public static partial class CombatLineParser
                 Resolve(match.Groups["source"].Value, selfName),
                 Resolve(match.Groups["target"].Value, selfName),
                 0, DamageKind.None, match.Groups["verb"].Value, false,
-                ClassifyAvoid(match.Groups["tail"].Value, match.Groups["target"].Value));
+                ClassifyAvoid(match.Groups["tail"].Value, match.Groups["target"].Value),
+                IsRampage: match.Groups["rtag"] is { Success: true } rtag && IsRampageTag(rtag));
             return true;
         }
 
@@ -207,6 +209,8 @@ public static partial class CombatLineParser
     /// True when the damage line ends in a tag naming a critical hit: "(Critical)", "(Lucky Critical)", "(Critical Double Bow Shot)".
     /// Other tags such as "(Crippling Blow)", "(Flurry)" or "(Riposte)" are not crits.
     /// </summary>
+    private static bool IsRampageTag(Group tag) => tag.Success && tag.ValueSpan.IndexOf("Rampage", StringComparison.OrdinalIgnoreCase) >= 0;
+
     private static bool IsCriticalTag(Match match) =>
         match.Groups["tag"] is { Success: true } tag && tag.ValueSpan.IndexOf("Critical", StringComparison.OrdinalIgnoreCase) >= 0;
 
@@ -298,7 +302,7 @@ public static partial class CombatLineParser
 
     // "You try to slash a frost giant, but miss!"  /  "a frost giant tries to hit YOU, but YOU dodge!"
     [GeneratedRegex(
-        @"^(?<source>.+?) tr(?:y|ies) to (?<verb>\w+(?: on)?) (?<target>.+?), but (?<tail>.+[!.])(?: \([^)]+\))?$",
+        @"^(?<source>.+?) tr(?:y|ies) to (?<verb>\w+(?: on)?) (?<target>.+?), but (?<tail>.+[!.])(?: \((?<rtag>[^)]+)\))?$",
         RegexOptions.CultureInvariant)]
     private static partial Regex MissRegex();
 

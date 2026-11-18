@@ -112,6 +112,7 @@ public sealed partial class MainViewModel : ObservableObject
         _pipeline.Roster.Changed += OnRosterChanged;
 
         Restore(settings);
+        InitializeBoxAlerts();
         InitializeReleaseFeatures();
         ConfigureDiscord(discordPoster, renderEncounterPng);
         _characterData.SetPersonaResolver(PersonaWhenWritten); // worn gear is filed under the persona that was on
@@ -219,6 +220,9 @@ public sealed partial class MainViewModel : ObservableObject
     partial void OnIsDpsOverlayVisibleChanged(bool value) => OnOverlayVisibilityChanged(OverlayKind.Dps, value);
 
     partial void OnIsTellsOverlayVisibleChanged(bool value) => OnOverlayVisibilityChanged(OverlayKind.Tells, value);
+
+    /// <summary>The Tells and mob card overlays are newer than most saved settings: they follow the other overlays' lock.</summary>
+    private static bool FollowsLock(OverlayKind kind) => kind is OverlayKind.Tells or OverlayKind.MobCard;
 
     private void OnOverlayVisibilityChanged(OverlayKind kind, bool visible)
     {
@@ -1357,6 +1361,7 @@ public sealed partial class MainViewModel : ObservableObject
 
                 WatchedLogConfig log = Logs.AddFile(saved.FilePath);
                 log.IsTriggerEnabled = saved.IsTriggerEnabled;
+                log.TankChoice = saved.IsTank;
                 log.ChChainPosition = saved.ChChainPosition;
             }
 
@@ -1463,11 +1468,19 @@ public sealed partial class MainViewModel : ObservableObject
             _pipeline.ChChain.UseChChainOverlay = IsChChainOverlayVisible; // not raised when the value equals the default
             IsDpsOverlayVisible = settings.DpsOverlay.IsVisible;
             IsTellsOverlayVisible = settings.TellsOverlay.IsVisible;
-            // The Tells overlay is newer than most saved settings, so it follows the others' lock rather than deciding it.
-            AreOverlaysLocked = OverlayKindExtensions.All.Where(kind => kind != OverlayKind.Tells).All(kind => GetOverlaySettings(settings, kind).IsLocked);
-            if (AreOverlaysLocked && !settings.TellsOverlay.IsLocked)
+            IsMobCardOverlayVisible = settings.MobCardOverlay.IsVisible;
+            AggroAlert = settings.AggroAlert;
+            RangeAlert = settings.RangeAlert;
+            ShowFightProgress = settings.ShowFightProgress;
+            // The Tells and mob card overlays are newer than most saved settings, so they follow the others' lock rather than deciding it.
+            AreOverlaysLocked = OverlayKindExtensions.All.Where(kind => !FollowsLock(kind)).All(kind => GetOverlaySettings(settings, kind).IsLocked);
+            foreach (OverlayKind follower in OverlayKindExtensions.All.Where(FollowsLock))
             {
-                _overlays.Apply(OverlayKind.Tells, settings.TellsOverlay with { IsLocked = true });
+                OverlaySettings saved = GetOverlaySettings(settings, follower);
+                if (AreOverlaysLocked && !saved.IsLocked)
+                {
+                    _overlays.Apply(follower, saved with { IsLocked = true });
+                }
             }
         }
         finally
@@ -1484,6 +1497,7 @@ public sealed partial class MainViewModel : ObservableObject
         OverlayKind.RaidTriggers => settings.RaidTriggersOverlay,
         OverlayKind.ChChain => settings.ChChainOverlay,
         OverlayKind.Tells => settings.TellsOverlay,
+        OverlayKind.MobCard => settings.MobCardOverlay,
         _ => settings.DpsOverlay,
     };
 
@@ -1495,6 +1509,7 @@ public sealed partial class MainViewModel : ObservableObject
             FilePath = l.FilePath,
             CharacterName = l.CharacterName,
             IsTriggerEnabled = l.IsTriggerEnabled,
+            IsTank = l.TankChoice,
             ChChainPosition = l.ChChainPosition,
         }).ToList(),
         Triggers = Rules.Select(r => r.ToRule()).ToList(),
@@ -1523,6 +1538,10 @@ public sealed partial class MainViewModel : ObservableObject
         ChChainOverlay = _overlays.Capture(OverlayKind.ChChain),
         DpsOverlay = _overlays.Capture(OverlayKind.Dps),
         TellsOverlay = _overlays.Capture(OverlayKind.Tells),
+        MobCardOverlay = _overlays.Capture(OverlayKind.MobCard),
+        AggroAlert = AggroAlert,
+        RangeAlert = RangeAlert,
+        ShowFightProgress = ShowFightProgress,
         TellKeepDays = TellKeepDays,
         RaidBossTimers = RaidRules.Select(r => r.ToRule()).ToList(),
         Theme = _theme.Clone(),
@@ -1592,6 +1611,7 @@ public sealed partial class MainViewModel : ObservableObject
     private void OnLogsChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         SubscribeToLogs();
+        RefreshOwnCharacters();
         RebuildSortedCharacters();
         SyncChainPositions();
         UpdateLiveStatus();
@@ -1601,6 +1621,10 @@ public sealed partial class MainViewModel : ObservableObject
     private void OnLogPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         UpdateLiveStatus();
+        if (e.PropertyName is nameof(WatchedLogConfig.IsTank) or nameof(WatchedLogConfig.ClassName))
+        {
+            RefreshOwnCharacters();
+        }
 
         if (e.PropertyName == nameof(WatchedLogConfig.ChChainPosition))
         {

@@ -13,7 +13,7 @@ as many characters as you play, without touching the game.
 - GINA-style triggers: text, sounds, speech and timers from any log line, shareable in chat.
 - Buff, debuff and song bars for all your characters, paused in safe zones and while logged out.
 - Raid boss ability timers, CH chain bars with a late-cast alarm, and AA and discipline cooldowns.
-- Charm break alerts, and tells read aloud.
+- Charm break, aggro and range alerts for your boxes, and tells read aloud.
 
 **Damage and raids**
 - Live DPS meter from all your characters' logs and fight history, with tanking, healing, deaths, spell casts and boss abilities.
@@ -62,6 +62,13 @@ settings are kept.
 - Spell data comes from your own `spells_us.txt`.
 
 ## Changelog
+
+### 1.0.64
+
+- Mob Card overlay: /con a mob to see its kills and times on your server, raid resist rates and drops.
+- The DPS overlay shows how far along a boss fight is, from your recorded kills of it.
+- Aggro alert: "Plethora is being attacked by …" when a mob goes after one of your characters that isn't a tank (new Tank column).
+- Range alert: "Myriad out of range" or "can't see the target" during a fight.
 
 ### 1.0.63
 

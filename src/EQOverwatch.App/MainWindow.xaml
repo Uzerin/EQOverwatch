@@ -274,6 +274,17 @@
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
+                            <DataGridTemplateColumn Width="Auto">
+                                <DataGridTemplateColumn.Header>
+                                    <TextBlock Text="Tank" ToolTip="No aggro alert when a mob attacks a tank. Warriors, paladins and shadow knights start ticked."/>
+                                </DataGridTemplateColumn.Header>
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <CheckBox HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                  IsChecked="{Binding IsTank, UpdateSourceTrigger=PropertyChanged}"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
                             <DataGridTemplateColumn Header="CH Chain Position" Width="Auto">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
@@ -2586,6 +2597,8 @@
                                     <CheckBox Content="DPS" IsChecked="{Binding IsDpsOverlayVisible}" Margin="0,0,20,6"/>
                                     <CheckBox Content="Tells" IsChecked="{Binding IsTellsOverlayVisible}" Margin="0,0,20,6"
                                               ToolTip="Your characters' unanswered tells. It stays fully visible out of combat."/>
+                                    <CheckBox Content="Mob Card" IsChecked="{Binding IsMobCardOverlayVisible}" Margin="0,0,20,6"
+                                              ToolTip="When you /con a mob: its kills and times on your server, the raid's resist rates and its drops, for 10 seconds."/>
                                 </WrapPanel>
                                 <TextBlock Style="{StaticResource HintText}"
                                            Text="With the CH Chain overlay off, Complete Heal chain bars and the late-cast alarm are shown in the Buffs overlay instead."/>
@@ -2611,6 +2624,17 @@
                                             ToolTip="Reads every character's log again for the Historical Days to Load, and adds the fights to Mob History."/>
                                     <TextBlock Style="{StaticResource HintText}" VerticalAlignment="Center" Text="{Binding ImportStatus}"/>
                                 </WrapPanel>
+                            </StackPanel>
+                        </GroupBox>
+
+                        <GroupBox Header="Box alerts">
+                            <StackPanel Margin="4">
+                                <CheckBox Content="Aggro alert" Margin="0,2,0,6" IsChecked="{Binding AggroAlert}"
+                                          ToolTip="Says and shows &quot;Plethora is being attacked by Yasiz the Devourer&quot; when a mob in a fight attacks one of your characters without the Tank box (Characters tab). Rampage hits don't count."/>
+                                <CheckBox Content="Range alert" Margin="0,0,0,6" IsChecked="{Binding RangeAlert}"
+                                          ToolTip="Says &quot;Myriad out of range&quot; or &quot;Myriad can't see the target&quot; when one of your characters can't reach its target during a fight."/>
+                                <CheckBox Content="Show how far along a fight is on the DPS overlay" Margin="0,0,0,6" IsChecked="{Binding ShowFightProgress}"
+                                          ToolTip="A bar and &quot;~62% · about 1:40 left&quot;, from the damage the recorded kills of the same mob took on this server (needs 2 kills)."/>
                             </StackPanel>
                         </GroupBox>
 

@@ -182,10 +182,11 @@ public partial class MainViewModelTests
 
             Service = new AppSettingsService(SettingsPath, TimeSpan.FromMilliseconds(30));
             Pipeline = new CompanionPipeline(TimeSpan.FromSeconds(settings.EncounterTimeoutSeconds));
-            Vm = new MainViewModel(Pipeline, Service, settings, Overlays, Audio, Dialogs, Theme, Clipboard, () => Now, Updates, url => OpenedUrls.Add(url), CharacterPresenter, CharacterStore);
+            Vm = new MainViewModel(Pipeline, Service, settings, Overlays, Audio, Dialogs, Theme, Clipboard, () => Now, Updates, url => OpenedUrls.Add(url), CharacterPresenter, CharacterStore, bossHistory: BossHistory);
         }
 
         public FakeUpdateChecker Updates { get; } = new();
+        public EQOverwatch.Core.History.BossHistoryStore BossHistory { get; } = new();
         public FakeCharacterPresenter CharacterPresenter { get; } = new();
         public CharacterDataStore CharacterStore { get; } = new();
 

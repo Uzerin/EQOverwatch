@@ -94,6 +94,7 @@ public partial class CompanionApp : Application
 
         var windows = new Dictionary<OverlayKind, OverlayWindowBase>();
         DpsOverlayViewModel? dpsVm = null;
+        var mobCardVm = new MobCardOverlayViewModel();
         foreach (OverlayKind kind in OverlayKindExtensions.All)
         {
             if (kind.Category() is { } category)
@@ -104,6 +105,10 @@ public partial class CompanionApp : Application
             else if (kind == OverlayKind.Tells)
             {
                 windows[kind] = new TellsOverlayWindow(new TellsOverlayViewModel(_pipeline.TellInbox));
+            }
+            else if (kind == OverlayKind.MobCard)
+            {
+                windows[kind] = new MobCardOverlayWindow(mobCardVm);
             }
             else
             {
@@ -147,7 +152,11 @@ public partial class CompanionApp : Application
             MainViewModel vm = _viewModel;
             dpsVm.CopyChatRequested += encounter => vm.CopyChat(encounter);
             dpsVm.CopyImageRequested += encounter => vm.CopyImage(encounter);
+            dpsVm.Progress = vm.FightProgressFor; // how far along a fight is, from the recorded kills of the same mob
         }
+
+        // The mob card: built on the tailing thread when you /con a mob, shown on the UI thread.
+        _viewModel.MobCardReady += card => Dispatcher.BeginInvoke(() => mobCardVm.Show(card));
 
         // Install update: a long timeout for the download, and a restart that starts the new exe once the old one has saved and swapped.
         _updateHttp = new HttpClient { Timeout = TimeSpan.FromMinutes(10) };

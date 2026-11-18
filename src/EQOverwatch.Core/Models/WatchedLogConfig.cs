@@ -44,8 +44,45 @@ public sealed partial class WatchedLogConfig : ObservableObject
 
     /// <summary>The character's class as last seen in a /who line ("Shadow Knight"), or empty (shown as a dash).</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ClassText))]
+    [NotifyPropertyChangedFor(nameof(ClassText), nameof(IsTank))]
     private string _className = string.Empty;
+
+    private bool? _tankChoice;
+
+    /// <summary>
+    /// A tank: no aggro alert when a mob hits it. Warriors, paladins and shadow knights are tanks until changed; a choice made on the
+    /// Characters tab is kept (see <see cref="TankChoice"/>).
+    /// </summary>
+    public bool IsTank
+    {
+        get => _tankChoice ?? IsTankClass(ClassName);
+        set
+        {
+            if (_tankChoice != value)
+            {
+                _tankChoice = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    /// <summary>The Tank box as chosen on the Characters tab, or null while it follows the class.</summary>
+    public bool? TankChoice
+    {
+        get => _tankChoice;
+        set
+        {
+            _tankChoice = value;
+            OnPropertyChanged(nameof(IsTank));
+        }
+    }
+
+    /// <summary>Warrior, Paladin and Shadow Knight (and their level titles' base classes as /who shows them).</summary>
+    public static bool IsTankClass(string? className) =>
+        className is not null
+        && (className.Contains("Warrior", StringComparison.OrdinalIgnoreCase)
+            || className.Contains("Paladin", StringComparison.OrdinalIgnoreCase)
+            || className.Contains("Shadow Knight", StringComparison.OrdinalIgnoreCase));
 
     /// <summary>When the newest /outputfile export for this character was read ("Oct 28 18:12"), or "No data yet".</summary>
     [ObservableProperty]

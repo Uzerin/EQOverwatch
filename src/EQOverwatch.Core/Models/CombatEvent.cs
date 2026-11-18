@@ -54,6 +54,7 @@ public enum AvoidKind : byte
 /// <param name="DamageKind">Melee / non-melee / DoT for damage events.</param>
 /// <param name="Detail">Melee verb, spell name, or miss verb when available.</param>
 /// <param name="Avoid">For a miss, how the defender avoided it (dodge, parry, block, riposte, plain miss or other).</param>
+/// <param name="IsRampage">The hit or miss was tagged "(Rampage)" or "(Wild Rampage)": a mob's sweep, not the target it is fighting.</param>
 /// <param name="IsCritical">The damage line itself was tagged critical, e.g. <c>... points of damage. (Critical)</c> or <c>(Critical Double Bow Shot)</c>.</param>
 public readonly record struct CombatEvent(
     DateTime Timestamp,
@@ -64,4 +65,5 @@ public readonly record struct CombatEvent(
     DamageKind DamageKind,
     string? Detail,
     bool IsCritical = false,
-    AvoidKind Avoid = AvoidKind.None);
+    AvoidKind Avoid = AvoidKind.None,
+    bool IsRampage = false);

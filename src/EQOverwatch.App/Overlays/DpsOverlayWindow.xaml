@@ -58,6 +58,22 @@
                     </DockPanel>
                 </Border>
 
+                <!-- How far along the fight is, from the recorded kills of this mob (hidden when there are too few) -->
+                <StackPanel Margin="6,3,6,0">
+                    <StackPanel.Style>
+                        <Style TargetType="StackPanel">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding ProgressText}" Value="">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </StackPanel.Style>
+                    <ProgressBar Height="5" Minimum="0" Maximum="1" Value="{Binding ProgressFraction, Mode=OneWay}" Foreground="{DynamicResource AccentBrush}"
+                                 Background="{DynamicResource RowBackdropBrush}" BorderThickness="0"/>
+                    <TextBlock Margin="0,2,0,0" Text="{Binding ProgressText}" TextTrimming="CharacterEllipsis" Style="{StaticResource OverlayMutedTextStyle}"/>
+                </StackPanel>
+
                 <!-- Column captions -->
                 <Grid Margin="6,3,6,0">
                     <Grid.ColumnDefinitions>
