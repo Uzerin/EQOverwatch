@@ -63,6 +63,15 @@ settings are kept.
 
 ## Changelog
 
+### 1.0.65
+
+- CH chain auto-click moves to Settings → Cleric CH chain → Advanced, with a live line showing the position and tag it follows.
+- Set Position: click your Complete Heal button once; the pointer is held there for each click and put back after your cast starts.
+- From the chain's pace it holds the spot half a second before your call.
+- A red outline shows round the CH Chain overlay (or Raid Triggers) while auto-click is on; it stays on as you left it, with no auto-off.
+- Auto-click can fire every 10–60 s after your own last Complete Heal instead of on chat, and can press a key instead of clicking.
+- No late-cast alarm when you started a Complete Heal in the last 10 seconds.
+
 ### 1.0.64
 
 - Mob Card overlay: /con a mob to see its kills and times on your server, raid resist rates and drops.

@@ -237,4 +237,29 @@ public sealed class ChChainServiceTests : IDisposable
 
         Assert.Equal(TimerOverlayCategory.ChChain, Assert.Single(Alerts).Category);
     }
+
+    [Theory]
+    [InlineData(9, false)]
+    [InlineData(11, true)]
+    public void No_late_cast_alarm_when_a_complete_heal_started_in_the_last_ten_seconds(int secondsBefore, bool alarm)
+    {
+        _chain.SetPosition("Stackprime", 3);
+        Line("Stackprime", "You begin casting Complete Heal.", T0);
+
+        Line("Stackprime", "Ream tells the raid, '3-3-3 CAST NOW!'", T0.AddSeconds(secondsBefore));
+
+        Assert.Equal(alarm, _chain.IsAwaitingCast("Stackprime"));
+    }
+
+    [Fact]
+    public void A_fizzled_cast_does_not_count_and_the_alarm_sounds()
+    {
+        _chain.SetPosition("Stackprime", 3);
+        Line("Stackprime", "You begin casting Complete Heal.", T0);
+        Line("Stackprime", "Your spell fizzles!", T0.AddSeconds(1));
+
+        Line("Stackprime", "Ream tells the raid, '3-3-3 CAST NOW!'", T0.AddSeconds(3));
+
+        Assert.True(_chain.IsAwaitingCast("Stackprime"));
+    }
 }

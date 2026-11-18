@@ -2669,6 +2669,7 @@
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
                                 <Grid.Resources>
                                     <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
@@ -2693,6 +2694,9 @@
 
                                 <TextBlock Grid.Row="4" Grid.ColumnSpan="3" Style="{StaticResource HintText}" Margin="0,8,0,0"
                                            Text="When another cleric says your position tag together with the cue (for example &quot;3-3-3 CAST NOW!&quot;; any letter case) and you have not begun casting Complete Heal within the threshold, a flashing &quot;CAST CH NOW!&quot; banner and a spoken alarm repeat every second until you do. Pick your position on the Characters tab."/>
+                                <Button Grid.Row="5" Grid.ColumnSpan="3" HorizontalAlignment="Left" Margin="0,8,0,0" Content="Advanced…"
+                                        Style="{StaticResource SecondaryButton}" Command="{Binding OpenAutoClickAdvancedCommand}"
+                                        ToolTip="Auto-click on your CH turn: switch, hotkey, delay and click spot."/>
                             </Grid>
                         </GroupBox>
 
@@ -2754,33 +2758,6 @@
                                 <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,0,0,4" Text="{Binding DiscordStatus}"/>
                                 <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap"
                                            Text="Fights come from all your logs combined, so each one is posted once. Only fights that have just ended are posted, never old ones read from a log. Anyone who has the webhook address can post to your channel, so keep it private."/>
-                            </StackPanel>
-                        </GroupBox>
-
-                        <GroupBox Header="Auto-click on my CH turn">
-                            <StackPanel Margin="4">
-                                <WrapPanel>
-                                    <CheckBox Content="Auto-click on my CH turn" Margin="0,2,32,8" VerticalAlignment="Center" IsChecked="{Binding AutoClickEnabled}"
-                                              ToolTip="Clicks the left mouse button where the pointer is when the chain cues your position, only while EverQuest is the window in front."/>
-                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Toggle hotkey"
-                                               ToolTip="Works from any program. Use Ctrl, Alt or Shift plus a key, such as Ctrl+Alt+F9."/>
-                                    <TextBox Width="130" Margin="0,0,0,8" VerticalAlignment="Center"
-                                             Text="{Binding AutoClickHotkey, UpdateSourceTrigger=LostFocus}"/>
-                                </WrapPanel>
-                                <WrapPanel>
-                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Click delay (milliseconds)"
-                                               ToolTip="How long after the cue the click is made. 0 to 5000."/>
-                                    <TextBox Width="70" Margin="0,0,32,6" VerticalAlignment="Center"
-                                             Text="{Binding AutoClickDelayMilliseconds, UpdateSourceTrigger=LostFocus}"/>
-                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Auto-off after (minutes)"
-                                               ToolTip="The click switches itself off after this many minutes with no chain cue for your position. Every cue starts the count again. 1 to 120."/>
-                                    <TextBox Width="60" Margin="0,0,0,6" VerticalAlignment="Center"
-                                             Text="{Binding AutoClickIdleMinutes, UpdateSourceTrigger=LostFocus}"/>
-                                </WrapPanel>
-                                <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,0,0,4" Text="{Binding AutoClickStatus}"/>
-                                <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,0,0,4" Text="{Binding AutoClickHotkeyNote}"/>
-                                <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap"
-                                           Text="Park the mouse pointer on your Complete Heal button. When another cleric says your position tag with the cue (the same cue as the late-cast alarm) the app presses the left mouse button once, after the delay. It does nothing inside the game client, only a mouse click, and it never clicks unless EverQuest is the window in front. It is always off when the app starts, and it switches itself off after the quiet time you set above. Check your server's rules on automation before using it."/>
                             </StackPanel>
                         </GroupBox>
 

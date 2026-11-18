@@ -158,6 +158,11 @@ public interface IOverlayHost
     {
     }
 
+    /// <summary>Puts the red "auto-click is on" outline round one overlay, or takes it away (null).</summary>
+    void SetArmedOutline(OverlayKind? kind)
+    {
+    }
+
     /// <summary>Closes every window for good (application shutdown).</summary>
     void CloseAll();
 

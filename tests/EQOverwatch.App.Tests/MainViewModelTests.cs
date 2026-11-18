@@ -97,6 +97,11 @@ public partial class MainViewModelTests
         public List<string> Calls { get; } = new();
         public int CloseAllCalls { get; private set; }
 
+        /// <summary>The overlay with the red auto-click outline, or null.</summary>
+        public OverlayKind? Outline { get; private set; }
+
+        public void SetArmedOutline(OverlayKind? kind) => Outline = kind;
+
         public event EventHandler? PlacementChanged;
 
         public OverlaySettings Capture(OverlayKind kind) => State[kind];

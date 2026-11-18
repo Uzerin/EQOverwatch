@@ -168,62 +168,27 @@ public sealed class AutoClickServiceTests : IDisposable
     }
 
     [Fact]
-    public void It_switches_itself_off_after_five_quiet_minutes_and_says_so()
+    public void It_never_switches_itself_off_and_says_its_position_when_switched_on_and_off()
     {
         var changes = new List<bool>();
         _click.ArmedChanged += changes.Add;
         _click.SetArmed(true);
 
-        _click.Tick(T0.AddMinutes(4));
+        _click.Tick(T0.AddHours(3));
         Assert.True(_click.IsArmed);
 
-        _click.Tick(T0.AddMinutes(5).AddSeconds(1));
-
-        Assert.False(_click.IsArmed);
+        _click.SetArmed(false);
         Assert.Equal(new[] { true, false }, changes);
-        Assert.Equal(new[] { "Auto click on", "Auto click off" }, _spoken.Select(s => s.AudioText));
+        Assert.Equal(new[] { "Auto click on, position 3", "Auto click off" }, _spoken.Select(s => s.AudioText));
     }
 
     [Fact]
-    public void The_auto_off_time_is_the_one_that_was_set()
-    {
-        _click.IdleMinutes = 30;
-        _click.SetArmed(true);
-
-        _click.Tick(T0.AddMinutes(29));
-        Assert.True(_click.IsArmed);
-
-        _click.Tick(T0.AddMinutes(30).AddSeconds(1));
-        Assert.False(_click.IsArmed);
-
-        _click.IdleMinutes = 1;
-        _click.SetArmed(true);
-        _click.Tick(T0.AddMinutes(1).AddSeconds(1));
-        Assert.False(_click.IsArmed);
-    }
-
-    [Fact]
-    public void The_auto_off_time_is_kept_between_one_and_a_hundred_twenty_minutes_and_defaults_to_five()
-    {
-        Assert.Equal(AutoClickService.DefaultIdleMinutes, _click.IdleMinutes);
-        Assert.Equal(5, AutoClickService.DefaultIdleMinutes);
-
-        _click.IdleMinutes = 0;
-        Assert.Equal(1, _click.IdleMinutes);
-
-        _click.IdleMinutes = 100_000;
-        Assert.Equal(120, _click.IdleMinutes);
-    }
-
-    [Fact]
-    public void A_cue_keeps_it_from_switching_off_while_the_chain_is_running()
+    public void A_position_change_while_on_is_said_aloud()
     {
         _click.SetArmed(true);
-
-        CueAt(T0.AddMinutes(4));
-        _click.Tick(T0.AddMinutes(6));
-
-        Assert.True(_click.IsArmed);
+        _chain.SetPositions(new[] { new KeyValuePair<string, int>("Stackprime", 6) });
+        _chain.SetPositions(new[] { new KeyValuePair<string, int>("Stackprime", 6) }); // the same again: nothing said
+        Assert.Equal(new[] { "Auto click on, position 3", "Auto click now on position 6" }, _spoken.Select(s => s.AudioText));
     }
 
     [Fact]
@@ -237,5 +202,20 @@ public sealed class AutoClickServiceTests : IDisposable
 
         Assert.Single(changes);
         Assert.Single(_spoken);
+    }
+
+    [Fact]
+    public void Moving_from_position_3_to_6_while_on_clicks_for_6_and_not_3()
+    {
+        _click.SetArmed(true);
+        CueAt(T0);
+        Assert.Equal(1, _sender.ClickCount);
+
+        _chain.SetPositions(new[] { new KeyValuePair<string, int>("Stackprime", 6) });
+        CueAt(T0.AddSeconds(30)); // 3-3-3
+        Assert.Equal(1, _sender.ClickCount);
+
+        CueAt(T0.AddSeconds(60), line: "Ream tells the raid, '6-6-6 CAST NOW!'");
+        Assert.Equal(2, _sender.ClickCount);
     }
 }

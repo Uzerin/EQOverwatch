@@ -112,6 +112,7 @@ public sealed partial class MainViewModel : ObservableObject
         _pipeline.Roster.Changed += OnRosterChanged;
 
         Restore(settings);
+        UpdateArmedOutline();
         InitializeBoxAlerts();
         InitializeReleaseFeatures();
         ConfigureDiscord(discordPoster, renderEncounterPng);
@@ -215,6 +216,7 @@ public sealed partial class MainViewModel : ObservableObject
     {
         _pipeline.ChChain.UseChChainOverlay = value; // the chain's bars and alarm follow the overlay's on/off switch
         OnOverlayVisibilityChanged(OverlayKind.ChChain, value);
+        UpdateArmedOutline();
     }
 
     partial void OnIsDpsOverlayVisibleChanged(bool value) => OnOverlayVisibilityChanged(OverlayKind.Dps, value);
@@ -1410,8 +1412,14 @@ public sealed partial class MainViewModel : ObservableObject
             _pipeline.Songs.ShowAllBards = settings.ShowAllBardSongs;
             CharmWatchEnabled = settings.CharmWatchEnabled;
             _pipeline.Charm.IsEnabled = settings.CharmWatchEnabled;
-            AutoClickDelayMilliseconds = settings.AutoClickDelayMilliseconds; // whether it is on is never restored: it starts off
-            AutoClickIdleMinutes = settings.AutoClickIdleMinutes <= 0 ? AutoClickService.DefaultIdleMinutes : settings.AutoClickIdleMinutes;
+            AutoClickDelayMilliseconds = settings.AutoClickDelayMilliseconds;
+            AutoClickSpot = settings.AutoClickSpotX is { } spotX && settings.AutoClickSpotY is { } spotY ? new ClickSpot(spotX, spotY) : null;
+            AutoClickTimed = settings.AutoClickTimed;
+            AutoClickIntervalText = Math.Clamp(settings.AutoClickIntervalSeconds <= 0 ? AutoClickService.DefaultIntervalSeconds : settings.AutoClickIntervalSeconds,
+                AutoClickService.MinIntervalSeconds, AutoClickService.MaxIntervalSeconds).ToString("0.0", CultureInfo.CurrentCulture);
+            AutoClickPressKey = settings.AutoClickPressKey;
+            AutoClickKey = KeyChord.TryParse(settings.AutoClickKey, out KeyChord savedKey) ? savedKey : new KeyChord(0x31);
+            AutoClickEnabled = settings.AutoClickEnabled; // it opens as it was left
             AutoClickHotkey = string.IsNullOrWhiteSpace(settings.AutoClickHotkey) ? AutoClickService.DefaultHotkey : settings.AutoClickHotkey;
             SafeZonesText = string.Join(Environment.NewLine, settings.NonCombatZones ?? TimerPauseService.DefaultSafeZones.ToList());
             RestoreDurationProfiles(settings.DurationProfiles);
@@ -1519,7 +1527,13 @@ public sealed partial class MainViewModel : ObservableObject
         ShowAllBardSongs = ShowAllBardSongs,
         CharmWatchEnabled = CharmWatchEnabled,
         AutoClickDelayMilliseconds = AutoClickDelayMilliseconds,
-        AutoClickIdleMinutes = AutoClickIdleMinutes,
+        AutoClickEnabled = AutoClickEnabled,
+        AutoClickSpotX = AutoClickSpot?.X,
+        AutoClickSpotY = AutoClickSpot?.Y,
+        AutoClickTimed = AutoClickTimed,
+        AutoClickIntervalSeconds = _pipeline.AutoClick.IntervalSeconds,
+        AutoClickPressKey = AutoClickPressKey,
+        AutoClickKey = AutoClickKey.ToString(),
         NonCombatZones = SafeZoneList(),
         DurationProfiles = DurationProfileSettings(),
         OverlayIdlePercent = OverlayIdlePercent,

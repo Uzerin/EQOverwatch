@@ -28,8 +28,29 @@ public sealed class AppSettings
     /// <summary>Bars and a break alarm for your characters' charms (on by default).</summary>
     public bool CharmWatchEnabled { get; set; } = true;
 
-    /// <summary>Milliseconds between a chain cue for your cleric and the auto-click. Whether it is on is never saved: it starts off.</summary>
+    /// <summary>Milliseconds between a chain cue for your cleric and the auto-click.</summary>
     public int AutoClickDelayMilliseconds { get; set; }
+
+    /// <summary>Whether the auto-click was on when the app closed: it opens the same way.</summary>
+    public bool AutoClickEnabled { get; set; }
+
+    /// <summary>Where in the EverQuest window the auto-click clicks (pixels from the top-left of its client area); null clicks at the pointer.</summary>
+    public int? AutoClickSpotX { get; set; }
+
+    /// <summary>See <see cref="AutoClickSpotX"/>.</summary>
+    public int? AutoClickSpotY { get; set; }
+
+    /// <summary>True: press every <see cref="AutoClickIntervalSeconds"/> after your own Complete Heal (chat ignored). False: on the chat cue.</summary>
+    public bool AutoClickTimed { get; set; }
+
+    /// <summary>Seconds between presses in timed mode (10.0 to 60.0).</summary>
+    public double AutoClickIntervalSeconds { get; set; } = 10.0;
+
+    /// <summary>True: press <see cref="AutoClickKey"/> instead of clicking the mouse.</summary>
+    public bool AutoClickPressKey { get; set; }
+
+    /// <summary>The key pressed in key mode, like "1" or "Shift+F3".</summary>
+    public string AutoClickKey { get; set; } = "1";
 
     /// <summary>
     /// The zones where the game does not tick buffs, so buff and debuff bars stop while a character is in one. Null means the built-in list;
@@ -63,9 +84,6 @@ public sealed class AppSettings
 
     /// <summary>Fewest attackers a posted fight must have.</summary>
     public int DiscordMinPlayers { get; set; } = 6;
-
-    /// <summary>Minutes without a chain cue after which the auto-click switches itself off (1 to 120).</summary>
-    public int AutoClickIdleMinutes { get; set; } = 5;
 
     /// <summary>The global hotkey that switches the auto-click on and off, such as "Ctrl+Alt+F9".</summary>
     public string AutoClickHotkey { get; set; } = "Ctrl+Alt+F9";

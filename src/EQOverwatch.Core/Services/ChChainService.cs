@@ -90,6 +90,39 @@ public sealed class ChChainService : ITriggerLineSink, IDisposable
     /// </summary>
     public event Action<string, DateTime>? CueReceived;
 
+    /// <summary>
+    /// Raised with the position and the instant for every cue told to the raid, whoever it is for ("2-2-2 CAST NOW!"), so the chain's pace
+    /// can be learned. The same cue read from several logs raises it once per log.
+    /// </summary>
+    public event Action<int, DateTime>? CallHeard;
+
+    /// <summary>Raised with the character and the instant whenever one of your characters starts casting Complete Heal.</summary>
+    public event Action<string, DateTime>? CastStarted;
+
+    /// <summary>A cue finds no one late when that cleric started a Complete Heal this recently (and it did not fizzle or get interrupted).</summary>
+    public static readonly TimeSpan RecentCastWindow = TimeSpan.FromSeconds(10);
+
+    /// <summary>Raised after the chain positions were replaced (a position changed on the Characters tab).</summary>
+    public event Action? PositionsChanged;
+
+    /// <summary>Your characters' chain positions, by character.</summary>
+    public IReadOnlyDictionary<string, int> Positions()
+    {
+        lock (_gate)
+        {
+            return new Dictionary<string, int>(_positions, StringComparer.OrdinalIgnoreCase);
+        }
+    }
+
+    /// <summary>The position tag a position is called with, "6-6-6" for 6 with the default format.</summary>
+    public string TagFor(int position)
+    {
+        lock (_gate)
+        {
+            return _settings.PositionTagFormat.Replace("{N}", position.ToString(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal);
+        }
+    }
+
     /// <summary>True: bars, cues and the alarm go to the CH Chain overlay. False: they go to the Buffs overlay.</summary>
     public bool UseChChainOverlay
     {
@@ -178,6 +211,8 @@ public sealed class ChChainService : ITriggerLineSink, IDisposable
                 SetPosition(pair.Key, pair.Value);
             }
         }
+
+        PositionsChanged?.Invoke();
     }
 
     /// <summary>The chain slot held by <paramref name="characterName"/>, or 0.</summary>
@@ -319,6 +354,15 @@ public sealed class ChChainService : ITriggerLineSink, IDisposable
                 // "3-3-3 CAST NOW!" tells that position to cast; "You tell your raid" is never a cue for you
                 if (hasCaster)
                 {
+                    try
+                    {
+                        CallHeard?.Invoke(slot, now);
+                    }
+                    catch (Exception)
+                    {
+                        // a listener's failure must not stop the chain alarm
+                    }
+
                     HandleCue(slot, now);
                 }
 
@@ -351,13 +395,20 @@ public sealed class ChChainService : ITriggerLineSink, IDisposable
                 }
 
                 WatchState state = GetStateLocked(assignment.Key);
+                (cued ??= new List<string>()).Add(assignment.Key);
+                if (state.CastStartedUtc is { } started && now >= started && now - started <= RecentCastWindow)
+                {
+                    // A Complete Heal that started in the last few seconds (and has not fizzled) already covers this turn: no alarm.
+                    state.AwaitingCast = false;
+                    continue;
+                }
+
                 state.AwaitingCast = true;
                 state.AlarmShown = false;
                 state.CastStartedUtc = null;
                 state.AlarmDueUtc = now.AddSeconds(threshold);
                 state.NextAlarmUtc = state.AlarmDueUtc;
                 state.DeadlineUtc = now.AddSeconds(AlarmWindowSeconds);
-                (cued ??= new List<string>()).Add(assignment.Key);
             }
         }
 
@@ -383,6 +434,15 @@ public sealed class ChChainService : ITriggerLineSink, IDisposable
 
     private void HandleBeginCasting(string observedBy, DateTime now)
     {
+        try
+        {
+            CastStarted?.Invoke(observedBy, now);
+        }
+        catch (Exception)
+        {
+            // a listener's failure must not stop the chain alarm
+        }
+
         lock (_gate)
         {
             if (!_watch.TryGetValue(observedBy, out WatchState? state))

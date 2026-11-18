@@ -22,6 +22,27 @@ public partial class MainWindow : Window
 
     private ColorsWindow? _colorsWindow;
 
+    private AutoClickWindow? _autoClickWindow;
+
+    private void OpenAutoClickWindow()
+    {
+        if (_autoClickWindow is null)
+        {
+            _autoClickWindow = new AutoClickWindow(_viewModel) { Owner = this };
+            _autoClickWindow.Closed += (_, _) => _autoClickWindow = null;
+            _autoClickWindow.Show();
+        }
+        else
+        {
+            if (_autoClickWindow.WindowState == WindowState.Minimized)
+            {
+                _autoClickWindow.WindowState = WindowState.Normal;
+            }
+
+            _autoClickWindow.Activate();
+        }
+    }
+
     private void OpenColorsWindow()
     {
         if (_colorsWindow is null)
@@ -54,6 +75,7 @@ public partial class MainWindow : Window
             () => viewModel.GetWindowPlacement(WindowPlacementSetting.Main),
             placement => viewModel.SetWindowPlacement(WindowPlacementSetting.Main, placement));
         viewModel.ShowColorsRequested += OpenColorsWindow;
+        viewModel.ShowAutoClickRequested += OpenAutoClickWindow;
 
         _refreshTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = RefreshInterval };
         _refreshTimer.Tick += (_, _) => _viewModel.Refresh();
