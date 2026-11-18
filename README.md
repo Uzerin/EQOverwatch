@@ -63,6 +63,11 @@ settings are kept.
 
 ## Changelog
 
+### 1.0.66
+
+- CH chain auto-press now presses your CH key only (default 2); the mouse click, click spot and click delay are gone.
+- Optional assist key (default 1), pressed 1.0 s and again 0.5 s before the CH key, on the chat cue or in timed mode.
+
 ### 1.0.65
 
 - CH chain auto-click moves to Settings → Cleric CH chain → Advanced, with a live line showing the position and tag it follows.

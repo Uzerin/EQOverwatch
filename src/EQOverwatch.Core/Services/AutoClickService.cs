@@ -2,21 +2,11 @@ using EQOverwatch.Core.Pipeline;
 
 namespace EQOverwatch.Core.Services;
 
-/// <summary>A spot inside the EverQuest window, in pixels from the top-left corner of its client area.</summary>
-public readonly record struct ClickSpot(int X, int Y);
-
-/// <summary>What starts the auto-click: the chain's chat cue for your position, or a fixed time after your own last Complete Heal.</summary>
+/// <summary>What starts the auto-press: the chain's chat cue for your position, or a fixed time after your own last Complete Heal.</summary>
 public enum AutoClickTiming
 {
     ChatCue,
     Timed,
-}
-
-/// <summary>What the auto-click does: a left mouse click, or a key press.</summary>
-public enum AutoClickAction
-{
-    MouseClick,
-    KeyPress,
 }
 
 /// <summary>A key with the Shift, Ctrl and Alt keys held with it, as Windows virtual-key codes. Written like "Shift+F3" or "1".</summary>
@@ -96,67 +86,45 @@ public readonly record struct KeyChord(int VirtualKey, bool Ctrl = false, bool A
     }
 }
 
-/// <summary>What the auto-click needs from the operating system. The app supplies the Windows version; tests supply a fake.</summary>
+/// <summary>What the auto-press needs from the operating system. The app supplies the Windows version; tests supply a fake.</summary>
 public interface IClickSender
 {
     /// <summary>True when the EverQuest client is the window in front (and not minimized).</summary>
     bool IsGameFocused();
 
-    /// <summary>A left click where the mouse pointer is now. The pointer is not moved.</summary>
-    void ClickAtCursor();
-
     /// <summary>Presses and lets go of a key (with its Shift, Ctrl and Alt) in the window in front.</summary>
-    void PressKey(KeyChord key)
-    {
-    }
-
-    /// <summary>
-    /// Remembers where the pointer is, puts it on <paramref name="spot"/> in the EverQuest window in front and holds it there (the pointer
-    /// cannot be moved off it). False, with nothing changed, when EverQuest is not in front.
-    /// </summary>
-    bool HoldAt(ClickSpot spot) => false;
-
-    /// <summary>Puts the pointer back on the spot while it is held (in case the game moved it). Does nothing when it is not held.</summary>
-    void KeepHeld()
-    {
-    }
-
-    /// <summary>Lets go of the pointer and puts it back where it was before <see cref="HoldAt"/>. Does nothing when it is not held.</summary>
-    void Release()
-    {
-    }
+    void PressKey(KeyChord key);
 }
 
 /// <summary>
-/// Clicks the mouse once when it is your cleric's turn in the Complete Heal chain. It touches nothing inside the game client: it only
-/// moves and presses the mouse, and only while EverQuest is the window in front. It stays on or off as it was left.
+/// Presses your Complete Heal key when it is your cleric's turn in the CH chain, and optionally an assist key 1.0 s and again 0.5 s
+/// before it. It only presses keys, never the mouse, and only while EverQuest is the window in front. It stays on or off as it was left.
 /// <para>
-/// <b>When.</b> A turn is the chain cue for a position one of your characters holds (see <see cref="ChChainService"/>). The click is
-/// made <see cref="DelayMilliseconds"/> after the cue. The same cue read from several characters' logs, or repeated within a few
-/// seconds, makes one click. At most <see cref="MaxClicksPerMinute"/> clicks are made in any minute.
+/// <b>Chat cue.</b> A turn is the chain cue for a position one of your characters holds (see <see cref="ChChainService"/>). From the second
+/// call of a fight the chain's pace (the median time between its calls) predicts your call, so the assist presses come before it; when
+/// the call arrives the CH key is pressed (after any assist press still due, 0.5 s apart). On the first turn of a fight, or when the call
+/// comes before the assist presses, the assist key is pressed at the call and the CH key 1.0 s later. <see cref="NewFightGap"/> with no
+/// call starts the pace over.
 /// </para>
 /// <para>
-/// <b>Where.</b> With no <see cref="Spot"/> it clicks wherever the pointer is. With a spot, the pointer is put on it and held there for
-/// the click, then let go and put back where it was once your Complete Heal starts (or <see cref="CastWait"/> after the click). From
-/// the second call of a fight on, the chain's pace (the median time between its calls) predicts your call: the pointer is put on the
-/// spot and held <see cref="HoldLead"/> before it, and let go again <see cref="GiveUpAfter"/> past the expected time if the call has
-/// not come. <see cref="NewFightGap"/> with no call starts the pace over.
+/// <b>Timed.</b> Chat is ignored. After it is switched on it waits for your first Complete Heal by hand, then presses the CH key
+/// <see cref="IntervalSeconds"/> after your last Complete Heal (the assist key 1.0 s and 0.5 s before). Every cast of yours restarts
+/// the count.
 /// </para>
+/// The same cue read from several logs makes one turn. At most <see cref="MaxClicksPerMinute"/> CH presses are made in any minute.
 /// </summary>
 public sealed class AutoClickService : IDisposable
 {
     public const string DefaultHotkey = "Ctrl+Alt+F9";
-    public const int MaxDelayMilliseconds = 5000;
     public const int MaxClicksPerMinute = 10;
 
-    /// <summary>How long before the expected call the pointer is put on the spot and held.</summary>
-    public static readonly TimeSpan HoldLead = TimeSpan.FromSeconds(0.5);
+    /// <summary>The assist key goes this long, and again <see cref="SecondAssistLead"/>, before the CH key.</summary>
+    public static readonly TimeSpan FirstAssistLead = TimeSpan.FromSeconds(1.0);
 
-    /// <summary>How long past the expected call the pointer is let go if the call has not come.</summary>
+    public static readonly TimeSpan SecondAssistLead = TimeSpan.FromSeconds(0.5);
+
+    /// <summary>How long past the expected call a predicted turn is given up if the call has not come.</summary>
     public static readonly TimeSpan GiveUpAfter = TimeSpan.FromSeconds(1.5);
-
-    /// <summary>How long after the click the pointer stays held waiting for the cast to start.</summary>
-    public static readonly TimeSpan CastWait = TimeSpan.FromSeconds(2);
 
     /// <summary>No chain call for this long: a new fight, whose pace is learned again.</summary>
     public static readonly TimeSpan NewFightGap = TimeSpan.FromSeconds(30);
@@ -168,38 +136,47 @@ public sealed class AutoClickService : IDisposable
 
     public const double DefaultIntervalSeconds = 10.0;
 
+    /// <summary>The CH key until one is set: 2.</summary>
+    public static readonly KeyChord DefaultChKey = new(0x32);
+
+    /// <summary>The assist key until one is set: 1.</summary>
+    public static readonly KeyChord DefaultAssistKey = new(0x31);
+
     private static readonly Guid SourceId = new("a3d7f1c2-6b84-4e09-8c5d-1f2e9b7a4d60");
     private static readonly TimeSpan SameTurnWindow = TimeSpan.FromSeconds(4);
     private static readonly TimeSpan TickInterval = TimeSpan.FromMilliseconds(50);
     private const int PaceCalls = 9;
 
     private readonly object _gate = new();
+    private readonly object _pressGate = new();
     private readonly ChChainService _chain;
     private readonly TriggerEngineService? _engine;
     private readonly Func<DateTime> _clock;
-    private readonly Queue<DateTime> _clickTimes = new();
+    private readonly Queue<DateTime> _pressTimes = new();
     private readonly List<(int Slot, DateTime At)> _calls = new();
     private readonly Timer? _timer;
     private IClickSender? _sender;
     private bool _armed;
-    private int _delayMilliseconds;
-    private ClickSpot? _spot;
+    private AutoClickTiming _timing;
+    private double _intervalSeconds = DefaultIntervalSeconds;
+    private KeyChord _key = DefaultChKey;
+    private KeyChord _assistKey = DefaultAssistKey;
+    private bool _useAssist;
     private DateTime? _lastCueUtc;
-    private DateTime? _pendingDueUtc;
     private DateTime? _expectedUtc;
-    private bool _held;
-    private DateTime? _releaseAtUtc;
-    private bool _clickedWhileHeld;
+    private DateTime? _nextTimedUtc;
+
+    // The turn in progress: when the CH key is due, whether that is certain (the call came, or timed) or only predicted, and how many
+    // assist presses were made for it.
+    private DateTime? _chDueUtc;
+    private bool _chConfirmed;
+    private int _assistsDone;
+
     private int _clicks;
     private int _skipped;
     private string _spokenPositions = string.Empty;
-    private AutoClickTiming _timing;
-    private AutoClickAction _action;
-    private KeyChord _key = new(0x31);
-    private double _intervalSeconds = DefaultIntervalSeconds;
-    private DateTime? _nextTimedUtc;
 
-    /// <param name="engine">Used to say "Auto click on" and "Auto click off" aloud; null for silence.</param>
+    /// <param name="engine">Used to say "Auto press on" and "Auto press off" aloud; null for silence.</param>
     /// <param name="autoTick">False in tests, which call <see cref="Tick"/> themselves.</param>
     public AutoClickService(ChChainService chain, TriggerEngineService? engine = null, IClickSender? sender = null, bool autoTick = true, Func<DateTime>? clock = null)
     {
@@ -218,10 +195,10 @@ public sealed class AutoClickService : IDisposable
         }
     }
 
-    /// <summary>Raised (on whatever thread changed it) when the click is switched on or off.</summary>
+    /// <summary>Raised (on whatever thread changed it) when it is switched on or off.</summary>
     public event Action<bool>? ArmedChanged;
 
-    /// <summary>What moves and presses the mouse and says whether EverQuest is in front. Without one, nothing is ever clicked.</summary>
+    /// <summary>What presses the keys and says whether EverQuest is in front. Without one, nothing is ever pressed.</summary>
     public IClickSender? Sender
     {
         get { lock (_gate) { return _sender; } }
@@ -231,31 +208,6 @@ public sealed class AutoClickService : IDisposable
     public bool IsArmed
     {
         get { lock (_gate) { return _armed; } }
-    }
-
-    /// <summary>How long after the cue the click is made, 0 to <see cref="MaxDelayMilliseconds"/>.</summary>
-    public int DelayMilliseconds
-    {
-        get { lock (_gate) { return _delayMilliseconds; } }
-        set { lock (_gate) { _delayMilliseconds = Math.Clamp(value, 0, MaxDelayMilliseconds); } }
-    }
-
-    /// <summary>Where in the EverQuest window to click; null clicks wherever the pointer is.</summary>
-    public ClickSpot? Spot
-    {
-        get { lock (_gate) { return _spot; } }
-        set
-        {
-            lock (_gate)
-            {
-                _spot = value;
-            }
-
-            if (value is null)
-            {
-                ReleaseHold();
-            }
-        }
     }
 
     /// <summary>The chain's chat cue (default), or a fixed time after your own last Complete Heal (chat is then ignored for pressing).</summary>
@@ -269,36 +221,9 @@ public sealed class AutoClickService : IDisposable
                 _timing = value;
                 _nextTimedUtc = null;
                 _expectedUtc = null;
-                _pendingDueUtc = null;
-            }
-
-            ReleaseHold();
-        }
-    }
-
-    /// <summary>A mouse click (default) or a key press.</summary>
-    public AutoClickAction Action
-    {
-        get { lock (_gate) { return _action; } }
-        set
-        {
-            lock (_gate)
-            {
-                _action = value;
-            }
-
-            if (value == AutoClickAction.KeyPress)
-            {
-                ReleaseHold();
+                ClearTurnLocked();
             }
         }
-    }
-
-    /// <summary>The key pressed in key mode.</summary>
-    public KeyChord Key
-    {
-        get { lock (_gate) { return _key; } }
-        set { lock (_gate) { _key = value; } }
     }
 
     /// <summary>Seconds between presses in timed mode, kept between <see cref="MinIntervalSeconds"/> and <see cref="MaxIntervalSeconds"/>, in tenths.</summary>
@@ -308,16 +233,30 @@ public sealed class AutoClickService : IDisposable
         set { lock (_gate) { _intervalSeconds = Math.Round(Math.Clamp(value, MinIntervalSeconds, MaxIntervalSeconds), 1); } }
     }
 
-    /// <summary>In timed mode, when the next press is due (null until your first Complete Heal after switching on).</summary>
+    /// <summary>The Complete Heal key.</summary>
+    public KeyChord Key
+    {
+        get { lock (_gate) { return _key; } }
+        set { lock (_gate) { _key = value; } }
+    }
+
+    /// <summary>The assist key, pressed 1.0 s and 0.5 s before the CH key while <see cref="UseAssist"/> is on.</summary>
+    public KeyChord AssistKey
+    {
+        get { lock (_gate) { return _assistKey; } }
+        set { lock (_gate) { _assistKey = value; } }
+    }
+
+    public bool UseAssist
+    {
+        get { lock (_gate) { return _useAssist; } }
+        set { lock (_gate) { _useAssist = value; } }
+    }
+
+    /// <summary>In timed mode, when the next CH press is due (null until your first Complete Heal after switching on).</summary>
     public DateTime? NextTimedUtc
     {
         get { lock (_gate) { return _nextTimedUtc; } }
-    }
-
-    /// <summary>True while the pointer is held on the spot.</summary>
-    public bool IsHolding
-    {
-        get { lock (_gate) { return _held; } }
     }
 
     /// <summary>When your next call is expected from the chain's pace, or null (no pace yet, or not your turn next).</summary>
@@ -326,22 +265,20 @@ public sealed class AutoClickService : IDisposable
         get { lock (_gate) { return _expectedUtc; } }
     }
 
-    /// <summary>Clicks made since the app started.</summary>
+    /// <summary>CH presses made since the app started.</summary>
     public int Clicks
     {
         get { lock (_gate) { return _clicks; } }
     }
 
-    /// <summary>Turns that came up while EverQuest was not the window in front, so no click was made.</summary>
+    /// <summary>Turns that came up while EverQuest was not the window in front, so nothing was pressed.</summary>
     public int Skipped
     {
         get { lock (_gate) { return _skipped; } }
     }
 
-    /// <summary>Switches the click on or off. Does nothing when it is already in that state.</summary>
-    public void SetArmed(bool armed) => SetArmed(armed, announce: true);
-
-    private void SetArmed(bool armed, bool announce)
+    /// <summary>Switches it on or off. Does nothing when it is already in that state.</summary>
+    public void SetArmed(bool armed)
     {
         DateTime now = _clock();
         lock (_gate)
@@ -353,14 +290,9 @@ public sealed class AutoClickService : IDisposable
 
             _armed = armed;
             _lastCueUtc = null;
-            _pendingDueUtc = null;
             _expectedUtc = null;
             _nextTimedUtc = null; // timed mode waits for your first Complete Heal
-        }
-
-        if (!armed)
-        {
-            ReleaseHold();
+            ClearTurnLocked();
         }
 
         string positions = PositionsText();
@@ -369,15 +301,18 @@ public sealed class AutoClickService : IDisposable
             _spokenPositions = positions;
         }
 
-        if (announce)
-        {
-            string text = armed
-                ? positions.Length == 0 ? "Auto click on, no chain position" : $"Auto click on, position {positions}"
-                : "Auto click off";
-            _engine?.PublishAudio(SourceId, "Auto-click", string.Empty, text, now);
-        }
-
+        string text = armed
+            ? positions.Length == 0 ? "Auto press on, no chain position" : $"Auto press on, position {positions}"
+            : "Auto press off";
+        _engine?.PublishAudio(SourceId, "Auto-press", string.Empty, text, now);
         ArmedChanged?.Invoke(armed);
+    }
+
+    private void ClearTurnLocked()
+    {
+        _chDueUtc = null;
+        _chConfirmed = false;
+        _assistsDone = 0;
     }
 
     /// <summary>Your characters' positions, "6" or "3 and 6".</summary>
@@ -393,12 +328,16 @@ public sealed class AutoClickService : IDisposable
             say = _armed && !string.Equals(positions, _spokenPositions, StringComparison.Ordinal);
             _spokenPositions = positions;
             _expectedUtc = null; // the predicted turn was for the old position
+            if (!_chConfirmed)
+            {
+                ClearTurnLocked();
+            }
         }
 
         if (say)
         {
-            _engine?.PublishAudio(SourceId, "Auto-click", string.Empty,
-                positions.Length == 0 ? "Auto click has no chain position" : $"Auto click now on position {positions}", _clock());
+            _engine?.PublishAudio(SourceId, "Auto-press", string.Empty,
+                positions.Length == 0 ? "Auto press has no chain position" : $"Auto press now on position {positions}", _clock());
         }
     }
 
@@ -425,7 +364,7 @@ public sealed class AutoClickService : IDisposable
                 _calls.RemoveAt(0);
             }
 
-            if (!_armed || _timing != AutoClickTiming.ChatCue || _action != AutoClickAction.MouseClick || _spot is null || Pace() is not { } pace)
+            if (!_armed || _timing != AutoClickTiming.ChatCue || _chConfirmed || Pace() is not { } pace)
             {
                 return;
             }
@@ -436,6 +375,9 @@ public sealed class AutoClickService : IDisposable
                 if (before == slot && mine != slot)
                 {
                     _expectedUtc = atUtc + pace;
+                    _chDueUtc = _expectedUtc;
+                    _chConfirmed = false;
+                    _assistsDone = 0;
                     return;
                 }
             }
@@ -450,7 +392,7 @@ public sealed class AutoClickService : IDisposable
             return null;
         }
 
-        List<double> gaps = new();
+        var gaps = new List<double>();
         for (int i = 1; i < _calls.Count; i++)
         {
             double seconds = (_calls[i].At - _calls[i - 1].At).TotalSeconds;
@@ -470,9 +412,10 @@ public sealed class AutoClickService : IDisposable
         return TimeSpan.FromSeconds(median);
     }
 
+    /// <summary>Your call: the CH key now, or after the assist presses still due (0.5 s apart).</summary>
     private void OnCue(string characterName, DateTime cueUtc)
     {
-        bool clickNow = false;
+        DateTime now = _clock();
         lock (_gate)
         {
             if (!_armed || _timing == AutoClickTiming.Timed)
@@ -487,229 +430,142 @@ public sealed class AutoClickService : IDisposable
 
             _lastCueUtc = cueUtc;
             _expectedUtc = null;
-            _pendingDueUtc = _clock().AddMilliseconds(_delayMilliseconds);
-            clickNow = _delayMilliseconds == 0;
+            int done = _chDueUtc is not null && !_chConfirmed ? _assistsDone : 0;
+            _assistsDone = done;
+            _chConfirmed = true;
+            _chDueUtc = !_useAssist || done >= 2 ? now
+                : done == 1 ? now + (FirstAssistLead - SecondAssistLead)
+                : now + FirstAssistLead;
         }
 
-        if (clickNow)
-        {
-            Fire(_clock());
-        }
+        Tick(now);
     }
 
-    /// <summary>Your cleric started casting: the held pointer is let go and put back.</summary>
+    /// <summary>Timed mode: your Complete Heal restarts the count.</summary>
     private void OnCastStarted(string characterName, DateTime atUtc)
     {
-        bool release;
         lock (_gate)
         {
-            release = _held && _clickedWhileHeld;
             if (_armed && _timing == AutoClickTiming.Timed)
             {
-                _nextTimedUtc = atUtc + TimeSpan.FromSeconds(_intervalSeconds); // every cast of yours restarts the count
+                _nextTimedUtc = atUtc + TimeSpan.FromSeconds(_intervalSeconds);
+                ClearTurnLocked(); // the turn is planned again from this cast
             }
-        }
-
-        if (release)
-        {
-            ReleaseHold();
         }
     }
 
-    /// <summary>Holds the pointer before an expected call, lets it go when it waited too long, and makes a click that has come due.</summary>
+    /// <summary>Makes the presses that have come due. Called by the internal timer; public so tests can drive it.</summary>
     public void Tick(DateTime nowUtc)
     {
-        bool hold = false;
-        bool release = false;
-        bool keep = false;
-        bool due = false;
+        lock (_pressGate)
+        {
+            while (NextPress(nowUtc) is { } press)
+            {
+                Press(press.Key, press.IsCh, nowUtc);
+            }
+        }
+    }
+
+    /// <summary>The press due now, if any, with the turn's state moved on past it.</summary>
+    private (KeyChord Key, bool IsCh)? NextPress(DateTime nowUtc)
+    {
         lock (_gate)
         {
             if (!_armed)
             {
-                return;
+                return null;
             }
 
-            if (_timing == AutoClickTiming.Timed && _nextTimedUtc is { } next && nowUtc >= next && _pendingDueUtc is null)
+            if (_timing == AutoClickTiming.Timed && _chDueUtc is null && _nextTimedUtc is { } next)
             {
-                _pendingDueUtc = nowUtc;
-                _nextTimedUtc = nowUtc + TimeSpan.FromSeconds(_intervalSeconds); // until your cast moves it
+                _chDueUtc = next;
+                _chConfirmed = true;
+                _assistsDone = 0;
             }
 
-            if (_pendingDueUtc is { } at && nowUtc >= at)
+            if (_chDueUtc is not { } due)
             {
-                due = true;
+                return null;
             }
-            else if (_held && _releaseAtUtc is { } letGo && nowUtc >= letGo)
-            {
-                release = true;
-            }
-            else if (!_held && _spot is not null && _action == AutoClickAction.MouseClick && HoldTarget() is { } expected
-                     && nowUtc >= expected - HoldLead && nowUtc < expected + GiveUpAfter)
-            {
-                hold = true;
-            }
-            else if (_held)
-            {
-                keep = true;
-            }
-        }
 
-        if (due)
-        {
-            Fire(nowUtc);
-        }
-        else if (release)
-        {
-            ReleaseHold();
-            lock (_gate)
+            if (_useAssist && _assistsDone == 0 && nowUtc >= due - FirstAssistLead)
             {
+                _assistsDone = 1;
+                return (_assistKey, false);
+            }
+
+            if (_useAssist && _assistsDone == 1 && nowUtc >= due - SecondAssistLead)
+            {
+                _assistsDone = 2;
+                return (_assistKey, false);
+            }
+
+            if (_chConfirmed && nowUtc >= due)
+            {
+                ClearTurnLocked();
+                if (_timing == AutoClickTiming.Timed)
+                {
+                    _nextTimedUtc = nowUtc + TimeSpan.FromSeconds(_intervalSeconds); // until your cast moves it
+                }
+
+                return (_key, true);
+            }
+
+            if (!_chConfirmed && nowUtc >= due + GiveUpAfter)
+            {
+                ClearTurnLocked(); // the predicted call did not come
                 _expectedUtc = null;
             }
-        }
-        else if (hold)
-        {
-            TryHold(nowUtc, giveUpAt: null);
-        }
-        else if (keep)
-        {
-            Sender?.KeepHeld();
+
+            return null;
         }
     }
 
-    /// <summary>When the next press is expected: the predicted chat call, or the timer in timed mode.</summary>
-    private DateTime? HoldTarget() => _timing == AutoClickTiming.Timed ? _nextTimedUtc : _expectedUtc;
-
-    /// <summary>Puts the pointer on the spot and holds it; it is let go at <paramref name="giveUpAt"/>, or past the expected call.</summary>
-    private bool TryHold(DateTime nowUtc, DateTime? giveUpAt)
-    {
-        IClickSender? sender;
-        ClickSpot spot;
-        lock (_gate)
-        {
-            if (_held)
-            {
-                return true;
-            }
-
-            if (_spot is not { } s || _sender is null)
-            {
-                return false;
-            }
-
-            spot = s;
-            sender = _sender;
-        }
-
-        if (!sender.IsGameFocused() || !sender.HoldAt(spot))
-        {
-            return false;
-        }
-
-        lock (_gate)
-        {
-            _held = true;
-            _clickedWhileHeld = false;
-            _releaseAtUtc = giveUpAt ?? (HoldTarget() is { } expected ? expected + GiveUpAfter : nowUtc + GiveUpAfter);
-        }
-
-        return true;
-    }
-
-    private void ReleaseHold()
+    private void Press(KeyChord key, bool isCh, DateTime nowUtc)
     {
         IClickSender? sender;
         lock (_gate)
         {
-            if (!_held)
+            if (isCh)
             {
-                return;
-            }
+                while (_pressTimes.Count > 0 && nowUtc - _pressTimes.Peek() >= TimeSpan.FromMinutes(1))
+                {
+                    _pressTimes.Dequeue();
+                }
 
-            _held = false;
-            _clickedWhileHeld = false;
-            _releaseAtUtc = null;
-            sender = _sender;
-        }
-
-        sender?.Release();
-    }
-
-    private void Fire(DateTime nowUtc)
-    {
-        IClickSender? sender;
-        bool useSpot;
-        KeyChord? pressKey;
-        lock (_gate)
-        {
-            if (!_armed || _pendingDueUtc is null)
-            {
-                return;
-            }
-
-            _pendingDueUtc = null;
-            while (_clickTimes.Count > 0 && nowUtc - _clickTimes.Peek() >= TimeSpan.FromMinutes(1))
-            {
-                _clickTimes.Dequeue();
-            }
-
-            if (_clickTimes.Count >= MaxClicksPerMinute)
-            {
-                _skipped++;
-                return;
+                if (_pressTimes.Count >= MaxClicksPerMinute)
+                {
+                    _skipped++;
+                    return;
+                }
             }
 
             sender = _sender;
-            useSpot = _spot is not null && _action == AutoClickAction.MouseClick;
-            pressKey = _action == AutoClickAction.KeyPress ? _key : null;
         }
 
         if (sender is null || !sender.IsGameFocused())
         {
-            lock (_gate)
+            if (isCh)
             {
-                _skipped++;
-            }
-
-            ReleaseHold();
-            return;
-        }
-
-        // With a spot: on it and held for the click (already, when the call was expected), until the cast starts.
-        if (useSpot && !TryHold(nowUtc, nowUtc + CastWait))
-        {
-            lock (_gate)
-            {
-                _skipped++;
+                lock (_gate)
+                {
+                    _skipped++;
+                }
             }
 
             return;
         }
 
-        if (pressKey is { } key)
+        sender.PressKey(key);
+        if (isCh)
         {
-            sender.PressKey(key);
-        }
-        else
-        {
-            sender.ClickAtCursor();
-        }
-
-        lock (_gate)
-        {
-            _clicks++;
-            _clickTimes.Enqueue(nowUtc);
-            if (_held)
+            lock (_gate)
             {
-                _clickedWhileHeld = true;
-                _releaseAtUtc = nowUtc + CastWait;
+                _clicks++;
+                _pressTimes.Enqueue(nowUtc);
             }
         }
     }
 
-    public void Dispose()
-    {
-        _timer?.Dispose();
-        ReleaseHold();
-    }
+    public void Dispose() => _timer?.Dispose();
 }

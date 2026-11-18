@@ -28,17 +28,8 @@ public sealed class AppSettings
     /// <summary>Bars and a break alarm for your characters' charms (on by default).</summary>
     public bool CharmWatchEnabled { get; set; } = true;
 
-    /// <summary>Milliseconds between a chain cue for your cleric and the auto-click.</summary>
-    public int AutoClickDelayMilliseconds { get; set; }
-
-    /// <summary>Whether the auto-click was on when the app closed: it opens the same way.</summary>
+    /// <summary>Whether the auto-press was on when the app closed: it opens the same way.</summary>
     public bool AutoClickEnabled { get; set; }
-
-    /// <summary>Where in the EverQuest window the auto-click clicks (pixels from the top-left of its client area); null clicks at the pointer.</summary>
-    public int? AutoClickSpotX { get; set; }
-
-    /// <summary>See <see cref="AutoClickSpotX"/>.</summary>
-    public int? AutoClickSpotY { get; set; }
 
     /// <summary>True: press every <see cref="AutoClickIntervalSeconds"/> after your own Complete Heal (chat ignored). False: on the chat cue.</summary>
     public bool AutoClickTimed { get; set; }
@@ -46,11 +37,22 @@ public sealed class AppSettings
     /// <summary>Seconds between presses in timed mode (10.0 to 60.0).</summary>
     public double AutoClickIntervalSeconds { get; set; } = 10.0;
 
-    /// <summary>True: press <see cref="AutoClickKey"/> instead of clicking the mouse.</summary>
-    public bool AutoClickPressKey { get; set; }
+    /// <summary>The Complete Heal key the auto-press presses, like "2" or "Shift+F3".</summary>
+    public string AutoClickKey { get; set; } = "2";
 
-    /// <summary>The key pressed in key mode, like "1" or "Shift+F3".</summary>
-    public string AutoClickKey { get; set; } = "1";
+    /// <summary>
+    /// The assist key, pressed 1.0 s and 0.5 s before the CH key while <see cref="AutoClickUseAssist"/> is on. Null in settings saved
+    /// before 1.0.66.
+    /// </summary>
+    public string? AutoClickAssistKey { get; set; }
+
+    /// <summary>
+    /// Read from settings saved by 1.0.65 only (never written): true when its "Press key" mode was chosen. Otherwise its key was the
+    /// unused default "1", and the CH key starts at 2 instead.
+    /// </summary>
+    public bool? AutoClickPressKey { get; set; }
+
+    public bool AutoClickUseAssist { get; set; }
 
     /// <summary>
     /// The zones where the game does not tick buffs, so buff and debuff bars stop while a character is in one. Null means the built-in list;

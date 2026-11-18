@@ -2696,7 +2696,7 @@
                                            Text="When another cleric says your position tag together with the cue (for example &quot;3-3-3 CAST NOW!&quot;; any letter case) and you have not begun casting Complete Heal within the threshold, a flashing &quot;CAST CH NOW!&quot; banner and a spoken alarm repeat every second until you do. Pick your position on the Characters tab."/>
                                 <Button Grid.Row="5" Grid.ColumnSpan="3" HorizontalAlignment="Left" Margin="0,8,0,0" Content="Advanced…"
                                         Style="{StaticResource SecondaryButton}" Command="{Binding OpenAutoClickAdvancedCommand}"
-                                        ToolTip="Auto-click on your CH turn: switch, hotkey, delay and click spot."/>
+                                        ToolTip="Auto-press on your CH turn: switch, timing, CH key, assist key and hotkey."/>
                             </Grid>
                         </GroupBox>
 

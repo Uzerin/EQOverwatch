@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="CH Chain: Advanced"
         Icon="pack://application:,,,/Assets/EQOverwatch.ico"
-        Width="780" MinWidth="620" SizeToContent="Height"
+        Width="780" MinWidth="640" SizeToContent="Height"
         ResizeMode="CanResize"
         WindowStartupLocation="CenterOwner"
         Background="{DynamicResource WindowBgBrush}"
@@ -20,17 +20,24 @@
             <Setter Property="VerticalAlignment" Value="Center"/>
             <Setter Property="Margin" Value="0,0,10,0"/>
         </Style>
+        <Style x:Key="KeyBox" TargetType="Border">
+            <Setter Property="Padding" Value="12,4"/>
+            <Setter Property="Margin" Value="0,0,10,0"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderSoftBrush}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
     </Window.Resources>
 
     <StackPanel Margin="16">
-        <TextBlock FontSize="15" FontWeight="SemiBold" Margin="0,0,0,10" Text="Auto-click on my CH turn"/>
+        <TextBlock FontSize="15" FontWeight="SemiBold" Margin="0,0,0,10" Text="Auto-press on my CH turn"/>
+        <CheckBox Content="Auto-press on my CH turn" Margin="0,0,0,12" IsChecked="{Binding AutoClickEnabled}"
+                  ToolTip="Presses your CH key on your turn, only while EverQuest is the window in front. It stays on or off as you leave it."/>
 
-        <CheckBox Content="Auto-click on my CH turn" Margin="0,0,0,10" IsChecked="{Binding AutoClickEnabled}"
-                  ToolTip="Clicks once when the chain cues your position, only while EverQuest is the window in front. It stays on or off as you leave it."/>
-
-        <Grid Margin="0,0,0,8">
+        <Grid>
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="130"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
             <Grid.RowDefinitions>
@@ -38,15 +45,15 @@
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
+
             <TextBlock Grid.Row="0" Style="{StaticResource FieldLabel}" Text="Toggle hotkey"
                        ToolTip="Works from any program. Use Ctrl, Alt or Shift plus a key, such as Ctrl+Alt+F9."/>
-            <TextBox Grid.Row="0" Grid.Column="1" Width="140" HorizontalAlignment="Left" Margin="0,0,0,6"
+            <TextBox Grid.Row="0" Grid.Column="1" Width="140" HorizontalAlignment="Left" Margin="0,0,0,8"
                      Text="{Binding AutoClickHotkey, UpdateSourceTrigger=LostFocus}"/>
 
             <TextBlock Grid.Row="1" Style="{StaticResource FieldLabel}" Text="When"/>
-            <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6">
+            <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,8">
                 <RadioButton GroupName="AutoClickWhen" Content="Chat cue" VerticalAlignment="Center" Margin="0,0,18,0" IsChecked="{Binding AutoClickOnChat}"
                              ToolTip="When another cleric says your position tag with the cue, for example &quot;6-6-6 CAST NOW&quot;."/>
                 <RadioButton GroupName="AutoClickWhen" Content="Every" VerticalAlignment="Center" Margin="0,0,6,0" IsChecked="{Binding AutoClickTimed}"
@@ -56,74 +63,62 @@
                 <TextBlock VerticalAlignment="Center" Margin="6,0,0,0" Text="seconds"/>
             </StackPanel>
 
-            <TextBlock Grid.Row="2" Style="{StaticResource FieldLabel}" Text="Action"/>
-            <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6">
-                <RadioButton GroupName="AutoClickAction" Content="Mouse click" VerticalAlignment="Center" Margin="0,0,18,0" IsChecked="{Binding AutoClickMouse}"/>
-                <RadioButton GroupName="AutoClickAction" Content="Press key" VerticalAlignment="Center" IsChecked="{Binding AutoClickPressKey}"
-                             ToolTip="Presses a key in the EverQuest window in front instead of clicking; the mouse is not touched."/>
+            <TextBlock Grid.Row="2" Style="{StaticResource FieldLabel}" Text="CH key"/>
+            <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,8">
+                <Border Style="{StaticResource KeyBox}">
+                    <TextBlock FontWeight="SemiBold" Text="{Binding AutoClickKeyText}"/>
+                </Border>
+                <Button Content="Set Key…" Style="{StaticResource SecondaryButton}" Command="{Binding SetAutoClickKeyCommand}"
+                        ToolTip="Then press the key (with Shift, Ctrl or Alt if you like). Esc cancels."/>
+                <TextBlock Style="{StaticResource HintText}" VerticalAlignment="Center" Margin="12,0,0,0" Text="your Complete Heal hotbar key"/>
             </StackPanel>
 
-            <TextBlock Grid.Row="3" Style="{StaticResource FieldLabel}" Text="Click delay (milliseconds)"
-                       ToolTip="How long after the chat cue the press is made. 0 to 5000."/>
-            <TextBox Grid.Row="3" Grid.Column="1" Width="70" HorizontalAlignment="Left" Margin="0,0,0,6"
-                     Text="{Binding AutoClickDelayMilliseconds, UpdateSourceTrigger=LostFocus}"/>
-
-            <TextBlock Grid.Row="4">
-                <TextBlock.Style>
-                    <Style TargetType="TextBlock" BasedOn="{StaticResource FieldLabel}">
-                        <Setter Property="Text" Value="Click spot"/>
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding AutoClickPressKey}" Value="True">
-                                <Setter Property="Text" Value="Key"/>
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </TextBlock.Style>
-            </TextBlock>
-            <Grid Grid.Row="4" Grid.Column="1" Margin="0,0,0,6">
+            <TextBlock Grid.Row="3" Style="{StaticResource FieldLabel}" VerticalAlignment="Top" Margin="0,6,10,0" Text="Assist key"/>
+            <StackPanel Grid.Row="3" Grid.Column="1" Margin="0,0,0,8">
                 <StackPanel Orientation="Horizontal">
-                    <StackPanel.Style>
-                        <Style TargetType="StackPanel">
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding AutoClickPressKey}" Value="True">
-                                    <Setter Property="Visibility" Value="Collapsed"/>
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </StackPanel.Style>
-                    <TextBlock VerticalAlignment="Center" Margin="0,0,12,0" Text="{Binding AutoClickSpotText}"/>
-                    <Button Content="Set Position…" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0" Command="{Binding SetAutoClickSpotCommand}"
-                            ToolTip="Brings EverQuest forward: click your Complete Heal button there (the click is kept from the game). Esc cancels."/>
-                    <Button Content="Use mouse pointer" Style="{StaticResource SecondaryButton}" Command="{Binding UseMousePointerCommand}"
-                            ToolTip="Forget the spot and click wherever the mouse pointer is."/>
-                </StackPanel>
-                <StackPanel Orientation="Horizontal">
-                    <StackPanel.Style>
-                        <Style TargetType="StackPanel">
-                            <Setter Property="Visibility" Value="Collapsed"/>
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding AutoClickPressKey}" Value="True">
-                                    <Setter Property="Visibility" Value="Visible"/>
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </StackPanel.Style>
-                    <Border Padding="10,3" Margin="0,0,12,0" CornerRadius="4" BorderThickness="1" BorderBrush="{DynamicResource BorderSoftBrush}" VerticalAlignment="Center">
-                        <TextBlock Text="{Binding AutoClickKeyText}"/>
+                    <CheckBox Content="Use" VerticalAlignment="Center" Margin="0,0,12,0" IsChecked="{Binding AutoClickUseAssist}"/>
+                    <Border Style="{StaticResource KeyBox}">
+                        <TextBlock FontWeight="SemiBold" Text="{Binding AutoClickAssistKeyText}"/>
                     </Border>
-                    <Button Content="Set Key…" Style="{StaticResource SecondaryButton}" Command="{Binding SetAutoClickKeyCommand}"
+                    <Button Content="Set Key…" Style="{StaticResource SecondaryButton}" Command="{Binding SetAutoClickAssistKeyCommand}"
                             ToolTip="Then press the key (with Shift, Ctrl or Alt if you like). Esc cancels."/>
                 </StackPanel>
-            </Grid>
+                <TextBlock Style="{StaticResource HintText}" Margin="0,6,0,0" Text="Pressed 1.0 s and again 0.5 s before the CH key."/>
+            </StackPanel>
         </Grid>
         <TextBlock Style="{StaticResource HintText}" Margin="0,0,0,4" Text="{Binding AutoClickIntervalError}"/>
 
-        <TextBlock Style="{StaticResource HintText}" Margin="0,0,0,6" Text="{Binding AutoClickSpotNote}"/>
+        <Border Margin="0,4,0,10" Padding="10,8" CornerRadius="4" Background="{DynamicResource CardBgBrush}">
+            <StackPanel>
+                <TextBlock Style="{StaticResource HintText}" Margin="0,0,0,6" Text="Each turn"/>
+                <Grid Height="44">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Rectangle Grid.ColumnSpan="3" Height="2" VerticalAlignment="Top" Margin="0,8,0,0" Fill="{DynamicResource BorderSoftBrush}"/>
+                    <StackPanel Grid.Column="0">
+                        <Ellipse Width="14" Height="14" Fill="#4C9AFF" HorizontalAlignment="Left" Margin="0,2,0,0"/>
+                        <TextBlock Margin="0,4,0,0"><Run Text="−1.0 s  Assist ("/><Run Text="{Binding AutoClickAssistKeyText, Mode=OneWay}"/><Run Text=")"/></TextBlock>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1">
+                        <Ellipse Width="14" Height="14" Fill="#4C9AFF" HorizontalAlignment="Left" Margin="0,2,0,0"/>
+                        <TextBlock Margin="0,4,0,0"><Run Text="−0.5 s  Assist ("/><Run Text="{Binding AutoClickAssistKeyText, Mode=OneWay}"/><Run Text=")"/></TextBlock>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2">
+                        <Ellipse Width="14" Height="14" Fill="#2EC27E" HorizontalAlignment="Left" Margin="0,2,0,0"/>
+                        <TextBlock Margin="0,4,0,0" FontWeight="SemiBold"><Run Text="0 s  CH key ("/><Run Text="{Binding AutoClickKeyText, Mode=OneWay}"/><Run Text=")"/></TextBlock>
+                    </StackPanel>
+                </Grid>
+            </StackPanel>
+        </Border>
+
         <Border Padding="8,6" CornerRadius="4" Margin="0,0,0,8" Background="{DynamicResource RowBackdropBrush}">
             <TextBlock TextWrapping="Wrap" Text="{Binding AutoClickStatus}"/>
         </Border>
         <TextBlock Style="{StaticResource HintText}" Margin="0,0,0,6" Text="{Binding AutoClickHotkeyNote}"/>
         <TextBlock Style="{StaticResource HintText}"
-                   Text="Chat cue: when another cleric says your position tag with the cue, it presses once, after the delay. Every N seconds: it waits for your first Complete Heal by hand, then presses N seconds after your last one; chat cues then only show bars and the late-cast alarm on the overlay. With a click spot the pointer is put on it and held there for the click (half a second early when the turn can be predicted), then let go and put back when your Complete Heal starts. Press key sends the key to the EverQuest window in front and leaves the mouse alone. It does nothing inside the game client and never presses unless EverQuest is the window in front. While it is on, a red outline shows round the CH Chain overlay (or Raid Triggers when CH Chain is off). Check your server's rules on automation before using it."/>
+                   Text="Chat cue: presses when another cleric says your position tag with the cue; the assist presses come from the chain's pace (on the first turn of a fight there is no pace yet, so the assist goes at the cue and the CH key 1.0 s later). Every N seconds: waits for your first Complete Heal by hand, then presses N seconds after your last one; chat then only shows bars and the late-cast alarm. Keys go to the EverQuest window in front; the mouse is never touched. A red outline shows round the CH Chain overlay (or Raid Triggers when CH Chain is off) while it is on. Check your server's rules on automation before using it."/>
     </StackPanel>
 </Window>

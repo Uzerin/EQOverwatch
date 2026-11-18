@@ -1412,13 +1412,14 @@ public sealed partial class MainViewModel : ObservableObject
             _pipeline.Songs.ShowAllBards = settings.ShowAllBardSongs;
             CharmWatchEnabled = settings.CharmWatchEnabled;
             _pipeline.Charm.IsEnabled = settings.CharmWatchEnabled;
-            AutoClickDelayMilliseconds = settings.AutoClickDelayMilliseconds;
-            AutoClickSpot = settings.AutoClickSpotX is { } spotX && settings.AutoClickSpotY is { } spotY ? new ClickSpot(spotX, spotY) : null;
             AutoClickTimed = settings.AutoClickTimed;
             AutoClickIntervalText = Math.Clamp(settings.AutoClickIntervalSeconds <= 0 ? AutoClickService.DefaultIntervalSeconds : settings.AutoClickIntervalSeconds,
                 AutoClickService.MinIntervalSeconds, AutoClickService.MaxIntervalSeconds).ToString("0.0", CultureInfo.CurrentCulture);
-            AutoClickPressKey = settings.AutoClickPressKey;
-            AutoClickKey = KeyChord.TryParse(settings.AutoClickKey, out KeyChord savedKey) ? savedKey : new KeyChord(0x31);
+            // Settings from 1.0.65 (no assist key yet) kept its mouse mode's unused key "1": the CH key then starts at its default, 2.
+            bool fromMouseMode = settings.AutoClickAssistKey is null && settings.AutoClickPressKey != true;
+            AutoClickKey = !fromMouseMode && KeyChord.TryParse(settings.AutoClickKey, out KeyChord savedKey) ? savedKey : AutoClickService.DefaultChKey;
+            AutoClickAssistKey = KeyChord.TryParse(settings.AutoClickAssistKey, out KeyChord savedAssist) ? savedAssist : AutoClickService.DefaultAssistKey;
+            AutoClickUseAssist = settings.AutoClickUseAssist;
             AutoClickEnabled = settings.AutoClickEnabled; // it opens as it was left
             AutoClickHotkey = string.IsNullOrWhiteSpace(settings.AutoClickHotkey) ? AutoClickService.DefaultHotkey : settings.AutoClickHotkey;
             SafeZonesText = string.Join(Environment.NewLine, settings.NonCombatZones ?? TimerPauseService.DefaultSafeZones.ToList());
@@ -1526,14 +1527,12 @@ public sealed partial class MainViewModel : ObservableObject
         ReadTellsAloud = ReadTellsAloud,
         ShowAllBardSongs = ShowAllBardSongs,
         CharmWatchEnabled = CharmWatchEnabled,
-        AutoClickDelayMilliseconds = AutoClickDelayMilliseconds,
         AutoClickEnabled = AutoClickEnabled,
-        AutoClickSpotX = AutoClickSpot?.X,
-        AutoClickSpotY = AutoClickSpot?.Y,
         AutoClickTimed = AutoClickTimed,
         AutoClickIntervalSeconds = _pipeline.AutoClick.IntervalSeconds,
-        AutoClickPressKey = AutoClickPressKey,
         AutoClickKey = AutoClickKey.ToString(),
+        AutoClickAssistKey = AutoClickAssistKey.ToString(),
+        AutoClickUseAssist = AutoClickUseAssist,
         NonCombatZones = SafeZoneList(),
         DurationProfiles = DurationProfileSettings(),
         OverlayIdlePercent = OverlayIdlePercent,

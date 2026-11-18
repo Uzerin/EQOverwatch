@@ -6,89 +6,15 @@ using EQOverwatch.Core.Services;
 namespace EQOverwatch.App.Interop;
 
 /// <summary>
-/// The Windows side of the auto-click: it presses the left mouse button, puts the pointer on the saved spot and holds it there for the
-/// click (then puts it back), and says whether the EverQuest client (<c>eqgame.exe</c>) is the window in front. It reads no game memory
-/// and sends nothing to the client; it is an ordinary mouse click.
+/// The Windows side of the auto-press: it presses keys the way a keyboard does (scan codes), and says whether the EverQuest client
+/// (<c>eqgame.exe</c>) is the window in front. It reads no game memory and sends nothing to the client but ordinary key presses.
 /// </summary>
 public sealed class Win32InputClicker : IClickSender
 {
     private const string GameProcessName = "eqgame";
-    private const uint INPUT_MOUSE = 0;
-    private const uint MOUSEEVENTF_LEFTDOWN = 0x0002;
-    private const uint MOUSEEVENTF_LEFTUP = 0x0004;
     private const int PressMilliseconds = 20;
 
     public bool IsGameFocused() => IsGameWindow(GetForegroundWindow());
-
-    private readonly object _holdGate = new();
-    private POINT? _returnTo;
-    private POINT _heldAt;
-
-    public bool HoldAt(ClickSpot spot)
-    {
-        using var physical = new PhysicalPixels();
-        IntPtr window = GetForegroundWindow();
-        if (!IsGameWindow(window))
-        {
-            return false;
-        }
-
-        var point = new POINT { X = spot.X, Y = spot.Y };
-        if (!ClientToScreen(window, ref point) || !GetCursorPos(out POINT before))
-        {
-            return false;
-        }
-
-        lock (_holdGate)
-        {
-            _returnTo ??= before;
-            _heldAt = point;
-        }
-
-        SetCursorPos(point.X, point.Y);
-        var clip = new RECT { Left = point.X, Top = point.Y, Right = point.X + 1, Bottom = point.Y + 1 };
-        ClipCursor(ref clip);
-        return true;
-    }
-
-    public void KeepHeld()
-    {
-        using var physical = new PhysicalPixels();
-        POINT at;
-        lock (_holdGate)
-        {
-            if (_returnTo is null)
-            {
-                return;
-            }
-
-            at = _heldAt;
-        }
-
-        // Some programs (the game itself among them) can change the cursor clip: put it back.
-        SetCursorPos(at.X, at.Y);
-        var clip = new RECT { Left = at.X, Top = at.Y, Right = at.X + 1, Bottom = at.Y + 1 };
-        ClipCursor(ref clip);
-    }
-
-    public void Release()
-    {
-        using var physical = new PhysicalPixels();
-        POINT? back;
-        lock (_holdGate)
-        {
-            back = _returnTo;
-            _returnTo = null;
-        }
-
-        if (back is null)
-        {
-            return;
-        }
-
-        ClipCursor(IntPtr.Zero);
-        SetCursorPos(back.Value.X, back.Value.Y);
-    }
 
     /// <summary>True when the window belongs to the EverQuest client and is not minimized.</summary>
     internal static bool IsGameWindow(IntPtr window)
@@ -113,77 +39,6 @@ public sealed class Win32InputClicker : IClickSender
         {
             return false;
         }
-    }
-
-    /// <summary>For its lifetime, this thread works in physical pixels, the same ones the game window and the mouse hook use.</summary>
-    internal readonly struct PhysicalPixels : IDisposable
-    {
-        private static readonly IntPtr PerMonitorAwareV2 = new(-4);
-        private readonly IntPtr _previous;
-
-        public PhysicalPixels()
-        {
-            _previous = SetThreadDpiAwarenessContext(PerMonitorAwareV2);
-        }
-
-        public void Dispose()
-        {
-            if (_previous != IntPtr.Zero)
-            {
-                SetThreadDpiAwarenessContext(_previous);
-            }
-        }
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    internal struct POINT
-    {
-        public int X;
-        public int Y;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    internal struct RECT
-    {
-        public int Left;
-        public int Top;
-        public int Right;
-        public int Bottom;
-    }
-
-    [DllImport("user32.dll")]
-    private static extern IntPtr SetThreadDpiAwarenessContext(IntPtr dpiContext);
-
-    [DllImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    internal static extern bool ClientToScreen(IntPtr hWnd, ref POINT point);
-
-    [DllImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    internal static extern bool ScreenToClient(IntPtr hWnd, ref POINT point);
-
-    [DllImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    internal static extern bool GetCursorPos(out POINT point);
-
-    [DllImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool SetCursorPos(int x, int y);
-
-    [DllImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool ClipCursor(ref RECT rect);
-
-    [DllImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool ClipCursor(IntPtr rect);
-
-    public void ClickAtCursor()
-    {
-        int size = Marshal.SizeOf<INPUT>();
-        SendInput(1, new[] { MouseInput(MOUSEEVENTF_LEFTDOWN) }, size);
-        Thread.Sleep(PressMilliseconds);
-        SendInput(1, new[] { MouseInput(MOUSEEVENTF_LEFTUP) }, size);
     }
 
     /// <summary>
@@ -257,12 +112,6 @@ public sealed class Win32InputClicker : IClickSender
 
     [DllImport("user32.dll")]
     private static extern uint MapVirtualKey(uint uCode, uint uMapType);
-
-    private static INPUT MouseInput(uint flags) => new()
-    {
-        type = INPUT_MOUSE,
-        U = new InputUnion { mi = new MOUSEINPUT { dwFlags = flags } },
-    };
 
     [StructLayout(LayoutKind.Sequential)]
     private struct MOUSEINPUT
