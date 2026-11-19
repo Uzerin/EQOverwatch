@@ -108,8 +108,8 @@ public interface IClickSender
 /// </para>
 /// <para>
 /// <b>Timed.</b> Chat is ignored. After it is switched on it waits for your first Complete Heal by hand, then presses the CH key
-/// <see cref="IntervalSeconds"/> after your last Complete Heal (the assist key 1.0 s and 0.5 s before). Every cast of yours restarts
-/// the count.
+/// <see cref="IntervalSeconds"/> after its own last press (the assist key 1.0 s and 0.5 s before). The cast that press starts is not
+/// counted again (<see cref="OwnCastEcho"/>); any other cast of yours restarts the count.
 /// </para>
 /// The same cue read from several logs makes one turn. At most <see cref="MaxClicksPerMinute"/> CH presses are made in any minute.
 /// </summary>
@@ -131,6 +131,9 @@ public sealed class AutoClickService : IDisposable
 
     /// <summary>The time between presses in timed mode, in seconds (tenths).</summary>
     public const double MinIntervalSeconds = 10.0;
+
+    /// <summary>In timed mode a cast logged this soon after the app's own CH press is that press's cast, and does not restart the count.</summary>
+    public static readonly TimeSpan OwnCastEcho = TimeSpan.FromSeconds(3);
 
     public const double MaxIntervalSeconds = 60.0;
 
@@ -165,6 +168,7 @@ public sealed class AutoClickService : IDisposable
     private DateTime? _lastCueUtc;
     private DateTime? _expectedUtc;
     private DateTime? _nextTimedUtc;
+    private DateTime? _lastTimedPressUtc;
 
     // The turn in progress: when the CH key is due, whether that is certain (the call came, or timed) or only predicted, and how many
     // assist presses were made for it.
@@ -220,6 +224,7 @@ public sealed class AutoClickService : IDisposable
             {
                 _timing = value;
                 _nextTimedUtc = null;
+                _lastTimedPressUtc = null;
                 _expectedUtc = null;
                 ClearTurnLocked();
             }
@@ -291,6 +296,7 @@ public sealed class AutoClickService : IDisposable
             _armed = armed;
             _lastCueUtc = null;
             _expectedUtc = null;
+            _lastTimedPressUtc = null;
             _nextTimedUtc = null; // timed mode waits for your first Complete Heal
             ClearTurnLocked();
         }
@@ -448,6 +454,12 @@ public sealed class AutoClickService : IDisposable
         {
             if (_armed && _timing == AutoClickTiming.Timed)
             {
+                // Log times are whole seconds, so the press's own cast can read up to a second before the press.
+                if (_lastTimedPressUtc is { } pressed && atUtc >= pressed - TimeSpan.FromSeconds(1) && atUtc <= pressed + OwnCastEcho)
+                {
+                    return;
+                }
+
                 _nextTimedUtc = atUtc + TimeSpan.FromSeconds(_intervalSeconds);
                 ClearTurnLocked(); // the turn is planned again from this cast
             }
@@ -505,7 +517,8 @@ public sealed class AutoClickService : IDisposable
                 ClearTurnLocked();
                 if (_timing == AutoClickTiming.Timed)
                 {
-                    _nextTimedUtc = nowUtc + TimeSpan.FromSeconds(_intervalSeconds); // until your cast moves it
+                    _nextTimedUtc = nowUtc + TimeSpan.FromSeconds(_intervalSeconds); // until a cast by hand moves it
+                    _lastTimedPressUtc = nowUtc;
                 }
 
                 return (_key, true);

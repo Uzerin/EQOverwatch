@@ -224,11 +224,15 @@ public sealed class AutoPressTests : IDisposable
         At(25);
         Assert.Equal(new[] { (23.0, "1"), (23.5, "1"), (24.0, "2") }, _timeline);
 
-        CastStarts(25.3); // the cast starts: the next press is 18 s after it
-        Assert.Equal(43.3, (_press.NextTimedUtc!.Value - T0).TotalSeconds, 2);
+        CastStarts(25.3); // the cast that press started (logged late): the count still runs from the press
+        Assert.Equal(42.0, (_press.NextTimedUtc!.Value - T0).TotalSeconds, 2);
+        _chain.OnLine("Stackprime", "You begin casting Complete Heal.", T0.AddSeconds(23)); // logged in whole seconds: can read just before the press
+        Assert.Equal(42.0, (_press.NextTimedUtc!.Value - T0).TotalSeconds, 2);
+        At(43);
+        Assert.Equal(new[] { (23.0, "1"), (23.5, "1"), (24.0, "2"), (41.0, "1"), (41.5, "1"), (42.0, "2") }, _timeline);
 
-        CastStarts(30); // cast by hand early: the count starts again from it
-        Assert.Equal(48.0, (_press.NextTimedUtc!.Value - T0).TotalSeconds, 2);
+        CastStarts(50); // cast by hand early: the count starts again from it
+        Assert.Equal(68.0, (_press.NextTimedUtc!.Value - T0).TotalSeconds, 2);
     }
 
     [Fact]

@@ -63,6 +63,10 @@ settings are kept.
 
 ## Changelog
 
+### 1.0.68
+
+- Timed CH auto-press keeps the set interval between presses.
+
 ### 1.0.67
 
 - New Session and Spell Stats tabs.
