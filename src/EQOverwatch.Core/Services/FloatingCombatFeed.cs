@@ -6,12 +6,16 @@ using EQOverwatch.Core.Pipeline;
 
 namespace EQOverwatch.Core.Services;
 
-/// <summary>Which floating combat text overlay a number goes to.</summary>
+/// <summary>
+/// Which lane a number goes to: the Damage overlay shows Dealt (left) and Taken (right), the Heals overlay HealDone (left) and Healed
+/// (right).
+/// </summary>
 public enum FloatingPanel : byte
 {
     Dealt,
     Healed,
     Taken,
+    HealDone,
 }
 
 /// <summary>What kind of number it is, which picks its color.</summary>
@@ -25,8 +29,19 @@ public enum FloatingStyle : byte
     Taken,
 }
 
-/// <summary>One number for a floating combat text overlay: whose it is, how much, and whether it was a critical.</summary>
-public readonly record struct FloatingNumber(FloatingPanel Panel, string Character, int Amount, FloatingStyle Style, bool IsCritical);
+/// <summary>
+/// One number for a floating combat text overlay: whose it is, how much, and whether it was a critical. A miss or resist has no amount
+/// and a <paramref name="Word"/> instead ("Dodge", "Resisted"). <paramref name="Target"/> is who was hit or healed (for merging hits).
+/// </summary>
+public readonly record struct FloatingNumber(
+    FloatingPanel Panel, string Character, int Amount, FloatingStyle Style, bool IsCritical, string Target = "", string? Word = null)
+{
+    /// <summary>True for the Heals overlay, false for the Damage overlay.</summary>
+    public bool IsHeal => Panel is FloatingPanel.Healed or FloatingPanel.HealDone;
+
+    /// <summary>True for the right lane (what your character takes or receives).</summary>
+    public bool IsIncoming => Panel is FloatingPanel.Taken or FloatingPanel.Healed;
+}
 
 /// <summary>
 /// Picks the numbers for the floating combat text overlays out of the live combat lines: damage your characters (and, with pet merging,
@@ -80,6 +95,12 @@ public sealed partial class FloatingCombatFeed : IDpsEventSink
             return;
         }
 
+        if (e.Kind == CombatEventKind.Miss)
+        {
+            OnMiss(e);
+            return;
+        }
+
         if (e.Kind != CombatEventKind.Damage || e.Amount <= 0)
         {
             return;
@@ -94,19 +115,72 @@ public sealed partial class FloatingCombatFeed : IDpsEventSink
             : string.Empty;
         if (dealer.Length > 0 && !e.Target.Equals(_owner, StringComparison.OrdinalIgnoreCase) && _isOwn(_owner))
         {
-            Add(new FloatingNumber(FloatingPanel.Dealt, dealer, e.Amount, StyleOf(e), crit));
+            Add(new FloatingNumber(FloatingPanel.Dealt, dealer, e.Amount, StyleOf(e), crit, e.Target));
             return;
         }
 
         if (e.Target.Equals(_owner, StringComparison.OrdinalIgnoreCase) && _isOwn(_owner))
         {
-            Add(new FloatingNumber(FloatingPanel.Taken, _owner, e.Amount, FloatingStyle.Taken, crit));
+            Add(new FloatingNumber(FloatingPanel.Taken, _owner, e.Amount, FloatingStyle.Taken, crit, e.Source));
+        }
+    }
+
+    /// <summary>When on, misses and resists show as small words ("Dodge", "Resisted").</summary>
+    public bool ShowMisses { get; set; } = true;
+
+    private void OnMiss(in CombatEvent e)
+    {
+        if (!ShowMisses || !_isOwn(_owner))
+        {
+            return;
+        }
+
+        string word = e.Avoid switch
+        {
+            AvoidKind.Dodge => "Dodge",
+            AvoidKind.Parry => "Parry",
+            AvoidKind.Block => "Block",
+            AvoidKind.Riposte => "Riposte",
+            AvoidKind.Other => "Absorb",
+            _ => "Miss",
+        };
+        bool mine = e.Source.Equals(_owner, StringComparison.OrdinalIgnoreCase)
+                    || (_petOwner(e.Source) is { } owner && owner.Equals(_owner, StringComparison.OrdinalIgnoreCase));
+        if (mine && !e.Target.Equals(_owner, StringComparison.OrdinalIgnoreCase))
+        {
+            Add(new FloatingNumber(FloatingPanel.Dealt, _owner, 0, FloatingStyle.Melee, false, e.Target, word));
+        }
+        else if (e.Target.Equals(_owner, StringComparison.OrdinalIgnoreCase))
+        {
+            Add(new FloatingNumber(FloatingPanel.Taken, _owner, 0, FloatingStyle.Taken, false, e.Source, word));
         }
     }
 
     public void OnNonCombatMessage(ReadOnlySpan<char> message)
     {
-        if (!Enabled || _owner.Length == 0 || message.IndexOf(" healed ", StringComparison.Ordinal) < 0)
+        if (!Enabled || _owner.Length == 0)
+        {
+            return;
+        }
+
+        if (ShowMisses && _isOwn(_owner))
+        {
+            // "A bandit resisted your Lull!" and "You resist the ghoul lord's Ghoul Root!"
+            int resisted = message.IndexOf(" resisted your ", StringComparison.Ordinal);
+            if (resisted > 0 && message.EndsWith("!"))
+            {
+                Add(new FloatingNumber(FloatingPanel.Dealt, _owner, 0, FloatingStyle.Spell, false, message[..resisted].Trim().ToString(), "Resisted"));
+                return;
+            }
+
+            if (message.StartsWith("You resist the ", StringComparison.Ordinal) && message.EndsWith("!"))
+            {
+                Add(new FloatingNumber(FloatingPanel.Taken, _owner, 0, FloatingStyle.Taken, false, string.Empty, "Resisted"));
+                return;
+            }
+        }
+
+        if (message.IndexOf(" healed ", StringComparison.Ordinal) < 0)
         {
             return;
         }
@@ -120,10 +194,20 @@ public sealed partial class FloatingCombatFeed : IDpsEventSink
         string target = match.Groups["target"].Value;
         bool toMe = target.Equals("you", StringComparison.OrdinalIgnoreCase) || target.Equals("yourself", StringComparison.OrdinalIgnoreCase)
                     || target.Equals(_owner, StringComparison.OrdinalIgnoreCase);
-        if (toMe && _isOwn(_owner))
+        if (!_isOwn(_owner))
         {
-            bool crit = match.Groups["tag"] is { Success: true } tag && tag.ValueSpan.IndexOf("Critical", StringComparison.OrdinalIgnoreCase) >= 0;
-            Add(new FloatingNumber(FloatingPanel.Healed, _owner, amount, FloatingStyle.Heal, crit));
+            return;
+        }
+
+        bool critical = match.Groups["tag"] is { Success: true } tag && tag.ValueSpan.IndexOf("Critical", StringComparison.OrdinalIgnoreCase) >= 0;
+        string healer = match.Groups["healer"].Value;
+        if (toMe)
+        {
+            Add(new FloatingNumber(FloatingPanel.Healed, _owner, amount, FloatingStyle.Heal, critical, healer));
+        }
+        else if (healer.Equals("You", StringComparison.OrdinalIgnoreCase) || healer.Equals(_owner, StringComparison.OrdinalIgnoreCase))
+        {
+            Add(new FloatingNumber(FloatingPanel.HealDone, _owner, amount, FloatingStyle.Heal, critical, target));
         }
     }
 

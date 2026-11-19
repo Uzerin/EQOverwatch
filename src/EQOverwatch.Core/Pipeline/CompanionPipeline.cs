@@ -88,7 +88,8 @@ public sealed class CompanionPipeline : IAsyncDisposable
         PlayerRoster roster = Roster;
         FloatingCombat = new FloatingCombatFeed(IsMonitoredCharacter,
             pet => roster.MergePetDamage && roster.TryGetOwner(pet, out string owner) ? owner : null);
-        _monitor = new LiveLogMonitor(Logs, triggerSinks, new FanOutDpsSink(LiveDps, FloatingCombat), RaiseError, Activity);
+        MobHits = new EQOverwatch.Core.History.MobHitStore(IsMonitoredCharacter);
+        _monitor = new LiveLogMonitor(Logs, triggerSinks, new FanOutDpsSink(LiveDps, FloatingCombat, MobHits), RaiseError, Activity);
         _monitor.TailError += (config, ex) => TailError?.Invoke(config, ex);
     }
 
@@ -139,6 +140,9 @@ public sealed class CompanionPipeline : IAsyncDisposable
 
     /// <summary>Numbers for the floating combat text overlays.</summary>
     public FloatingCombatFeed FloatingCombat { get; }
+
+    /// <summary>The biggest hit each mob has landed on your characters (for the mob card).</summary>
+    public EQOverwatch.Core.History.MobHitStore MobHits { get; }
 
     /// <summary>Boss ability timing learned from killed fights, for the learned boss timers.</summary>
     public History.BossAbilityLearner BossAbilities { get; }

@@ -4,6 +4,7 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
     <LangVersion>12.0</LangVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -11,9 +12,9 @@
     <AssemblyName>EQOverwatch</AssemblyName>
     <Product>EQ Overwatch</Product>
     <ApplicationIcon>Assets\EQOverwatch.ico</ApplicationIcon>
-    <Version>1.0.71</Version>
-    <AssemblyVersion>1.0.71.0</AssemblyVersion>
-    <FileVersion>1.0.71.0</FileVersion>
+    <Version>1.0.72</Version>
+    <AssemblyVersion>1.0.72.0</AssemblyVersion>
+    <FileVersion>1.0.72.0</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -27,6 +28,12 @@
 
   <ItemGroup>
     <ProjectReference Include="..\EQOverwatch.Core\EQOverwatch.Core.csproj" />
+  </ItemGroup>
+
+  <!-- Windows Forms is only used for the tray notification (tell toasts); keep its names out of the WPF code. -->
+  <ItemGroup>
+    <Using Remove="System.Windows.Forms" />
+    <Using Remove="System.Drawing" />
   </ItemGroup>
 
 </Project>

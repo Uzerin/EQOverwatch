@@ -27,9 +27,11 @@ public sealed partial class MainViewModel
         ReadWrittenFiles();
         RunLearnedBossTimers(nowUtc);
         RefreshChat();
+        RefreshRelease72(nowUtc);
         if (nowUtc - _lastPlayedRefresh >= PlayedRefreshEvery)
         {
             _lastPlayedRefresh = nowUtc;
+            RefreshAccountColumns(nowUtc);
             foreach (WatchedLogConfig log in Logs)
             {
                 log.PlayedText = _pipeline.Progress.Played(log.CharacterName, log.ServerName) is { } played ? FormatMinutes(played.Minutes) : "—";

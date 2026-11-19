@@ -249,14 +249,31 @@ public sealed class AppSettings
 
     public OverlaySettings FctHealsOverlay { get; set; } = OverlaySettings.DefaultFctHeals;
 
-    public OverlaySettings FctTakenOverlay { get; set; } = OverlaySettings.DefaultFctTaken;
 
     /// <summary>Text size of each floating combat text overlay's numbers.</summary>
     public double FctDamageTextSize { get; set; } = 20;
 
     public double FctHealsTextSize { get; set; } = 20;
 
-    public double FctTakenTextSize { get; set; } = 20;
+    /// <summary>Hits within 0.3 s from one character on one target show as one number ("3,412 x4").</summary>
+    public bool FctMergeHits { get; set; }
+
+    /// <summary>Misses and resists show as small gray words ("Dodge", "Resisted").</summary>
+    public bool FctShowMisses { get; set; } = true;
+
+    /// <summary>The floating text's font family and weight ("Segoe UI", "SemiBold").</summary>
+    public string FctFont { get; set; } = "Segoe UI";
+
+    public string FctWeight { get; set; } = "SemiBold";
+
+    /// <summary>The account name typed for each character, keyed "name|server" (lower case).</summary>
+    public Dictionary<string, string>? CharacterAccounts { get; set; }
+
+    /// <summary>Each named account's color (#RRGGBB), keyed "server|account" (lower case).</summary>
+    public Dictionary<string, string>? AccountColors { get; set; }
+
+    /// <summary>A Windows notification when a tell arrives while EverQuest is not the active window.</summary>
+    public bool TellToast { get; set; } = true;
 
     /// <summary>Floating combat text colors by kind (Melee, Ranged, Spell, DamageShield, Heal, Taken) as #RRGGBB; missing ones use the defaults.</summary>
     public Dictionary<string, string>? FloatingColors { get; set; }
@@ -342,8 +359,6 @@ public sealed class OverlayProfile
     public OverlaySettings? FctDamage { get; set; }
 
     public OverlaySettings? FctHeals { get; set; }
-
-    public OverlaySettings? FctTaken { get; set; }
 }
 
 /// <summary>
@@ -391,11 +406,9 @@ public sealed record OverlaySettings
 
     public static readonly OverlaySettings DefaultMobCard = new() { Left = 1020, Top = 240, Width = 340, Height = 150, IsVisible = true };
 
-    public static readonly OverlaySettings DefaultFctDamage = new() { Left = 900, Top = 300, Width = 200, Height = 260, IsVisible = true };
+    public static readonly OverlaySettings DefaultFctDamage = new() { Left = 900, Top = 300, Width = 300, Height = 260, IsVisible = true };
 
-    public static readonly OverlaySettings DefaultFctHeals = new() { Left = 640, Top = 300, Width = 200, Height = 260, IsVisible = true };
-
-    public static readonly OverlaySettings DefaultFctTaken = new() { Left = 640, Top = 580, Width = 200, Height = 260, IsVisible = true };
+    public static readonly OverlaySettings DefaultFctHeals = new() { Left = 580, Top = 300, Width = 300, Height = 260, IsVisible = true };
 
     public static readonly OverlaySettings DefaultTells = new() { Left = 1020, Top = 60, Width = 320, Height = 160, IsVisible = false };
 

@@ -214,6 +214,11 @@ public partial class MainViewModel
             lines.Add("Your spells: " + yours);
         }
 
+        if (_pipeline.MobHits.MaxHit(mob) is > 0 and int maxHit)
+        {
+            lines.Add($"Hits you for up to {maxHit.ToString("N0", culture)}");
+        }
+
         if (!string.IsNullOrEmpty(server)
             && _pipeline.Drops.Table(server, DropScope.Everyone)
                 .Where(r => r.Mob.Equals(mob, StringComparison.OrdinalIgnoreCase) && r.Kills > 0)

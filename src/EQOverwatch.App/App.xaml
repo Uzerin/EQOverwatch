@@ -8,6 +8,7 @@
                 <ResourceDictionary Source="Themes/OverlayStyles.xaml"/>
                 <ResourceDictionary Source="Themes/ModernStyles.xaml"/>
             </ResourceDictionary.MergedDictionaries>
+            <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

@@ -894,7 +894,7 @@ public sealed partial class MainViewModel
         ItemHits = CharacterPlanner.FindItems(_characterData.All(), _characterData.SharedBanks(), text, serverFilter);
         ItemSearchStatus = ItemHits.Count == 0
             ? $"No item matching \"{text}\" {(serverFilter is null ? "in the inventory files read so far" : "on " + serverFilter)}."
-            : $"{ItemHits.Count:N0} match{(ItemHits.Count == 1 ? string.Empty : "es")}.";
+            : ItemTotalText(ItemHits);
     }
 
     private void RebuildCharacterTools()

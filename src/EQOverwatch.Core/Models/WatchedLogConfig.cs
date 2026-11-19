@@ -96,6 +96,25 @@ public sealed partial class WatchedLogConfig : ObservableObject
     [ObservableProperty]
     private string _createdText = "—";
 
+    /// <summary>The account the character is on ("Ream box", or the names of characters sharing its bank), or a dash.</summary>
+    [ObservableProperty]
+    private string _accountText = "—";
+
+    /// <summary>The account's color (#RRGGBB), or empty for the normal text color.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasAccountColor))]
+    private string _accountColor = string.Empty;
+
+    public bool HasAccountColor => AccountColor.Length > 0;
+
+    /// <summary>True while the character's log had a line in the last minute (it is logged in).</summary>
+    [ObservableProperty]
+    private bool _isActiveNow;
+
+    /// <summary>How long ago anyone on the character's account last played ("Now", "2d ago").</summary>
+    [ObservableProperty]
+    private string _accountPlayedText = "—";
+
     public string LevelText => Level > 0 ? Level.ToString(CultureInfo.InvariantCulture) : "—";
 
     public string ClassText => ClassName.Length > 0 ? ClassName : "—";

@@ -63,7 +63,7 @@ public static class CharacterPlanner
         {
             foreach (InventoryItem item in bank.Items.Where(i => i.Name.Contains(needle, StringComparison.OrdinalIgnoreCase)))
             {
-                hits.Add(new ItemHit($"Shared bank ({bank.Server})", item.Where, item.Name, item.Count));
+                hits.Add(new ItemHit(bank.Label, item.Where, item.Name, item.Count));
             }
         }
 
@@ -106,12 +106,11 @@ public static class CharacterPlanner
             }
         }
 
-        SharedBankData? shared = sharedBanks.FirstOrDefault(b => b.Server.Equals(server, StringComparison.OrdinalIgnoreCase));
-        if (shared is not null)
+        foreach (SharedBankData shared in sharedBanks.Where(b => b.Server.Equals(server, StringComparison.OrdinalIgnoreCase)))
         {
             foreach (InventoryItem item in shared.Items.Where(IsScroll))
             {
-                Add(SpellOf(item), "Shared bank", item);
+                Add(SpellOf(item), shared.Characters.Count > 0 ? $"Shared bank ({shared.Label})" : "Shared bank", item);
             }
         }
 

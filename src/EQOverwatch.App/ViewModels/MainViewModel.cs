@@ -117,6 +117,7 @@ public sealed partial class MainViewModel : ObservableObject
         InitializeReleaseFeatures();
         ConfigureDiscord(discordPoster, renderEncounterPng);
         _characterData.SetPersonaResolver(PersonaWhenWritten); // worn gear is filed under the persona that was on
+        _characterData.SetAccountResolver(AccountOf); // shared banks are kept per account
         _characterData.ScanAll(EqFolderPath); // output files written while the app was closed
         _characterData.PruneMissingFiles(EqFolderPath); // saved data whose output file has since been deleted
         RefreshCharacterInfo();
@@ -1500,11 +1501,17 @@ public sealed partial class MainViewModel : ObservableObject
             IsMobCardOverlayVisible = settings.MobCardOverlay.IsVisible;
             IsFctDamageOverlayVisible = settings.FctDamageOverlay.IsVisible;
             IsFctHealsOverlayVisible = settings.FctHealsOverlay.IsVisible;
-            IsFctTakenOverlayVisible = settings.FctTakenOverlay.IsVisible;
             FctDamageTextSize = settings.FctDamageTextSize;
             FctHealsTextSize = settings.FctHealsTextSize;
-            FctTakenTextSize = settings.FctTakenTextSize;
             RestoreFloatingColors(settings.FloatingColors);
+            FctMergeHits = settings.FctMergeHits;
+            FctShowMisses = settings.FctShowMisses;
+            FctFont = string.IsNullOrWhiteSpace(settings.FctFont) ? "Segoe UI" : settings.FctFont;
+            FctWeight = string.IsNullOrWhiteSpace(settings.FctWeight) ? "SemiBold" : settings.FctWeight;
+            _characterAccounts = new Dictionary<string, string>(settings.CharacterAccounts ?? new(), StringComparer.OrdinalIgnoreCase);
+            _savedAccountColors = new Dictionary<string, string>(settings.AccountColors ?? new(), StringComparer.OrdinalIgnoreCase);
+            TellToast = settings.TellToast;
+            RebuildAccountColors();
             AggroAlert = settings.AggroAlert;
             RangeAlert = settings.RangeAlert;
             ShowFightProgress = settings.ShowFightProgress;
@@ -1543,7 +1550,6 @@ public sealed partial class MainViewModel : ObservableObject
         OverlayKind.MobCard => settings.MobCardOverlay,
         OverlayKind.FctDamage => settings.FctDamageOverlay,
         OverlayKind.FctHeals => settings.FctHealsOverlay,
-        OverlayKind.FctTaken => settings.FctTakenOverlay,
         _ => settings.DpsOverlay,
     };
 
@@ -1591,11 +1597,16 @@ public sealed partial class MainViewModel : ObservableObject
         MobCardOverlay = _overlays.Capture(OverlayKind.MobCard),
         FctDamageOverlay = _overlays.Capture(OverlayKind.FctDamage),
         FctHealsOverlay = _overlays.Capture(OverlayKind.FctHeals),
-        FctTakenOverlay = _overlays.Capture(OverlayKind.FctTaken),
         FctDamageTextSize = FctDamageTextSize,
         FctHealsTextSize = FctHealsTextSize,
-        FctTakenTextSize = FctTakenTextSize,
         FloatingColors = FloatingColors.ToDictionary(c => c.Key, c => c.Hex),
+        FctMergeHits = FctMergeHits,
+        FctShowMisses = FctShowMisses,
+        FctFont = FctFont,
+        FctWeight = FctWeight,
+        CharacterAccounts = new Dictionary<string, string>(_characterAccounts, StringComparer.OrdinalIgnoreCase),
+        AccountColors = AccountColorsToSave(),
+        TellToast = TellToast,
         AggroAlert = AggroAlert,
         RangeAlert = RangeAlert,
         ShowFightProgress = ShowFightProgress,
@@ -1746,6 +1757,7 @@ public sealed partial class MainViewModel : ObservableObject
         _pipeline.Drops.Flush();
         _pipeline.Progress.Flush();
         _pipeline.TellInbox.Flush();
+        _pipeline.MobHits.Flush();
         StopSync();
 
         Logs.CollectionChanged -= OnLogsChanged;

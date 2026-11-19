@@ -40,10 +40,10 @@ public class Release71Tests
         IReadOnlyList<FloatingNumber> numbers = feed.TakeAll();
         Assert.Equal(new[]
         {
-            new FloatingNumber(FloatingPanel.Dealt, "Stackprime", 142, FloatingStyle.Melee, true),
-            new FloatingNumber(FloatingPanel.Dealt, "Myriad", 88, FloatingStyle.Ranged, false),
-            new FloatingNumber(FloatingPanel.Taken, "Stackprime", 300, FloatingStyle.Taken, false),
-            new FloatingNumber(FloatingPanel.Healed, "Stackprime", 1250, FloatingStyle.Heal, true),
+            new FloatingNumber(FloatingPanel.Dealt, "Stackprime", 142, FloatingStyle.Melee, true, "a frost giant"),
+            new FloatingNumber(FloatingPanel.Dealt, "Myriad", 88, FloatingStyle.Ranged, false, "a frost giant"),
+            new FloatingNumber(FloatingPanel.Taken, "Stackprime", 300, FloatingStyle.Taken, false, "A frost giant"),
+            new FloatingNumber(FloatingPanel.Healed, "Stackprime", 1250, FloatingStyle.Heal, true, "Ream"),
         }, numbers);
         Assert.Empty(feed.TakeAll());
     }

@@ -26,7 +26,8 @@ public sealed record BossKillRow(
 /// </summary>
 public sealed record BossHistoryRow(
     string Boss, string HighestLevel, string LowestLevel, int Kills, int Attempts, string Fastest, string Average, string BestDps, int Players, string LastFought,
-    string Magic = "–", string Fire = "–", string Cold = "–", string Poison = "–", string Disease = "–", string SharedBy = "–");
+    string Magic = "–", string Fire = "–", string Cold = "–", string Poison = "–", string Disease = "–", string SharedBy = "–",
+    string Trend = "–");
 
 // Boss kill history, backup and restore, and saved overlay layouts.
 public sealed partial class MainViewModel
@@ -191,7 +192,12 @@ public sealed partial class MainViewModel
                     BossHistoryStore.FormatDuration(s.AverageSeconds),
                     s.BestDps > 0 ? s.BestDps.ToString("N0", CultureInfo.CurrentCulture) : "—",
                     s.MostPlayers,
-                    s.LastFought == default ? "—" : s.LastFought.ToString("MMM d", CultureInfo.CurrentCulture)));
+                    s.LastFought == default ? "—" : s.LastFought.ToString("MMM d", CultureInfo.CurrentCulture))) with
+                {
+                    Trend = KillTrendText(BossHistoryStore.Trend(fights.Concat(loaded)
+                        .Where(f => f.Boss.Equals(s.Boss, StringComparison.OrdinalIgnoreCase) && f.Players >= BossHistoryMinPlayers)
+                        .DistinctBy(f => f.Start))),
+                };
             })
             .ToArray();
 
@@ -484,7 +490,6 @@ public sealed partial class MainViewModel
         OverlayKind.MobCard => profile.MobCard ?? _overlays.Capture(OverlayKind.MobCard),
         OverlayKind.FctDamage => profile.FctDamage ?? _overlays.Capture(OverlayKind.FctDamage),
         OverlayKind.FctHeals => profile.FctHeals ?? _overlays.Capture(OverlayKind.FctHeals),
-        OverlayKind.FctTaken => profile.FctTaken ?? _overlays.Capture(OverlayKind.FctTaken),
         _ => profile.Dps,
     };
 
@@ -518,7 +523,6 @@ public sealed partial class MainViewModel
             MobCard = _overlays.Capture(OverlayKind.MobCard),
             FctDamage = _overlays.Capture(OverlayKind.FctDamage),
             FctHeals = _overlays.Capture(OverlayKind.FctHeals),
-            FctTaken = _overlays.Capture(OverlayKind.FctTaken),
         };
 
         _overlayProfiles.RemoveAll(p => p.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
@@ -576,7 +580,6 @@ public sealed partial class MainViewModel
         IsMobCardOverlayVisible = ProfileSettings(profile, OverlayKind.MobCard).IsVisible;
         IsFctDamageOverlayVisible = ProfileSettings(profile, OverlayKind.FctDamage).IsVisible;
         IsFctHealsOverlayVisible = ProfileSettings(profile, OverlayKind.FctHeals).IsVisible;
-        IsFctTakenOverlayVisible = ProfileSettings(profile, OverlayKind.FctTaken).IsVisible;
         AreOverlaysLocked = OverlayKindExtensions.All.Where(kind => !FollowsLock(kind)).All(kind => ProfileSettings(profile, kind).IsLocked);
         foreach (OverlayKind follower in OverlayKindExtensions.All.Where(FollowsLock))
         {

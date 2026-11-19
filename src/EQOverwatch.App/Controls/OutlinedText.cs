@@ -14,9 +14,11 @@ public sealed class OutlinedText : FrameworkElement
     private readonly Geometry _geometry;
     private readonly Brush _fill;
 
-    public OutlinedText(string text, double size, bool bold, Brush fill)
+    public OutlinedText(string text, double size, bool bold, Brush fill, FontFamily? family = null, FontWeight? weight = null)
     {
-        var formatted = new FormattedText(text, CultureInfo.CurrentCulture, FlowDirection.LeftToRight, bold ? Bold : Normal, size, fill, 1.0);
+        Typeface face = family is null && weight is null ? (bold ? Bold : Normal)
+            : new Typeface(family ?? Normal.FontFamily, FontStyles.Normal, bold ? FontWeights.ExtraBold : weight ?? FontWeights.SemiBold, FontStretches.Normal);
+        var formatted = new FormattedText(text, CultureInfo.CurrentCulture, FlowDirection.LeftToRight, face, size, fill, 1.0);
         _geometry = formatted.BuildGeometry(new Point(1.5, 1.5));
         _geometry.Freeze();
         _fill = fill;

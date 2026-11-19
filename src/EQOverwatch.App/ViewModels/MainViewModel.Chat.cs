@@ -8,7 +8,7 @@ using EQOverwatch.Core.Models;
 namespace EQOverwatch.App.ViewModels;
 
 /// <summary>A line on the Chat tab.</summary>
-public sealed record ChatRowView(string When, string Seen, string Channel, string Speaker, string Text, bool IsMention, bool IsYou);
+public sealed record ChatRowView(string When, string Seen, string Channel, string Speaker, string Text, bool IsMention, bool IsYou, bool IsSearchHit = false);
 
 // The Chat tab: every kind of player chat, one sub tab each (Tells keeps its own view), name mentions highlighted, one player's chat on double-click.
 public sealed partial class MainViewModel
@@ -43,6 +43,15 @@ public sealed partial class MainViewModel
     private bool _chatScanStarted;
 
     partial void OnSelectedChatTabChanged(int value) => RebuildChat();
+
+    /// <summary>Text to find in every channel's messages and speakers; empty shows everything.</summary>
+    [ObservableProperty]
+    private string _chatSearch = string.Empty;
+
+    [ObservableProperty]
+    private string _chatSearchStatus = string.Empty;
+
+    partial void OnChatSearchChanged(string value) => RebuildChat();
 
     partial void OnChatPlayerChanged(string value)
     {
@@ -98,10 +107,28 @@ public sealed partial class MainViewModel
         CultureInfo culture = CultureInfo.CurrentCulture;
         IReadOnlyList<ChatLine> all = _pipeline.Chat.All();
         var rows = new List<ChatRowView>();
+        string search = ChatSearch?.Trim() ?? string.Empty;
+        if (search.Length > 0)
+        {
+            int hits = all.Count(l => l.Text.Contains(search, StringComparison.OrdinalIgnoreCase) || l.Speaker.Contains(search, StringComparison.OrdinalIgnoreCase));
+            ChatSearchStatus = hits == 0 ? "No chat line contains that." : $"{hits:N0} line{(hits == 1 ? string.Empty : "s")} in all channels; this tab shows its own.";
+        }
+        else
+        {
+            ChatSearchStatus = string.Empty;
+        }
+
         for (int i = all.Count - 1; i >= 0 && rows.Count < ChatShownMax; i--)
         {
             ChatLine line = all[i];
             if ((channel is { } c && line.Channel != c) || (player.Length > 0 && !line.Speaker.Equals(player, StringComparison.OrdinalIgnoreCase)))
+            {
+                continue;
+            }
+
+            bool searchHit = search.Length > 0
+                             && (line.Text.Contains(search, StringComparison.OrdinalIgnoreCase) || line.Speaker.Contains(search, StringComparison.OrdinalIgnoreCase));
+            if (search.Length > 0 && !searchHit)
             {
                 continue;
             }
@@ -113,7 +140,8 @@ public sealed partial class MainViewModel
                 line.Speaker,
                 line.Text,
                 !line.IsYou && mention is not null && mention.IsMatch(line.Text),
-                line.IsYou));
+                line.IsYou,
+                searchHit));
         }
 
         ChatRows = rows;

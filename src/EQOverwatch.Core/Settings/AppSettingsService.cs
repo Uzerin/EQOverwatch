@@ -348,7 +348,6 @@ public sealed class AppSettingsService : IDisposable
         settings.MobCardOverlay ??= OverlaySettings.DefaultMobCard;
         settings.FctDamageOverlay ??= OverlaySettings.DefaultFctDamage;
         settings.FctHealsOverlay ??= OverlaySettings.DefaultFctHeals;
-        settings.FctTakenOverlay ??= OverlaySettings.DefaultFctTaken;
         settings.TellKeepDays = Math.Max(0, settings.TellKeepDays);
 
         foreach (WatchedLogSettings log in settings.WatchedLogs)

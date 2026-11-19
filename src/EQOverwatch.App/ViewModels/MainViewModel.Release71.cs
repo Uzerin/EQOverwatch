@@ -20,7 +20,7 @@ public sealed partial class MainViewModel
         (FloatingStyle.Ranged, "Ranged", "#FFD84D"),
         (FloatingStyle.Spell, "Spells", "#7FB2FF"),
         (FloatingStyle.DamageShield, "Damage shields", "#F0A050"),
-        (FloatingStyle.Heal, "Heals received", "#6FDC8C"),
+        (FloatingStyle.Heal, "Heals", "#6FDC8C"),
         (FloatingStyle.Taken, "Damage taken", "#FF6B6B"),
     };
 
@@ -30,8 +30,6 @@ public sealed partial class MainViewModel
     [ObservableProperty]
     private bool _isFctHealsOverlayVisible = true;
 
-    [ObservableProperty]
-    private bool _isFctTakenOverlayVisible = true;
 
     [ObservableProperty]
     private double _fctDamageTextSize = 20;
@@ -39,8 +37,6 @@ public sealed partial class MainViewModel
     [ObservableProperty]
     private double _fctHealsTextSize = 20;
 
-    [ObservableProperty]
-    private double _fctTakenTextSize = 20;
 
     /// <summary>The floating combat text colors, edited in the Colors window.</summary>
     public ObservableCollection<AttackColorEditorViewModel> FloatingColors { get; } = new();
@@ -49,11 +45,10 @@ public sealed partial class MainViewModel
 
     partial void OnIsFctHealsOverlayVisibleChanged(bool value) => OnFloatingTextVisibilityChanged(OverlayKind.FctHeals, value);
 
-    partial void OnIsFctTakenOverlayVisibleChanged(bool value) => OnFloatingTextVisibilityChanged(OverlayKind.FctTaken, value);
 
     private void OnFloatingTextVisibilityChanged(OverlayKind kind, bool visible)
     {
-        _pipeline.FloatingCombat.Enabled = IsFctDamageOverlayVisible || IsFctHealsOverlayVisible || IsFctTakenOverlayVisible;
+        _pipeline.FloatingCombat.Enabled = IsFctDamageOverlayVisible || IsFctHealsOverlayVisible;
         OnOverlayVisibilityChanged(kind, visible);
     }
 
@@ -61,7 +56,6 @@ public sealed partial class MainViewModel
 
     partial void OnFctHealsTextSizeChanged(double value) => ClampFctSize(value, v => FctHealsTextSize = v);
 
-    partial void OnFctTakenTextSizeChanged(double value) => ClampFctSize(value, v => FctTakenTextSize = v);
 
     private void ClampFctSize(double value, Action<double> set)
     {
@@ -88,19 +82,13 @@ public sealed partial class MainViewModel
     /// <summary>The overlay a number goes to, its color, and its text size.</summary>
     public (OverlayKind Kind, string Hex, double Size, bool Shown) FloatingLook(FloatingNumber number)
     {
-        OverlayKind kind = number.Panel switch
-        {
-            FloatingPanel.Healed => OverlayKind.FctHeals,
-            FloatingPanel.Taken => OverlayKind.FctTaken,
-            _ => OverlayKind.FctDamage,
-        };
+        OverlayKind kind = number.IsHeal ? OverlayKind.FctHeals : OverlayKind.FctDamage;
         string key = number.Style.ToString();
         string hex = FloatingColors.FirstOrDefault(c => c.Key == key)?.Hex
                      ?? FloatingColorDefaults.First(d => d.Style == number.Style).Default;
         (double size, bool shown) = kind switch
         {
             OverlayKind.FctHeals => (FctHealsTextSize, IsFctHealsOverlayVisible),
-            OverlayKind.FctTaken => (FctTakenTextSize, IsFctTakenOverlayVisible),
             _ => (FctDamageTextSize, IsFctDamageOverlayVisible),
         };
         return (kind, hex, size, shown);
@@ -132,7 +120,7 @@ public sealed partial class MainViewModel
 
     /// <summary>"842", "+2,104" or "-907".</summary>
     public static string FloatingText(FloatingNumber number) =>
-        (number.Panel == FloatingPanel.Healed ? "+" : number.Panel == FloatingPanel.Taken ? "-" : string.Empty)
+        number.Word ?? (number.IsHeal ? "+" : number.Panel == FloatingPanel.Taken ? "-" : string.Empty)
         + number.Amount.ToString("N0", CultureInfo.CurrentCulture);
 }
 

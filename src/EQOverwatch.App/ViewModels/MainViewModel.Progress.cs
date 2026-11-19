@@ -333,7 +333,10 @@ public sealed partial class MainViewModel
             .Select(f => new FlagRowView(f.Text, f.Utc.ToLocalTime().ToString("ddd MMM d yyyy, HH:mm", CultureInfo.CurrentCulture)))
             .ToList(),
         () => _pipeline.Progress.KeyRingAdds(character, server).Select(k => k.Text).ToList(),
-        () => _pipeline.Progress.AchievementsDone(character, server).Select(a => a.Text).ToList());
+        () => _pipeline.Progress.AchievementsDone(character, server).Select(a => a.Text).ToList(),
+        () => AccountOf(character, server),
+        account => SetAccount(character, server, account),
+        () => AccountNamesOn(server));
 
     /// <summary>The game's skillcaps.txt, read again when the EverQuest folder changes.</summary>
     private SkillCaps CurrentSkillCaps()

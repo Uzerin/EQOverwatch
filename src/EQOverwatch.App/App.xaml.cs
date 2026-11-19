@@ -30,6 +30,7 @@ public partial class CompanionApp : Application
     private HttpClient? _http;
     private HttpClient? _discordHttp;
     private HttpClient? _updateHttp;
+    private EQOverwatch.App.Services.TellToastService? _tellToasts;
     private HttpClient? _sharedDropsHttp;
 
     /// <summary>Passed to the old copy when an update could not be put in place, so it says so when it opens again.</summary>
@@ -131,6 +132,7 @@ public partial class CompanionApp : Application
         var bossHistory = new EQOverwatch.Core.History.BossHistoryStore();
         bossHistory.SetStoragePath(Path.Combine(appData, "bosshistory.json"));
         _pipeline.BossAbilities.SetStoragePath(Path.Combine(appData, "bossabilities.json"));
+        _pipeline.MobHits.SetStoragePath(Path.Combine(appData, "mobhits.json"));
         var mobLevels = new EQOverwatch.Core.History.MobLevelStore();
         mobLevels.SetStoragePath(Path.Combine(appData, "moblevels.json"));
         _http = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
@@ -171,7 +173,11 @@ public partial class CompanionApp : Application
                 if (shown && windows.TryGetValue(kind, out OverlayWindowBase? window) && window is FloatingTextOverlayWindow fct
                     && EQOverwatch.Core.Theming.ThemeColors.TryParse(hex, out EQOverwatch.Core.Theming.Rgba c))
                 {
-                    fct.Add(MainViewModel.FloatingText(number), number.Character, System.Windows.Media.Color.FromRgb(c.R, c.G, c.B), number.IsCritical, size);
+                    var look = new FloatingLook(System.Windows.Media.Color.FromRgb(c.R, c.G, c.B), size, fctVm.FctFontFamily, fctVm.FctFontWeight,
+                        number.IsIncoming, fctVm.FctMergeHits);
+                    string prefix = number.IsHeal ? "+" : number.Panel == EQOverwatch.Core.Services.FloatingPanel.Taken ? "-" : string.Empty;
+                    fct.Add(MainViewModel.FloatingText(number), number.Character, number.IsCritical, look,
+                        $"{number.Character}|{number.Target}|{number.Style}", number.Word is null ? number.Amount : 0, prefix);
                 }
             }
         };
@@ -179,6 +185,16 @@ public partial class CompanionApp : Application
 
         // The mob card: built on the tailing thread when you /con a mob, shown on the UI thread.
         _viewModel.MobCardReady += card => Dispatcher.BeginInvoke(() => mobCardVm.Show(card));
+
+        // Tell toasts: a Windows notification for a new tell while EverQuest is not the window in front.
+        _tellToasts = new EQOverwatch.App.Services.TellToastService();
+        _viewModel.TellToastRequested += tell =>
+        {
+            if (!EQOverwatch.App.Interop.Win32InputClicker.IsGameWindow(EQOverwatch.App.Interop.Win32InputClicker.GetForegroundWindow()))
+            {
+                _tellToasts.Show($"{tell.From} tells {tell.Character}", tell.Text);
+            }
+        };
 
         // Install update: a long timeout for the download, and a restart that starts the new exe once the old one has saved and swapped.
         _updateHttp = new HttpClient { Timeout = TimeSpan.FromMinutes(10) };
@@ -353,6 +369,7 @@ public partial class CompanionApp : Application
     protected override void OnExit(ExitEventArgs e)
     {
         Microsoft.Win32.SystemEvents.DisplaySettingsChanged -= OnDisplaySettingsChanged;
+        _tellToasts?.Dispose();
         if (_viewModel is not null)
         {
             _viewModel.Shutdown(); // no-op if the main window's Closing handler already ran it

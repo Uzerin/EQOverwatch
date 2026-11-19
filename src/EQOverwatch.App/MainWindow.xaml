@@ -252,7 +252,47 @@
                               GridLinesVisibility="Horizontal">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Server" Binding="{Binding ServerName}" Width="Auto"/>
-                            <DataGridTextColumn Header="Character" Binding="{Binding CharacterName}" Width="Auto" MinWidth="110"/>
+                            <DataGridTemplateColumn Header="Account" Width="Auto" SortMemberPath="AccountText">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding AccountText}" VerticalAlignment="Center" Margin="4,0"
+                                                   ToolTip="Set in the character's Profile window. Colors are in the Colors window.">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding HasAccountColor}" Value="True">
+                                                            <Setter Property="Foreground" Value="{Binding AccountColor}"/>
+                                                            <Setter Property="FontWeight" Value="SemiBold"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTemplateColumn Header="Character" Width="Auto" MinWidth="110" SortMemberPath="CharacterName">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="4,0">
+                                            <Ellipse Width="8" Height="8" Margin="0,0,6,0" Fill="#3CC85A" VerticalAlignment="Center"
+                                                     ToolTip="Logged in: its log had a line in the last minute">
+                                                <Ellipse.Style>
+                                                    <Style TargetType="Ellipse">
+                                                        <Setter Property="Visibility" Value="Hidden"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsActiveNow}" Value="True">
+                                                                <Setter Property="Visibility" Value="Visible"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Ellipse.Style>
+                                            </Ellipse>
+                                            <TextBlock Text="{Binding CharacterName}" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
                             <DataGridTextColumn Header="Level" Binding="{Binding LevelText, Mode=OneWay}" Width="Auto"/>
                             <DataGridTextColumn Header="Class" Binding="{Binding ClassText, Mode=OneWay}" Width="Auto"/>
                             <DataGridTemplateColumn Header="Character data" Width="Auto">
@@ -268,6 +308,7 @@
                             <DataGridTextColumn Header="Data from" Binding="{Binding DataText, Mode=OneWay}" Width="Auto"/>
                             <DataGridTextColumn Header="Played" Binding="{Binding PlayedText, Mode=OneWay}" Width="Auto"/>
                             <DataGridTextColumn Header="Created" Binding="{Binding CreatedText, Mode=OneWay}" Width="Auto"/>
+                            <DataGridTextColumn Header="Account Last Played" Binding="{Binding AccountPlayedText, Mode=OneWay}" Width="Auto"/>
                             <DataGridTemplateColumn Header="Enable Triggers" Width="Auto">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
@@ -1979,6 +2020,13 @@
                                 <DataGridTextColumn Header="Attempts" Binding="{Binding Attempts, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                                 <DataGridTextColumn Header="Fastest kill" Binding="{Binding Fastest, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                                 <DataGridTextColumn Header="Average kill" Binding="{Binding Average, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                <DataGridTextColumn Header="Trend" Binding="{Binding Trend, Mode=OneWay}" Width="Auto">
+                                    <DataGridTextColumn.HeaderStyle>
+                                        <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}">
+                                            <Setter Property="ToolTip" Value="The last kills' average time against the earlier kills (3 kills or more)."/>
+                                        </Style>
+                                    </DataGridTextColumn.HeaderStyle>
+                                </DataGridTextColumn>
                                 <DataGridTextColumn Header="Best DPS" Binding="{Binding BestDps, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                                 <DataGridTextColumn Header="Most players" Binding="{Binding Players, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                                 <DataGridTextColumn Header="Last fought" Binding="{Binding LastFought, Mode=OneWay}" Width="Auto"/>
@@ -2282,7 +2330,8 @@
                     </Grid>
                     <TextBlock Grid.Row="2" FontWeight="SemiBold" Margin="0,14,0,6" Text="Zone timeline (select a character above)"/>
                     <ctl:ZoneTimelineControl Grid.Row="3" Stretches="{Binding SelectedZoneStretches}" Margin="0,0,0,8"/>
-                    <DataGrid Grid.Row="4" ItemsSource="{Binding ZoneRows}" HorizontalAlignment="Left" VerticalAlignment="Top"
+                    <StackPanel Grid.Row="4" Orientation="Horizontal" VerticalAlignment="Top">
+                    <DataGrid ItemsSource="{Binding ZoneRows}" HorizontalAlignment="Left" VerticalAlignment="Top"
                               AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
                               HeadersVisibility="Column" GridLinesVisibility="Horizontal">
                         <DataGrid.Columns>
@@ -2292,6 +2341,21 @@
                             <DataGridTextColumn Header="Time" Binding="{Binding Length, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                         </DataGrid.Columns>
                     </DataGrid>
+                    <StackPanel Margin="24,0,0,0" VerticalAlignment="Top">
+                        <TextBlock FontWeight="SemiBold" Margin="0,0,0,6" Text="Plat by zone (last 7 days)"/>
+                        <DataGrid ItemsSource="{Binding ZonePlatRows}" HorizontalAlignment="Left" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
+                                  HeadersVisibility="Column" GridLinesVisibility="Horizontal" MaxHeight="360">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Zone" Binding="{Binding Zone, Mode=OneWay}" Width="Auto"/>
+                                <DataGridTextColumn Header="Platinum" Binding="{Binding Platinum, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                <DataGridTextColumn Header="Plat/hour" Binding="{Binding PerHour, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                <DataGridTextColumn Header="Hours" Binding="{Binding Hours, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                        <TextBlock Style="{StaticResource HintText}" Margin="0,6,0,0" TextWrapping="Wrap" MaxWidth="360"
+                                   Text="All your characters together: coin looted and split, by the zone you were in."/>
+                    </StackPanel>
+                    </StackPanel>
                 </Grid>
             </TabItem>
 
@@ -2588,6 +2652,13 @@
             <!-- ═════════ Players & Pets ═════════ -->
             <!-- ═════════ Chat ═════════ -->
             <TabItem Header="Chat">
+                <DockPanel>
+                <DockPanel DockPanel.Dock="Top" Margin="6,6,6,0">
+                    <TextBlock Text="Search" Style="{StaticResource HintText}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <TextBox Width="260" Text="{Binding ChatSearch, UpdateSourceTrigger=PropertyChanged, Delay=300}"
+                             ToolTip="Finds lines in every chat channel whose message or speaker contains this text"/>
+                    <TextBlock Style="{StaticResource HintText}" VerticalAlignment="Center" Margin="12,0,0,0" Text="{Binding ChatSearchStatus}"/>
+                </DockPanel>
                 <TabControl Margin="6" SelectedIndex="{Binding SelectedChatTab, Mode=TwoWay}">
                         <TabItem Header="All">
                             <DockPanel>
@@ -2606,6 +2677,9 @@
                                     <DataGrid.RowStyle>
                                         <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
                                             <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsSearchHit}" Value="True">
+                                                    <Setter Property="Background" Value="#4433AADD"/>
+                                                </DataTrigger>
                                                 <DataTrigger Binding="{Binding IsMention}" Value="True">
                                                     <Setter Property="Background" Value="#55B8860B"/>
                                                     <Setter Property="FontWeight" Value="SemiBold"/>
@@ -2679,6 +2753,9 @@
                                     <DataGrid.RowStyle>
                                         <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
                                             <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsSearchHit}" Value="True">
+                                                    <Setter Property="Background" Value="#4433AADD"/>
+                                                </DataTrigger>
                                                 <DataTrigger Binding="{Binding IsMention}" Value="True">
                                                     <Setter Property="Background" Value="#55B8860B"/>
                                                     <Setter Property="FontWeight" Value="SemiBold"/>
@@ -2713,6 +2790,9 @@
                                     <DataGrid.RowStyle>
                                         <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
                                             <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsSearchHit}" Value="True">
+                                                    <Setter Property="Background" Value="#4433AADD"/>
+                                                </DataTrigger>
                                                 <DataTrigger Binding="{Binding IsMention}" Value="True">
                                                     <Setter Property="Background" Value="#55B8860B"/>
                                                     <Setter Property="FontWeight" Value="SemiBold"/>
@@ -2747,6 +2827,9 @@
                                     <DataGrid.RowStyle>
                                         <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
                                             <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsSearchHit}" Value="True">
+                                                    <Setter Property="Background" Value="#4433AADD"/>
+                                                </DataTrigger>
                                                 <DataTrigger Binding="{Binding IsMention}" Value="True">
                                                     <Setter Property="Background" Value="#55B8860B"/>
                                                     <Setter Property="FontWeight" Value="SemiBold"/>
@@ -2781,6 +2864,9 @@
                                     <DataGrid.RowStyle>
                                         <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
                                             <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsSearchHit}" Value="True">
+                                                    <Setter Property="Background" Value="#4433AADD"/>
+                                                </DataTrigger>
                                                 <DataTrigger Binding="{Binding IsMention}" Value="True">
                                                     <Setter Property="Background" Value="#55B8860B"/>
                                                     <Setter Property="FontWeight" Value="SemiBold"/>
@@ -2815,6 +2901,9 @@
                                     <DataGrid.RowStyle>
                                         <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
                                             <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsSearchHit}" Value="True">
+                                                    <Setter Property="Background" Value="#4433AADD"/>
+                                                </DataTrigger>
                                                 <DataTrigger Binding="{Binding IsMention}" Value="True">
                                                     <Setter Property="Background" Value="#55B8860B"/>
                                                     <Setter Property="FontWeight" Value="SemiBold"/>
@@ -2849,6 +2938,9 @@
                                     <DataGrid.RowStyle>
                                         <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
                                             <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsSearchHit}" Value="True">
+                                                    <Setter Property="Background" Value="#4433AADD"/>
+                                                </DataTrigger>
                                                 <DataTrigger Binding="{Binding IsMention}" Value="True">
                                                     <Setter Property="Background" Value="#55B8860B"/>
                                                     <Setter Property="FontWeight" Value="SemiBold"/>
@@ -2883,6 +2975,9 @@
                                     <DataGrid.RowStyle>
                                         <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
                                             <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsSearchHit}" Value="True">
+                                                    <Setter Property="Background" Value="#4433AADD"/>
+                                                </DataTrigger>
                                                 <DataTrigger Binding="{Binding IsMention}" Value="True">
                                                     <Setter Property="Background" Value="#55B8860B"/>
                                                     <Setter Property="FontWeight" Value="SemiBold"/>
@@ -2917,6 +3012,9 @@
                                     <DataGrid.RowStyle>
                                         <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
                                             <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsSearchHit}" Value="True">
+                                                    <Setter Property="Background" Value="#4433AADD"/>
+                                                </DataTrigger>
                                                 <DataTrigger Binding="{Binding IsMention}" Value="True">
                                                     <Setter Property="Background" Value="#55B8860B"/>
                                                     <Setter Property="FontWeight" Value="SemiBold"/>
@@ -2935,6 +3033,7 @@
                             </DockPanel>
                         </TabItem>
                 </TabControl>
+                </DockPanel>
             </TabItem>
 
             <TabItem Header="Players &amp; Pets">
@@ -3117,6 +3216,8 @@
                                     <CheckBox Content="DPS" IsChecked="{Binding IsDpsOverlayVisible}" Margin="0,0,20,6"/>
                                     <CheckBox Content="Tells" IsChecked="{Binding IsTellsOverlayVisible}" Margin="0,0,20,6"
                                               ToolTip="Your characters' unanswered tells. It stays fully visible out of combat."/>
+                                    <CheckBox Content="Tell notifications" IsChecked="{Binding TellToast}" Margin="0,0,20,6"
+                                              ToolTip="A Windows notification when a tell arrives while EverQuest is not the active window."/>
                                     <CheckBox Content="Mob Card" IsChecked="{Binding IsMobCardOverlayVisible}" Margin="0,0,20,6"
                                               ToolTip="When you /con a mob: its kills and times on your server, the raid's resist rates and its drops, for 10 seconds."/>
                                 </WrapPanel>
@@ -3124,15 +3225,22 @@
                                            Text="With the CH Chain overlay off, Complete Heal chain bars and the late-cast alarm are shown in the Buffs overlay instead."/>
                                 <TextBlock Margin="0,10,0,4" FontWeight="SemiBold" Text="Floating combat text"/>
                                 <WrapPanel>
-                                    <CheckBox Content="Damage Dealt" IsChecked="{Binding IsFctDamageOverlayVisible}" VerticalAlignment="Center" Margin="0,0,6,6"/>
+                                    <CheckBox Content="Damage" IsChecked="{Binding IsFctDamageOverlayVisible}" VerticalAlignment="Center" Margin="0,0,6,6"
+                                              ToolTip="Damage you deal on the left, damage you take on the right."/>
                                     <TextBox Width="44" Margin="0,0,20,6" Text="{Binding FctDamageTextSize}" ToolTip="Text size of the numbers (10 to 48)."/>
-                                    <CheckBox Content="Heals Received" IsChecked="{Binding IsFctHealsOverlayVisible}" VerticalAlignment="Center" Margin="0,0,6,6"/>
+                                    <CheckBox Content="Heals" IsChecked="{Binding IsFctHealsOverlayVisible}" VerticalAlignment="Center" Margin="0,0,6,6"
+                                              ToolTip="Heals you cast on others on the left, heals you receive on the right."/>
                                     <TextBox Width="44" Margin="0,0,20,6" Text="{Binding FctHealsTextSize}" ToolTip="Text size of the numbers (10 to 48)."/>
-                                    <CheckBox Content="Damage Taken" IsChecked="{Binding IsFctTakenOverlayVisible}" VerticalAlignment="Center" Margin="0,0,6,6"/>
-                                    <TextBox Width="44" Margin="0,0,20,6" Text="{Binding FctTakenTextSize}" ToolTip="Text size of the numbers (10 to 48)."/>
+                                    <CheckBox Content="Merge rapid hits" IsChecked="{Binding FctMergeHits}" VerticalAlignment="Center" Margin="0,0,20,6"
+                                              ToolTip="Hits within 0.3 seconds from one character on one target show as one number, like 3,412 x4."/>
+                                    <CheckBox Content="Show misses" IsChecked="{Binding FctShowMisses}" VerticalAlignment="Center" Margin="0,0,20,6"
+                                              ToolTip="Dodge, Parry, Block, Riposte, Miss and Resisted show as small gray words."/>
+                                    <TextBlock Text="Font" Style="{StaticResource HintText}" VerticalAlignment="Center" Margin="0,0,6,6"/>
+                                    <ComboBox Width="130" Margin="0,0,8,6" ItemsSource="{Binding FctFontChoices}" SelectedItem="{Binding FctFont}"/>
+                                    <ComboBox Width="90" Margin="0,0,20,6" ItemsSource="{Binding FctWeightChoices}" SelectedItem="{Binding FctWeight}"/>
                                 </WrapPanel>
                                 <TextBlock Style="{StaticResource HintText}"
-                                           Text="Your active characters' hits, heals received and damage taken float down and fade over 3 seconds; crits are bold. The boxes are text sizes; colors are in the Colors window."/>
+                                           Text="Numbers float down and fade over 3 seconds; crits are bold. Left lane: what your character deals or casts. Right lane: what it takes or receives. The boxes are text sizes; colors are in the Colors window."/>
                             </StackPanel>
                         </GroupBox>
 

@@ -19,10 +19,10 @@ public sealed partial class MainViewModel
     /// <summary>"EQ Overwatch".</summary>
     public string AppName => AppInfo.Name;
 
-    /// <summary>"v1.0.71", read from this assembly's version.</summary>
+    /// <summary>"v1.0.72", read from this assembly's version.</summary>
     public string AppVersion { get; } = AppInfo.FormatVersion(typeof(MainViewModel).Assembly);
 
-    /// <summary>"EQ Overwatch v1.0.71": the window title, and the footer of the Discord picture.</summary>
+    /// <summary>"EQ Overwatch v1.0.72": the window title, and the footer of the Discord picture.</summary>
     public string WindowTitle => $"{AppName} {AppVersion}";
 
     // ───────────────────────── EverQuest folder ─────────────────────────
@@ -180,10 +180,23 @@ public sealed partial class MainViewModel
         _serverByCharacter = servers;
 
         string? serverFilter = ToolsServerFilter;
+        RefreshAccountColumns(DateTime.UtcNow);
         List<WatchedLogConfig> ordered = Logs
             .Where(l => serverFilter is null || l.ServerName.Equals(serverFilter, StringComparison.OrdinalIgnoreCase))
             .ToList();
-        ordered.Sort((a, b) => EqDirectoryScanner.Compare(a.ServerName, a.CharacterName, b.ServerName, b.CharacterName));
+        ordered.Sort((a, b) =>
+        {
+            int server = string.Compare(a.ServerName, b.ServerName, StringComparison.OrdinalIgnoreCase);
+            if (server != 0)
+            {
+                return EqDirectoryScanner.Compare(a.ServerName, a.CharacterName, b.ServerName, b.CharacterName);
+            }
+
+            // By account (characters with none last), then by character.
+            bool aNone = a.AccountText == "—", bNone = b.AccountText == "—";
+            int account = aNone != bNone ? (aNone ? 1 : -1) : string.Compare(a.AccountText, b.AccountText, StringComparison.OrdinalIgnoreCase);
+            return account != 0 ? account : EqDirectoryScanner.Compare(a.ServerName, a.CharacterName, b.ServerName, b.CharacterName);
+        });
         SortedCharacters = new ObservableCollection<WatchedLogConfig>(ordered);
         RefreshCharacterInfo();
     }

@@ -63,6 +63,13 @@ settings are kept.
 
 ## Changelog
 
+### 1.0.72
+
+- Account names link characters and keep a shared bank per account.
+- Characters list shows account, color, logged-in dot and last played.
+- Floating text now two overlays with misses, merging and font choice.
+- Tell notifications, chat search, kill trends, mob max hits, plat by zone.
+
 ### 1.0.71
 
 - New floating combat text overlays for damage, heals and damage taken.

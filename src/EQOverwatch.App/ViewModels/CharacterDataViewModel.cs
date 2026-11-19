@@ -45,7 +45,10 @@ public sealed record CharacterProgressSource(
     Func<string, FocusEffectsViewModel>? FocusFor = null,
     Func<IReadOnlyList<FlagRowView>>? Flags = null,
     Func<IReadOnlyList<string>>? KeyRingAdds = null,
-    Func<IReadOnlyList<string>>? AchievementsDone = null);
+    Func<IReadOnlyList<string>>? AchievementsDone = null,
+    Func<string>? Account = null,
+    Action<string>? SetAccount = null,
+    Func<IReadOnlyList<string>>? AccountNames = null);
 
 /// <summary>
 /// One character's data window: inventory, spellbook, missing spells and key ring, read from the character's <c>/outputfile</c> files.
@@ -150,6 +153,35 @@ public sealed partial class CharacterDataViewModel : ObservableObject
     }
 
     public string ServerName { get; }
+
+    /// <summary>True when the window can name the character's account (not in tests).</summary>
+    public bool HasAccounts => _progress?.SetAccount is not null;
+
+    /// <summary>The account names already used on this server, for the Account box.</summary>
+    public IReadOnlyList<string> AccountNames => _progress?.AccountNames?.Invoke() ?? Array.Empty<string>();
+
+    /// <summary>The account name typed for this character; empty when none. Saved when the box loses focus.</summary>
+    public string AccountName
+    {
+        get => _progress?.Account?.Invoke() ?? string.Empty;
+        set
+        {
+            string name = (value ?? string.Empty).Trim();
+            if (_progress?.SetAccount is null || name == AccountName)
+            {
+                return;
+            }
+
+            _progress.SetAccount(name);
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(AccountNames));
+            Rebuild();
+        }
+    }
+
+    /// <summary>"Same account: Ream, Reamii, Reamiiv", or how to link characters when the account has only this one.</summary>
+    [ObservableProperty]
+    private string _accountMembers = string.Empty;
 
     /// <summary>Identifies the window so a second click on the same character reuses it.</summary>
     public string Key => $"{CharacterName}_{ServerName}";
@@ -276,7 +308,11 @@ public sealed partial class CharacterDataViewModel : ObservableObject
     {
         CharacterData? data = _store.Find(CharacterName, ServerName);
         string server = data?.Server ?? ServerName;
-        SharedBankData? shared = server.Length > 0 ? _store.FindShared(server) : null;
+        SharedBankData? shared = server.Length > 0 ? _store.FindShared(CharacterName, server) : null;
+        List<string> others = shared?.Characters.Where(c => !c.Equals(CharacterName, StringComparison.OrdinalIgnoreCase)).ToList() ?? new List<string>();
+        AccountMembers = others.Count > 0
+            ? $"Same account: {string.Join(", ", others)}"
+            : "Give characters on one account the same name to link their shared bank.";
         string filter = FilterText?.Trim() ?? string.Empty;
 
         bool Match(string text) => filter.Length == 0 || text.Contains(filter, StringComparison.OrdinalIgnoreCase);

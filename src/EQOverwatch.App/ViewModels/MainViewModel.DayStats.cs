@@ -13,6 +13,9 @@ public sealed record SessionRowView(string Character, string Played, string Xp, 
 /// <summary>A zone on the Experience tab's XP by zone table.</summary>
 public sealed record ZoneXpRowView(string Zone, string XpPerHour, string Xp, string Hours, int Gains);
 
+/// <summary>One row of the Session tab's plat by zone table.</summary>
+public sealed record ZonePlatRowView(string Zone, string Platinum, string PerHour, string Hours);
+
 /// <summary>One zone stretch under the Session tab's timeline.</summary>
 public sealed record ZoneRowView(string Zone, string From, string To, string Length);
 
@@ -135,7 +138,20 @@ public sealed partial class MainViewModel
 
     private sealed record DayResult(IReadOnlyList<SessionSummary> Sessions, IReadOnlyList<SpellDayRow> Spells, IReadOnlyList<ResistDayRow> Resists,
         IReadOnlyList<(DateTime Day, SessionSummary Summary)> Week, IReadOnlyList<(string Zone, double Xp, int Gains, double Hours)> ZoneXp,
-        IReadOnlyList<ResistDayRow> WeekResists);
+        IReadOnlyList<ResistDayRow> WeekResists, IReadOnlyList<(string Zone, double Platinum, double Hours)>? ZonePlat = null);
+
+    /// <summary>The Session tab's platinum by zone over the last seven days.</summary>
+    [ObservableProperty]
+    private IReadOnlyList<ZonePlatRowView> _zonePlatRows = Array.Empty<ZonePlatRowView>();
+
+    public void ShowZonePlat(IReadOnlyList<(string Zone, double Platinum, double Hours)> zones)
+    {
+        CultureInfo culture = CultureInfo.CurrentCulture;
+        ZonePlatRows = zones
+            .Select(z => new ZonePlatRowView(z.Zone, z.Platinum.ToString("N1", culture),
+                z.Hours >= 0.05 ? (z.Platinum / z.Hours).ToString("N0", culture) : "—", z.Hours.ToString("0.0", culture)))
+            .ToList();
+    }
 
     /// <summary>Your spells' landed and resisted per mob over the last seven days, for the mob card.</summary>
     private IReadOnlyList<ResistDayRow> _weekResists = Array.Empty<ResistDayRow>();
@@ -184,6 +200,7 @@ public sealed partial class MainViewModel
         {
             ShowDayStats(result.Sessions, result.Spells, result.Resists, result.Week);
             ShowZoneXp(result.ZoneXp);
+            ShowZonePlat(result.ZonePlat ?? Array.Empty<(string, double, double)>());
             _weekResists = result.WeekResists;
         }
 
@@ -202,7 +219,7 @@ public sealed partial class MainViewModel
             try
             {
                 scanner.Update(logs, nowLocal);
-                Interlocked.Exchange(ref _dayResult, new DayResult(scanner.Sessions(nowLocal), scanner.Spells(), scanner.Resists(), scanner.Week(nowLocal), scanner.ZoneXp(nowLocal), scanner.WeekResists())); // shown on the next tick
+                Interlocked.Exchange(ref _dayResult, new DayResult(scanner.Sessions(nowLocal), scanner.Spells(), scanner.Resists(), scanner.Week(nowLocal), scanner.ZoneXp(nowLocal), scanner.WeekResists(), scanner.ZonePlat(nowLocal))); // shown on the next tick
             }
             catch (Exception)
             {

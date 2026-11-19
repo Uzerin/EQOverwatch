@@ -17,7 +17,6 @@ public enum OverlayKind
     MobCard,
     FctDamage,
     FctHeals,
-    FctTaken,
 }
 
 public static class OverlayKindExtensions
@@ -50,14 +49,13 @@ public static class OverlayKindExtensions
         {
             OverlayKind.Tells => "Tells",
             OverlayKind.MobCard => "Mob Card",
-            OverlayKind.FctDamage => "Damage Dealt",
-            OverlayKind.FctHeals => "Heals Received",
-            OverlayKind.FctTaken => "Damage Taken",
+            OverlayKind.FctDamage => "Damage",
+            OverlayKind.FctHeals => "Heals",
             _ => "DPS",
         };
 
     /// <summary>The floating combat text overlays.</summary>
-    public static bool IsFloatingText(this OverlayKind kind) => kind is OverlayKind.FctDamage or OverlayKind.FctHeals or OverlayKind.FctTaken;
+    public static bool IsFloatingText(this OverlayKind kind) => kind is OverlayKind.FctDamage or OverlayKind.FctHeals;
 
     /// <summary>Where an overlay goes when nothing is saved for it.</summary>
     public static EQOverwatch.Core.Settings.OverlaySettings Defaults(this OverlayKind kind) =>
@@ -66,7 +64,6 @@ public static class OverlayKindExtensions
         : kind == OverlayKind.MobCard ? EQOverwatch.Core.Settings.OverlaySettings.DefaultMobCard
         : kind == OverlayKind.FctDamage ? EQOverwatch.Core.Settings.OverlaySettings.DefaultFctDamage
         : kind == OverlayKind.FctHeals ? EQOverwatch.Core.Settings.OverlaySettings.DefaultFctHeals
-        : kind == OverlayKind.FctTaken ? EQOverwatch.Core.Settings.OverlaySettings.DefaultFctTaken
         : EQOverwatch.Core.Settings.OverlaySettings.DefaultDps;
 }
 

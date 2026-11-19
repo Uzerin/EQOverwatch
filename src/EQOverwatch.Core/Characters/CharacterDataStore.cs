@@ -99,13 +99,32 @@ public sealed class PersonaBooks
     public List<SpellListEntry> Missing { get; set; } = new();
 }
 
-/// <summary>The shared bank of one server. Every character's inventory file lists it, so it is kept once, from the newest file.</summary>
+/// <summary>
+/// The shared bank of one account on one server, from the newest inventory file of any character on it. Characters are on one account
+/// when the player gave them the same account name, or (with no name) when their files show the same shared bank.
+/// </summary>
 public sealed class SharedBankData
 {
     public string Server { get; set; } = string.Empty;
     public DateTime? CapturedUtc { get; set; }
     public string FromCharacter { get; set; } = string.Empty;
     public List<InventoryItem> Items { get; set; } = new();
+
+    /// <summary>The account name the player typed, or empty.</summary>
+    public string Account { get; set; } = string.Empty;
+
+    /// <summary>The characters on the account, A-Z. Empty for a bank saved before accounts existed.</summary>
+    public List<string> Characters { get; set; } = new();
+
+    /// <summary>"Ream box", "Ream, Reamii, Reamiiv", "Abundance, Gobs, Mound +2", or "Shared bank (server)" for an old bank.</summary>
+    [JsonIgnore]
+    public string Label => Account.Length > 0 ? Account
+        : Characters.Count > 0 ? NameList(Characters)
+        : $"Shared bank ({Server})";
+
+    /// <summary>Up to three names, then "+N".</summary>
+    public static string NameList(IReadOnlyList<string> names) =>
+        names.Count <= 3 ? string.Join(", ", names) : $"{string.Join(", ", names.Take(3))} +{names.Count - 3}";
 }
 
 /// <summary>
@@ -165,21 +184,92 @@ public sealed class CharacterDataStore
         }
     }
 
-    /// <summary>The shared bank of every server that has been read, as a snapshot.</summary>
+    private Func<string, string, string?>? _accountOf;
+
+    /// <summary>Tells the account name the player gave a character (name, server), or null/empty when none was given.</summary>
+    public void SetAccountResolver(Func<string, string, string?> accountOf) => _accountOf = accountOf;
+
+    /// <summary>The shared bank of every account that has been read, as a snapshot.</summary>
     public IReadOnlyList<SharedBankData> SharedBanks()
     {
         lock (_gate)
         {
-            return _shared.Values.ToList();
+            return BuildAccountBanks();
         }
     }
 
-    public SharedBankData? FindShared(string server)
+    /// <summary>The newest shared bank on a server, or null.</summary>
+    public SharedBankData? FindShared(string server) =>
+        SharedBanks().Where(b => b.Server.Equals(server ?? string.Empty, StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(b => b.CapturedUtc ?? DateTime.MinValue).FirstOrDefault();
+
+    /// <summary>The shared bank of the account a character is on, or null when its inventory has not been read.</summary>
+    public SharedBankData? FindShared(string name, string server) =>
+        SharedBanks().FirstOrDefault(b => b.Server.Equals(server ?? string.Empty, StringComparison.OrdinalIgnoreCase)
+                                          && b.Characters.Contains(name ?? string.Empty, StringComparer.OrdinalIgnoreCase))
+        ?? SharedBanks().FirstOrDefault(b => b.Characters.Count == 0 && b.Server.Equals(server ?? string.Empty, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>The shared bank rows of a character's newest inventory file, empty slots left out.</summary>
+    public static List<InventoryItem> SharedRows(CharacterData character) =>
+        character.InventoryLayout.Where(r => r.IsShared && !r.Name.Equals("Empty", StringComparison.OrdinalIgnoreCase)).ToList();
+
+    private static string Fingerprint(IEnumerable<InventoryItem> rows) =>
+        string.Join("\n", rows.Select(r => $"{r.Location}|{r.ItemId}|{r.Count}"));
+
+    /// <summary>
+    /// Groups each server's characters into accounts: by the account name the player gave, else by an identical shared bank. A
+    /// character with no name whose bank is the same as a named account's member joins that account. Must be called under the lock.
+    /// </summary>
+    private List<SharedBankData> BuildAccountBanks()
     {
-        lock (_gate)
+        var banks = new List<SharedBankData>();
+        var covered = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (IGrouping<string, CharacterData> server in _characters.Values
+                     .Where(c => c.InventoryUtc is not null && c.InventoryLayout.Any(r => r.IsShared))
+                     .GroupBy(c => c.Server, StringComparer.OrdinalIgnoreCase))
         {
-            return _shared.GetValueOrDefault(server ?? string.Empty);
+            covered.Add(server.Key);
+            var named = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase); // character -> account
+            var prints = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase); // character -> bank fingerprint
+            foreach (CharacterData c in server)
+            {
+                prints[c.Name] = Fingerprint(SharedRows(c));
+                string account = (_accountOf?.Invoke(c.Name, c.Server) ?? string.Empty).Trim();
+                if (account.Length > 0)
+                {
+                    named[c.Name] = account;
+                }
+            }
+
+            string KeyOf(CharacterData c)
+            {
+                if (named.TryGetValue(c.Name, out string? account))
+                {
+                    return "a:" + account;
+                }
+
+                List<string> matches = named.Where(n => prints[n.Key] == prints[c.Name]).Select(n => n.Value)
+                    .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+                return matches.Count == 1 ? "a:" + matches[0] : "f:" + prints[c.Name];
+            }
+
+            foreach (IGrouping<string, CharacterData> account in server.GroupBy(KeyOf, StringComparer.OrdinalIgnoreCase))
+            {
+                CharacterData newest = account.OrderByDescending(c => c.InventoryUtc).First();
+                banks.Add(new SharedBankData
+                {
+                    Server = newest.Server,
+                    CapturedUtc = newest.InventoryUtc,
+                    FromCharacter = newest.Name,
+                    Account = account.Key.StartsWith("a:", StringComparison.Ordinal) ? account.Key[2..] : string.Empty,
+                    Characters = account.Select(c => c.Name).OrderBy(n => n, StringComparer.OrdinalIgnoreCase).ToList(),
+                    Items = SharedRows(newest),
+                });
+            }
         }
+
+        banks.AddRange(_shared.Values.Where(b => !covered.Contains(b.Server)));
+        return banks.OrderBy(b => b.Server, StringComparer.OrdinalIgnoreCase).ThenBy(b => b.Label, StringComparer.OrdinalIgnoreCase).ToList();
     }
 
     /// <summary>Reads the character's output files from the game folder. Returns how many files changed what is stored.</summary>
@@ -290,6 +380,7 @@ public sealed class CharacterDataStore
                 if (data.InventoryUtc is not null && !present.Contains(PresenceKey(data.Name, data.Server, OutputFileKind.Inventory)))
                 {
                     data.Inventory = new List<InventoryItem>();
+                    data.InventoryLayout = new List<InventoryItem>();
                     data.KeyRing = new List<KeyRingEntry>();
                     data.Worn.Clear();
                     data.WornFiledUtc = null;

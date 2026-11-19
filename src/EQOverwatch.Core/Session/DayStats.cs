@@ -16,7 +16,7 @@ public sealed record ZoneStretch(string Zone, DateTime Start, DateTime End)
 /// <summary>A character's day so far: time played, experience, money, kills and skill-ups.</summary>
 public sealed record SessionSummary(
     string Character, double PlayedSeconds, double XpPercent, long Copper, int Kills, int SkillUps, IReadOnlyList<ZoneStretch> Zones,
-    IReadOnlyDictionary<string, (double Xp, int Gains)>? ZoneXp = null)
+    IReadOnlyDictionary<string, (double Xp, int Gains)>? ZoneXp = null, IReadOnlyDictionary<string, long>? ZoneCopper = null)
 {
     public double Platinum => Copper / 1000.0;
 }
@@ -79,6 +79,7 @@ public sealed partial class DayAccumulator
     private readonly Dictionary<(string Spell, string Mob), (int Landed, int Resisted)> _resists = new();
     private readonly List<ZoneStretch> _zones = new();
     private readonly Dictionary<string, (double Xp, int Gains)> _zoneXp = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, long> _zoneCopper = new(StringComparer.OrdinalIgnoreCase);
     private DateTime _lastLine;
     private string _zone = string.Empty;
     private DateTime _stretchStart;
@@ -152,7 +153,9 @@ public sealed partial class DayAccumulator
 
         if (IsMoneyLine(message))
         {
-            Copper += CopperIn(message);
+            long copper = CopperIn(message);
+            Copper += copper;
+            _zoneCopper[_zone] = _zoneCopper.GetValueOrDefault(_zone) + copper;
             return;
         }
 
@@ -309,7 +312,8 @@ public sealed partial class DayAccumulator
 
         // A few seconds before the first "You have entered" at log-in is not worth a block of its own.
         zones.RemoveAll(z => z.Seconds < 30 && zones.Count > 1);
-        return new SessionSummary(Character, PlayedSeconds, XpPercent, Copper, Kills, SkillUps, zones, new Dictionary<string, (double, int)>(_zoneXp));
+        return new SessionSummary(Character, PlayedSeconds, XpPercent, Copper, Kills, SkillUps, zones, new Dictionary<string, (double, int)>(_zoneXp),
+            new Dictionary<string, long>(_zoneCopper));
     }
 
     public IReadOnlyList<SpellDayRow> Spells() =>
@@ -510,6 +514,37 @@ public sealed class DayScanner
         return totals.Where(t => t.Value.Xp > 0 && t.Value.Seconds >= 60)
             .Select(t => (t.Key, t.Value.Xp, t.Value.Gains, t.Value.Seconds / 3600))
             .OrderByDescending(t => t.Item2 / t.Item4)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Platinum looted per zone over the last seven days, all characters together, with the hours played there (character-hours).
+    /// Most platinum first.
+    /// </summary>
+    public IReadOnlyList<(string Zone, double Platinum, double Hours)> ZonePlat(DateTime nowLocal)
+    {
+        var totals = new Dictionary<string, (long Copper, double Seconds)>(StringComparer.OrdinalIgnoreCase);
+        foreach ((DateTime _, SessionSummary s) in Week(nowLocal))
+        {
+            foreach (ZoneStretch z in s.Zones.Where(z => z.Zone.Length > 0))
+            {
+                (long c, double sec) = totals.GetValueOrDefault(z.Zone);
+                totals[z.Zone] = (c, sec + z.Seconds);
+            }
+
+            foreach ((string zone, long copper) in s.ZoneCopper ?? new Dictionary<string, long>())
+            {
+                if (zone.Length > 0)
+                {
+                    (long c, double sec) = totals.GetValueOrDefault(zone);
+                    totals[zone] = (c + copper, sec);
+                }
+            }
+        }
+
+        return totals.Where(t => t.Value.Copper > 0)
+            .Select(t => (t.Key, t.Value.Copper / 1000.0, t.Value.Seconds / 3600))
+            .OrderByDescending(t => t.Item2)
             .ToList();
     }
 

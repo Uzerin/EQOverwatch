@@ -122,6 +122,7 @@ public sealed partial class MainViewModel
         {
             _lastResistFlush = nowUtc;
             _pipeline.ResistStore.Flush();
+            _pipeline.MobHits.Flush();
         }
 
         long resistVersion = _pipeline.ResistStore.Version;
