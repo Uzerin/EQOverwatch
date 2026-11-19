@@ -12,7 +12,11 @@ public sealed record SpellRow(int Level, string Name);
 /// <summary>A spell the character has not scribed, with the scroll for it when one is in the bags or banks.</summary>
 public sealed record MissingSpellRow(int Level, string Name, string Scroll);
 
-public sealed record KeyRingRow(string Type, string Name, int ItemId);
+/// <summary>A key ring row; <paramref name="ItemId"/> is empty for Special keys, which come from achievements and the log.</summary>
+public sealed record KeyRingRow(string Type, string Name, string ItemId);
+
+/// <summary>An achievement on the Achievements tab.</summary>
+public sealed record AchievementRowView(string Category, string Achievement, string Status, string Steps, bool IsDone);
 
 /// <summary>A skill on the Skills tab: its value, the most it can be for the class and level, and today's skill-ups.</summary>
 public sealed record SkillRowView(string Skill, int Value, string Max, string Today, string LastUp, bool IsMaxed);
@@ -37,7 +41,9 @@ public sealed record CharacterProgressSource(
     Func<string, IReadOnlyList<FactionRowView>> Factions,
     Func<IReadOnlyList<PersonaChoice>>? Personas = null,
     Func<string, FocusEffectsViewModel>? FocusFor = null,
-    Func<IReadOnlyList<FlagRowView>>? Flags = null);
+    Func<IReadOnlyList<FlagRowView>>? Flags = null,
+    Func<IReadOnlyList<string>>? KeyRingAdds = null,
+    Func<IReadOnlyList<string>>? AchievementsDone = null);
 
 /// <summary>
 /// One character's data window: inventory, spellbook, missing spells and key ring, read from the character's <c>/outputfile</c> files.
@@ -54,6 +60,15 @@ public sealed partial class CharacterDataViewModel : ObservableObject
     public const int TradeskillsTab = 6;
     public const int FactionTab = 7;
     public const int FlagsTab = 8;
+    public const int AchievementsTab = 9;
+
+    /// <summary>The key ring type shown for keys that come from achievements and the log rather than the inventory file.</summary>
+    public const string SpecialKeyType = "Special";
+
+    /// <summary>The achievements file's category for keys.</summary>
+    public const string KeysCategory = "General: Keys";
+
+    public const string AllCategories = "All categories";
 
     private const string ScrollPrefix = "Spell: ";
     private const string None = "—";
@@ -192,6 +207,26 @@ public sealed partial class CharacterDataViewModel : ObservableObject
     [ObservableProperty]
     private IReadOnlyList<FlagRowView> _flagRows = Array.Empty<FlagRowView>();
 
+    [ObservableProperty]
+    private IReadOnlyList<AchievementRowView> _achievementRows = Array.Empty<AchievementRowView>();
+
+    [ObservableProperty]
+    private IReadOnlyList<string> _achievementCategories = new[] { AllCategories };
+
+    [ObservableProperty]
+    private string _achievementCategory = AllCategories;
+
+    [ObservableProperty]
+    private bool _onlyCompletedAchievements;
+
+    /// <summary>"678 of 5,231 completed", or how to get the file.</summary>
+    [ObservableProperty]
+    private string _achievementSummary = string.Empty;
+
+    partial void OnAchievementCategoryChanged(string value) => Rebuild();
+
+    partial void OnOnlyCompletedAchievementsChanged(bool value) => Rebuild();
+
     /// <summary>Hides skills already at their most for the character's class and level.</summary>
     [ObservableProperty]
     private bool _onlyUnmaxedSkills;
@@ -293,10 +328,59 @@ public sealed partial class CharacterDataViewModel : ObservableObject
             .Select(i => new InventoryRow(i.Where, i.Name, i.ItemId, i.Count))
             .ToList();
 
-        KeyRingRows = (data?.KeyRing ?? new List<KeyRingEntry>())
-            .Where(k => Match(k.Name) || Match(k.Type))
-            .Select(k => new KeyRingRow(k.Type, k.Name, k.ItemId))
+        // Achievements the log has completed since the achievements file was written count as done.
+        var doneInLog = new HashSet<string>(_progress?.AchievementsDone?.Invoke() ?? Array.Empty<string>(), StringComparer.OrdinalIgnoreCase);
+        List<AchievementEntry> achievements = (data?.Achievements ?? new List<AchievementEntry>())
+            .Select(a => !a.IsDone && doneInLog.Contains(a.Name) ? a with { Status = "C", StepsDone = a.Steps } : a)
             .ToList();
+
+        // Special keys: the achievements file's completed keys and the keys the log says were added, each once.
+        var keyRing = (data?.KeyRing ?? new List<KeyRingEntry>())
+            .Select(k => new KeyRingRow(k.Type, k.Name, k.ItemId.ToString(CultureInfo.InvariantCulture)))
+            .ToList();
+        var seen = new HashSet<string>(keyRing.Select(k => k.Name), StringComparer.OrdinalIgnoreCase);
+        IEnumerable<string> specials = achievements.Where(a => a.IsDone && a.Category.Equals(KeysCategory, StringComparison.OrdinalIgnoreCase)).Select(a => a.Name)
+            .Concat(_progress?.KeyRingAdds?.Invoke() ?? Array.Empty<string>());
+        foreach (string name in specials.OrderBy(n => n, StringComparer.OrdinalIgnoreCase))
+        {
+            if (seen.Add(name))
+            {
+                keyRing.Add(new KeyRingRow(SpecialKeyType, name, string.Empty));
+            }
+        }
+
+        KeyRingRows = keyRing.Where(k => Match(k.Name) || Match(k.Type)).ToList();
+
+        var categories = achievements.Select(a => a.Category).Where(c => c.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        categories.Insert(0, AllCategories);
+        if (!categories.SequenceEqual(AchievementCategories))
+        {
+            string keep = AchievementCategory;
+            AchievementCategories = categories;
+            if (!categories.Contains(keep))
+            {
+                AchievementCategory = AllCategories; // rebuilds again
+                return;
+            }
+        }
+
+        bool allCategories = AchievementCategory is null or AllCategories;
+        AchievementRows = achievements
+            .Where(a => (allCategories || a.Category.Equals(AchievementCategory, StringComparison.OrdinalIgnoreCase))
+                        && (!OnlyCompletedAchievements || a.IsDone)
+                        && (Match(a.Name) || Match(a.Category)))
+            .Select(a => new AchievementRowView(
+                a.Category,
+                a.Name,
+                a.Status switch { "C" => "Done", "L" => "Locked", _ => "Not done" },
+                a.Steps == 0 ? string.Empty : $"{a.StepsDone}/{a.Steps}",
+                a.IsDone))
+            .ToList();
+        int distinct = achievements.Select(a => a.Name).Distinct(StringComparer.OrdinalIgnoreCase).Count();
+        int done = achievements.Where(a => a.IsDone).Select(a => a.Name).Distinct(StringComparer.OrdinalIgnoreCase).Count();
+        AchievementSummary = data?.AchievementsUtc is null
+            ? "No achievements read yet: type /output achievements in game."
+            : $"{done:N0} of {distinct:N0} completed · file {Describe(data.AchievementsUtc)}";
 
         // A persona's own lists come from the files with its class code; with no personas known, the newest lists are shown.
         PersonaBooks? books = data is null ? null

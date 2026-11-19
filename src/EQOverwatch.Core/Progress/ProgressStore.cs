@@ -78,7 +78,7 @@ public sealed partial class ProgressStore : ITriggerLineSink
     private static partial Regex WhoRegex();
 
     private const int MaxTimeline = 20000;
-    private const int FileFormat = 4; // 3: the persona timeline; 4: character flags (the logs are read again for them)
+    private const int FileFormat = 5; // 3: the persona timeline; 4: character flags; 5: key ring and achievement lines (the logs are read again for them)
 
     private readonly object _gate = new();
     private readonly Dictionary<string, CharacterState> _characters = new(StringComparer.OrdinalIgnoreCase);
@@ -120,7 +120,12 @@ public sealed partial class ProgressStore : ITriggerLineSink
         || message.StartsWith("You have fashioned the items", StringComparison.Ordinal)
         || message.StartsWith("You lacked the skills to fashion ", StringComparison.Ordinal)
         || IsFlagLine(message)
+        || message.EndsWith(KeyRingSuffix, StringComparison.Ordinal)
+        || message.StartsWith(AchievementPrefix, StringComparison.Ordinal)
         || (message.Length > 10 && message[^1] == '!' && message.Contains(" slain ", StringComparison.Ordinal));
+
+    private const string KeyRingSuffix = " has been added to your key ring.";
+    private const string AchievementPrefix = "You have completed achievement: ";
 
     /// <summary>True for a line announcing a character flag, such as "You receive a character flag!".</summary>
     public static bool IsFlagLine(string message) =>
@@ -191,6 +196,20 @@ public sealed partial class ProgressStore : ITriggerLineSink
         }
 
         CharacterState state = State(states, key);
+        if (text.EndsWith(KeyRingSuffix, StringComparison.Ordinal) || text.StartsWith(AchievementPrefix, StringComparison.Ordinal))
+        {
+            bool keyRing = text.EndsWith(KeyRingSuffix, StringComparison.Ordinal);
+            string name = (keyRing ? text[..^KeyRingSuffix.Length] : text[AchievementPrefix.Length..]).Trim();
+            List<FlagMark> marks = keyRing ? (state.KeyRing ??= new List<FlagMark>()) : (state.Achievements ??= new List<FlagMark>());
+            if (name.Length == 0 || marks.Any(m => m.Text.Equals(name, StringComparison.OrdinalIgnoreCase)))
+            {
+                return false;
+            }
+
+            marks.Add(new FlagMark { Time = time, Text = name });
+            return true;
+        }
+
         if (IsFlagLine(text))
         {
             state.Flags ??= new List<FlagMark>();
@@ -602,6 +621,25 @@ public sealed partial class ProgressStore : ITriggerLineSink
         }
     }
 
+    /// <summary>The items the character's log said were added to the key ring, oldest first.</summary>
+    public IReadOnlyList<CharacterFlag> KeyRingAdds(string character, string server) => Marks(character, server, s => s.KeyRing);
+
+    /// <summary>The achievements the character's log said were completed, oldest first.</summary>
+    public IReadOnlyList<CharacterFlag> AchievementsDone(string character, string server) => Marks(character, server, s => s.Achievements);
+
+    private IReadOnlyList<CharacterFlag> Marks(string character, string server, Func<CharacterState, List<FlagMark>?> pick)
+    {
+        lock (_gate)
+        {
+            if (!_characters.TryGetValue(Key(character, server), out CharacterState? state) || pick(state) is not { } marks)
+            {
+                return Array.Empty<CharacterFlag>();
+            }
+
+            return marks.OrderBy(f => f.Time).Select(f => new CharacterFlag(f.Text, LogHistoryReader.FromUnix(f.Time))).ToList();
+        }
+    }
+
     /// <summary>A character's recipes, A to Z.</summary>
     public IReadOnlyList<TradeskillProgress> Tradeskills(string character, string server)
     {
@@ -759,6 +797,12 @@ public sealed partial class ProgressStore : ITriggerLineSink
 
         /// <summary>Character flags, oldest first.</summary>
         public List<FlagMark>? Flags { get; set; }
+
+        /// <summary>Items added to the key ring, by name (the first time each was seen).</summary>
+        public List<FlagMark>? KeyRing { get; set; }
+
+        /// <summary>Achievements completed, by name (the first time each was seen).</summary>
+        public List<FlagMark>? Achievements { get; set; }
     }
 
     public sealed class FlagMark

@@ -10,6 +10,7 @@ public enum OutputFileKind
     Inventory,
     Spellbook,
     MissingSpells,
+    Achievements,
 }
 
 /// <summary>What an output file's name says: <c>Reamiiv_frostreaver-CLR-Spellbook</c> is Reamiiv on frostreaver, a cleric, the spellbook.</summary>
@@ -30,6 +31,16 @@ public sealed record InventoryItem(string Location, string Name, int ItemId, int
 
 /// <summary>One row of the key ring section of an inventory file.</summary>
 public sealed record KeyRingEntry(string Type, string Name, int ItemId);
+
+/// <summary>
+/// One achievement of an achievements file: its category ("General: Keys"), name, status letter ("C" completed, "I" not completed,
+/// "L" locked) and how many of its steps are completed.
+/// </summary>
+public sealed record AchievementEntry(string Category, string Name, string Status, int StepsDone, int Steps)
+{
+    [JsonIgnore]
+    public bool IsDone => Status == "C";
+}
 
 /// <summary>One line of a spellbook or missing-spells file.</summary>
 public sealed record SpellListEntry(int Level, string Name);
@@ -152,10 +163,63 @@ public static class CharacterOutputParser
             case "missingspells":
                 kind = OutputFileKind.MissingSpells;
                 return true;
+            case "achievements":
+                kind = OutputFileKind.Achievements;
+                return true;
             default:
                 kind = default;
                 return false;
         }
+    }
+
+    /// <summary>
+    /// Parses the file <c>/output achievements</c> writes: a category line ("General: Keys"), then per achievement a status letter, a tab
+    /// and its name, and per step the status letter, two tabs and the step. An achievement listed under two categories is kept under both.
+    /// </summary>
+    public static List<AchievementEntry> ParseAchievements(IEnumerable<string> lines)
+    {
+        ArgumentNullException.ThrowIfNull(lines);
+
+        var result = new List<AchievementEntry>();
+        string category = string.Empty;
+        foreach (string raw in lines)
+        {
+            string line = raw.TrimEnd('\r', '\n', ' ');
+            if (line.Length == 0)
+            {
+                continue;
+            }
+
+            if (line.Length < 2 || line[1] != '\t')
+            {
+                if (!line.Contains('\t'))
+                {
+                    category = line.Trim();
+                }
+
+                continue;
+            }
+
+            string status = line[0].ToString();
+            bool step = line.Length > 2 && line[2] == '\t';
+            string name = line[(step ? 3 : 2)..].Trim();
+            if (name.Length == 0)
+            {
+                continue;
+            }
+
+            if (!step)
+            {
+                result.Add(new AchievementEntry(category, name, status, 0, 0));
+            }
+            else if (result.Count > 0)
+            {
+                AchievementEntry last = result[^1];
+                result[^1] = last with { Steps = last.Steps + 1, StepsDone = last.StepsDone + (status == "C" ? 1 : 0) };
+            }
+        }
+
+        return result;
     }
 
     /// <summary>Parses a spellbook or missing-spells file: "6&lt;tab&gt;Sanctuary" per line.</summary>

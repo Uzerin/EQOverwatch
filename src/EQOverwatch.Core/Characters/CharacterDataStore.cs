@@ -29,6 +29,9 @@ public sealed class CharacterData
     public DateTime? MissingUtc { get; set; }
     public List<SpellListEntry> Missing { get; set; } = new();
 
+    public DateTime? AchievementsUtc { get; set; }
+    public List<AchievementEntry> Achievements { get; set; } = new();
+
     /// <summary>
     /// Each class persona's own spellbook and missing spells, by class code ("CLR", "BRD"): the file names carry it. The lists above
     /// are the newest of any persona.
@@ -65,12 +68,13 @@ public sealed class CharacterData
 
     /// <summary>The newest capture time of any part, or null when nothing has been read.</summary>
     [JsonIgnore]
-    public DateTime? NewestUtc => new[] { InventoryUtc, SpellbookUtc, MissingUtc }.Max();
+    public DateTime? NewestUtc => new[] { InventoryUtc, SpellbookUtc, MissingUtc, AchievementsUtc }.Max();
 
     public bool Has(OutputFileKind kind) => kind switch
     {
         OutputFileKind.Inventory => InventoryUtc is not null,
         OutputFileKind.Spellbook => SpellbookUtc is not null,
+        OutputFileKind.Achievements => AchievementsUtc is not null,
         _ => MissingUtc is not null,
     };
 }
@@ -306,6 +310,14 @@ public sealed class CharacterDataStore
                     dropped++;
                 }
 
+                if (data.AchievementsUtc is not null && !present.Contains(PresenceKey(data.Name, data.Server, OutputFileKind.Achievements)))
+                {
+                    data.Achievements = new List<AchievementEntry>();
+                    data.AchievementsUtc = null;
+                    changed = true;
+                    dropped++;
+                }
+
                 if (!changed)
                 {
                     continue;
@@ -467,6 +479,17 @@ public sealed class CharacterDataStore
                         _shared[info.Server] = saveShared;
                     }
 
+                    break;
+
+                case OutputFileKind.Achievements:
+                    if (data.AchievementsUtc is { } haveAchievements && haveAchievements >= stamp)
+                    {
+                        break;
+                    }
+
+                    data.Achievements = CharacterOutputParser.ParseAchievements(lines);
+                    data.AchievementsUtc = stamp;
+                    changed = true;
                     break;
 
                 default:

@@ -338,6 +338,30 @@
                     </DataGrid>
                 </DockPanel>
             </TabItem>
+
+            <TabItem Header="Achievements">
+                <DockPanel Margin="0,6,0,0">
+                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,6">
+                        <TextBlock Text="Category" Style="{StaticResource HintText}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <ComboBox Width="260" ItemsSource="{Binding AchievementCategories}" SelectedItem="{Binding AchievementCategory, Mode=TwoWay}"/>
+                        <CheckBox Content="Completed only" IsChecked="{Binding OnlyCompletedAchievements}" VerticalAlignment="Center" Margin="14,0,0,0"/>
+                        <TextBlock Text="{Binding AchievementSummary}" Style="{StaticResource HintText}" VerticalAlignment="Center" Margin="14,0,0,0"/>
+                    </StackPanel>
+                    <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource HintText}" Margin="0,6,0,0"
+                               Text="From /output achievements; achievements completed in the log since then show as Done."/>
+                    <DataGrid HorizontalAlignment="Left" ItemsSource="{Binding AchievementRows}" AutoGenerateColumns="False" CanUserAddRows="False"
+                              CanUserDeleteRows="False" IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                              EnableRowVirtualization="True">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Category" Binding="{Binding Category, Mode=OneWay}" Width="Auto"/>
+                            <DataGridTextColumn Header="Achievement" Binding="{Binding Achievement, Mode=OneWay}" Width="Auto"/>
+                            <DataGridTextColumn Header="Status" Binding="{Binding Status, Mode=OneWay}" Width="Auto"/>
+                            <DataGridTextColumn Header="Steps" Binding="{Binding Steps, Mode=OneWay}" Width="Auto"
+                                                ElementStyle="{StaticResource NumericCell}"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </TabItem>
         </TabControl>
     </DockPanel>
 </Window>

@@ -289,7 +289,9 @@ public sealed partial class MainViewModel
         persona => CreateFocusViewModel(character, server, persona),
         () => _pipeline.Progress.Flags(character, server)
             .Select(f => new FlagRowView(f.Text, f.Utc.ToLocalTime().ToString("ddd MMM d yyyy, HH:mm", CultureInfo.CurrentCulture)))
-            .ToList());
+            .ToList(),
+        () => _pipeline.Progress.KeyRingAdds(character, server).Select(k => k.Text).ToList(),
+        () => _pipeline.Progress.AchievementsDone(character, server).Select(a => a.Text).ToList());
 
     /// <summary>The game's skillcaps.txt, read again when the EverQuest folder changes.</summary>
     private SkillCaps CurrentSkillCaps()

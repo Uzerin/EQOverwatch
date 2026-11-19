@@ -63,6 +63,11 @@ settings are kept.
 
 ## Changelog
 
+### 1.0.69
+
+- Special keys on the Key Ring tab.
+- New Achievements tab in the Profile window.
+
 ### 1.0.68
 
 - Timed CH auto-press keeps the set interval between presses.
