@@ -239,8 +239,27 @@ public sealed class AppSettings
     /// <summary>Counts down to boss abilities learned from past kills.</summary>
     public bool LearnedBossTimers { get; set; } = true;
 
+    /// <summary>Opens the app minimized when you sign in to Windows.</summary>
+    public bool StartWithWindows { get; set; }
+
     /// <summary>Where the mob card overlay goes; it shows when you /con a mob the app knows something about.</summary>
     public OverlaySettings MobCardOverlay { get; set; } = OverlaySettings.DefaultMobCard;
+
+    public OverlaySettings FctDamageOverlay { get; set; } = OverlaySettings.DefaultFctDamage;
+
+    public OverlaySettings FctHealsOverlay { get; set; } = OverlaySettings.DefaultFctHeals;
+
+    public OverlaySettings FctTakenOverlay { get; set; } = OverlaySettings.DefaultFctTaken;
+
+    /// <summary>Text size of each floating combat text overlay's numbers.</summary>
+    public double FctDamageTextSize { get; set; } = 20;
+
+    public double FctHealsTextSize { get; set; } = 20;
+
+    public double FctTakenTextSize { get; set; } = 20;
+
+    /// <summary>Floating combat text colors by kind (Melee, Ranged, Spell, DamageShield, Heal, Taken) as #RRGGBB; missing ones use the defaults.</summary>
+    public Dictionary<string, string>? FloatingColors { get; set; }
 
     /// <summary>A version ("v1.0.12") the user chose to skip: it is not announced again (a newer one still is).</summary>
     public string SkippedUpdateVersion { get; set; } = string.Empty;
@@ -319,6 +338,12 @@ public sealed class OverlayProfile
 
     /// <summary>Null in layouts saved before the mob card existed: applying one leaves the mob card as it is.</summary>
     public OverlaySettings? MobCard { get; set; }
+
+    public OverlaySettings? FctDamage { get; set; }
+
+    public OverlaySettings? FctHeals { get; set; }
+
+    public OverlaySettings? FctTaken { get; set; }
 }
 
 /// <summary>
@@ -365,6 +390,12 @@ public sealed record OverlaySettings
     public static readonly OverlaySettings DefaultDps = new() { Left = 700, Top = 340, Width = 300, Height = 230 };
 
     public static readonly OverlaySettings DefaultMobCard = new() { Left = 1020, Top = 240, Width = 340, Height = 150, IsVisible = true };
+
+    public static readonly OverlaySettings DefaultFctDamage = new() { Left = 900, Top = 300, Width = 200, Height = 260, IsVisible = true };
+
+    public static readonly OverlaySettings DefaultFctHeals = new() { Left = 640, Top = 300, Width = 200, Height = 260, IsVisible = true };
+
+    public static readonly OverlaySettings DefaultFctTaken = new() { Left = 640, Top = 580, Width = 200, Height = 260, IsVisible = true };
 
     public static readonly OverlaySettings DefaultTells = new() { Left = 1020, Top = 60, Width = 320, Height = 160, IsVisible = false };
 

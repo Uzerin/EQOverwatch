@@ -17,7 +17,8 @@ namespace EQOverwatch.App.ViewModels;
 public sealed record BossTrendBar(double Height, string Tip);
 
 public sealed record BossKillRow(
-    int Number, string Started, string ClearTime, string Dps, int Players, int Deaths, string Damage, bool IsFastest, bool IsBestDps);
+    int Number, string Started, string ClearTime, string Dps, int Players, int Deaths, string Damage, bool IsFastest, bool IsBestDps,
+    string Drops = "", BossFight? Fight = null);
 
 /// <summary>
 /// One mob on the Mob History tab. The mob and its level range cover every server; the rest of the row is the record against it on the
@@ -259,7 +260,9 @@ public sealed partial class MainViewModel
                 k.Deaths,
                 k.Damage.ToString("N0", CultureInfo.CurrentCulture),
                 several && Math.Abs(k.Seconds - fastest) < 0.001,
-                several && Math.Abs(k.Dps - bestDps) < 0.001))
+                several && Math.Abs(k.Dps - bestDps) < 0.001,
+                string.Join(", ", _pipeline.Drops.DropsAfterKill(k.Boss, k.Start.AddSeconds(k.Seconds))),
+                k))
             .ToArray();
 
         BossKillsTitle = $"Kills of {report.Boss}";
@@ -479,6 +482,9 @@ public sealed partial class MainViewModel
         OverlayKind.ChChain => profile.ChChain,
         OverlayKind.Tells => profile.Tells ?? _overlays.Capture(OverlayKind.Tells),
         OverlayKind.MobCard => profile.MobCard ?? _overlays.Capture(OverlayKind.MobCard),
+        OverlayKind.FctDamage => profile.FctDamage ?? _overlays.Capture(OverlayKind.FctDamage),
+        OverlayKind.FctHeals => profile.FctHeals ?? _overlays.Capture(OverlayKind.FctHeals),
+        OverlayKind.FctTaken => profile.FctTaken ?? _overlays.Capture(OverlayKind.FctTaken),
         _ => profile.Dps,
     };
 
@@ -510,6 +516,9 @@ public sealed partial class MainViewModel
             Dps = _overlays.Capture(OverlayKind.Dps),
             Tells = _overlays.Capture(OverlayKind.Tells),
             MobCard = _overlays.Capture(OverlayKind.MobCard),
+            FctDamage = _overlays.Capture(OverlayKind.FctDamage),
+            FctHeals = _overlays.Capture(OverlayKind.FctHeals),
+            FctTaken = _overlays.Capture(OverlayKind.FctTaken),
         };
 
         _overlayProfiles.RemoveAll(p => p.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
@@ -565,6 +574,9 @@ public sealed partial class MainViewModel
         IsDpsOverlayVisible = profile.Dps.IsVisible;
         IsTellsOverlayVisible = ProfileSettings(profile, OverlayKind.Tells).IsVisible;
         IsMobCardOverlayVisible = ProfileSettings(profile, OverlayKind.MobCard).IsVisible;
+        IsFctDamageOverlayVisible = ProfileSettings(profile, OverlayKind.FctDamage).IsVisible;
+        IsFctHealsOverlayVisible = ProfileSettings(profile, OverlayKind.FctHeals).IsVisible;
+        IsFctTakenOverlayVisible = ProfileSettings(profile, OverlayKind.FctTaken).IsVisible;
         AreOverlaysLocked = OverlayKindExtensions.All.Where(kind => !FollowsLock(kind)).All(kind => ProfileSettings(profile, kind).IsLocked);
         foreach (OverlayKind follower in OverlayKindExtensions.All.Where(FollowsLock))
         {

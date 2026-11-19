@@ -26,12 +26,16 @@ public sealed partial class MainViewModel
     {
         ReadWrittenFiles();
         RunLearnedBossTimers(nowUtc);
+        RefreshChat();
         if (nowUtc - _lastPlayedRefresh >= PlayedRefreshEvery)
         {
             _lastPlayedRefresh = nowUtc;
             foreach (WatchedLogConfig log in Logs)
             {
                 log.PlayedText = _pipeline.Progress.Played(log.CharacterName, log.ServerName) is { } played ? FormatMinutes(played.Minutes) : "—";
+                log.CreatedText = _pipeline.Progress.Legacy(log.CharacterName, log.ServerName).Born is { } born
+                    ? born.ToString("MMM d, yyyy", CultureInfo.CurrentCulture)
+                    : "—";
             }
         }
     }

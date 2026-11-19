@@ -341,6 +341,10 @@ public partial class DpsTrackerService : IDpsEventSink
                     RememberCrit(combatEvent);
                     break;
 
+                case CombatEventKind.Damage when combatEvent.Source == Parsing.CombatLineParser.UnknownDotSource:
+                    changed |= OnUnknownDot(combatEvent);
+                    break;
+
                 case CombatEventKind.Damage:
                     // The older announcement line is consumed even if the hit is not counted (e.g. an NPC's crit); the current client
                     // instead tags the damage line itself: "... points of damage. (Critical)".
@@ -906,6 +910,27 @@ public partial class DpsTrackerService : IDpsEventSink
     }
 
     /// <summary>Learns from the pair, then reports whether this is a player dealing (or attempting) damage to an NPC.</summary>
+    /// <summary>
+    /// A DoT tick whose caster is not named: on a mob being fought it counts for an "Unknown (DoTs)" row; on a player it is damage taken in
+    /// the fight going on (the newest one when there are several). It never starts a fight.
+    /// </summary>
+    private bool OnUnknownDot(in CombatEvent e)
+    {
+        if (_active.TryGetValue(e.Target, out CombatEncounter? fight))
+        {
+            fight.AddDamage(e.Timestamp, e.Source, e.Amount, e.IsCritical, AttackTypes.Classify(e.DamageKind, e.Detail), null);
+            return true;
+        }
+
+        if (Classify(e.Target) != NameKind.Npc && _active.Count > 0)
+        {
+            _active.Values.MaxBy(f => f.EndTime)!.AddDamageTaken(e.Target, e.Amount, isRampage: false, isDot: true);
+            return true;
+        }
+
+        return false;
+    }
+
     private bool IsAttack(in CombatEvent e)
     {
         NameKind source = Classify(e.Source);

@@ -224,7 +224,7 @@ public sealed partial class MainViewModel : ObservableObject
     partial void OnIsTellsOverlayVisibleChanged(bool value) => OnOverlayVisibilityChanged(OverlayKind.Tells, value);
 
     /// <summary>The Tells and mob card overlays are newer than most saved settings: they follow the other overlays' lock.</summary>
-    private static bool FollowsLock(OverlayKind kind) => kind is OverlayKind.Tells or OverlayKind.MobCard;
+    private static bool FollowsLock(OverlayKind kind) => kind is OverlayKind.Tells or OverlayKind.MobCard || kind.IsFloatingText();
 
     private void OnOverlayVisibilityChanged(OverlayKind kind, bool visible)
     {
@@ -938,6 +938,16 @@ public sealed partial class MainViewModel : ObservableObject
                $"from {Clock(shield.FirstSeconds)} to {Clock(shield.LastSeconds)} into the fight ({shield.ActiveSeconds:0}s).";
     }
 
+    /// <summary>"\nDoTs: Gnorm 9 (3 ticks)" — damage taken from DoTs whose caster the log did not name; empty when none.</summary>
+    public static string DotSummaryText(EncounterSnapshot encounter)
+    {
+        List<DamageTakenSnapshot> hit = encounter.TakenRows.Where(t => t.DotTicks > 0)
+            .OrderByDescending(t => t.DotDamage).ThenBy(t => t.Name, StringComparer.Ordinal).ToList();
+        return hit.Count == 0
+            ? string.Empty
+            : "\nDoTs: " + string.Join(", ", hit.Select(t => $"{t.Name} {t.DotDamage:N0} ({t.DotTicks:N0} ticks)"));
+    }
+
     /// <summary>"\nRampage: Teek 12 (3,400), Abundancei 5 (900)" — who the target's rampages went to, most first; empty when none.</summary>
     public static string RampageSummaryText(EncounterSnapshot encounter)
     {
@@ -991,7 +1001,7 @@ public sealed partial class MainViewModel : ObservableObject
             DamageTaken.RemoveAt(DamageTaken.Count - 1);
         }
 
-        DamageTakenSummary = $"Damage taken from {encounter.TargetName}: {encounter.TotalDamageTaken:N0}" + ShieldSummaryText(encounter) + RampageSummaryText(encounter);
+        DamageTakenSummary = $"Damage taken from {encounter.TargetName}: {encounter.TotalDamageTaken:N0}" + ShieldSummaryText(encounter) + RampageSummaryText(encounter) + DotSummaryText(encounter);
         if (!Equals(EncounterTimeline, encounter.Timeline))
         {
             EncounterTimeline = encounter.Timeline;
@@ -1488,6 +1498,13 @@ public sealed partial class MainViewModel : ObservableObject
             IsDpsOverlayVisible = settings.DpsOverlay.IsVisible;
             IsTellsOverlayVisible = settings.TellsOverlay.IsVisible;
             IsMobCardOverlayVisible = settings.MobCardOverlay.IsVisible;
+            IsFctDamageOverlayVisible = settings.FctDamageOverlay.IsVisible;
+            IsFctHealsOverlayVisible = settings.FctHealsOverlay.IsVisible;
+            IsFctTakenOverlayVisible = settings.FctTakenOverlay.IsVisible;
+            FctDamageTextSize = settings.FctDamageTextSize;
+            FctHealsTextSize = settings.FctHealsTextSize;
+            FctTakenTextSize = settings.FctTakenTextSize;
+            RestoreFloatingColors(settings.FloatingColors);
             AggroAlert = settings.AggroAlert;
             RangeAlert = settings.RangeAlert;
             ShowFightProgress = settings.ShowFightProgress;
@@ -1497,6 +1514,7 @@ public sealed partial class MainViewModel : ObservableObject
             RootMezAlert = settings.RootMezAlert;
             QuietLogAlert = settings.QuietLogAlert;
             LearnedBossTimers = settings.LearnedBossTimers;
+            StartWithWindows = settings.StartWithWindows;
             // The Tells and mob card overlays are newer than most saved settings, so they follow the others' lock rather than deciding it.
             AreOverlaysLocked = OverlayKindExtensions.All.Where(kind => !FollowsLock(kind)).All(kind => GetOverlaySettings(settings, kind).IsLocked);
             foreach (OverlayKind follower in OverlayKindExtensions.All.Where(FollowsLock))
@@ -1523,6 +1541,9 @@ public sealed partial class MainViewModel : ObservableObject
         OverlayKind.ChChain => settings.ChChainOverlay,
         OverlayKind.Tells => settings.TellsOverlay,
         OverlayKind.MobCard => settings.MobCardOverlay,
+        OverlayKind.FctDamage => settings.FctDamageOverlay,
+        OverlayKind.FctHeals => settings.FctHealsOverlay,
+        OverlayKind.FctTaken => settings.FctTakenOverlay,
         _ => settings.DpsOverlay,
     };
 
@@ -1568,6 +1589,13 @@ public sealed partial class MainViewModel : ObservableObject
         DpsOverlay = _overlays.Capture(OverlayKind.Dps),
         TellsOverlay = _overlays.Capture(OverlayKind.Tells),
         MobCardOverlay = _overlays.Capture(OverlayKind.MobCard),
+        FctDamageOverlay = _overlays.Capture(OverlayKind.FctDamage),
+        FctHealsOverlay = _overlays.Capture(OverlayKind.FctHeals),
+        FctTakenOverlay = _overlays.Capture(OverlayKind.FctTaken),
+        FctDamageTextSize = FctDamageTextSize,
+        FctHealsTextSize = FctHealsTextSize,
+        FctTakenTextSize = FctTakenTextSize,
+        FloatingColors = FloatingColors.ToDictionary(c => c.Key, c => c.Hex),
         AggroAlert = AggroAlert,
         RangeAlert = RangeAlert,
         ShowFightProgress = ShowFightProgress,
@@ -1577,6 +1605,7 @@ public sealed partial class MainViewModel : ObservableObject
         RootMezAlert = RootMezAlert,
         QuietLogAlert = QuietLogAlert,
         LearnedBossTimers = LearnedBossTimers,
+        StartWithWindows = StartWithWindows,
         TellKeepDays = TellKeepDays,
         RaidBossTimers = RaidRules.Select(r => r.ToRule()).ToList(),
         Theme = _theme.Clone(),

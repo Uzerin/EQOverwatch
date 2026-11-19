@@ -267,6 +267,7 @@
                             </DataGridTemplateColumn>
                             <DataGridTextColumn Header="Data from" Binding="{Binding DataText, Mode=OneWay}" Width="Auto"/>
                             <DataGridTextColumn Header="Played" Binding="{Binding PlayedText, Mode=OneWay}" Width="Auto"/>
+                            <DataGridTextColumn Header="Created" Binding="{Binding CreatedText, Mode=OneWay}" Width="Auto"/>
                             <DataGridTemplateColumn Header="Enable Triggers" Width="Auto">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
@@ -2000,9 +2001,14 @@
                                 <TextBlock DockPanel.Dock="Left" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
                                            Text="{Binding BossKillsTitle}"/>
                             </DockPanel>
-                            <DataGrid Grid.Row="1" ItemsSource="{Binding BossKillRows}"
-                                      AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
-                                      HeadersVisibility="Column" GridLinesVisibility="Horizontal" HorizontalScrollBarVisibility="Auto">
+                            <DataGrid x:Name="BossKillGrid" Grid.Row="1" ItemsSource="{Binding BossKillRows}"
+                                      AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" SelectionMode="Single"
+                                      HeadersVisibility="Column" GridLinesVisibility="Horizontal" HorizontalScrollBarVisibility="Auto"
+                                      ToolTip="Double-click a kill to open it on the Encounter DPS tab.">
+                                <DataGrid.InputBindings>
+                                    <MouseBinding Gesture="LeftDoubleClick" Command="{Binding OpenBossKillCommand}"
+                                                  CommandParameter="{Binding SelectedItem, ElementName=BossKillGrid}"/>
+                                </DataGrid.InputBindings>
                                 <DataGrid.Columns>
                                     <DataGridTextColumn Header="#" Binding="{Binding Number, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                                     <DataGridTextColumn Header="Started" Binding="{Binding Started, Mode=OneWay}" Width="Auto"/>
@@ -2045,6 +2051,7 @@
                                     <DataGridTextColumn Header="Players" Binding="{Binding Players, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                                     <DataGridTextColumn Header="Deaths" Binding="{Binding Deaths, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                                     <DataGridTextColumn Header="Damage" Binding="{Binding Damage, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                    <DataGridTextColumn Header="Drops" Binding="{Binding Drops, Mode=OneWay}" Width="Auto" MaxWidth="420" ElementStyle="{StaticResource WrapCell}"/>
                                 </DataGrid.Columns>
                             </DataGrid>
                             <StackPanel Grid.Row="2" Margin="0,8,0,0">
@@ -2163,6 +2170,7 @@
                             <DataGridTextColumn Header="AAs gained" Binding="{Binding AaGained, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                             <DataGridTextColumn Header="AA / hour" Binding="{Binding AaPerHour, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                             <DataGridTextColumn Header="Next AA in" Binding="{Binding NextAa, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                            <DataGridTextColumn Header="Legacy bonus" Binding="{Binding LegacyBonus, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                             <DataGridTextColumn Header="Kills with XP" Binding="{Binding Kills, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                             <DataGridTextColumn Header="Last gain" Binding="{Binding LastGain, Mode=OneWay}" Width="Auto"/>
                         </DataGrid.Columns>
@@ -2578,9 +2586,45 @@
             </TabItem>
 
             <!-- ═════════ Players & Pets ═════════ -->
-            <!-- ═════════ Tells ═════════ -->
-            <TabItem Header="Tells">
-                <Grid Margin="6">
+            <!-- ═════════ Chat ═════════ -->
+            <TabItem Header="Chat">
+                <TabControl Margin="6" SelectedIndex="{Binding SelectedChatTab, Mode=TwoWay}">
+                        <TabItem Header="All">
+                            <DockPanel>
+                                <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6" Visibility="{Binding HasChatPlayer, Converter={StaticResource BoolToVisibility}}">
+                                    <Button Content="Show everyone" Style="{StaticResource SecondaryButton}" Command="{Binding ClearChatPlayerCommand}" Margin="0,0,10,0"/>
+                                    <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="{Binding ChatPlayer, StringFormat=Only All}"/>
+                                </DockPanel>
+                                <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource HintText}" Margin="0,6,0,0" TextWrapping="Wrap" Text="{Binding ChatStatus}"/>
+                                <DataGrid x:Name="ChatGridAll" HorizontalAlignment="Left" ItemsSource="{Binding ChatRows}" AutoGenerateColumns="False" CanUserAddRows="False"
+                                          IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal" HorizontalScrollBarVisibility="Disabled"
+                                          EnableRowVirtualization="True" SelectionMode="Single">
+                                    <DataGrid.InputBindings>
+                                        <MouseBinding Gesture="LeftDoubleClick" Command="{Binding FilterChatPlayerCommand}"
+                                                      CommandParameter="{Binding SelectedItem, ElementName=ChatGridAll}"/>
+                                    </DataGrid.InputBindings>
+                                    <DataGrid.RowStyle>
+                                        <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsMention}" Value="True">
+                                                    <Setter Property="Background" Value="#55B8860B"/>
+                                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </DataGrid.RowStyle>
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="When" Binding="{Binding When, Mode=OneWay}" Width="Auto"/>
+                                        <DataGridTextColumn Header="Channel" Binding="{Binding Channel, Mode=OneWay}" Width="Auto"/>
+                                        <DataGridTextColumn Header="Who" Binding="{Binding Speaker, Mode=OneWay}" Width="Auto"/>
+                                        <DataGridTextColumn Header="Message" Binding="{Binding Text, Mode=OneWay}" Width="Auto" MaxWidth="900" ElementStyle="{StaticResource WrapCell}"/>
+                                        <DataGridTextColumn Header="Seen by" Binding="{Binding Seen, Mode=OneWay}" Width="Auto"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </DockPanel>
+                        </TabItem>
+                        <TabItem Header="Tells">
+                            <Grid Margin="6">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
@@ -2617,6 +2661,280 @@
                     </DataGrid>
                     <TextBlock Grid.Row="2" Style="{StaticResource HintText}" Margin="0,8,0,0" Text="{Binding TellStatus}"/>
                 </Grid>
+                        </TabItem>
+                        <TabItem Header="Say">
+                            <DockPanel>
+                                <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6" Visibility="{Binding HasChatPlayer, Converter={StaticResource BoolToVisibility}}">
+                                    <Button Content="Show everyone" Style="{StaticResource SecondaryButton}" Command="{Binding ClearChatPlayerCommand}" Margin="0,0,10,0"/>
+                                    <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="{Binding ChatPlayer, StringFormat=Only Say}"/>
+                                </DockPanel>
+                                <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource HintText}" Margin="0,6,0,0" TextWrapping="Wrap" Text="{Binding ChatStatus}"/>
+                                <DataGrid x:Name="ChatGridSay" HorizontalAlignment="Left" ItemsSource="{Binding ChatRows}" AutoGenerateColumns="False" CanUserAddRows="False"
+                                          IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal" HorizontalScrollBarVisibility="Disabled"
+                                          EnableRowVirtualization="True" SelectionMode="Single">
+                                    <DataGrid.InputBindings>
+                                        <MouseBinding Gesture="LeftDoubleClick" Command="{Binding FilterChatPlayerCommand}"
+                                                      CommandParameter="{Binding SelectedItem, ElementName=ChatGridSay}"/>
+                                    </DataGrid.InputBindings>
+                                    <DataGrid.RowStyle>
+                                        <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsMention}" Value="True">
+                                                    <Setter Property="Background" Value="#55B8860B"/>
+                                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </DataGrid.RowStyle>
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="When" Binding="{Binding When, Mode=OneWay}" Width="Auto"/>
+                                        <DataGridTextColumn Header="Channel" Binding="{Binding Channel, Mode=OneWay}" Width="Auto"/>
+                                        <DataGridTextColumn Header="Who" Binding="{Binding Speaker, Mode=OneWay}" Width="Auto"/>
+                                        <DataGridTextColumn Header="Message" Binding="{Binding Text, Mode=OneWay}" Width="Auto" MaxWidth="900" ElementStyle="{StaticResource WrapCell}"/>
+                                        <DataGridTextColumn Header="Seen by" Binding="{Binding Seen, Mode=OneWay}" Width="Auto"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </DockPanel>
+                        </TabItem>
+                        <TabItem Header="Group">
+                            <DockPanel>
+                                <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6" Visibility="{Binding HasChatPlayer, Converter={StaticResource BoolToVisibility}}">
+                                    <Button Content="Show everyone" Style="{StaticResource SecondaryButton}" Command="{Binding ClearChatPlayerCommand}" Margin="0,0,10,0"/>
+                                    <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="{Binding ChatPlayer, StringFormat=Only Group}"/>
+                                </DockPanel>
+                                <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource HintText}" Margin="0,6,0,0" TextWrapping="Wrap" Text="{Binding ChatStatus}"/>
+                                <DataGrid x:Name="ChatGridGroup" HorizontalAlignment="Left" ItemsSource="{Binding ChatRows}" AutoGenerateColumns="False" CanUserAddRows="False"
+                                          IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal" HorizontalScrollBarVisibility="Disabled"
+                                          EnableRowVirtualization="True" SelectionMode="Single">
+                                    <DataGrid.InputBindings>
+                                        <MouseBinding Gesture="LeftDoubleClick" Command="{Binding FilterChatPlayerCommand}"
+                                                      CommandParameter="{Binding SelectedItem, ElementName=ChatGridGroup}"/>
+                                    </DataGrid.InputBindings>
+                                    <DataGrid.RowStyle>
+                                        <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsMention}" Value="True">
+                                                    <Setter Property="Background" Value="#55B8860B"/>
+                                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </DataGrid.RowStyle>
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="When" Binding="{Binding When, Mode=OneWay}" Width="Auto"/>
+                                        <DataGridTextColumn Header="Channel" Binding="{Binding Channel, Mode=OneWay}" Width="Auto"/>
+                                        <DataGridTextColumn Header="Who" Binding="{Binding Speaker, Mode=OneWay}" Width="Auto"/>
+                                        <DataGridTextColumn Header="Message" Binding="{Binding Text, Mode=OneWay}" Width="Auto" MaxWidth="900" ElementStyle="{StaticResource WrapCell}"/>
+                                        <DataGridTextColumn Header="Seen by" Binding="{Binding Seen, Mode=OneWay}" Width="Auto"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </DockPanel>
+                        </TabItem>
+                        <TabItem Header="Raid">
+                            <DockPanel>
+                                <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6" Visibility="{Binding HasChatPlayer, Converter={StaticResource BoolToVisibility}}">
+                                    <Button Content="Show everyone" Style="{StaticResource SecondaryButton}" Command="{Binding ClearChatPlayerCommand}" Margin="0,0,10,0"/>
+                                    <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="{Binding ChatPlayer, StringFormat=Only Raid}"/>
+                                </DockPanel>
+                                <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource HintText}" Margin="0,6,0,0" TextWrapping="Wrap" Text="{Binding ChatStatus}"/>
+                                <DataGrid x:Name="ChatGridRaid" HorizontalAlignment="Left" ItemsSource="{Binding ChatRows}" AutoGenerateColumns="False" CanUserAddRows="False"
+                                          IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal" HorizontalScrollBarVisibility="Disabled"
+                                          EnableRowVirtualization="True" SelectionMode="Single">
+                                    <DataGrid.InputBindings>
+                                        <MouseBinding Gesture="LeftDoubleClick" Command="{Binding FilterChatPlayerCommand}"
+                                                      CommandParameter="{Binding SelectedItem, ElementName=ChatGridRaid}"/>
+                                    </DataGrid.InputBindings>
+                                    <DataGrid.RowStyle>
+                                        <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsMention}" Value="True">
+                                                    <Setter Property="Background" Value="#55B8860B"/>
+                                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </DataGrid.RowStyle>
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="When" Binding="{Binding When, Mode=OneWay}" Width="Auto"/>
+                                        <DataGridTextColumn Header="Channel" Binding="{Binding Channel, Mode=OneWay}" Width="Auto"/>
+                                        <DataGridTextColumn Header="Who" Binding="{Binding Speaker, Mode=OneWay}" Width="Auto"/>
+                                        <DataGridTextColumn Header="Message" Binding="{Binding Text, Mode=OneWay}" Width="Auto" MaxWidth="900" ElementStyle="{StaticResource WrapCell}"/>
+                                        <DataGridTextColumn Header="Seen by" Binding="{Binding Seen, Mode=OneWay}" Width="Auto"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </DockPanel>
+                        </TabItem>
+                        <TabItem Header="Guild">
+                            <DockPanel>
+                                <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6" Visibility="{Binding HasChatPlayer, Converter={StaticResource BoolToVisibility}}">
+                                    <Button Content="Show everyone" Style="{StaticResource SecondaryButton}" Command="{Binding ClearChatPlayerCommand}" Margin="0,0,10,0"/>
+                                    <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="{Binding ChatPlayer, StringFormat=Only Guild}"/>
+                                </DockPanel>
+                                <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource HintText}" Margin="0,6,0,0" TextWrapping="Wrap" Text="{Binding ChatStatus}"/>
+                                <DataGrid x:Name="ChatGridGuild" HorizontalAlignment="Left" ItemsSource="{Binding ChatRows}" AutoGenerateColumns="False" CanUserAddRows="False"
+                                          IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal" HorizontalScrollBarVisibility="Disabled"
+                                          EnableRowVirtualization="True" SelectionMode="Single">
+                                    <DataGrid.InputBindings>
+                                        <MouseBinding Gesture="LeftDoubleClick" Command="{Binding FilterChatPlayerCommand}"
+                                                      CommandParameter="{Binding SelectedItem, ElementName=ChatGridGuild}"/>
+                                    </DataGrid.InputBindings>
+                                    <DataGrid.RowStyle>
+                                        <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsMention}" Value="True">
+                                                    <Setter Property="Background" Value="#55B8860B"/>
+                                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </DataGrid.RowStyle>
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="When" Binding="{Binding When, Mode=OneWay}" Width="Auto"/>
+                                        <DataGridTextColumn Header="Channel" Binding="{Binding Channel, Mode=OneWay}" Width="Auto"/>
+                                        <DataGridTextColumn Header="Who" Binding="{Binding Speaker, Mode=OneWay}" Width="Auto"/>
+                                        <DataGridTextColumn Header="Message" Binding="{Binding Text, Mode=OneWay}" Width="Auto" MaxWidth="900" ElementStyle="{StaticResource WrapCell}"/>
+                                        <DataGridTextColumn Header="Seen by" Binding="{Binding Seen, Mode=OneWay}" Width="Auto"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </DockPanel>
+                        </TabItem>
+                        <TabItem Header="OOC">
+                            <DockPanel>
+                                <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6" Visibility="{Binding HasChatPlayer, Converter={StaticResource BoolToVisibility}}">
+                                    <Button Content="Show everyone" Style="{StaticResource SecondaryButton}" Command="{Binding ClearChatPlayerCommand}" Margin="0,0,10,0"/>
+                                    <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="{Binding ChatPlayer, StringFormat=Only OOC}"/>
+                                </DockPanel>
+                                <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource HintText}" Margin="0,6,0,0" TextWrapping="Wrap" Text="{Binding ChatStatus}"/>
+                                <DataGrid x:Name="ChatGridOOC" HorizontalAlignment="Left" ItemsSource="{Binding ChatRows}" AutoGenerateColumns="False" CanUserAddRows="False"
+                                          IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal" HorizontalScrollBarVisibility="Disabled"
+                                          EnableRowVirtualization="True" SelectionMode="Single">
+                                    <DataGrid.InputBindings>
+                                        <MouseBinding Gesture="LeftDoubleClick" Command="{Binding FilterChatPlayerCommand}"
+                                                      CommandParameter="{Binding SelectedItem, ElementName=ChatGridOOC}"/>
+                                    </DataGrid.InputBindings>
+                                    <DataGrid.RowStyle>
+                                        <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsMention}" Value="True">
+                                                    <Setter Property="Background" Value="#55B8860B"/>
+                                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </DataGrid.RowStyle>
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="When" Binding="{Binding When, Mode=OneWay}" Width="Auto"/>
+                                        <DataGridTextColumn Header="Channel" Binding="{Binding Channel, Mode=OneWay}" Width="Auto"/>
+                                        <DataGridTextColumn Header="Who" Binding="{Binding Speaker, Mode=OneWay}" Width="Auto"/>
+                                        <DataGridTextColumn Header="Message" Binding="{Binding Text, Mode=OneWay}" Width="Auto" MaxWidth="900" ElementStyle="{StaticResource WrapCell}"/>
+                                        <DataGridTextColumn Header="Seen by" Binding="{Binding Seen, Mode=OneWay}" Width="Auto"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </DockPanel>
+                        </TabItem>
+                        <TabItem Header="Shout">
+                            <DockPanel>
+                                <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6" Visibility="{Binding HasChatPlayer, Converter={StaticResource BoolToVisibility}}">
+                                    <Button Content="Show everyone" Style="{StaticResource SecondaryButton}" Command="{Binding ClearChatPlayerCommand}" Margin="0,0,10,0"/>
+                                    <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="{Binding ChatPlayer, StringFormat=Only Shout}"/>
+                                </DockPanel>
+                                <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource HintText}" Margin="0,6,0,0" TextWrapping="Wrap" Text="{Binding ChatStatus}"/>
+                                <DataGrid x:Name="ChatGridShout" HorizontalAlignment="Left" ItemsSource="{Binding ChatRows}" AutoGenerateColumns="False" CanUserAddRows="False"
+                                          IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal" HorizontalScrollBarVisibility="Disabled"
+                                          EnableRowVirtualization="True" SelectionMode="Single">
+                                    <DataGrid.InputBindings>
+                                        <MouseBinding Gesture="LeftDoubleClick" Command="{Binding FilterChatPlayerCommand}"
+                                                      CommandParameter="{Binding SelectedItem, ElementName=ChatGridShout}"/>
+                                    </DataGrid.InputBindings>
+                                    <DataGrid.RowStyle>
+                                        <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsMention}" Value="True">
+                                                    <Setter Property="Background" Value="#55B8860B"/>
+                                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </DataGrid.RowStyle>
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="When" Binding="{Binding When, Mode=OneWay}" Width="Auto"/>
+                                        <DataGridTextColumn Header="Channel" Binding="{Binding Channel, Mode=OneWay}" Width="Auto"/>
+                                        <DataGridTextColumn Header="Who" Binding="{Binding Speaker, Mode=OneWay}" Width="Auto"/>
+                                        <DataGridTextColumn Header="Message" Binding="{Binding Text, Mode=OneWay}" Width="Auto" MaxWidth="900" ElementStyle="{StaticResource WrapCell}"/>
+                                        <DataGridTextColumn Header="Seen by" Binding="{Binding Seen, Mode=OneWay}" Width="Auto"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </DockPanel>
+                        </TabItem>
+                        <TabItem Header="Auction">
+                            <DockPanel>
+                                <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6" Visibility="{Binding HasChatPlayer, Converter={StaticResource BoolToVisibility}}">
+                                    <Button Content="Show everyone" Style="{StaticResource SecondaryButton}" Command="{Binding ClearChatPlayerCommand}" Margin="0,0,10,0"/>
+                                    <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="{Binding ChatPlayer, StringFormat=Only Auction}"/>
+                                </DockPanel>
+                                <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource HintText}" Margin="0,6,0,0" TextWrapping="Wrap" Text="{Binding ChatStatus}"/>
+                                <DataGrid x:Name="ChatGridAuction" HorizontalAlignment="Left" ItemsSource="{Binding ChatRows}" AutoGenerateColumns="False" CanUserAddRows="False"
+                                          IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal" HorizontalScrollBarVisibility="Disabled"
+                                          EnableRowVirtualization="True" SelectionMode="Single">
+                                    <DataGrid.InputBindings>
+                                        <MouseBinding Gesture="LeftDoubleClick" Command="{Binding FilterChatPlayerCommand}"
+                                                      CommandParameter="{Binding SelectedItem, ElementName=ChatGridAuction}"/>
+                                    </DataGrid.InputBindings>
+                                    <DataGrid.RowStyle>
+                                        <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsMention}" Value="True">
+                                                    <Setter Property="Background" Value="#55B8860B"/>
+                                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </DataGrid.RowStyle>
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="When" Binding="{Binding When, Mode=OneWay}" Width="Auto"/>
+                                        <DataGridTextColumn Header="Channel" Binding="{Binding Channel, Mode=OneWay}" Width="Auto"/>
+                                        <DataGridTextColumn Header="Who" Binding="{Binding Speaker, Mode=OneWay}" Width="Auto"/>
+                                        <DataGridTextColumn Header="Message" Binding="{Binding Text, Mode=OneWay}" Width="Auto" MaxWidth="900" ElementStyle="{StaticResource WrapCell}"/>
+                                        <DataGridTextColumn Header="Seen by" Binding="{Binding Seen, Mode=OneWay}" Width="Auto"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </DockPanel>
+                        </TabItem>
+                        <TabItem Header="Channels">
+                            <DockPanel>
+                                <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6" Visibility="{Binding HasChatPlayer, Converter={StaticResource BoolToVisibility}}">
+                                    <Button Content="Show everyone" Style="{StaticResource SecondaryButton}" Command="{Binding ClearChatPlayerCommand}" Margin="0,0,10,0"/>
+                                    <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="{Binding ChatPlayer, StringFormat=Only Channels}"/>
+                                </DockPanel>
+                                <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource HintText}" Margin="0,6,0,0" TextWrapping="Wrap" Text="{Binding ChatStatus}"/>
+                                <DataGrid x:Name="ChatGridChannels" HorizontalAlignment="Left" ItemsSource="{Binding ChatRows}" AutoGenerateColumns="False" CanUserAddRows="False"
+                                          IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal" HorizontalScrollBarVisibility="Disabled"
+                                          EnableRowVirtualization="True" SelectionMode="Single">
+                                    <DataGrid.InputBindings>
+                                        <MouseBinding Gesture="LeftDoubleClick" Command="{Binding FilterChatPlayerCommand}"
+                                                      CommandParameter="{Binding SelectedItem, ElementName=ChatGridChannels}"/>
+                                    </DataGrid.InputBindings>
+                                    <DataGrid.RowStyle>
+                                        <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsMention}" Value="True">
+                                                    <Setter Property="Background" Value="#55B8860B"/>
+                                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </DataGrid.RowStyle>
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="When" Binding="{Binding When, Mode=OneWay}" Width="Auto"/>
+                                        <DataGridTextColumn Header="Channel" Binding="{Binding Channel, Mode=OneWay}" Width="Auto"/>
+                                        <DataGridTextColumn Header="Who" Binding="{Binding Speaker, Mode=OneWay}" Width="Auto"/>
+                                        <DataGridTextColumn Header="Message" Binding="{Binding Text, Mode=OneWay}" Width="Auto" MaxWidth="900" ElementStyle="{StaticResource WrapCell}"/>
+                                        <DataGridTextColumn Header="Seen by" Binding="{Binding Seen, Mode=OneWay}" Width="Auto"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </DockPanel>
+                        </TabItem>
+                </TabControl>
             </TabItem>
 
             <TabItem Header="Players &amp; Pets">
@@ -2804,6 +3122,17 @@
                                 </WrapPanel>
                                 <TextBlock Style="{StaticResource HintText}"
                                            Text="With the CH Chain overlay off, Complete Heal chain bars and the late-cast alarm are shown in the Buffs overlay instead."/>
+                                <TextBlock Margin="0,10,0,4" FontWeight="SemiBold" Text="Floating combat text"/>
+                                <WrapPanel>
+                                    <CheckBox Content="Damage Dealt" IsChecked="{Binding IsFctDamageOverlayVisible}" VerticalAlignment="Center" Margin="0,0,6,6"/>
+                                    <TextBox Width="44" Margin="0,0,20,6" Text="{Binding FctDamageTextSize}" ToolTip="Text size of the numbers (10 to 48)."/>
+                                    <CheckBox Content="Heals Received" IsChecked="{Binding IsFctHealsOverlayVisible}" VerticalAlignment="Center" Margin="0,0,6,6"/>
+                                    <TextBox Width="44" Margin="0,0,20,6" Text="{Binding FctHealsTextSize}" ToolTip="Text size of the numbers (10 to 48)."/>
+                                    <CheckBox Content="Damage Taken" IsChecked="{Binding IsFctTakenOverlayVisible}" VerticalAlignment="Center" Margin="0,0,6,6"/>
+                                    <TextBox Width="44" Margin="0,0,20,6" Text="{Binding FctTakenTextSize}" ToolTip="Text size of the numbers (10 to 48)."/>
+                                </WrapPanel>
+                                <TextBlock Style="{StaticResource HintText}"
+                                           Text="Your active characters' hits, heals received and damage taken float down and fade over 3 seconds; crits are bold. The boxes are text sizes; colors are in the Colors window."/>
                             </StackPanel>
                         </GroupBox>
 
@@ -3025,6 +3354,8 @@
 
                         <GroupBox Header="Updates">
                             <StackPanel Margin="4">
+                                <CheckBox Content="Start with Windows (minimized)" IsChecked="{Binding StartWithWindows}" Margin="0,0,0,6"
+                                          ToolTip="Opens EQ Overwatch minimized when you sign in to Windows."/>
                                 <CheckBox Content="Check for a newer version when the app opens" IsChecked="{Binding CheckForUpdates}" Margin="0,0,0,6"/>
                                 <CheckBox Content="Count me in the anonymous player count" IsChecked="{Binding CountMeIn}" Margin="0,0,0,6"
                                           ToolTip="Once a day the app sends a random id and its version number, so we know how many people use EQ Overwatch. No names, no IP addresses, nothing else."/>

@@ -85,7 +85,7 @@ public sealed partial class ProgressStore : ITriggerLineSink
     {
         "Alchemy", "Baking", "Blacksmithing", "Brewing", "Fletching", "Jewelry Making", "Make Poison", "Pottery", "Research", "Tailoring", "Tinkering",
     };
-    private const int FileFormat = 6; // 3: the persona timeline; 4: character flags; 5: key ring and achievement lines; 6: /played and recent faction hits (the logs are read again for them)
+    private const int FileFormat = 7; // 3: the persona timeline; 4: character flags; 5: key ring and achievement lines; 6: /played and recent faction hits; 7: legacy bonus and birthdate (the logs are read again for them)
 
     private readonly object _gate = new();
     private readonly Dictionary<string, CharacterState> _characters = new(StringComparer.OrdinalIgnoreCase);
@@ -130,11 +130,42 @@ public sealed partial class ProgressStore : ITriggerLineSink
         || message.EndsWith(KeyRingSuffix, StringComparison.Ordinal)
         || message.StartsWith(AchievementPrefix, StringComparison.Ordinal)
         || message.StartsWith(PlayedPrefix, StringComparison.Ordinal)
+        || message.StartsWith(LegacyPrefix, StringComparison.Ordinal)
+        || message.Contains(BirthdateMarker, StringComparison.Ordinal)
         || (message.Length > 10 && message[^1] == '!' && message.Contains(" slain ", StringComparison.Ordinal));
 
     private const string KeyRingSuffix = " has been added to your key ring.";
     private const string AchievementPrefix = "You have completed achievement: ";
     private const string PlayedPrefix = "Total time playing ";
+    private const string LegacyPrefix = "Your legacy server experience bonus";
+    private const string BirthdateMarker = "'s birthdate: ";
+
+    /// <summary>"Your legacy server experience bonus for reaching the maximum level has increased to 100%!" gives 100, or null.</summary>
+    public static int? LegacyBonus(string message)
+    {
+        if (!message.StartsWith(LegacyPrefix, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        Match m = Regex.Match(message, @"(\d+)%", RegexOptions.CultureInvariant);
+        return m.Success && int.TryParse(m.Groups[1].Value, NumberStyles.None, CultureInfo.InvariantCulture, out int value) ? value : null;
+    }
+
+    /// <summary>"Stackprime's birthdate: Wednesday, May 27, 2026 12:22:26." gives that date and time, or null.</summary>
+    public static DateTime? Birthdate(string message)
+    {
+        int at = message.IndexOf(BirthdateMarker, StringComparison.Ordinal);
+        if (at < 0)
+        {
+            return null;
+        }
+
+        string text = message[(at + BirthdateMarker.Length)..].TrimEnd('.', ' ');
+        return DateTime.TryParseExact(text, new[] { "dddd, MMMM d, yyyy HH:mm:ss", "dddd, MMMM d, yyyy H:mm:ss" }, CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime born)
+            ? born
+            : null;
+    }
 
     /// <summary>"Total time playing Stackprime: 13 days, 22 hours, and 59 minutes" in minutes, or null for any other line.</summary>
     public static long? PlayedMinutes(string message)
@@ -223,6 +254,18 @@ public sealed partial class ProgressStore : ITriggerLineSink
         }
 
         CharacterState state = State(states, key);
+        if (LegacyBonus(text) is { } bonus)
+        {
+            state.LegacyBonus = bonus;
+            return true;
+        }
+
+        if (Birthdate(text) is { } born)
+        {
+            state.Born = born;
+            return true;
+        }
+
         if (PlayedMinutes(text) is { } played)
         {
             if (time >= state.PlayedAt)
@@ -713,6 +756,15 @@ public sealed partial class ProgressStore : ITriggerLineSink
         }
     }
 
+    /// <summary>The character's legacy server XP bonus % and creation date, as far as its log says.</summary>
+    public (int? LegacyBonus, DateTime? Born) Legacy(string character, string server)
+    {
+        lock (_gate)
+        {
+            return _characters.TryGetValue(Key(character, server), out CharacterState? state) ? (state.LegacyBonus, state.Born) : (null, null);
+        }
+    }
+
     /// <summary>The items the character's log said were added to the key ring, oldest first.</summary>
     public IReadOnlyList<CharacterFlag> KeyRingAdds(string character, string server) => Marks(character, server, s => s.KeyRing);
 
@@ -930,6 +982,12 @@ public sealed partial class ProgressStore : ITriggerLineSink
         public long Played { get; set; }
 
         public long PlayedAt { get; set; }
+
+        /// <summary>The last legacy server XP bonus %, or null when never seen.</summary>
+        public int? LegacyBonus { get; set; }
+
+        /// <summary>When the character was created (as /played says it), or null.</summary>
+        public DateTime? Born { get; set; }
 
         /// <summary>Items added to the key ring, by name (the first time each was seen).</summary>
         public List<FlagMark>? KeyRing { get; set; }

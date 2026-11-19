@@ -1,0 +1,25 @@
+<overlays:OverlayWindowBase x:Class="EQOverwatch.App.Overlays.FloatingTextOverlayWindow"
+                            xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                            xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                            xmlns:overlays="clr-namespace:EQOverwatch.App.Overlays"
+                            Title="EQ Overwatch Floating Text"
+                            WindowStartupLocation="Manual"
+                            Left="900" Top="300"
+                            Width="220" Height="260"
+                            MinWidth="120" MinHeight="120">
+    <Grid>
+        <Border Style="{StaticResource OverlayBackdropStyle}"/>
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <Border Grid.Row="0" Style="{StaticResource OverlayTitleStripStyle}" MouseLeftButtonDown="OnTitleStripMouseDown">
+                <TextBlock Margin="6,0" Style="{StaticResource OverlayTextStyle}"
+                           Text="{Binding OverlayName, RelativeSource={RelativeSource AncestorType={x:Type overlays:OverlayWindowBase}}}"/>
+            </Border>
+            <Canvas x:Name="Lane" Grid.Row="1" ClipToBounds="True" IsHitTestVisible="False"/>
+        </Grid>
+        <Rectangle Style="{StaticResource OverlayDashedBorderStyle}"/>
+    </Grid>
+</overlays:OverlayWindowBase>

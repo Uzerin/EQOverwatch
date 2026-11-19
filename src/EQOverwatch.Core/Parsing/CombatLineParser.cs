@@ -68,7 +68,7 @@ public static partial class CombatLineParser
             }
 
             // DoTs: "X has taken 100 damage from your Spell." / "... from Spell by Caster."
-            if (Contains(message, " has taken ") && Contains(message, " damage from "))
+            if ((Contains(message, " has taken ") || Contains(message, " have taken ")) && Contains(message, " damage from "))
             {
                 match = OwnDotRegex().Match(line, start, length);
                 if (match.Success && TryAmount(match, out int ownDot))
@@ -83,7 +83,22 @@ public static partial class CombatLineParser
                 {
                     combatEvent = new CombatEvent(timestamp, CombatEventKind.Damage,
                         Resolve(match.Groups["source"].Value, selfName),
-                        match.Groups["target"].Value, otherDot, DamageKind.DamageOverTime, match.Groups["spell"].Value, IsCriticalTag(match));
+                        Resolve(match.Groups["target"].Value, selfName), otherDot, DamageKind.DamageOverTime, match.Groups["spell"].Value, IsCriticalTag(match));
+                    return true;
+                }
+
+                return false;
+            }
+
+            // A DoT whose caster the line does not name: "Gnorm has taken 3 damage by Spreading Crud." (a mob's DoT on a player, or another
+            // player's DoT on a mob, seen from this log).
+            if (Contains(message, " has taken ") && Contains(message, " damage by "))
+            {
+                match = UnknownDotRegex().Match(line, start, length);
+                if (match.Success && TryAmount(match, out int unknownDot))
+                {
+                    combatEvent = new CombatEvent(timestamp, CombatEventKind.Damage, UnknownDotSource,
+                        Resolve(match.Groups["target"].Value, selfName), unknownDot, DamageKind.DamageOverTime, match.Groups["spell"].Value, IsCriticalTag(match));
                     return true;
                 }
 
@@ -289,9 +304,17 @@ public static partial class CombatLineParser
     private static partial Regex OwnDotRegex();
 
     [GeneratedRegex(
-        @"^(?<target>.+?) has taken (?<amount>\d+) damage from (?<spell>.+?) by (?<source>.+?)\.(?: \((?<tag>.+)\))?$",
+        @"^(?<target>.+?) ha(?:s|ve) taken (?<amount>\d+) damage from (?<spell>.+?) by (?<source>.+?)\.(?: \((?<tag>.+)\))?$",
         RegexOptions.CultureInvariant)]
     private static partial Regex OtherDotRegex();
+
+    /// <summary>The source of a DoT tick whose caster the line does not name.</summary>
+    public const string UnknownDotSource = "Unknown (DoTs)";
+
+    [GeneratedRegex(
+        @"^(?<target>.+?) has taken (?<amount>\d+) damage by (?<spell>.+?)\.(?: \((?<tag>.+)\))?$",
+        RegexOptions.CultureInvariant)]
+    private static partial Regex UnknownDotRegex();
 
     // "a frost giant is pierced by Fullfrontal's thorns for 34 points of non-melee damage."  /  "... is burned by YOUR flames for ..."  /
     // "YOU are burned by froglok krup enchanter's flames for 11 points of non-melee damage!" (a mob's shield hurting you ends in "!")

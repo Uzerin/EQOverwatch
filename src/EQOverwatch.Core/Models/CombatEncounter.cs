@@ -65,7 +65,7 @@ public sealed class CombatEncounter : ObservableObject
     }
 
     /// <summary>Damage the fight's target dealt to <paramref name="victim"/> (a player or pet) during the fight.</summary>
-    internal void AddDamageTaken(string victim, int amount, bool isRampage = false)
+    internal void AddDamageTaken(string victim, int amount, bool isRampage = false, bool isDot = false)
     {
         if (!_takenByName.TryGetValue(victim, out DamageTakenStats? stats))
         {
@@ -77,6 +77,11 @@ public sealed class CombatEncounter : ObservableObject
         if (isRampage)
         {
             stats.RecordRampage(amount);
+        }
+
+        if (isDot)
+        {
+            stats.RecordDot(amount);
         }
 
         TotalDamageTaken += amount;

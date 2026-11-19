@@ -10,9 +10,9 @@ public class OverlayKindAndThemeServiceTests
     [Fact]
     public void There_are_five_timer_overlays_a_dps_tells_and_mob_card_overlay_with_the_requested_titles()
     {
-        Assert.Equal(8, OverlayKindExtensions.All.Count);
+        Assert.Equal(11, OverlayKindExtensions.All.Count);
         Assert.Equal(
-            new[] { "Buffs", "Debuffs", "Songs", "Raid Triggers", "CH Chain", "DPS", "Tells", "Mob Card" },
+            new[] { "Buffs", "Debuffs", "Songs", "Raid Triggers", "CH Chain", "DPS", "Tells", "Mob Card", "Damage Dealt", "Heals Received", "Damage Taken" },
             OverlayKindExtensions.All.Select(k => k.Title()));
         Assert.Null(OverlayKind.Dps.Category());
         Assert.Null(OverlayKind.Tells.Category());

@@ -92,6 +92,10 @@ public sealed partial class WatchedLogConfig : ObservableObject
     [ObservableProperty]
     private string _playedText = "—";
 
+    /// <summary>When the character was created ("May 27, 2026"), from /played, or a dash.</summary>
+    [ObservableProperty]
+    private string _createdText = "—";
+
     public string LevelText => Level > 0 ? Level.ToString(CultureInfo.InvariantCulture) : "—";
 
     public string ClassText => ClassName.Length > 0 ? ClassName : "—";

@@ -141,7 +141,7 @@ public sealed partial class MainViewModel
         foreach (OverlayKind kind in OverlayKindExtensions.All)
         {
             // The Tells overlay does not fade out of combat: a tell matters most when nothing is happening.
-            double opacity = kind is OverlayKind.Tells or OverlayKind.MobCard ? 1.0
+            double opacity = kind is OverlayKind.Tells or OverlayKind.MobCard || kind.IsFloatingText() ? 1.0
                 : OverlayFade.Opacity(last, now, OverlayIdlePercent, DpsHideSeconds, kind == OverlayKind.Dps, !AreOverlaysLocked);
             if (!anyActive && AreOverlaysLocked)
             {

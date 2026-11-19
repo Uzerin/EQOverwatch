@@ -416,6 +416,27 @@ public sealed partial class DropStore : ITriggerLineSink
     // ───────────────────────── the table ─────────────────────────
 
     /// <summary>The servers there are drops for.</summary>
+    /// <summary>
+    /// What your logs saw drop from <paramref name="mob"/> after a kill that ended at <paramref name="killLocal"/> (local time): loot lines
+    /// from just before it to <paramref name="afterSeconds"/> after, each item once per time it dropped. "Item" or "Item ×2".
+    /// </summary>
+    public IReadOnlyList<string> DropsAfterKill(string mob, DateTime killLocal, int afterSeconds = 300)
+    {
+        long kill = ToUnix(DateTime.SpecifyKind(killLocal, DateTimeKind.Local).ToUniversalTime());
+        lock (_gate)
+        {
+            return _events
+                .Where(e => e.Kind == EventKind.Drop && e.Source == OwnSource && e.Time >= kill - 30 && e.Time <= kill + afterSeconds
+                            && _names.MobName(e.Mob).Equals(mob, StringComparison.OrdinalIgnoreCase))
+                .Select(e => (Item: _names.ItemName(e.Item), Time: e.Time / 5)) // the same drop seen by several of your logs
+                .Distinct()
+                .GroupBy(d => d.Item, StringComparer.OrdinalIgnoreCase)
+                .OrderBy(g => g.Key, StringComparer.OrdinalIgnoreCase)
+                .Select(g => g.Count() > 1 ? $"{g.Key} ×{g.Count()}" : g.Key)
+                .ToList();
+        }
+    }
+
     public IReadOnlyList<string> Servers()
     {
         lock (_gate)

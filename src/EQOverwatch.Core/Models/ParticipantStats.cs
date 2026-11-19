@@ -201,6 +201,17 @@ internal sealed class DamageTakenStats
         RampageDamage += amount;
     }
 
+    /// <summary>DoT ticks on this player whose caster the log did not name, and their damage.</summary>
+    public int DotTicks { get; private set; }
+
+    public long DotDamage { get; private set; }
+
+    public void RecordDot(int amount)
+    {
+        DotTicks++;
+        DotDamage += amount;
+    }
+
     public void Record(int amount)
     {
         Hits++;

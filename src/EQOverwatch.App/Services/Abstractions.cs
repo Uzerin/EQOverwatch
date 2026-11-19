@@ -15,6 +15,9 @@ public enum OverlayKind
     Dps,
     Tells,
     MobCard,
+    FctDamage,
+    FctHeals,
+    FctTaken,
 }
 
 public static class OverlayKindExtensions
@@ -43,13 +46,27 @@ public static class OverlayKindExtensions
 
     /// <summary>The window title and drag-strip text: "Buffs", "Debuffs", "Songs", "Raid Triggers", "CH Chain", "DPS" or "Tells".</summary>
     public static string Title(this OverlayKind kind) =>
-        kind.Category()?.DisplayName() ?? kind switch { OverlayKind.Tells => "Tells", OverlayKind.MobCard => "Mob Card", _ => "DPS" };
+        kind.Category()?.DisplayName() ?? kind switch
+        {
+            OverlayKind.Tells => "Tells",
+            OverlayKind.MobCard => "Mob Card",
+            OverlayKind.FctDamage => "Damage Dealt",
+            OverlayKind.FctHeals => "Heals Received",
+            OverlayKind.FctTaken => "Damage Taken",
+            _ => "DPS",
+        };
+
+    /// <summary>The floating combat text overlays.</summary>
+    public static bool IsFloatingText(this OverlayKind kind) => kind is OverlayKind.FctDamage or OverlayKind.FctHeals or OverlayKind.FctTaken;
 
     /// <summary>Where an overlay goes when nothing is saved for it.</summary>
     public static EQOverwatch.Core.Settings.OverlaySettings Defaults(this OverlayKind kind) =>
         kind.Category() is { } category ? EQOverwatch.Core.Settings.OverlaySettings.ForCategory(category)
         : kind == OverlayKind.Tells ? EQOverwatch.Core.Settings.OverlaySettings.DefaultTells
         : kind == OverlayKind.MobCard ? EQOverwatch.Core.Settings.OverlaySettings.DefaultMobCard
+        : kind == OverlayKind.FctDamage ? EQOverwatch.Core.Settings.OverlaySettings.DefaultFctDamage
+        : kind == OverlayKind.FctHeals ? EQOverwatch.Core.Settings.OverlaySettings.DefaultFctHeals
+        : kind == OverlayKind.FctTaken ? EQOverwatch.Core.Settings.OverlaySettings.DefaultFctTaken
         : EQOverwatch.Core.Settings.OverlaySettings.DefaultDps;
 }
 

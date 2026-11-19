@@ -52,6 +52,7 @@ public sealed class CompanionPipeline : IAsyncDisposable
         Charm = new CharmWatchService(Spells, Triggers);
         SpellAlerts = new SpellAlertService(Spells, Triggers);
         OutputFiles = new OutputFileWatch();
+        Chat = new Chat.ChatLog();
         BossAbilities = new History.BossAbilityLearner();
         Experience = new ExperienceTracker(DateTime.UtcNow);
         MobExperience = new MobExperienceStore();
@@ -69,7 +70,7 @@ public sealed class CompanionPipeline : IAsyncDisposable
 
         // Every sink sees every line of every trigger-enabled log. Historical imports use none of them.
         var triggerSinks = new CompositeTriggerSink(
-            new ITriggerLineSink[] { Triggers, Buffs, Songs, Charm, SpellAlerts, TimerPause, RaidBosses, ChChain, Cooldowns, Abilities, SharedTriggers, Roster, Loot, Tells, Experience, MobExperience, Resists, Zones, Drops, Progress, TellInbox, OutputFiles }, RaiseError);
+            new ITriggerLineSink[] { Triggers, Buffs, Songs, Charm, SpellAlerts, TimerPause, RaidBosses, ChChain, Cooldowns, Abilities, SharedTriggers, Roster, Loot, Tells, Experience, MobExperience, Resists, Zones, Drops, Progress, TellInbox, OutputFiles, Chat }, RaiseError);
         Activity = new CharacterActivityService();
         Songs.SetOwnCharacterProbe(IsMonitoredCharacter);
         Songs.SetActivityProbe(Activity.IsActive);
@@ -84,7 +85,10 @@ public sealed class CompanionPipeline : IAsyncDisposable
         Progress.SetClassProvider((name, server) => Roster.GetClass(name, server));
         Progress.PersonaChanged += (name, server, persona, level) => Roster.LearnPlayer(name, persona, level, server); // the class follows the persona
         Progress.SetPlayerProbe(name => IsMonitoredCharacter(name) || Roster.IsVerifiedPlayer(name) || Roster.IsPet(name));
-        _monitor = new LiveLogMonitor(Logs, triggerSinks, LiveDps, RaiseError, Activity);
+        PlayerRoster roster = Roster;
+        FloatingCombat = new FloatingCombatFeed(IsMonitoredCharacter,
+            pet => roster.MergePetDamage && roster.TryGetOwner(pet, out string owner) ? owner : null);
+        _monitor = new LiveLogMonitor(Logs, triggerSinks, new FanOutDpsSink(LiveDps, FloatingCombat), RaiseError, Activity);
         _monitor.TailError += (config, ex) => TailError?.Invoke(config, ex);
     }
 
@@ -129,6 +133,12 @@ public sealed class CompanionPipeline : IAsyncDisposable
 
     /// <summary>Files EverQuest just wrote (/outputfile, /output achievements, raid and guild dumps), read on the next tick.</summary>
     public OutputFileWatch OutputFiles { get; }
+
+    /// <summary>Player chat from every log, for the Chat tab.</summary>
+    public Chat.ChatLog Chat { get; }
+
+    /// <summary>Numbers for the floating combat text overlays.</summary>
+    public FloatingCombatFeed FloatingCombat { get; }
 
     /// <summary>Boss ability timing learned from killed fights, for the learned boss timers.</summary>
     public History.BossAbilityLearner BossAbilities { get; }

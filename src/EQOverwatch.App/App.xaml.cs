@@ -110,6 +110,10 @@ public partial class CompanionApp : Application
             {
                 windows[kind] = new MobCardOverlayWindow(mobCardVm);
             }
+            else if (kind.IsFloatingText())
+            {
+                windows[kind] = new FloatingTextOverlayWindow(kind);
+            }
             else
             {
                 dpsVm = new DpsOverlayViewModel(() => _pipeline.LiveDps.Snapshot, _pipeline.Roster.GetClassLabel, _pipeline.IsMonitoredCharacter)
@@ -155,6 +159,23 @@ public partial class CompanionApp : Application
             dpsVm.CopyImageRequested += encounter => vm.CopyImage(encounter);
             dpsVm.Progress = vm.FightProgressFor; // how far along a fight is, from the recorded kills of the same mob
         }
+
+        // Floating combat text: the numbers collected on the tailing thread are shown about twenty times a second.
+        MainViewModel fctVm = _viewModel;
+        var fctTimer = new System.Windows.Threading.DispatcherTimer(System.Windows.Threading.DispatcherPriority.Normal) { Interval = TimeSpan.FromMilliseconds(50) };
+        fctTimer.Tick += (_, _) =>
+        {
+            foreach (EQOverwatch.Core.Services.FloatingNumber number in _pipeline.FloatingCombat.TakeAll())
+            {
+                (OverlayKind kind, string hex, double size, bool shown) = fctVm.FloatingLook(number);
+                if (shown && windows.TryGetValue(kind, out OverlayWindowBase? window) && window is FloatingTextOverlayWindow fct
+                    && EQOverwatch.Core.Theming.ThemeColors.TryParse(hex, out EQOverwatch.Core.Theming.Rgba c))
+                {
+                    fct.Add(MainViewModel.FloatingText(number), number.Character, System.Windows.Media.Color.FromRgb(c.R, c.G, c.B), number.IsCritical, size);
+                }
+            }
+        };
+        fctTimer.Start();
 
         // The mob card: built on the tailing thread when you /con a mob, shown on the UI thread.
         _viewModel.MobCardReady += card => Dispatcher.BeginInvoke(() => mobCardVm.Show(card));
@@ -203,7 +224,13 @@ public partial class CompanionApp : Application
 
         var main = new MainWindow(_viewModel);
         MainWindow = main; // closing it ends the app (ShutdownMode=OnMainWindowClose)
+        if (e.Args.Contains(StartupRegistration.MinimizedArgument, StringComparer.OrdinalIgnoreCase))
+        {
+            main.WindowState = WindowState.Minimized; // started with Windows
+        }
+
         main.Show();
+        _viewModel.StartWithWindowsChanged += on => StartupRegistration.Set(on, Environment.ProcessPath);
 
         if (e.Args.Contains(UpdateFailedArgument, StringComparer.OrdinalIgnoreCase))
         {

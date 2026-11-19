@@ -58,7 +58,9 @@ public sealed record DamageTakenSnapshot(
     int OtherAvoids = 0,
     long ShieldDamage = 0,
     int Rampages = 0,
-    long RampageDamage = 0)
+    long RampageDamage = 0,
+    int DotTicks = 0,
+    long DotDamage = 0)
 {
     public string DisplayName => Deaths > 0 ? $"{Name} (Deaths: {Deaths})" : Name;
 
@@ -199,7 +201,7 @@ public sealed record EncounterSnapshot(
         DamageTakenSnapshot[] taken = encounter.TakenStats
             .Select(t => new DamageTakenSnapshot(
                 t.Name, t.TotalDamage, takenTotal > 0 ? 100.0 * t.TotalDamage / takenTotal : 0.0, t.Hits, t.MaxHit, encounter.DeathsOf(t.Name), t.Avoided,
-                t.Dodges, t.Parries, t.Blocks, t.Ripostes, t.Misses, t.OtherAvoids, t.ShieldDamage, t.Rampages, t.RampageDamage))
+                t.Dodges, t.Parries, t.Blocks, t.Ripostes, t.Misses, t.OtherAvoids, t.ShieldDamage, t.Rampages, t.RampageDamage, t.DotTicks, t.DotDamage))
             .OrderByDescending(t => t.TotalDamage)
             .ThenBy(t => t.Name, StringComparer.Ordinal)
             .ToArray();
@@ -303,7 +305,8 @@ public sealed record EncounterSnapshot(
                 return new DamageTakenSnapshot(
                     g.Key, damage, takenTotal > 0 ? 100.0 * damage / takenTotal : 0.0, g.Sum(t => t.Hits), g.Max(t => t.MaxHit), DeathsOf(g.Key),
                     g.Sum(t => t.Avoided), g.Sum(t => t.Dodges), g.Sum(t => t.Parries), g.Sum(t => t.Blocks), g.Sum(t => t.Ripostes),
-                    g.Sum(t => t.Missed), g.Sum(t => t.OtherAvoids), g.Sum(t => t.ShieldDamage), g.Sum(t => t.Rampages), g.Sum(t => t.RampageDamage));
+                    g.Sum(t => t.Missed), g.Sum(t => t.OtherAvoids), g.Sum(t => t.ShieldDamage), g.Sum(t => t.Rampages), g.Sum(t => t.RampageDamage),
+                    g.Sum(t => t.DotTicks), g.Sum(t => t.DotDamage));
             })
             .OrderByDescending(t => t.TotalDamage)
             .ThenBy(t => t.Name, StringComparer.Ordinal)

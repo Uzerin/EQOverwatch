@@ -63,62 +63,26 @@ settings are kept.
 
 ## Changelog
 
-### 1.0.70
+### 1.0.71
 
-- Output files are read as soon as EQ writes them.
-- Faction standings, guild ranks, raid groups and total played time.
-- Session week view, plat per hour, next AA timer and XP by zone.
-- Recipe skill-ups, your resist rates on the Mob Card, and learned boss timers.
+- New floating combat text overlays for damage, heals and damage taken.
+- New Chat tab with every chat type, name highlights and player filter.
+- DoT damage counted on players and bosses.
+- Mob History opens fights on double-click and shows drops.
+- Legacy XP bonus, character birthdates and Start with Windows.
 
-### 1.0.69
+### 1.0.61 to 1.0.70
 
-- Special keys on the Key Ring tab.
-- New Achievements tab in the Profile window.
-
-### 1.0.68
-
-- Timed CH auto-press keeps the set interval between presses.
-
-### 1.0.67
-
-- New Session and Spell Stats tabs.
+- DPS is parsed from all active logs, and fights against several mobs at once count as one.
+- New Mob Card overlay, boss fight progress on the DPS overlay, and aggro and range alerts.
+- CH Chain auto-press settings moved to Advanced, with a fixed timed interval.
+- New Session, Spell Stats and Achievements tabs, plus Special keys on the Key Ring tab.
 - New alerts for blocked buffs, resists, failed feign death, root and mez breaks, and quiet logs.
-- Pet stats under their owner, and rampage targets in Damage Taken.
-- Character flags in the Profile window, and idle raiders in Attendance.
-
-### 1.0.66
-
-- Removed the mouse click option from CH Chain auto-press.
-
-### 1.0.65
-
-- CH Chain auto-click settings updated and moved to Advanced.
-
-### 1.0.64
-
-- New Mob Card overlay with kill history, resists and drops.
-- Boss fight progress on the DPS overlay.
-- New aggro and range alerts.
-
-### 1.0.63
-
-- DPS is parsed from all active logs.
-- Option to load your full log history, and a Reload All Logs button.
-- The map shows the last /loc used by each character.
-- Triggers no longer repeat when several logs see the same line.
-- Fixed Install update not reopening the app, and a mob name matching issue.
-
-### 1.0.62
-
-- Several mobs fought at once are tracked as one fight.
-- Redesigned Discord picture.
-- Shared drop updates and an optional anonymous player count.
-- Install update reliability fixes.
-
-### 1.0.61
-
-- Worn gear is kept per class persona.
-- Overwatch Discord button.
+- Pet stats under their owner, rampage targets, and character flags.
+- Faction standings, guild ranks, raid groups, idle raiders and total played time.
+- Week view, plat per hour, next AA timer, XP by zone and recipe skill-ups.
+- Learned boss timers, and your resist rates on the Mob Card.
+- Output files are read as soon as EQ writes them, plus a redesigned Discord picture and fixes to Install update.
 
 ### 1.0.51 to 1.0.60
 

@@ -51,6 +51,23 @@
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
+            <TextBlock FontWeight="SemiBold" Margin="0,4,0,4" Text="Floating combat text"/>
+            <ItemsControl ItemsSource="{Binding FloatingColors}" Focusable="False">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel/>
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,20,6">
+                            <ctl:ColorSwatchPicker Width="22" Height="22" Margin="0,0,8,0" Hex="{Binding HexText, Mode=TwoWay}"/>
+                            <TextBlock Text="{Binding Label}" Width="104" VerticalAlignment="Center" Foreground="{DynamicResource TextMutedBrush}"/>
+                            <TextBox Width="86" FontFamily="Consolas" Text="{Binding HexText, UpdateSourceTrigger=PropertyChanged}"/>
+                        </StackPanel>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
                         <Button Content="Reset colors" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" Margin="0,4,0,8"
                     Padding="10,4" Command="{Binding ResetAttackColorsCommand}"/>
             <TextBlock Text="Preview (sample fight)" FontWeight="SemiBold" Margin="0,0,0,4"/>
