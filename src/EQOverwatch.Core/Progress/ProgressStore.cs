@@ -10,7 +10,8 @@ namespace EQOverwatch.Core.Progress;
 public sealed record SkillProgress(string Skill, int Value, int GainedToday, DateTime LastUtc);
 
 /// <summary>One recipe: combines that made the item and combines that failed.</summary>
-public sealed record TradeskillProgress(string Recipe, int Made, int Failed, DateTime LastUtc)
+/// <param name="SkillUps">Tradeskill skill-ups that came with this recipe's combines.</param>
+public sealed record TradeskillProgress(string Recipe, int Made, int Failed, DateTime LastUtc, int SkillUps = 0)
 {
     public int Combines => Made + Failed;
 
@@ -78,7 +79,13 @@ public sealed partial class ProgressStore : ITriggerLineSink
     private static partial Regex WhoRegex();
 
     private const int MaxTimeline = 20000;
-    private const int FileFormat = 5; // 3: the persona timeline; 4: character flags; 5: key ring and achievement lines (the logs are read again for them)
+    private const int MaxRecentFactionHits = 300;
+
+    private static readonly HashSet<string> TradeskillNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Alchemy", "Baking", "Blacksmithing", "Brewing", "Fletching", "Jewelry Making", "Make Poison", "Pottery", "Research", "Tailoring", "Tinkering",
+    };
+    private const int FileFormat = 6; // 3: the persona timeline; 4: character flags; 5: key ring and achievement lines; 6: /played and recent faction hits (the logs are read again for them)
 
     private readonly object _gate = new();
     private readonly Dictionary<string, CharacterState> _characters = new(StringComparer.OrdinalIgnoreCase);
@@ -122,10 +129,30 @@ public sealed partial class ProgressStore : ITriggerLineSink
         || IsFlagLine(message)
         || message.EndsWith(KeyRingSuffix, StringComparison.Ordinal)
         || message.StartsWith(AchievementPrefix, StringComparison.Ordinal)
+        || message.StartsWith(PlayedPrefix, StringComparison.Ordinal)
         || (message.Length > 10 && message[^1] == '!' && message.Contains(" slain ", StringComparison.Ordinal));
 
     private const string KeyRingSuffix = " has been added to your key ring.";
     private const string AchievementPrefix = "You have completed achievement: ";
+    private const string PlayedPrefix = "Total time playing ";
+
+    /// <summary>"Total time playing Stackprime: 13 days, 22 hours, and 59 minutes" in minutes, or null for any other line.</summary>
+    public static long? PlayedMinutes(string message)
+    {
+        if (!message.StartsWith(PlayedPrefix, StringComparison.Ordinal) || message.IndexOf(':', PlayedPrefix.Length) is var colon && colon < 0)
+        {
+            return null;
+        }
+
+        long Part(string unit)
+        {
+            Match m = Regex.Match(message[colon..], @"(\d+) " + unit, RegexOptions.CultureInvariant);
+            return m.Success ? long.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture) : 0;
+        }
+
+        long total = Part("day") * 1440 + Part("hour") * 60 + Part("minute");
+        return total > 0 || message.Contains(" minute", StringComparison.Ordinal) ? total : null;
+    }
 
     /// <summary>True for a line announcing a character flag, such as "You receive a character flag!".</summary>
     public static bool IsFlagLine(string message) =>
@@ -196,6 +223,17 @@ public sealed partial class ProgressStore : ITriggerLineSink
         }
 
         CharacterState state = State(states, key);
+        if (PlayedMinutes(text) is { } played)
+        {
+            if (time >= state.PlayedAt)
+            {
+                state.Played = played;
+                state.PlayedAt = time;
+            }
+
+            return true;
+        }
+
         if (text.EndsWith(KeyRingSuffix, StringComparison.Ordinal) || text.StartsWith(AchievementPrefix, StringComparison.Ordinal))
         {
             bool keyRing = text.EndsWith(KeyRingSuffix, StringComparison.Ordinal);
@@ -264,6 +302,21 @@ public sealed partial class ProgressStore : ITriggerLineSink
             s.Last = Math.Max(s.Last, time);
             s.Ups.Add(time);
             s.Ups.RemoveAll(t => t < time - RecentUpSeconds);
+
+            // A tradeskill skill-up comes in the same second as its combine's result line, before or after it.
+            if (TradeskillNames.Contains(name))
+            {
+                if (state.LastCombine is { } combine && Math.Abs(time - combine.Time) <= 1 && state.Recipes.TryGetValue(combine.Item, out RecipeState? recipe))
+                {
+                    recipe.SkillUps++;
+                    state.LastCombine = null;
+                }
+                else
+                {
+                    state.PendingTradeUp = time;
+                }
+            }
+
             return true;
         }
 
@@ -287,6 +340,17 @@ public sealed partial class ProgressStore : ITriggerLineSink
             }
 
             r.Last = Math.Max(r.Last, time);
+            if (state.PendingTradeUp > 0 && time - state.PendingTradeUp <= 1)
+            {
+                r.SkillUps++;
+                state.PendingTradeUp = 0;
+                state.LastCombine = null;
+            }
+            else
+            {
+                state.LastCombine = (item, time);
+            }
+
             return true;
         }
 
@@ -313,6 +377,12 @@ public sealed partial class ProgressStore : ITriggerLineSink
         {
             f.AllTime += amount;
             f.Hits++;
+            f.Recent ??= new List<long[]>();
+            f.Recent.Add(new[] { time, amount });
+            if (f.Recent.Count > MaxRecentFactionHits)
+            {
+                f.Recent.RemoveRange(0, f.Recent.Count - MaxRecentFactionHits);
+            }
             f.Amounts[amount] = f.Amounts.GetValueOrDefault(amount) + 1;
             f.Limit = 0;
             if (time >= _sessionStart)
@@ -416,6 +486,17 @@ public sealed partial class ProgressStore : ITriggerLineSink
 
             have.AllTime += faction.AllTime;
             have.Hits += faction.Hits;
+            if (faction.Recent is { Count: > 0 })
+            {
+                have.Recent ??= new List<long[]>();
+                have.Recent.AddRange(faction.Recent);
+                have.Recent.Sort((a, b) => a[0].CompareTo(b[0]));
+                if (have.Recent.Count > MaxRecentFactionHits)
+                {
+                    have.Recent.RemoveRange(0, have.Recent.Count - MaxRecentFactionHits);
+                }
+            }
+
             have.Session += faction.Session;
             foreach ((int amount, int count) in faction.Amounts)
             {
@@ -621,6 +702,17 @@ public sealed partial class ProgressStore : ITriggerLineSink
         }
     }
 
+    /// <summary>The character's last /played total in minutes and when it was said, or null when the log never showed one.</summary>
+    public (long Minutes, DateTime Utc)? Played(string character, string server)
+    {
+        lock (_gate)
+        {
+            return _characters.TryGetValue(Key(character, server), out CharacterState? state) && state.PlayedAt > 0
+                ? (state.Played, LogHistoryReader.FromUnix(state.PlayedAt))
+                : null;
+        }
+    }
+
     /// <summary>The items the character's log said were added to the key ring, oldest first.</summary>
     public IReadOnlyList<CharacterFlag> KeyRingAdds(string character, string server) => Marks(character, server, s => s.KeyRing);
 
@@ -651,7 +743,7 @@ public sealed partial class ProgressStore : ITriggerLineSink
             }
 
             return state.Recipes
-                .Select(p => new TradeskillProgress(p.Key, p.Value.Made, p.Value.Failed, LogHistoryReader.FromUnix(p.Value.Last)))
+                .Select(p => new TradeskillProgress(p.Key, p.Value.Made, p.Value.Failed, LogHistoryReader.FromUnix(p.Value.Last), p.Value.SkillUps))
                 .OrderBy(r => r.Recipe, StringComparer.OrdinalIgnoreCase)
                 .ToList();
         }
@@ -679,6 +771,35 @@ public sealed partial class ProgressStore : ITriggerLineSink
                     LogHistoryReader.FromUnix(p.Value.Last)))
                 .OrderBy(f => f.Faction, StringComparer.OrdinalIgnoreCase)
                 .ToList();
+        }
+    }
+
+    /// <summary>
+    /// How much each of a persona's factions changed after <paramref name="sinceUtc"/>, from the last hits kept, and which hit their
+    /// limit since then (+1 best, -1 worst).
+    /// </summary>
+    public IReadOnlyDictionary<string, (long Change, int Limit)> FactionChangesSince(string character, string server, string? persona, DateTime sinceUtc)
+    {
+        long since = LogHistoryReader.ToUnix(sinceUtc);
+        lock (_gate)
+        {
+            var result = new Dictionary<string, (long, int)>(StringComparer.OrdinalIgnoreCase);
+            if (FindPersona(character, server, persona) is not { } state)
+            {
+                return result;
+            }
+
+            foreach ((string name, FactionState f) in state.Factions)
+            {
+                long change = f.Recent?.Where(r => r[0] > since).Sum(r => r[1]) ?? 0;
+                int limit = f.Last > since ? f.Limit : 0;
+                if (change != 0 || limit != 0)
+                {
+                    result[name] = (change, limit);
+                }
+            }
+
+            return result;
         }
     }
 
@@ -795,8 +916,20 @@ public sealed partial class ProgressStore : ITriggerLineSink
         /// <summary>Tradeskills are the character's, whatever persona is on.</summary>
         public Dictionary<string, RecipeState> Recipes { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
+        /// <summary>The last combine's result (item and time) and a tradeskill skill-up waiting for its combine, while reading.</summary>
+        [System.Text.Json.Serialization.JsonIgnore]
+        public (string Item, long Time)? LastCombine { get; set; }
+
+        [System.Text.Json.Serialization.JsonIgnore]
+        public long PendingTradeUp { get; set; }
+
         /// <summary>Character flags, oldest first.</summary>
         public List<FlagMark>? Flags { get; set; }
+
+        /// <summary>The last /played total in minutes, and when it was said (unix seconds; 0 when never).</summary>
+        public long Played { get; set; }
+
+        public long PlayedAt { get; set; }
 
         /// <summary>Items added to the key ring, by name (the first time each was seen).</summary>
         public List<FlagMark>? KeyRing { get; set; }
@@ -847,6 +980,8 @@ public sealed partial class ProgressStore : ITriggerLineSink
         public int Failed { get; set; }
 
         public long Last { get; set; }
+
+        public int SkillUps { get; set; }
     }
 
     public sealed class FactionState
@@ -862,6 +997,9 @@ public sealed partial class ProgressStore : ITriggerLineSink
         public Dictionary<int, int> Amounts { get; set; } = new();
 
         public Dictionary<string, int> Mobs { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>The last hits as [unix time, amount], for the standing since a faction file.</summary>
+        public List<long[]>? Recent { get; set; }
 
         [System.Text.Json.Serialization.JsonIgnore]
         public int Session { get; set; }

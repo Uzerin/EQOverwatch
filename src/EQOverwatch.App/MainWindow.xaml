@@ -266,6 +266,7 @@
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
                             <DataGridTextColumn Header="Data from" Binding="{Binding DataText, Mode=OneWay}" Width="Auto"/>
+                            <DataGridTextColumn Header="Played" Binding="{Binding PlayedText, Mode=OneWay}" Width="Auto"/>
                             <DataGridTemplateColumn Header="Enable Triggers" Width="Auto">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
@@ -695,6 +696,11 @@
                             </DataGridTemplateColumn>
                         </DataGrid.Columns>
                     </DataGrid>
+                    <StackPanel Grid.Row="2" Margin="0,8,0,0">
+                        <CheckBox Content="Learned boss timers" IsChecked="{Binding LearnedBossTimers}"
+                                  ToolTip="Counts down to each boss ability from your past kills (median time between casts and of the first cast). A boss needs 2 logged kills; your own rules above win for the same spell."/>
+                        <TextBlock Style="{StaticResource HintText}" Margin="0,4,0,0" TextWrapping="Wrap" Text="{Binding LearnedBossStatus}"/>
+                    </StackPanel>
                 </Grid>
             </TabItem>
 
@@ -1764,17 +1770,57 @@
                     </DockPanel>
 
                     <DockPanel Grid.Row="1" Grid.Column="2">
-                        <TextBlock DockPanel.Dock="Top" FontWeight="SemiBold" Margin="0,0,0,6" Text="Who was there"/>
-                        <DataGrid ItemsSource="{Binding RosterRows}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
-                                  HeadersVisibility="Column" GridLinesVisibility="Horizontal">
-                            <DataGrid.Columns>
-                                <DataGridTextColumn Header="Group" Binding="{Binding Group, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
-                                <DataGridTextColumn Header="Name" Binding="{Binding Name, Mode=OneWay}" Width="Auto"/>
-                                <DataGridTextColumn Header="Level" Binding="{Binding Level, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
-                                <DataGridTextColumn Header="Class" Binding="{Binding Class, Mode=OneWay}" Width="Auto"/>
-                                <DataGridTextColumn Header="Role" Binding="{Binding Role, Mode=OneWay}" Width="Auto"/>
-                            </DataGrid.Columns>
-                        </DataGrid>
+                        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6">
+                            <TextBlock FontWeight="SemiBold" VerticalAlignment="Center" Text="Who was there"/>
+                            <ComboBox Width="190" Margin="12,0,0,0" HorizontalAlignment="Left" ItemsSource="{Binding RosterViews}" SelectedIndex="{Binding RosterViewIndex}"
+                                      ToolTip="Everyone in the raid, the raid's groups (a group without a cleric, druid or shaman is flagged), or guild members who missed it."/>
+                        </DockPanel>
+                        <Grid>
+                            <DataGrid ItemsSource="{Binding RosterRows}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
+                                      HeadersVisibility="Column" GridLinesVisibility="Horizontal" HorizontalAlignment="Left"
+                                      Visibility="{Binding ShowRosterList, Converter={StaticResource BoolToVisibility}}">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Group" Binding="{Binding Group, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                    <DataGridTextColumn Header="Name" Binding="{Binding Name, Mode=OneWay}" Width="Auto"/>
+                                    <DataGridTextColumn Header="Level" Binding="{Binding Level, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                    <DataGridTextColumn Header="Class" Binding="{Binding Class, Mode=OneWay}" Width="Auto"/>
+                                    <DataGridTextColumn Header="Role" Binding="{Binding Role, Mode=OneWay}" Width="Auto"/>
+                                    <DataGridTextColumn Header="Rank" Binding="{Binding Rank, Mode=OneWay}" Width="Auto"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" Visibility="{Binding ShowRosterGroups, Converter={StaticResource BoolToVisibility}}">
+                                <ItemsControl ItemsSource="{Binding RaidGroupCards}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border BorderThickness="1" BorderBrush="{DynamicResource BorderSoftBrush}" CornerRadius="6" Padding="8,6" Margin="0,0,8,8" MinWidth="170">
+                                                <StackPanel>
+                                                    <TextBlock FontWeight="SemiBold" Text="{Binding Title}"/>
+                                                    <TextBlock Text="{Binding Warning}" Foreground="#E24B4A" Margin="0,2,0,0"
+                                                               Visibility="{Binding HasWarning, Converter={StaticResource BoolToVisibility}}"/>
+                                                    <TextBlock Text="{Binding Members}" Margin="0,4,0,0"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                            <DockPanel Visibility="{Binding ShowRosterMissed, Converter={StaticResource BoolToVisibility}}">
+                                <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource HintText}" Margin="0,6,0,0" TextWrapping="Wrap" Text="{Binding GuildStatus}"/>
+                                <DataGrid ItemsSource="{Binding GuildMissRows}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
+                                          HeadersVisibility="Column" GridLinesVisibility="Horizontal" HorizontalAlignment="Left">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Name" Binding="{Binding Name, Mode=OneWay}" Width="Auto"/>
+                                        <DataGridTextColumn Header="Level" Binding="{Binding Level, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                        <DataGridTextColumn Header="Class" Binding="{Binding Class, Mode=OneWay}" Width="Auto"/>
+                                        <DataGridTextColumn Header="Rank" Binding="{Binding Rank, Mode=OneWay}" Width="Auto"/>
+                                        <DataGridTextColumn Header="Last on" Binding="{Binding LastOn, Mode=OneWay}" Width="Auto"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </DockPanel>
+                        </Grid>
                     </DockPanel>
 
                     <DockPanel Grid.Row="1" Grid.Column="4">
@@ -2116,6 +2162,7 @@
                             <DataGridTextColumn Header="Next level in" Binding="{Binding NextLevel, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                             <DataGridTextColumn Header="AAs gained" Binding="{Binding AaGained, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                             <DataGridTextColumn Header="AA / hour" Binding="{Binding AaPerHour, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                            <DataGridTextColumn Header="Next AA in" Binding="{Binding NextAa, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                             <DataGridTextColumn Header="Kills with XP" Binding="{Binding Kills, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                             <DataGridTextColumn Header="Last gain" Binding="{Binding LastGain, Mode=OneWay}" Width="Auto"/>
                         </DataGrid.Columns>
@@ -2148,7 +2195,23 @@
                                   SelectedItem="{Binding SelectedMobExperienceCharacter, Mode=TwoWay}"/>
                         <TextBlock DockPanel.Dock="Right" Style="{StaticResource HintText}" VerticalAlignment="Center" Text="Character"/>
                     </DockPanel>
-                    <DataGrid Grid.Row="5" HorizontalAlignment="Left" ItemsSource="{Binding MobExperienceRows}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
+                    <DockPanel Grid.Row="5">
+                    <DockPanel DockPanel.Dock="Right" Margin="16,0,0,0">
+                        <TextBlock DockPanel.Dock="Top" FontWeight="SemiBold" Margin="0,0,0,6" Text="XP by zone (last 7 days)"/>
+                        <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource HintText}" Margin="0,6,0,0" TextWrapping="Wrap" MaxWidth="420"
+                                   Text="All your characters together; hours are time played in the zone. Best XP per hour first."/>
+                        <DataGrid HorizontalAlignment="Left" ItemsSource="{Binding ZoneXpRows}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
+                                  HeadersVisibility="Column" GridLinesVisibility="Horizontal">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Zone" Binding="{Binding Zone, Mode=OneWay}" Width="Auto"/>
+                                <DataGridTextColumn Header="XP / hour" Binding="{Binding XpPerHour, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                <DataGridTextColumn Header="XP" Binding="{Binding Xp, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                <DataGridTextColumn Header="Hours" Binding="{Binding Hours, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                <DataGridTextColumn Header="Kills with XP" Binding="{Binding Gains, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </DockPanel>
+                    <DataGrid HorizontalAlignment="Left" VerticalAlignment="Top" ItemsSource="{Binding MobExperienceRows}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
                               HeadersVisibility="Column" GridLinesVisibility="Horizontal">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Level" Binding="{Binding Level, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
@@ -2159,6 +2222,7 @@
                             <DataGridTextColumn Header="Last kill" Binding="{Binding LastKill, Mode=OneWay}" Width="Auto"/>
                         </DataGrid.Columns>
                     </DataGrid>
+                    </DockPanel>
                     <TextBlock Grid.Row="6" Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,8,0,0" Text="{Binding MobExperienceStatus}"/>
                 </Grid>
             </TabItem>
@@ -2173,19 +2237,41 @@
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
-                    <TextBlock Grid.Row="0" Style="{StaticResource HintText}" Margin="0,0,0,8" TextWrapping="Wrap" Text="{Binding SessionStatus}"/>
-                    <DataGrid Grid.Row="1" ItemsSource="{Binding SessionRows}" SelectedItem="{Binding SelectedSessionRow, Mode=TwoWay}" HorizontalAlignment="Left"
-                              AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" SelectionMode="Single"
-                              HeadersVisibility="Column" GridLinesVisibility="Horizontal">
-                        <DataGrid.Columns>
-                            <DataGridTextColumn Header="Character" Binding="{Binding Character, Mode=OneWay}" Width="Auto"/>
-                            <DataGridTextColumn Header="Played" Binding="{Binding Played, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
-                            <DataGridTextColumn Header="XP" Binding="{Binding Xp, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
-                            <DataGridTextColumn Header="Platinum" Binding="{Binding Platinum, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
-                            <DataGridTextColumn Header="Kills" Binding="{Binding Kills, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
-                            <DataGridTextColumn Header="Skill-ups" Binding="{Binding SkillUps, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
-                        </DataGrid.Columns>
-                    </DataGrid>
+                    <DockPanel Grid.Row="0" Margin="0,0,0,8">
+                        <ComboBox Width="130" Margin="0,0,14,0" VerticalAlignment="Center" ItemsSource="{Binding SessionViews}" SelectedIndex="{Binding SessionViewIndex}"/>
+                        <TextBlock Style="{StaticResource HintText}" VerticalAlignment="Center" TextWrapping="Wrap" Text="{Binding SessionStatus}"/>
+                    </DockPanel>
+                    <Grid Grid.Row="1">
+                        <DataGrid ItemsSource="{Binding SessionRows}" SelectedItem="{Binding SelectedSessionRow, Mode=TwoWay}" HorizontalAlignment="Left"
+                                  AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" SelectionMode="Single"
+                                  HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                                  Visibility="{Binding ShowSessionToday, Converter={StaticResource BoolToVisibility}}">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Character" Binding="{Binding Character, Mode=OneWay}" Width="Auto"/>
+                                <DataGridTextColumn Header="Played" Binding="{Binding Played, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                <DataGridTextColumn Header="XP" Binding="{Binding Xp, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                <DataGridTextColumn Header="Platinum" Binding="{Binding Platinum, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                <DataGridTextColumn Header="Plat/hour" Binding="{Binding PlatPerHour, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                <DataGridTextColumn Header="Kills" Binding="{Binding Kills, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                <DataGridTextColumn Header="Skill-ups" Binding="{Binding SkillUps, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                        <DataGrid ItemsSource="{Binding SessionWeekRows}" SelectedItem="{Binding SelectedSessionRow, Mode=TwoWay}" HorizontalAlignment="Left"
+                                  AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" SelectionMode="Single" MaxHeight="420"
+                                  HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                                  Visibility="{Binding SessionWeek, Converter={StaticResource BoolToVisibility}}">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Day" Binding="{Binding Day, Mode=OneWay}" Width="Auto"/>
+                                <DataGridTextColumn Header="Character" Binding="{Binding Character, Mode=OneWay}" Width="Auto"/>
+                                <DataGridTextColumn Header="Played" Binding="{Binding Played, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                <DataGridTextColumn Header="XP" Binding="{Binding Xp, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                <DataGridTextColumn Header="Platinum" Binding="{Binding Platinum, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                <DataGridTextColumn Header="Plat/hour" Binding="{Binding PlatPerHour, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                <DataGridTextColumn Header="Kills" Binding="{Binding Kills, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                <DataGridTextColumn Header="Skill-ups" Binding="{Binding SkillUps, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
                     <TextBlock Grid.Row="2" FontWeight="SemiBold" Margin="0,14,0,6" Text="Zone timeline (select a character above)"/>
                     <ctl:ZoneTimelineControl Grid.Row="3" Stretches="{Binding SelectedZoneStretches}" Margin="0,0,0,8"/>
                     <DataGrid Grid.Row="4" ItemsSource="{Binding ZoneRows}" HorizontalAlignment="Left" VerticalAlignment="Top"

@@ -60,3 +60,17 @@ public class CharacterDataAchievementTests
         }
     }
 }
+
+public class Release70AppTests
+{
+    [Fact]
+    public void Played_and_plat_per_hour_are_written_short()
+    {
+        Assert.Equal("13d 22h 59m", MainViewModel.FormatMinutes(13 * 1440 + 22 * 60 + 59));
+        Assert.Equal("5h 02m", MainViewModel.FormatMinutes(302));
+        Assert.Equal("12m", MainViewModel.FormatMinutes(12));
+        var culture = System.Globalization.CultureInfo.InvariantCulture;
+        Assert.Equal("100", MainViewModel.PlatPerHour(200, 7200, culture));
+        Assert.Equal(string.Empty, MainViewModel.PlatPerHour(5, 120, culture));
+    }
+}

@@ -15,7 +15,8 @@ public sealed record ZoneStretch(string Zone, DateTime Start, DateTime End)
 
 /// <summary>A character's day so far: time played, experience, money, kills and skill-ups.</summary>
 public sealed record SessionSummary(
-    string Character, double PlayedSeconds, double XpPercent, long Copper, int Kills, int SkillUps, IReadOnlyList<ZoneStretch> Zones)
+    string Character, double PlayedSeconds, double XpPercent, long Copper, int Kills, int SkillUps, IReadOnlyList<ZoneStretch> Zones,
+    IReadOnlyDictionary<string, (double Xp, int Gains)>? ZoneXp = null)
 {
     public double Platinum => Copper / 1000.0;
 }
@@ -77,6 +78,7 @@ public sealed partial class DayAccumulator
     private readonly Dictionary<string, SpellCount> _spells = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<(string Spell, string Mob), (int Landed, int Resisted)> _resists = new();
     private readonly List<ZoneStretch> _zones = new();
+    private readonly Dictionary<string, (double Xp, int Gains)> _zoneXp = new(StringComparer.OrdinalIgnoreCase);
     private DateTime _lastLine;
     private string _zone = string.Empty;
     private DateTime _stretchStart;
@@ -135,6 +137,8 @@ public sealed partial class DayAccumulator
             if (xp.Groups["p"].Success && double.TryParse(xp.Groups["p"].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out double p))
             {
                 XpPercent += p;
+                (double zx, int zg) = _zoneXp.GetValueOrDefault(_zone);
+                _zoneXp[_zone] = (zx + p, zg + 1);
             }
 
             return;
@@ -305,7 +309,7 @@ public sealed partial class DayAccumulator
 
         // A few seconds before the first "You have entered" at log-in is not worth a block of its own.
         zones.RemoveAll(z => z.Seconds < 30 && zones.Count > 1);
-        return new SessionSummary(Character, PlayedSeconds, XpPercent, Copper, Kills, SkillUps, zones);
+        return new SessionSummary(Character, PlayedSeconds, XpPercent, Copper, Kills, SkillUps, zones, new Dictionary<string, (double, int)>(_zoneXp));
     }
 
     public IReadOnlyList<SpellDayRow> Spells() =>
@@ -320,41 +324,54 @@ public sealed partial class DayAccumulator
 }
 
 /// <summary>
-/// Reads today's part of each log (from local midnight) into a <see cref="DayAccumulator"/>, then only the new lines on each
-/// <see cref="Update"/>. A new day starts over.
+/// Reads the last <see cref="WeekDays"/> days of each log (from local midnight six days ago) into one <see cref="DayAccumulator"/> per
+/// day, then only the new lines on each <see cref="Update"/>. A new day drops the oldest.
 /// </summary>
 public sealed class DayScanner
 {
+    public const int WeekDays = 7;
+
     private sealed class LogState
     {
         public required string Character;
-        public DateTime Day;
+        public DateTime Start;
         public long Offset;
-        public required DayAccumulator Acc;
+        public Dictionary<DateTime, DayAccumulator> Days = new();
     }
 
     private readonly Dictionary<string, LogState> _logs = new(StringComparer.OrdinalIgnoreCase);
     private readonly Func<string, SpellInfo?> _findSpell;
     private readonly object _gate = new();
+    private DateTime _today;
 
     public DayScanner(Func<string, SpellInfo?>? findSpell = null) => _findSpell = findSpell ?? (_ => null);
 
-    /// <summary>Reads what each log added since the last call (today's lines only). Logs no longer listed are dropped.</summary>
+    /// <summary>Reads what each log added since the last call (the last seven days only). Logs no longer listed are dropped.</summary>
     public void Update(IEnumerable<(string Path, string Character)> logs, DateTime nowLocal, CancellationToken cancellation = default)
     {
         DateTime today = nowLocal.Date;
+        DateTime start = today.AddDays(-(WeekDays - 1));
         lock (_gate)
         {
+            _today = today;
             var listed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach ((string path, string character) in logs)
             {
                 listed.Add(path);
-                if (!_logs.TryGetValue(path, out LogState? state) || state.Day != today)
+                if (!_logs.TryGetValue(path, out LogState? state))
                 {
-                    _logs[path] = state = new LogState { Character = character, Day = today, Offset = -1, Acc = new DayAccumulator(character, _findSpell) };
+                    _logs[path] = state = new LogState { Character = character, Start = start, Offset = -1 };
+                }
+                else if (state.Start != start)
+                {
+                    state.Start = start; // a new day: the oldest day goes, the rest is kept
+                    foreach (DateTime old in state.Days.Keys.Where(d => d < start).ToList())
+                    {
+                        state.Days.Remove(old);
+                    }
                 }
 
-                Read(path, state, today, cancellation);
+                Read(path, state, cancellation);
             }
 
             foreach (string gone in _logs.Keys.Where(k => !listed.Contains(k)).ToList())
@@ -364,14 +381,14 @@ public sealed class DayScanner
         }
     }
 
-    private static void Read(string path, LogState state, DateTime today, CancellationToken cancellation)
+    private void Read(string path, LogState state, CancellationToken cancellation)
     {
         try
         {
             using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
             if (state.Offset < 0)
             {
-                state.Offset = LogSeek.FindOffset(stream, today);
+                state.Offset = LogSeek.FindOffset(stream, state.Start);
             }
 
             if (stream.Length < state.Offset)
@@ -386,6 +403,8 @@ public sealed class DayScanner
             long lineStart = state.Offset;
             int c;
             int count = 0;
+            DayAccumulator? acc = null;
+            DateTime accDay = default;
             while ((c = reader.Read()) >= 0)
             {
                 consumed++; // Latin-1: one byte per character
@@ -403,12 +422,21 @@ public sealed class DayScanner
                 string line = sb.ToString().TrimEnd('\r');
                 sb.Clear();
                 lineStart = consumed;
-                if (line.Length <= LogLineFormat.MessageOffset || !LogLineFormat.TryParseTimestamp(line, out DateTime stamp) || stamp < today)
+                if (line.Length <= LogLineFormat.MessageOffset || !LogLineFormat.TryParseTimestamp(line, out DateTime stamp) || stamp < state.Start)
                 {
                     continue;
                 }
 
-                state.Acc.Line(line[LogLineFormat.MessageOffset..], stamp);
+                if (acc is null || stamp.Date != accDay)
+                {
+                    accDay = stamp.Date;
+                    if (!state.Days.TryGetValue(accDay, out acc))
+                    {
+                        state.Days[accDay] = acc = new DayAccumulator(state.Character, _findSpell);
+                    }
+                }
+
+                acc.Line(line[LogLineFormat.MessageOffset..], stamp);
             }
 
             state.Offset = lineStart; // a line still being written is read next time
@@ -419,12 +447,17 @@ public sealed class DayScanner
         }
     }
 
+    private static bool Played(SessionSummary s) => s.PlayedSeconds > 0 || s.Kills > 0 || s.Copper > 0 || s.SkillUps > 0 || s.XpPercent > 0;
+
+    private IEnumerable<DayAccumulator> Today() =>
+        _logs.Values.Select(s => s.Days.GetValueOrDefault(_today)).OfType<DayAccumulator>();
+
     public IReadOnlyList<SessionSummary> Sessions(DateTime nowLocal)
     {
         lock (_gate)
         {
-            return _logs.Values.Select(s => s.Acc.Summary(nowLocal))
-                .Where(s => s.PlayedSeconds > 0 || s.Kills > 0 || s.Copper > 0 || s.SkillUps > 0 || s.XpPercent > 0)
+            return Today().Select(a => a.Summary(nowLocal))
+                .Where(Played)
                 .GroupBy(s => s.Character, StringComparer.OrdinalIgnoreCase)
                 .Select(g => g.OrderByDescending(s => s.PlayedSeconds).First())
                 .OrderByDescending(s => s.PlayedSeconds)
@@ -432,11 +465,59 @@ public sealed class DayScanner
         }
     }
 
+    /// <summary>Each character's numbers for each of the last seven days they played, newest day first.</summary>
+    public IReadOnlyList<(DateTime Day, SessionSummary Summary)> Week(DateTime nowLocal)
+    {
+        lock (_gate)
+        {
+            return _logs.Values
+                .SelectMany(s => s.Days.Select(d => (Day: d.Key, Summary: d.Value.Summary(d.Key == nowLocal.Date ? nowLocal : d.Key.AddDays(1)))))
+                .Where(d => Played(d.Summary))
+                .GroupBy(d => (d.Day, d.Summary.Character.ToUpperInvariant()))
+                .Select(g => g.OrderByDescending(d => d.Summary.PlayedSeconds).First())
+                .OrderByDescending(d => d.Day).ThenByDescending(d => d.Summary.PlayedSeconds)
+                .ToList();
+        }
+    }
+
+    /// <summary>
+    /// Experience per zone over the last seven days, all characters together: the XP % gained, how many gains, and the hours played there
+    /// (character-hours), for zones that gave experience. Best XP per hour first.
+    /// </summary>
+    public IReadOnlyList<(string Zone, double Xp, int Gains, double Hours)> ZoneXp(DateTime nowLocal)
+    {
+        var totals = new Dictionary<string, (double Xp, int Gains, double Seconds)>(StringComparer.OrdinalIgnoreCase);
+        foreach ((DateTime _, SessionSummary s) in Week(nowLocal))
+        {
+            foreach (ZoneStretch z in s.Zones.Where(z => z.Zone.Length > 0))
+            {
+                (double x, int g, double sec) = totals.GetValueOrDefault(z.Zone);
+                totals[z.Zone] = (x, g, sec + z.Seconds);
+            }
+
+            foreach ((string zone, (double xp, int gains)) in s.ZoneXp ?? new Dictionary<string, (double, int)>())
+            {
+                if (zone.Length == 0)
+                {
+                    continue;
+                }
+
+                (double x, int g, double sec) = totals.GetValueOrDefault(zone);
+                totals[zone] = (x + xp, g + gains, sec);
+            }
+        }
+
+        return totals.Where(t => t.Value.Xp > 0 && t.Value.Seconds >= 60)
+            .Select(t => (t.Key, t.Value.Xp, t.Value.Gains, t.Value.Seconds / 3600))
+            .OrderByDescending(t => t.Item2 / t.Item4)
+            .ToList();
+    }
+
     public IReadOnlyList<SpellDayRow> Spells()
     {
         lock (_gate)
         {
-            return _logs.Values.SelectMany(s => s.Acc.Spells()).ToList();
+            return Today().SelectMany(a => a.Spells()).ToList();
         }
     }
 
@@ -444,7 +525,19 @@ public sealed class DayScanner
     {
         lock (_gate)
         {
-            return _logs.Values.SelectMany(s => s.Acc.Resists()).ToList();
+            return Today().SelectMany(a => a.Resists()).ToList();
+        }
+    }
+
+    /// <summary>Landed and resisted per spell and mob over the last seven days, all characters together (character left empty).</summary>
+    public IReadOnlyList<ResistDayRow> WeekResists()
+    {
+        lock (_gate)
+        {
+            return _logs.Values.SelectMany(s => s.Days.Values).SelectMany(a => a.Resists())
+                .GroupBy(r => (r.Spell.ToUpperInvariant(), r.Mob.ToUpperInvariant()))
+                .Select(g => new ResistDayRow(string.Empty, g.First().Spell, g.First().Mob, g.Sum(r => r.Landed), g.Sum(r => r.Resisted)))
+                .ToList();
         }
     }
 }

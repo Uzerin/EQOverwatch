@@ -21,12 +21,14 @@ public sealed record AchievementRowView(string Category, string Achievement, str
 /// <summary>A skill on the Skills tab: its value, the most it can be for the class and level, and today's skill-ups.</summary>
 public sealed record SkillRowView(string Skill, int Value, string Max, string Today, string LastUp, bool IsMaxed);
 
-public sealed record TradeskillRowView(string Recipe, int Combines, int Made, int Failed, string Success, string Last);
+/// <param name="SkillUps">Skill-ups from this recipe; <paramref name="PerSkillUp"/> is combines per skill-up ("4.5"), or a dash.</param>
+public sealed record TradeskillRowView(string Recipe, int Combines, int Made, int Failed, string Success, string Last, int SkillUps = 0, string PerSkillUp = "—");
 
 /// <summary>A character flag on the Flags tab: the log's words and when it came.</summary>
 public sealed record FlagRowView(string Flag, string Received);
 
-public sealed record FactionRowView(string Faction, string Session, string AllTime, string Hits, string UsualHit, string ComesFrom, string Status);
+/// <param name="Standing">From the persona's faction file plus the log's changes since it, e.g. "1,250 (Ally)"; empty without a file.</param>
+public sealed record FactionRowView(string Faction, string Session, string AllTime, string Hits, string UsualHit, string ComesFrom, string Status, string Standing = "");
 
 /// <summary>One entry of the Persona drop-down: the class name ("Cleric", empty when not known) and what the drop-down shows.</summary>
 public sealed record PersonaChoice(string Persona, string Label, bool IsCurrent);
@@ -255,6 +257,13 @@ public sealed partial class CharacterDataViewModel : ObservableObject
     public void Refresh()
     {
         _store.ScanAll(_eqFolder()); // this character's files, and the other characters' (their scrolls are listed too)
+        LoadPersonas();
+        Rebuild();
+    }
+
+    /// <summary>Shows what is stored now, without reading the game folder (a file was just read for this character).</summary>
+    public void Reload()
+    {
         LoadPersonas();
         Rebuild();
     }

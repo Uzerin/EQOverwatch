@@ -14,7 +14,8 @@ namespace EQOverwatch.Core.Experience;
 /// <param name="NextLevelIn">Time to the next level at this session's rate, or null when it cannot be worked out.</param>
 public sealed record ExperienceRow(
     string Character, int Level, double XpPercent, double XpPerHour, double? ProgressPercent, TimeSpan? NextLevelIn,
-    int AaGained, double AaPerHour, int Kills, int PartyKills, int RaidKills, int SoloKills, int LevelsGained, DateTime LastGainUtc);
+    int AaGained, double AaPerHour, int Kills, int PartyKills, int RaidKills, int SoloKills, int LevelsGained, DateTime LastGainUtc,
+    TimeSpan? NextAaIn = null);
 
 /// <summary>
 /// Adds up the experience lines of every character's live log since the app opened (or since <see cref="Reset"/>):
@@ -29,6 +30,7 @@ public sealed partial class ExperienceTracker : ITriggerLineSink
         public double Xp;
         public double? Progress;
         public int Aa;
+        public DateTime LastAaUtc;
         public int Kills;
         public int Party;
         public int Raid;
@@ -140,6 +142,7 @@ public sealed partial class ExperienceTracker : ITriggerLineSink
             Update(characterName, s =>
             {
                 s.Aa++;
+                s.LastAaUtc = receivedUtc;
                 return true;
             }, receivedUtc);
             return;
@@ -253,8 +256,12 @@ public sealed partial class ExperienceTracker : ITriggerLineSink
                         ? TimeSpan.FromHours(Math.Max(0, 100 - progress) / perHour)
                         : null;
                     int level = s.Level > 0 ? s.Level : levelOnServer?.Invoke(p.Key, _servers.GetValueOrDefault(p.Key, string.Empty)) ?? 0;
+                    // The next AA point: the session's time per point, counted from the last one.
+                    TimeSpan? nextAa = s.Aa > 0 && s.LastAaUtc != default
+                        ? TimeSpan.FromHours(Math.Max(0, 1.0 / (s.Aa / hours) - (nowUtc - s.LastAaUtc).TotalHours))
+                        : null;
                     return new ExperienceRow(
-                        p.Key, level, s.Xp, perHour, s.Progress, next, s.Aa, s.Aa / hours, s.Kills, s.Party, s.Raid, s.Solo, s.Levels, s.LastGainUtc);
+                        p.Key, level, s.Xp, perHour, s.Progress, next, s.Aa, s.Aa / hours, s.Kills, s.Party, s.Raid, s.Solo, s.Levels, s.LastGainUtc, nextAa);
                 })
                 .ToList();
         }

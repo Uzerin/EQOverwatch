@@ -88,6 +88,10 @@ public sealed partial class WatchedLogConfig : ObservableObject
     [ObservableProperty]
     private string _dataText = "No data yet";
 
+    /// <summary>The character's total time played from the last /played ("13d 22h 59m"), or a dash.</summary>
+    [ObservableProperty]
+    private string _playedText = "—";
+
     public string LevelText => Level > 0 ? Level.ToString(CultureInfo.InvariantCulture) : "—";
 
     public string ClassText => ClassName.Length > 0 ? ClassName : "—";

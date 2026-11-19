@@ -39,7 +39,7 @@ public sealed record LootMoneyRow(string Name, string Detail, int Splits, string
 
 public sealed record AttendanceRaidRow(RaidAttendance Record, string When, string Server, int Members);
 
-public sealed record RosterDisplayRow(int Group, string Name, int Level, string Class, string Role);
+public sealed record RosterDisplayRow(int Group, string Name, int Level, string Class, string Role, string Rank = "");
 
 public sealed record AttendanceTotalRow(string Name, string Class, int Present, int Raids, double Percent, string LastSeen);
 
@@ -684,14 +684,16 @@ public sealed partial class MainViewModel
             : SelectedAttendanceRaid.Record.Members
                 .OrderBy(m => m.Group == 0 ? int.MaxValue : m.Group)
                 .ThenBy(m => m.Name, StringComparer.OrdinalIgnoreCase)
-                .Select(m => new RosterDisplayRow(m.Group, m.Name, m.Level, m.Class, m.Role))
+                .Select(m => new RosterDisplayRow(m.Group, m.Name, m.Level, m.Class, m.Role, GuildRankOf(SelectedAttendanceRaid.Record.Server, m.Name)))
                 .ToList();
+        RebuildRaidViews(SelectedAttendanceRaid?.Record, RosterRows);
         RebuildIdleFights();
     }
 
     [RelayCommand]
     private void RefreshAttendance()
     {
+        _guilds.Clear(); // a new guild dump may have been written
         int added = _raidRoster.ScanAll(EqFolderPath);
         RebuildAttendance();
         if (string.IsNullOrWhiteSpace(EqFolderPath))

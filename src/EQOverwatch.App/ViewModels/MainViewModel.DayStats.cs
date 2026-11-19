@@ -8,7 +8,10 @@ using EQOverwatch.Core.Session;
 namespace EQOverwatch.App.ViewModels;
 
 /// <summary>One character's row on the Session tab.</summary>
-public sealed record SessionRowView(string Character, string Played, string Xp, string Platinum, int Kills, int SkillUps, IReadOnlyList<ZoneStretch> Zones);
+public sealed record SessionRowView(string Character, string Played, string Xp, string Platinum, int Kills, int SkillUps, IReadOnlyList<ZoneStretch> Zones, string PlatPerHour = "", string Day = "");
+
+/// <summary>A zone on the Experience tab's XP by zone table.</summary>
+public sealed record ZoneXpRowView(string Zone, string XpPerHour, string Xp, string Hours, int Gains);
 
 /// <summary>One zone stretch under the Session tab's timeline.</summary>
 public sealed record ZoneRowView(string Zone, string From, string To, string Length);
@@ -130,7 +133,47 @@ public sealed partial class MainViewModel
 
     partial void OnSpellStatCharacterChanged(string value) => FilterSpellStats();
 
-    private sealed record DayResult(IReadOnlyList<SessionSummary> Sessions, IReadOnlyList<SpellDayRow> Spells, IReadOnlyList<ResistDayRow> Resists);
+    private sealed record DayResult(IReadOnlyList<SessionSummary> Sessions, IReadOnlyList<SpellDayRow> Spells, IReadOnlyList<ResistDayRow> Resists,
+        IReadOnlyList<(DateTime Day, SessionSummary Summary)> Week, IReadOnlyList<(string Zone, double Xp, int Gains, double Hours)> ZoneXp,
+        IReadOnlyList<ResistDayRow> WeekResists);
+
+    /// <summary>Your spells' landed and resisted per mob over the last seven days, for the mob card.</summary>
+    private IReadOnlyList<ResistDayRow> _weekResists = Array.Empty<ResistDayRow>();
+
+    /// <summary>A spell needs this many casts on a mob before the mob card shows its resist rate.</summary>
+    public const int MobCardMinCasts = 5;
+
+    /// <summary>The Experience tab's XP by zone over the last seven days.</summary>
+    [ObservableProperty]
+    private IReadOnlyList<ZoneXpRowView> _zoneXpRows = Array.Empty<ZoneXpRowView>();
+
+    public void ShowZoneXp(IReadOnlyList<(string Zone, double Xp, int Gains, double Hours)> zones)
+    {
+        CultureInfo culture = CultureInfo.CurrentCulture;
+        ZoneXpRows = zones
+            .Select(z => new ZoneXpRowView(z.Zone, (z.Xp / z.Hours).ToString("0.0", culture) + "%", z.Xp.ToString("0.0", culture) + "%",
+                z.Hours.ToString("0.0", culture), z.Gains))
+            .ToList();
+    }
+
+    public IReadOnlyList<string> SessionViews { get; } = new[] { "Today", "Last 7 days" };
+
+    /// <summary>0: today; 1: the last seven days.</summary>
+    [ObservableProperty]
+    private int _sessionViewIndex;
+
+    public bool SessionWeek => SessionViewIndex == 1;
+
+    [ObservableProperty]
+    private IReadOnlyList<SessionRowView> _sessionWeekRows = Array.Empty<SessionRowView>();
+
+    public bool ShowSessionToday => !SessionWeek;
+
+    partial void OnSessionViewIndexChanged(int value)
+    {
+        OnPropertyChanged(nameof(SessionWeek));
+        OnPropertyChanged(nameof(ShowSessionToday));
+    }
 
     private DayResult? _dayResult;
 
@@ -139,7 +182,9 @@ public sealed partial class MainViewModel
         CheckQuietLogs(nowUtc);
         if (Interlocked.Exchange(ref _dayResult, null) is { } result)
         {
-            ShowDayStats(result.Sessions, result.Spells, result.Resists);
+            ShowDayStats(result.Sessions, result.Spells, result.Resists, result.Week);
+            ShowZoneXp(result.ZoneXp);
+            _weekResists = result.WeekResists;
         }
 
         if (nowUtc - _lastDayScan < DayScanEvery || Logs.Count == 0 || Interlocked.CompareExchange(ref _dayScanRunning, 1, 0) != 0)
@@ -157,7 +202,7 @@ public sealed partial class MainViewModel
             try
             {
                 scanner.Update(logs, nowLocal);
-                Interlocked.Exchange(ref _dayResult, new DayResult(scanner.Sessions(nowLocal), scanner.Spells(), scanner.Resists())); // shown on the next tick
+                Interlocked.Exchange(ref _dayResult, new DayResult(scanner.Sessions(nowLocal), scanner.Spells(), scanner.Resists(), scanner.Week(nowLocal), scanner.ZoneXp(nowLocal), scanner.WeekResists())); // shown on the next tick
             }
             catch (Exception)
             {
@@ -171,19 +216,24 @@ public sealed partial class MainViewModel
     }
 
     /// <summary>Puts today's numbers on the Session and Spell Stats tabs (UI thread).</summary>
-    public void ShowDayStats(IReadOnlyList<SessionSummary> sessions, IReadOnlyList<SpellDayRow> spells, IReadOnlyList<ResistDayRow> resists)
+    public void ShowDayStats(IReadOnlyList<SessionSummary> sessions, IReadOnlyList<SpellDayRow> spells, IReadOnlyList<ResistDayRow> resists,
+        IReadOnlyList<(DateTime Day, SessionSummary Summary)>? week = null)
     {
         CultureInfo culture = CultureInfo.CurrentCulture;
         string? selected = SelectedSessionRow?.Character;
-        SessionRows = sessions
-            .Select(s => new SessionRowView(
-                s.Character,
-                FormatPlayed(s.PlayedSeconds),
-                s.XpPercent.ToString("0.0", culture) + "%",
-                s.Platinum.ToString("N0", culture),
-                s.Kills,
-                s.SkillUps,
-                s.Zones))
+        SessionRowView Row(SessionSummary s, string day) => new(
+            s.Character,
+            FormatPlayed(s.PlayedSeconds),
+            s.XpPercent.ToString("0.0", culture) + "%",
+            s.Platinum.ToString("N0", culture),
+            s.Kills,
+            s.SkillUps,
+            s.Zones,
+            PlatPerHour(s.Platinum, s.PlayedSeconds, culture),
+            day);
+        SessionRows = sessions.Select(s => Row(s, string.Empty)).ToList();
+        SessionWeekRows = (week ?? Array.Empty<(DateTime, SessionSummary)>())
+            .Select(w => Row(w.Summary, w.Day.ToString("ddd MMM d", culture)))
             .ToList();
         SelectedSessionRow = SessionRows.FirstOrDefault(r => r.Character.Equals(selected, StringComparison.OrdinalIgnoreCase)) ?? SessionRows.FirstOrDefault();
         SessionStatus = SessionRows.Count == 0
@@ -234,6 +284,10 @@ public sealed partial class MainViewModel
                 FormatPlayed(z.Seconds)))
             .ToList();
     }
+
+    /// <summary>Platinum per hour played, or empty with under five minutes played.</summary>
+    public static string PlatPerHour(double platinum, double playedSeconds, CultureInfo culture) =>
+        playedSeconds < 300 ? string.Empty : (platinum / (playedSeconds / 3600)).ToString("N0", culture);
 
     internal static string FormatPlayed(double seconds)
     {

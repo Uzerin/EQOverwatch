@@ -4,6 +4,7 @@ using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using EQOverwatch.App.Presentation;
+using EQOverwatch.Core.Characters;
 using EQOverwatch.Core.Models;
 using EQOverwatch.Core.Parsing;
 using EQOverwatch.Core.Progress;
@@ -260,11 +261,43 @@ public sealed partial class MainViewModel
     private IReadOnlyList<TradeskillRowView> TradeskillRowsFor(string character, string server) =>
         _pipeline.Progress.Tradeskills(character, server)
             .Select(t => new TradeskillRowView(t.Recipe, t.Combines, t.Made, t.Failed,
-                t.SuccessPercent.ToString("0", CultureInfo.CurrentCulture) + "%", DescribeWhen(t.LastUtc)))
+                t.SuccessPercent.ToString("0", CultureInfo.CurrentCulture) + "%", DescribeWhen(t.LastUtc),
+                t.SkillUps, t.SkillUps == 0 ? "—" : ((double)t.Combines / t.SkillUps).ToString("0.0", CultureInfo.CurrentCulture)))
             .ToList();
 
-    private IReadOnlyList<FactionRowView> FactionRowsFor(string character, string server, string persona) =>
-        _pipeline.Progress.Factions(character, server, persona)
+    private IReadOnlyList<FactionRowView> FactionRowsFor(string character, string server, string persona)
+    {
+        // The persona's faction file gives the standing when it was written; the log's hits since then move it on.
+        string code = EQOverwatch.Core.Roster.EqClass.Abbreviate(persona);
+        CharacterData? data = _characterData.Find(character, server);
+        FactionFileData? file = data?.Factions is { } files
+            ? (code.Length > 0 && files.TryGetValue(code, out FactionFileData? mine) ? mine : files.Count == 1 ? files.Values.First() : null)
+            : null;
+        var standings = new Dictionary<string, (FactionStanding Row, long Change, int Limit)>(StringComparer.OrdinalIgnoreCase);
+        if (file is not null)
+        {
+            IReadOnlyDictionary<string, (long Change, int Limit)> changes = _pipeline.Progress.FactionChangesSince(character, server, persona, file.CapturedUtc);
+            foreach (FactionStanding row in file.Rows)
+            {
+                (long change, int limit) = changes.TryGetValue(row.Name, out (long, int) c) ? c : (0, 0);
+                standings[row.Name] = (row, change, limit);
+            }
+        }
+
+        string Standing(string faction)
+        {
+            if (!standings.TryGetValue(faction, out (FactionStanding Row, long Change, int Limit) s))
+            {
+                return string.Empty;
+            }
+
+            long max = s.Row.Value + (long)s.Row.PointsToMax;
+            long value = s.Limit > 0 ? max : Math.Min(max, s.Row.Value + s.Change);
+            return $"{value.ToString("N0", CultureInfo.CurrentCulture)} ({CharacterOutputParser.StandingName(value)})";
+        }
+
+        IReadOnlyList<FactionProgress> logged = _pipeline.Progress.Factions(character, server, persona);
+        var rows = logged
             .Select(f => new FactionRowView(
                 f.Faction,
                 f.Session == 0 ? string.Empty : Signed(f.Session),
@@ -272,8 +305,17 @@ public sealed partial class MainViewModel
                 f.Hits.ToString("N0", CultureInfo.CurrentCulture),
                 f.UsualHit == 0 ? string.Empty : Signed(f.UsualHit),
                 f.ComesFrom,
-                f.Limit > 0 ? "Can't get better" : f.Limit < 0 ? "Can't get worse" : string.Empty))
+                f.Limit > 0 ? "Can't get better" : f.Limit < 0 ? "Can't get worse" : string.Empty,
+                Standing(f.Faction)))
             .ToList();
+
+        // Factions the log never mentioned are listed from the file when they are not at 0.
+        var seen = new HashSet<string>(logged.Select(f => f.Faction), StringComparer.OrdinalIgnoreCase);
+        rows.AddRange(standings.Values
+            .Where(s => s.Row.Value != 0 && !seen.Contains(s.Row.Name))
+            .Select(s => new FactionRowView(s.Row.Name, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, Standing(s.Row.Name))));
+        return rows.OrderBy(r => r.Faction, StringComparer.OrdinalIgnoreCase).ToList();
+    }
 
     private CharacterProgressSource ProgressSourceFor(string character, string server) => new(
         persona => SkillRowsFor(character, server, persona),

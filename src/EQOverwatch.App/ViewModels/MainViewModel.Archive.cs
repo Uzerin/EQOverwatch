@@ -64,6 +64,7 @@ public sealed partial class MainViewModel
                 // Live and caught-up fights come from every log combined; each is filed under its own server.
                 _bossLiveVersion = live.Version;
                 _bossHistory.Record(live.Completed);
+                _pipeline.BossAbilities.Learn(live.Completed);
                 PostFinishedFightsToDiscord(live);
             }
 
@@ -71,6 +72,7 @@ public sealed partial class MainViewModel
             {
                 _bossHistoricalVersion = imported.Version;
                 _bossHistory.Record(imported.Completed, _historicalCharacter, _historicalServer);
+                _pipeline.BossAbilities.Learn(imported.Completed);
             }
         }
 

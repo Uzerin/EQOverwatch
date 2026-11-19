@@ -40,9 +40,12 @@ public sealed partial class MainViewModel
     internal CharacterDataViewModel CreateCharacterWindow(WatchedLogConfig log, int tab)
     {
         string name = log.CharacterName, server = log.ServerName;
-        return new CharacterDataViewModel(
+        var vm = new CharacterDataViewModel(
             _characterData, () => EqFolderPath, name, server, () => _pipeline.Roster.GetClass(name, server), tab,
             CreateFocusViewModel(name, server), ProgressSourceFor(name, server), () => ForgetCharacterData(log));
+        _openProfiles.RemoveAll(r => !r.TryGetTarget(out _));
+        _openProfiles.Add(new WeakReference<CharacterDataViewModel>(vm));
+        return vm;
     }
 
     [RelayCommand]

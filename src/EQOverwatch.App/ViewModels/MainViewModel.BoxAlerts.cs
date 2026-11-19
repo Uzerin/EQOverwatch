@@ -160,6 +160,17 @@ public partial class MainViewModel
         }
     }
 
+    /// <summary>"Lure of Ice 25% of 8 · Tashania 10% of 10": your spells cast at least <see cref="MobCardMinCasts"/> times on the mob this week.</summary>
+    internal string YourSpellResists(string mob)
+    {
+        CultureInfo culture = CultureInfo.CurrentCulture;
+        return string.Join(" · ", _weekResists
+            .Where(r => r.Mob.Equals(mob, StringComparison.OrdinalIgnoreCase) && r.Landed + r.Resisted >= MobCardMinCasts)
+            .OrderByDescending(r => r.Landed + r.Resisted)
+            .Take(4)
+            .Select(r => $"{r.Spell} {r.ResistPercent.ToString("0", culture)}% of {(r.Landed + r.Resisted).ToString(culture)}"));
+    }
+
     /// <summary>
     /// The mob card for <paramref name="mob"/>: its fights on <paramref name="server"/> (kills, attempts, times, best DPS), the raid's
     /// resist rates and its drops. Null when the app has none of these for the mob.
@@ -196,6 +207,11 @@ public partial class MainViewModel
         if (resists.Length > 0)
         {
             lines.Add("Resisted: " + string.Join(" · ", resists));
+        }
+
+        if (YourSpellResists(mob) is { Length: > 0 } yours)
+        {
+            lines.Add("Your spells: " + yours);
         }
 
         if (!string.IsNullOrEmpty(server)

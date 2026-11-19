@@ -236,6 +236,9 @@ public sealed class AppSettings
     /// <summary>Speak when a character's log has been quiet for 2 minutes during a fight.</summary>
     public bool QuietLogAlert { get; set; } = true;
 
+    /// <summary>Counts down to boss abilities learned from past kills.</summary>
+    public bool LearnedBossTimers { get; set; } = true;
+
     /// <summary>Where the mob card overlay goes; it shows when you /con a mob the app knows something about.</summary>
     public OverlaySettings MobCardOverlay { get; set; } = OverlaySettings.DefaultMobCard;
 

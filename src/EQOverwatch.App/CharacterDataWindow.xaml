@@ -300,6 +300,8 @@
                             <DataGridTextColumn Header="Made" Binding="{Binding Made, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                             <DataGridTextColumn Header="Failed" Binding="{Binding Failed, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                             <DataGridTextColumn Header="Success" Binding="{Binding Success, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                            <DataGridTextColumn Header="Skill-ups" Binding="{Binding SkillUps, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                            <DataGridTextColumn Header="Combines per skill-up" Binding="{Binding PerSkillUp, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                             <DataGridTextColumn Header="Last" Binding="{Binding Last, Mode=OneWay}" Width="Auto"/>
                         </DataGrid.Columns>
                     </DataGrid>
@@ -309,11 +311,12 @@
             <TabItem Header="Faction">
                 <DockPanel Margin="0,6,0,0">
                     <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource HintText}" Margin="0,6,0,0"
-                               Text="From the &quot;Your faction standing with&quot; lines in this character's log. This session counts since the app opened. Comes from is the mob whose kills change it most."/>
+                               Text="Standing is from /outputfile faction, moved on by the log since. The other columns are from the &quot;Your faction standing with&quot; lines in this character's log. This session counts since the app opened. Comes from is the mob whose kills change it most."/>
                     <DataGrid HorizontalAlignment="Left" ItemsSource="{Binding FactionRows}" AutoGenerateColumns="False" CanUserAddRows="False"
                               CanUserDeleteRows="False" IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Faction" Binding="{Binding Faction, Mode=OneWay}" Width="Auto"/>
+                            <DataGridTextColumn Header="Standing" Binding="{Binding Standing, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                             <DataGridTextColumn Header="This session" Binding="{Binding Session, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                             <DataGridTextColumn Header="All time" Binding="{Binding AllTime, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                             <DataGridTextColumn Header="Hits" Binding="{Binding Hits, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>

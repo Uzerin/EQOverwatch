@@ -63,6 +63,13 @@ settings are kept.
 
 ## Changelog
 
+### 1.0.70
+
+- Output files are read as soon as EQ writes them.
+- Faction standings, guild ranks, raid groups and total played time.
+- Session week view, plat per hour, next AA timer and XP by zone.
+- Recipe skill-ups, your resist rates on the Mob Card, and learned boss timers.
+
 ### 1.0.69
 
 - Special keys on the Key Ring tab.

@@ -1496,6 +1496,7 @@ public sealed partial class MainViewModel : ObservableObject
             FeignDeathAlert = settings.FeignDeathAlert;
             RootMezAlert = settings.RootMezAlert;
             QuietLogAlert = settings.QuietLogAlert;
+            LearnedBossTimers = settings.LearnedBossTimers;
             // The Tells and mob card overlays are newer than most saved settings, so they follow the others' lock rather than deciding it.
             AreOverlaysLocked = OverlayKindExtensions.All.Where(kind => !FollowsLock(kind)).All(kind => GetOverlaySettings(settings, kind).IsLocked);
             foreach (OverlayKind follower in OverlayKindExtensions.All.Where(FollowsLock))
@@ -1575,6 +1576,7 @@ public sealed partial class MainViewModel : ObservableObject
         FeignDeathAlert = FeignDeathAlert,
         RootMezAlert = RootMezAlert,
         QuietLogAlert = QuietLogAlert,
+        LearnedBossTimers = LearnedBossTimers,
         TellKeepDays = TellKeepDays,
         RaidBossTimers = RaidRules.Select(r => r.ToRule()).ToList(),
         Theme = _theme.Clone(),

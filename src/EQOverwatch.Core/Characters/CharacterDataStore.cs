@@ -32,6 +32,9 @@ public sealed class CharacterData
     public DateTime? AchievementsUtc { get; set; }
     public List<AchievementEntry> Achievements { get; set; } = new();
 
+    /// <summary>Faction files per persona class code ("WAR").</summary>
+    public Dictionary<string, FactionFileData> Factions { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>
     /// Each class persona's own spellbook and missing spells, by class code ("CLR", "BRD"): the file names carry it. The lists above
     /// are the newest of any persona.
@@ -68,13 +71,14 @@ public sealed class CharacterData
 
     /// <summary>The newest capture time of any part, or null when nothing has been read.</summary>
     [JsonIgnore]
-    public DateTime? NewestUtc => new[] { InventoryUtc, SpellbookUtc, MissingUtc, AchievementsUtc }.Max();
+    public DateTime? NewestUtc => new[] { InventoryUtc, SpellbookUtc, MissingUtc, AchievementsUtc, Factions?.Values.Max(f => (DateTime?)f.CapturedUtc) }.Max();
 
     public bool Has(OutputFileKind kind) => kind switch
     {
         OutputFileKind.Inventory => InventoryUtc is not null,
         OutputFileKind.Spellbook => SpellbookUtc is not null,
         OutputFileKind.Achievements => AchievementsUtc is not null,
+        OutputFileKind.Factions => Factions is { Count: > 0 },
         _ => MissingUtc is not null,
     };
 }
@@ -310,6 +314,13 @@ public sealed class CharacterDataStore
                     dropped++;
                 }
 
+                if (data.Factions is { Count: > 0 } && !present.Contains(PresenceKey(data.Name, data.Server, OutputFileKind.Factions)))
+                {
+                    data.Factions.Clear();
+                    changed = true;
+                    dropped++;
+                }
+
                 if (data.AchievementsUtc is not null && !present.Contains(PresenceKey(data.Name, data.Server, OutputFileKind.Achievements)))
                 {
                     data.Achievements = new List<AchievementEntry>();
@@ -480,6 +491,20 @@ public sealed class CharacterDataStore
                     }
 
                     break;
+
+                case OutputFileKind.Factions:
+                {
+                    data.Factions ??= new Dictionary<string, FactionFileData>(StringComparer.OrdinalIgnoreCase);
+                    string persona = info.ClassCode;
+                    if (data.Factions.TryGetValue(persona, out FactionFileData? haveFactions) && haveFactions.CapturedUtc >= stamp)
+                    {
+                        break;
+                    }
+
+                    data.Factions[persona] = new FactionFileData { CapturedUtc = stamp, Rows = CharacterOutputParser.ParseFactions(lines) };
+                    changed = true;
+                    break;
+                }
 
                 case OutputFileKind.Achievements:
                     if (data.AchievementsUtc is { } haveAchievements && haveAchievements >= stamp)

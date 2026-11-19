@@ -126,6 +126,7 @@ public partial class CompanionApp : Application
         _pipeline.TimerPause.SetStoragePath(Path.Combine(appData, "bufftimers.json")); // puts back the buff and debuff bars of the last run
         var bossHistory = new EQOverwatch.Core.History.BossHistoryStore();
         bossHistory.SetStoragePath(Path.Combine(appData, "bosshistory.json"));
+        _pipeline.BossAbilities.SetStoragePath(Path.Combine(appData, "bossabilities.json"));
         var mobLevels = new EQOverwatch.Core.History.MobLevelStore();
         mobLevels.SetStoragePath(Path.Combine(appData, "moblevels.json"));
         _http = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };

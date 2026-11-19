@@ -51,6 +51,8 @@ public sealed class CompanionPipeline : IAsyncDisposable
         Songs = new SongTrackerService(Spells, Triggers);
         Charm = new CharmWatchService(Spells, Triggers);
         SpellAlerts = new SpellAlertService(Spells, Triggers);
+        OutputFiles = new OutputFileWatch();
+        BossAbilities = new History.BossAbilityLearner();
         Experience = new ExperienceTracker(DateTime.UtcNow);
         MobExperience = new MobExperienceStore();
         Zones = new ZoneTracker();
@@ -67,7 +69,7 @@ public sealed class CompanionPipeline : IAsyncDisposable
 
         // Every sink sees every line of every trigger-enabled log. Historical imports use none of them.
         var triggerSinks = new CompositeTriggerSink(
-            new ITriggerLineSink[] { Triggers, Buffs, Songs, Charm, SpellAlerts, TimerPause, RaidBosses, ChChain, Cooldowns, Abilities, SharedTriggers, Roster, Loot, Tells, Experience, MobExperience, Resists, Zones, Drops, Progress, TellInbox }, RaiseError);
+            new ITriggerLineSink[] { Triggers, Buffs, Songs, Charm, SpellAlerts, TimerPause, RaidBosses, ChChain, Cooldowns, Abilities, SharedTriggers, Roster, Loot, Tells, Experience, MobExperience, Resists, Zones, Drops, Progress, TellInbox, OutputFiles }, RaiseError);
         Activity = new CharacterActivityService();
         Songs.SetOwnCharacterProbe(IsMonitoredCharacter);
         Songs.SetActivityProbe(Activity.IsActive);
@@ -124,6 +126,12 @@ public sealed class CompanionPipeline : IAsyncDisposable
 
     /// <summary>Spoken alerts: a buff that did not take hold, a resist streak, a failed feign death, root or mez breaking.</summary>
     public SpellAlertService SpellAlerts { get; }
+
+    /// <summary>Files EverQuest just wrote (/outputfile, /output achievements, raid and guild dumps), read on the next tick.</summary>
+    public OutputFileWatch OutputFiles { get; }
+
+    /// <summary>Boss ability timing learned from killed fights, for the learned boss timers.</summary>
+    public History.BossAbilityLearner BossAbilities { get; }
 
     /// <summary>Experience, levels and AA points gained this session.</summary>
     public ExperienceTracker Experience { get; }

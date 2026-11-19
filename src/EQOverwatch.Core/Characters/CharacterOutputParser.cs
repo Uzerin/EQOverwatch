@@ -11,6 +11,17 @@ public enum OutputFileKind
     Spellbook,
     MissingSpells,
     Achievements,
+    Factions,
+}
+
+/// <summary>One row of a faction file: the faction's id, name, standing and how far it is from its best.</summary>
+public sealed record FactionStanding(int Id, string Name, int Value, int PointsToMax);
+
+/// <summary>A persona's faction file as read.</summary>
+public sealed class FactionFileData
+{
+    public DateTime CapturedUtc { get; set; }
+    public List<FactionStanding> Rows { get; set; } = new();
 }
 
 /// <summary>What an output file's name says: <c>Reamiiv_frostreaver-CLR-Spellbook</c> is Reamiiv on frostreaver, a cleric, the spellbook.</summary>
@@ -166,11 +177,50 @@ public static class CharacterOutputParser
             case "achievements":
                 kind = OutputFileKind.Achievements;
                 return true;
+            case "factions":
+            case "faction":
+                kind = OutputFileKind.Factions;
+                return true;
             default:
                 kind = default;
                 return false;
         }
     }
+
+    /// <summary>Parses a faction file: a header, then "id, name, standing, points to max" per line.</summary>
+    public static List<FactionStanding> ParseFactions(IEnumerable<string> lines)
+    {
+        ArgumentNullException.ThrowIfNull(lines);
+        var result = new List<FactionStanding>();
+        foreach (string line in lines)
+        {
+            string[] c = line.TrimEnd('\r').Split('\t');
+            if (c.Length >= 4
+                && int.TryParse(c[0].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int id)
+                && int.TryParse(c[2].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int value)
+                && int.TryParse(c[3].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int toMax)
+                && c[1].Trim().Length > 0)
+            {
+                result.Add(new FactionStanding(id, c[1].Trim(), value, toMax));
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>EverQuest's name for a standing: Ally from 1,100, Warmly from 750, ... Scowling below -750.</summary>
+    public static string StandingName(long value) => value switch
+    {
+        >= 1100 => "Ally",
+        >= 750 => "Warmly",
+        >= 500 => "Kindly",
+        >= 100 => "Amiably",
+        >= 0 => "Indifferent",
+        >= -100 => "Apprehensively",
+        >= -500 => "Dubiously",
+        >= -750 => "Threateningly",
+        _ => "Scowling",
+    };
 
     /// <summary>
     /// Parses the file <c>/output achievements</c> writes: a category line ("General: Keys"), then per achievement a status letter, a tab
