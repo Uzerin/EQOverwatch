@@ -63,6 +63,11 @@ settings are kept.
 
 ## Changelog
 
+### 1.0.82
+
+- Windows notifications check for EverQuest in front without extra parts.
+- Settings can be copied from another edition on first start.
+
 ### 1.0.81
 
 - Rolls and linkdead players on the Tells overlay; follow and pet buff alerts.
@@ -81,7 +86,6 @@ settings are kept.
 
 - DPS is parsed from all active logs, and fights against several mobs at once count as one.
 - New Mob Card overlay, boss fight progress on the DPS overlay, and aggro and range alerts.
-- CH Chain auto-press settings moved to Advanced, with a fixed timed interval.
 - New Session, Spell Stats and Achievements tabs, plus Special keys on the Key Ring tab.
 - New alerts for blocked buffs, resists, failed feign death, root and mez breaks, and quiet logs.
 - Pet stats under their owner, rampage targets, and character flags.
@@ -115,11 +119,10 @@ settings are kept.
 - DPS overlay shows the top 5 plus your characters.
 - Discord auto-post when a boss dies.
 - Per-boss trend, Uptime tab, and buff bars that pause in safe zones, follow logouts and survive restarts.
-- Loot search, and auto-click settings.
+- Loot search.
 
 ### 1.0.31 to 1.0.40
 
-- Optional auto-click on your CH turn.
 - Players & Pets tab with search.
 - Tells read aloud.
 - Max Hit leaves out crits; the Discord picture has two halves with deaths.

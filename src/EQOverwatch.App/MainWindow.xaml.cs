@@ -18,30 +18,8 @@ public partial class MainWindow : Window
     private readonly MainViewModel _viewModel;
     private readonly DispatcherTimer _refreshTimer;
     private bool _userTyping;
-    private GlobalHotkey? _hotkey;
 
     private ColorsWindow? _colorsWindow;
-
-    private AutoClickWindow? _autoClickWindow;
-
-    private void OpenAutoClickWindow()
-    {
-        if (_autoClickWindow is null)
-        {
-            _autoClickWindow = new AutoClickWindow(_viewModel) { Owner = this };
-            _autoClickWindow.Closed += (_, _) => _autoClickWindow = null;
-            _autoClickWindow.Show();
-        }
-        else
-        {
-            if (_autoClickWindow.WindowState == WindowState.Minimized)
-            {
-                _autoClickWindow.WindowState = WindowState.Normal;
-            }
-
-            _autoClickWindow.Activate();
-        }
-    }
 
     private void OpenColorsWindow()
     {
@@ -75,7 +53,7 @@ public partial class MainWindow : Window
             () => viewModel.GetWindowPlacement(WindowPlacementSetting.Main),
             placement => viewModel.SetWindowPlacement(WindowPlacementSetting.Main, placement));
         viewModel.ShowColorsRequested += OpenColorsWindow;
-        viewModel.ShowAutoClickRequested += OpenAutoClickWindow;
+        OnEditionCreated();
 
         _refreshTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = RefreshInterval };
         _refreshTimer.Tick += (_, _) => _viewModel.Refresh();
@@ -84,14 +62,7 @@ public partial class MainWindow : Window
         {
             _refreshTimer.Start();
         };
-        SourceInitialized += (_, _) =>
-        {
-            // The hotkey that switches the CH auto-click on and off works from any program.
-            _hotkey = new GlobalHotkey(this, id: 0x4551);
-            _hotkey.Pressed += _viewModel.ToggleAutoClick;
-            _viewModel.AutoClickHotkeyChanged += RegisterAutoClickHotkey;
-            RegisterAutoClickHotkey();
-        };
+        SourceInitialized += (_, _) => OnEditionSourceInitialized();
         Closing += (_, e) =>
         {
             if (!_viewModel.Maps.ConfirmClose())
@@ -101,28 +72,18 @@ public partial class MainWindow : Window
             }
 
             _refreshTimer.Stop();
-            _viewModel.AutoClickHotkeyChanged -= RegisterAutoClickHotkey;
-            _hotkey?.Dispose();
+            OnEditionClosing();
             _viewModel.Shutdown();
         };
     }
 
 
-    private void RegisterAutoClickHotkey()
-    {
-        if (_hotkey is null)
-        {
-            return;
-        }
+    // Hooks an edition fills in with windows and hotkeys of its own (they do nothing in this one).
+    partial void OnEditionCreated();
 
-        bool ok = HotkeyParser.TryParse(_viewModel.AutoClickHotkey, out uint modifiers, out uint key) && _hotkey.Register(modifiers, key);
-        if (!ok)
-        {
-            _hotkey.Unregister();
-        }
+    partial void OnEditionSourceInitialized();
 
-        _viewModel.ReportAutoClickHotkey(ok);
-    }
+    partial void OnEditionClosing();
 
     /// <summary>Lists the characters whose logs can be searched (logs may have been added since the tab was opened).</summary>
     private void LogSearchCharacters_DropDownOpened(object sender, EventArgs e) => _viewModel.RefreshLogSearchCharactersCommand.Execute(null);

@@ -46,7 +46,7 @@ public sealed class AppSettingsServiceTests : IDisposable
     public void Default_path_is_under_local_app_data()
     {
         string expected = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "EQOverwatch", "settings.json");
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), Edition.SettingsFolderName, "settings.json");
         Assert.Equal(expected, AppSettingsService.DefaultPath);
         Assert.Equal(expected, new AppSettingsService().FilePath);
     }

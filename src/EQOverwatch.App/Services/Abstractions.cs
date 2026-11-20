@@ -151,7 +151,7 @@ public interface IClipboardService
 }
 
 /// <summary>The overlay windows as seen by the main view model.</summary>
-public interface IOverlayHost
+public partial interface IOverlayHost
 {
     /// <summary>Raised when an overlay is moved, resized, shown/hidden or locked/unlocked.</summary>
     event EventHandler? PlacementChanged;
@@ -169,11 +169,6 @@ public interface IOverlayHost
 
     /// <summary>Sets how opaque an overlay is (0 to 1) without changing whether it counts as shown.</summary>
     void SetOpacity(OverlayKind kind, double opacity)
-    {
-    }
-
-    /// <summary>Puts the red "auto-click is on" outline round one overlay, or takes it away (null).</summary>
-    void SetArmedOutline(OverlayKind? kind)
     {
     }
 

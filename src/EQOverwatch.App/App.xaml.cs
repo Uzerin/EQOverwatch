@@ -76,6 +76,7 @@ public partial class CompanionApp : Application
 
         // A restore chosen in the last run is applied here, before any setting or data file is read.
         string dataFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), AppInfo.SettingsFolderName);
+        ImportEditionSettings(dataFolder);
         try
         {
             EQOverwatch.Core.Backup.BackupService.ApplyPendingRestore(dataFolder);
@@ -147,8 +148,8 @@ public partial class CompanionApp : Application
             remoteDataDirectory: Path.Combine(appData, "remote"),
             bossHistory: bossHistory,
             mobLevels: mobLevels,
-            clickSender: new EQOverwatch.App.Interop.Win32InputClicker(),
             dataDirectory: appData);
+        OnEditionViewModelCreated(_viewModel);
 
         if (dpsVm is not null)
         {
@@ -189,7 +190,7 @@ public partial class CompanionApp : Application
         _tellToasts = new EQOverwatch.App.Services.TellToastService();
         _viewModel.TellToastRequested += tell =>
         {
-            if (!EQOverwatch.App.Interop.Win32InputClicker.IsGameWindow(EQOverwatch.App.Interop.Win32InputClicker.GetForegroundWindow()))
+            if (!EQOverwatch.App.Interop.GameWindow.IsInFront())
             {
                 _tellToasts.Show($"{tell.From} tells {tell.Character}", tell.Text);
             }
@@ -241,7 +242,7 @@ public partial class CompanionApp : Application
         _viewModel.NoticeRequested += notice => _tellToasts?.Show(notice.Title, notice.Text);
         _viewModel.LiveNoticeRequested += (notice, onlyWhenAway) => Dispatcher.BeginInvoke(() =>
         {
-            if (!onlyWhenAway || !EQOverwatch.App.Interop.Win32InputClicker.IsGameWindow(EQOverwatch.App.Interop.Win32InputClicker.GetForegroundWindow()))
+            if (!onlyWhenAway || !EQOverwatch.App.Interop.GameWindow.IsInFront())
             {
                 _tellToasts?.Show(notice.Title, notice.Text);
             }
@@ -294,6 +295,28 @@ public partial class CompanionApp : Application
     }
 
     /// <summary>True when this copy may start: no other copy from this folder is running (or the one being replaced has closed).</summary>
+    /// <summary>Lets an edition set up its own parts once the view model exists.</summary>
+    partial void OnEditionViewModelCreated(MainViewModel viewModel);
+
+    /// <summary>On an edition's first start, copies the other edition's settings folder so it opens with the same setup.</summary>
+    private static void ImportEditionSettings(string dataFolder)
+    {
+        if (Edition.ImportFolderName is not { } from)
+        {
+            return;
+        }
+
+        try
+        {
+            EQOverwatch.Core.Settings.SettingsFolderImport.CopyIfMissing(
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), from), dataFolder);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Debug.WriteLine($"Settings could not be copied: {ex.Message}");
+        }
+    }
+
     private static bool PassInstanceGate(string[] args)
     {
         string? exe = Environment.ProcessPath;

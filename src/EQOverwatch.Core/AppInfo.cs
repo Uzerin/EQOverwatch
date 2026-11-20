@@ -5,10 +5,10 @@ namespace EQOverwatch.Core;
 /// <summary>Product name and version shown in the title bar, the toolbar badge and the Discord export footer.</summary>
 public static class AppInfo
 {
-    public const string Name = "EQ Overwatch";
+    public const string Name = Edition.Name;
 
     /// <summary>The public GitHub repository releases are published to ("owner/name").</summary>
-    public const string Repository = "Uzerin/EQOverwatch";
+    public const string Repository = Edition.Repository;
 
     public const string RepositoryUrl = "https://github.com/" + Repository;
 
@@ -19,15 +19,15 @@ public static class AppInfo
     public const string DiscordUrl = "https://discord.gg/cDk3xTdkAW";
 
     /// <summary>Folder under <c>%LocalAppData%</c> that holds <c>settings.json</c>.</summary>
-    public const string SettingsFolderName = "EQOverwatch";
+    public const string SettingsFolderName = Edition.SettingsFolderName;
 
     /// <summary>The folder earlier versions (EQ Companion) used; its settings are migrated on first start.</summary>
     public const string LegacySettingsFolderName = "EQCompanion";
 
-    /// <summary>"v1.0.81": the assembly's major.minor.build, read at run time so it can never disagree with the binary.</summary>
+    /// <summary>"v1.0.82": the assembly's major.minor.build, read at run time so it can never disagree with the binary.</summary>
     public static string Version { get; } = FormatVersion(typeof(AppInfo).Assembly);
 
-    /// <summary>"EQ Overwatch v1.0.81".</summary>
+    /// <summary>"EQ Overwatch v1.0.82".</summary>
     public static string Title => $"{Name} {Version}";
 
     /// <summary>"v{major}.{minor}.{build}" for <paramref name="assembly"/>.</summary>

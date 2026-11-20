@@ -8,7 +8,7 @@ public static class StartupRegistration
 {
     public const string MinimizedArgument = "--minimized";
     private const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
-    private const string ValueName = "EQ Overwatch";
+    private const string ValueName = EQOverwatch.Core.AppInfo.Name;
 
     public static void Set(bool on, string? exePath)
     {

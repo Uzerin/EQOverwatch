@@ -46,7 +46,7 @@ public sealed class UpdateCheckerTests
         Assert.Equal("v1.0.12", result.LatestVersion);
         Assert.Equal("https://github.com/Uzerin/EQOverwatch/releases/tag/v1.0.12", result.Url);
         Assert.Equal("New stuff", result.Notes);
-        Assert.Equal("https://api.github.com/repos/Uzerin/EQOverwatch/releases/latest", handler.LastRequest!.RequestUri!.ToString());
+        Assert.Equal($"https://api.github.com/repos/{Edition.Repository}/releases/latest", handler.LastRequest!.RequestUri!.ToString());
         Assert.NotEmpty(handler.LastRequest.Headers.UserAgent); // GitHub rejects requests without one
     }
 

@@ -75,8 +75,7 @@ public sealed partial class MainViewModel : ObservableObject
         string? remoteDataDirectory = null,
         BossHistoryStore? bossHistory = null,
         string? dataDirectory = null,
-        MobLevelStore? mobLevels = null,
-        IClickSender? clickSender = null)
+        MobLevelStore? mobLevels = null)
     {
         _bossHistory = bossHistory ?? new BossHistoryStore();
         _mobLevels = mobLevels ?? new MobLevelStore();
@@ -96,11 +95,6 @@ public sealed partial class MainViewModel : ObservableObject
         _themeService = themeService ?? throw new ArgumentNullException(nameof(themeService));
         _clipboard = clipboard ?? throw new ArgumentNullException(nameof(clipboard));
         _clock = clock ?? (() => DateTime.Now); // log timestamps are in the PC's local time
-        if (clickSender is not null)
-        {
-            _pipeline.AutoClick.Sender = clickSender;
-        }
-
         _pipeline.LiveDps.MobLevelSeen = (mob, level, zone) => _mobLevels.Observe(mob, level, zone); // /consider lines feed the shared level ranges, per zone
         _pipeline.HistoricalDps.MobLevelSeen = (mob, level, zone) => _mobLevels.Observe(mob, level, zone);
         ArgumentNullException.ThrowIfNull(settings);
@@ -110,7 +104,7 @@ public sealed partial class MainViewModel : ObservableObject
         _pipeline.Roster.Changed += OnRosterChanged;
 
         Restore(settings);
-        UpdateArmedOutline();
+        InitializeEdition();
         InitializeBoxAlerts();
         InitializeNotices();
         InitializeReleaseFeatures();
@@ -215,7 +209,7 @@ public sealed partial class MainViewModel : ObservableObject
     {
         _pipeline.ChChain.UseChChainOverlay = value; // the chain's bars and alarm follow the overlay's on/off switch
         OnOverlayVisibilityChanged(OverlayKind.ChChain, value);
-        UpdateArmedOutline();
+        OnEditionOverlaysChanged();
     }
 
     partial void OnIsDpsOverlayVisibleChanged(bool value) => OnOverlayVisibilityChanged(OverlayKind.Dps, value);
@@ -808,7 +802,7 @@ public sealed partial class MainViewModel : ObservableObject
         UpdateAbilityActivity();
         UpdateKnownMobs();
         DrainRosterChanges();
-        SyncAutoClick();
+        RefreshEdition();
         _pipeline.TimerPause.Tick(DateTime.UtcNow);
         RefreshRaidNight();
         RefreshReleaseFeatures();
@@ -1435,16 +1429,7 @@ public sealed partial class MainViewModel : ObservableObject
             _pipeline.Songs.ShowAllBards = settings.ShowAllBardSongs;
             CharmWatchEnabled = settings.CharmWatchEnabled;
             _pipeline.Charm.IsEnabled = settings.CharmWatchEnabled;
-            AutoClickTimed = settings.AutoClickTimed;
-            AutoClickIntervalText = Math.Clamp(settings.AutoClickIntervalSeconds <= 0 ? AutoClickService.DefaultIntervalSeconds : settings.AutoClickIntervalSeconds,
-                AutoClickService.MinIntervalSeconds, AutoClickService.MaxIntervalSeconds).ToString("0.0", CultureInfo.CurrentCulture);
-            // Settings from 1.0.65 (no assist key yet) kept its mouse mode's unused key "1": the CH key then starts at its default, 2.
-            bool fromMouseMode = settings.AutoClickAssistKey is null && settings.AutoClickPressKey != true;
-            AutoClickKey = !fromMouseMode && KeyChord.TryParse(settings.AutoClickKey, out KeyChord savedKey) ? savedKey : AutoClickService.DefaultChKey;
-            AutoClickAssistKey = KeyChord.TryParse(settings.AutoClickAssistKey, out KeyChord savedAssist) ? savedAssist : AutoClickService.DefaultAssistKey;
-            AutoClickUseAssist = settings.AutoClickUseAssist;
-            AutoClickEnabled = settings.AutoClickEnabled; // it opens as it was left
-            AutoClickHotkey = string.IsNullOrWhiteSpace(settings.AutoClickHotkey) ? AutoClickService.DefaultHotkey : settings.AutoClickHotkey;
+            RestoreEdition(settings);
             SafeZonesText = string.Join(Environment.NewLine, settings.NonCombatZones ?? TimerPauseService.DefaultSafeZones.ToList());
             RestoreDurationProfiles(settings.DurationProfiles);
             OverlayIdlePercent = settings.OverlayIdlePercent;
@@ -1555,7 +1540,25 @@ public sealed partial class MainViewModel : ObservableObject
     };
 
     /// <summary>Snapshot of everything that is persisted, including the overlays' current bounds and lock state.</summary>
-    public AppSettings BuildSettings() => new()
+    public AppSettings BuildSettings()
+    {
+        AppSettings settings = BuildCoreSettings();
+        SaveEdition(settings);
+        return settings;
+    }
+
+    // Hooks an edition fills in with its own settings and features (they do nothing in this one).
+    partial void InitializeEdition();
+
+    partial void RestoreEdition(AppSettings settings);
+
+    partial void SaveEdition(AppSettings settings);
+
+    partial void RefreshEdition();
+
+    partial void OnEditionOverlaysChanged();
+
+    private AppSettings BuildCoreSettings() => new()
     {
         WatchedLogs = Logs.Select(l => new WatchedLogSettings
         {
@@ -1571,18 +1574,11 @@ public sealed partial class MainViewModel : ObservableObject
         ReadTellsAloud = ReadTellsAloud,
         ShowAllBardSongs = ShowAllBardSongs,
         CharmWatchEnabled = CharmWatchEnabled,
-        AutoClickEnabled = AutoClickEnabled,
-        AutoClickTimed = AutoClickTimed,
-        AutoClickIntervalSeconds = _pipeline.AutoClick.IntervalSeconds,
-        AutoClickKey = AutoClickKey.ToString(),
-        AutoClickAssistKey = AutoClickAssistKey.ToString(),
-        AutoClickUseAssist = AutoClickUseAssist,
         NonCombatZones = SafeZoneList(),
         DurationProfiles = DurationProfileSettings(),
         OverlayIdlePercent = OverlayIdlePercent,
         DpsHideSeconds = DpsHideSeconds,
         AttackColors = AttackColorSettings(),
-        AutoClickHotkey = AutoClickHotkey,
         BuffsOverlay = _overlays.Capture(OverlayKind.Buffs),
         DebuffsOverlay = _overlays.Capture(OverlayKind.Debuffs),
         SongsOverlay = _overlays.Capture(OverlayKind.Songs),

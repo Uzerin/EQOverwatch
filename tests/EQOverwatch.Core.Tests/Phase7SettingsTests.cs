@@ -26,7 +26,7 @@ public sealed class Phase7SettingsTests : IDisposable
     {
         Assert.Contains(AppInfo.SettingsFolderName, AppSettingsService.DefaultPath);
         Assert.Contains(AppInfo.LegacySettingsFolderName, AppSettingsService.LegacyDefaultPath);
-        Assert.Equal("EQOverwatch", AppInfo.SettingsFolderName);
+        Assert.Equal(Edition.SettingsFolderName, AppInfo.SettingsFolderName);
     }
 
     [Fact]
@@ -126,9 +126,9 @@ public sealed class Phase7SettingsTests : IDisposable
     [Fact]
     public void The_app_version_is_1_0_0()
     {
-        Assert.Equal("v1.0.81", AppInfo.Version);
-        Assert.Equal("EQ Overwatch v1.0.81", AppInfo.Title);
-        Assert.Equal("EQ Overwatch", AppInfo.Name);
+        Assert.Equal("v1.0.82", AppInfo.Version);
+        Assert.Equal($"{Edition.Name} v1.0.82", AppInfo.Title);
+        Assert.Equal(Edition.Name, AppInfo.Name);
     }
 
     [Fact]

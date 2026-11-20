@@ -13,7 +13,7 @@ public sealed class TellToastService : IDisposable
 
     public TellToastService()
     {
-        _icon = new System.Windows.Forms.NotifyIcon { Text = "EQ Overwatch", Visible = false };
+        _icon = new System.Windows.Forms.NotifyIcon { Text = EQOverwatch.Core.AppInfo.Name, Visible = false };
         try
         {
             if (Environment.ProcessPath is { } exe && System.Drawing.Icon.ExtractAssociatedIcon(exe) is { } icon)

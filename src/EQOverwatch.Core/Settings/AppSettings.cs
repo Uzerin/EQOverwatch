@@ -7,7 +7,7 @@ using EQOverwatch.Core.Theming;
 namespace EQOverwatch.Core.Settings;
 
 /// <summary>Everything persisted to <c>settings.json</c>.</summary>
-public sealed class AppSettings
+public sealed partial class AppSettings
 {
     public const double DefaultEncounterTimeoutSeconds = 8;
     public const double MinEncounterTimeoutSeconds = 1;
@@ -28,32 +28,6 @@ public sealed class AppSettings
     /// <summary>Bars and a break alarm for your characters' charms (on by default).</summary>
     public bool CharmWatchEnabled { get; set; } = true;
 
-    /// <summary>Whether the auto-press was on when the app closed: it opens the same way.</summary>
-    public bool AutoClickEnabled { get; set; }
-
-    /// <summary>True: press every <see cref="AutoClickIntervalSeconds"/> after your own Complete Heal (chat ignored). False: on the chat cue.</summary>
-    public bool AutoClickTimed { get; set; }
-
-    /// <summary>Seconds between presses in timed mode (10.0 to 60.0).</summary>
-    public double AutoClickIntervalSeconds { get; set; } = 10.0;
-
-    /// <summary>The Complete Heal key the auto-press presses, like "2" or "Shift+F3".</summary>
-    public string AutoClickKey { get; set; } = "2";
-
-    /// <summary>
-    /// The assist key, pressed 1.0 s and 0.5 s before the CH key while <see cref="AutoClickUseAssist"/> is on. Null in settings saved
-    /// before 1.0.66.
-    /// </summary>
-    public string? AutoClickAssistKey { get; set; }
-
-    /// <summary>
-    /// Read from settings saved by 1.0.65 only (never written): true when its "Press key" mode was chosen. Otherwise its key was the
-    /// unused default "1", and the CH key starts at 2 instead.
-    /// </summary>
-    public bool? AutoClickPressKey { get; set; }
-
-    public bool AutoClickUseAssist { get; set; }
-
     /// <summary>
     /// The zones where the game does not tick buffs, so buff and debuff bars stop while a character is in one. Null means the built-in list;
     /// an empty list means no zone stops them.
@@ -72,8 +46,6 @@ public sealed class AppSettings
     /// <summary>Hex color per attack type name (see <see cref="AttackType"/>); missing types use the default.</summary>
     public Dictionary<string, string>? AttackColors { get; set; }
 
-    /// <summary>The global hotkey that switches the auto-click on and off, such as "Ctrl+Alt+F9".</summary>
-    public string AutoClickHotkey { get; set; } = "Ctrl+Alt+F9";
     public OverlaySettings BuffsOverlay { get; set; } = OverlaySettings.ForCategory(TimerOverlayCategory.Buffs);
     public OverlaySettings DebuffsOverlay { get; set; } = OverlaySettings.ForCategory(TimerOverlayCategory.Debuffs);
     public OverlaySettings SongsOverlay { get; set; } = OverlaySettings.ForCategory(TimerOverlayCategory.Songs);

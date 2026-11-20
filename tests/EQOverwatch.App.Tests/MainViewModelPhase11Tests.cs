@@ -17,7 +17,7 @@ public partial class MainViewModelTests
         await h.Vm.StartUpdateCheckAsync();
 
         Assert.True(h.Vm.IsUpdateAvailable);
-        Assert.Equal($"EQ Overwatch v9.0.1 is available (you have {h.Vm.AppVersion}).", h.Vm.UpdateMessage);
+        Assert.Equal($"{EQOverwatch.Core.Edition.Name} v9.0.1 is available (you have {h.Vm.AppVersion}).", h.Vm.UpdateMessage);
         Assert.Equal("Adds AA & Disc timers.", h.Vm.UpdateNotes);
         Assert.Equal(h.Vm.AppVersion, h.Updates.LastCurrentVersion);
     }

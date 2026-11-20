@@ -33,10 +33,17 @@ Stop a running `EQOverwatch` process first. Core tests must be Linux-safe and us
   rolled into that same version; afterwards they go in the next one.
 - After tests are green the user releases: copy the build to the repo folder, commit "EQ Overwatch vX", push, `git tag vX`,
   `git push origin vX`; then check Actions is green and the release lists the zip and its `.sha256`. Don't push or tag unless asked.
-- Never suggest these again: Raid night summary, Wipe and death recap, Fight comparison, CH chain report, Auto-clicker stats, Loot council
+- Never suggest these again: Raid night summary, Wipe and death recap, Fight comparison, CH chain report, Loot council
   helper, Trigger tester, Per-boss overlay profiles, Cooldown readiness board, Mob-specific triggers, Death/rez tracker, Buff gap
   warnings, Focus profile copy, Clicky timers, Missing-spell shopping list, Item watch list, Camp timers, Log health check,
   Trigger sharing export.
+
+## Editions
+- EQ Overwatch Advanced (public repo Uzerin/EQOverwatchAdvanced, local clone `C:\Drive\EQ_App\advanced`, remote `upstream` = this
+  repo) is this code plus features of its own. Its values are in `Core/Edition.cs`; its own parts plug into the empty `partial void
+  ...Edition...` hooks. Never add Advanced-only code or mentions here.
+- Every release: release this repo first, then in the Advanced clone `git pull upstream main`, test, publish to
+  `C:\Drive\EQ_App\publish-advanced`, commit "EQ Overwatch Advanced vX", push, tag the same vX there. This PC runs Advanced.
 
 ## Product decisions already made
 - Keep the main Settings tab uncluttered; colors live in the separate Colors window (color wheel popup on each swatch).

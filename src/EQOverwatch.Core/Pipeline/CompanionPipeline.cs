@@ -20,7 +20,7 @@ namespace EQOverwatch.Core.Pipeline;
 /// </list>
 /// The two DPS trackers share no state, so tailing and triggers keep running while a historical file is loaded and inspected.
 /// </summary>
-public sealed class CompanionPipeline : IAsyncDisposable
+public sealed partial class CompanionPipeline : IAsyncDisposable
 {
     private readonly LiveLogMonitor _monitor;
     private readonly SemaphoreSlim _importGate = new(1, 1);
@@ -47,7 +47,6 @@ public sealed class CompanionPipeline : IAsyncDisposable
         SharedTriggers = new SharedTriggerScanner();
         Loot = new LootTracker();
         Tells = new TellReaderService(Triggers);
-        AutoClick = new AutoClickService(ChChain, Triggers);
         HistoricalDps = new HistoricalDpsTracker(inactivityTimeout, Roster);
         Songs = new SongTrackerService(Spells, Triggers);
         Charm = new CharmWatchService(Spells, Triggers);
@@ -92,7 +91,13 @@ public sealed class CompanionPipeline : IAsyncDisposable
         MobHits = new EQOverwatch.Core.History.MobHitStore(IsMonitoredCharacter);
         _monitor = new LiveLogMonitor(Logs, triggerSinks, new FanOutDpsSink(LiveDps, FloatingCombat, MobHits), RaiseError, Activity);
         _monitor.TailError += (config, ex) => TailError?.Invoke(config, ex);
+        CreateEditionServices();
     }
+
+    // Hooks an edition fills in with services of its own (they do nothing in this one).
+    partial void CreateEditionServices();
+
+    partial void DisposeEditionServices();
 
     /// <summary>Which characters are logged in: ones whose log has had a line in the last minute.</summary>
     public CharacterActivityService Activity { get; }
@@ -180,9 +185,6 @@ public sealed class CompanionPipeline : IAsyncDisposable
 
     /// <summary>Loot and the rolls won for it, collected from every trigger-enabled log.</summary>
     public LootTracker Loot { get; }
-
-    /// <summary>Clicks the mouse on your cleric's turn in the chain, while EverQuest is the window in front. Off until switched on.</summary>
-    public AutoClickService AutoClick { get; }
 
     /// <summary>Speaks incoming tells aloud.</summary>
     public TellReaderService Tells { get; }
@@ -315,7 +317,7 @@ public sealed class CompanionPipeline : IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         await StopLiveAsync().ConfigureAwait(false);
-        AutoClick.Dispose();
+        DisposeEditionServices();
         RaidBosses.Dispose();
         ChChain.Dispose();
     }

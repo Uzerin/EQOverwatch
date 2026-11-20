@@ -4,8 +4,8 @@ using EQOverwatch.Core.Settings;
 
 namespace EQOverwatch.App.Services;
 
-/// <summary>Owns the overlay windows (and the auto-click outline): restores their saved state, captures it for saving, and closes them.</summary>
-public sealed class OverlayHost : IOverlayHost
+/// <summary>Owns the overlay windows: restores their saved state, captures it for saving, and closes them.</summary>
+public sealed partial class OverlayHost : IOverlayHost
 {
     private readonly IReadOnlyDictionary<OverlayKind, OverlayWindowBase> _windows;
 
@@ -104,29 +104,12 @@ public sealed class OverlayHost : IOverlayHost
         }
     }
 
-    private ArmedOutlineWindow? _outline;
-
-    public void SetArmedOutline(OverlayKind? kind)
-    {
-        if (kind is null && _outline is null)
-        {
-            return;
-        }
-
-        _outline ??= new ArmedOutlineWindow();
-        _outline.Follow(kind is { } k ? Get(k) : null);
-    }
+    // A hook an edition fills in to close windows of its own (it does nothing in this one).
+    partial void CloseEditionWindows();
 
     public void CloseAll()
     {
-        try
-        {
-            _outline?.Close();
-        }
-        catch (InvalidOperationException)
-        {
-            // already closed
-        }
+        CloseEditionWindows();
 
         foreach (OverlayWindowBase window in _windows.Values)
         {
