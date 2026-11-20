@@ -82,7 +82,7 @@ public partial class MainViewModel
 
     /// <summary>The estimate shown on the DPS overlay for a fight in progress, or null (switched off, or too few recorded kills).</summary>
     public FightEstimate? FightProgressFor(EncounterSnapshot encounter) =>
-        ShowFightProgress ? FightProgress.Estimate(_bossHistory.Fights(), encounter.TargetName, encounter.Server, encounter.TotalDamage, encounter.DurationSeconds) : null;
+        ShowFightProgress ? FightProgress.Estimate(_bossHistory.Fights(), encounter.TargetName, server: null, encounter.TotalDamage, encounter.DurationSeconds) : null;
 
     private readonly object _regenGate = new();
     private readonly Dictionary<string, MobRegen?> _regenCache = new(StringComparer.OrdinalIgnoreCase);
@@ -90,17 +90,17 @@ public partial class MainViewModel
     private bool _regenHooked;
 
     /// <summary>
-    /// The mob's estimated regen and hit points from its recorded kills on <paramref name="server"/> (null: every server), or null with
-    /// too few kills. Kept until a fight is recorded, since the DPS overlay asks several times a second.
+    /// The mob's estimated regen and hit points from its recorded kills on every server (a mob is the same on every server), or null
+    /// with too few kills. Kept until a fight is recorded, since the DPS overlay asks several times a second.
     /// </summary>
-    public MobRegen? RegenFor(string mob, string? server)
+    public MobRegen? RegenFor(string mob)
     {
         if (string.IsNullOrWhiteSpace(mob) || mob == DpsOverlayViewModel.IdleTitle)
         {
             return null;
         }
 
-        string key = mob.Trim() + "|" + (server ?? string.Empty);
+        string key = mob.Trim();
         lock (_regenGate)
         {
             if (!_regenHooked)
@@ -119,7 +119,7 @@ public partial class MainViewModel
             _regenFights ??= _bossHistory.Fights().ToLookup(f => f.Boss.Trim(), StringComparer.OrdinalIgnoreCase);
             if (!_regenCache.TryGetValue(key, out MobRegen? regen))
             {
-                regen = MobRegenEstimator.Estimate(_regenFights[mob.Trim()], mob, string.IsNullOrEmpty(server) ? null : server);
+                regen = MobRegenEstimator.Estimate(_regenFights[mob.Trim()], mob);
                 _regenCache[key] = regen;
             }
 
@@ -129,7 +129,7 @@ public partial class MainViewModel
 
     /// <summary>The fight with its mob's estimated regen and hit points attached, for the Discord picture.</summary>
     private EncounterSnapshot WithRegen(EncounterSnapshot encounter) =>
-        RegenFor(encounter.TargetName, encounter.Server) is { } regen ? encounter with { RegenText = regen.Describe() } : encounter;
+        RegenFor(encounter.TargetName) is { } regen ? encounter with { RegenText = regen.Describe() } : encounter;
 
     /// <summary>Your characters (the watched logs) with their server and Tank box, kept for the tailing thread.</summary>
     private void RefreshOwnCharacters()
@@ -248,7 +248,7 @@ public partial class MainViewModel
             lines.Add(text);
         }
 
-        if (RegenFor(mob, server) is { } regen)
+        if (RegenFor(mob) is { } regen)
         {
             lines.Add($"{regen.Describe()} ({regen.Kills.ToString(culture)} kills)");
         }

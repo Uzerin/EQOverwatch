@@ -63,6 +63,11 @@ settings are kept.
 
 ## Changelog
 
+### 1.0.77
+
+- Mob HP, regen and fight progress use kills from every server.
+- Green dot shows only for the server you are playing on.
+
 ### 1.0.76
 
 - Regen and HP are green on the DPS overlay and shown in the Discord picture.

@@ -194,8 +194,8 @@ public sealed partial class MainViewModel
                     s.MostPlayers,
                     s.LastFought == default ? "—" : s.LastFought.ToString("MMM d", CultureInfo.CurrentCulture))) with
                 {
-                    Regen = RegenFor(s.Boss, ToolsServerFilter) is { } regen ? regen.RegenText : "–",
-                    Hp = RegenFor(s.Boss, ToolsServerFilter) is { } estimate ? estimate.HpText : "–",
+                    Regen = RegenFor(s.Boss) is { } regen ? regen.RegenText : "–",
+                    Hp = RegenFor(s.Boss) is { } estimate ? estimate.HpText : "–",
                     Trend = KillTrendText(BossHistoryStore.Trend(fights.Concat(loaded)
                         .Where(f => f.Boss.Equals(s.Boss, StringComparison.OrdinalIgnoreCase) && f.Players >= BossHistoryMinPlayers)
                         .DistinctBy(f => f.Start))),

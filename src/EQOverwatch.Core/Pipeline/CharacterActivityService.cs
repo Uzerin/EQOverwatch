@@ -6,6 +6,9 @@ public interface ILogActivityObserver
     /// <summary>Any line was written to <paramref name="character"/>'s log.</summary>
     void OnLogLine(string character, DateTime receivedUtc);
 
+    /// <summary>Any line was written to <paramref name="character"/>'s log on <paramref name="server"/> (one name can be a character on several servers).</summary>
+    void OnLogLine(string character, string server, DateTime receivedUtc) => OnLogLine(character, receivedUtc);
+
     /// <summary>A combat line (a hit, miss or death) was read from <paramref name="character"/>'s log.</summary>
     void OnCombatLine(string character, DateTime receivedUtc);
 }
@@ -28,6 +31,40 @@ public sealed class CharacterActivityService : ILogActivityObserver
 
     private readonly object _gate = new();
     private readonly Dictionary<string, Seen> _characters = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Last line per "name|server", so Ream on one server does not make Ream on another look logged in.</summary>
+    private readonly Dictionary<string, DateTime> _onServer = new(StringComparer.OrdinalIgnoreCase);
+
+    public void OnLogLine(string character, string server, DateTime receivedUtc)
+    {
+        OnLogLine(character, receivedUtc);
+        if (string.IsNullOrWhiteSpace(character) || string.IsNullOrWhiteSpace(server))
+        {
+            return;
+        }
+
+        lock (_gate)
+        {
+            _onServer[character + "|" + server] = receivedUtc;
+        }
+    }
+
+    /// <summary>
+    /// True when a line was written to <paramref name="character"/>'s log on <paramref name="server"/> in the last
+    /// <see cref="ActiveWindow"/>. With no server, any server counts.
+    /// </summary>
+    public bool IsActive(string character, string? server, DateTime nowUtc)
+    {
+        if (string.IsNullOrWhiteSpace(server))
+        {
+            return IsActive(character, nowUtc);
+        }
+
+        lock (_gate)
+        {
+            return _onServer.TryGetValue(character + "|" + server, out DateTime last) && IsRecent(last, nowUtc);
+        }
+    }
 
     public void OnLogLine(string character, DateTime receivedUtc)
     {

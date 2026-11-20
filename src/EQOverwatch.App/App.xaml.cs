@@ -160,7 +160,7 @@ public partial class CompanionApp : Application
             dpsVm.CopyChatRequested += encounter => vm.CopyChat(encounter);
             dpsVm.CopyImageRequested += encounter => vm.CopyImage(encounter);
             dpsVm.Progress = vm.FightProgressFor; // how far along a fight is, from the recorded kills of the same mob
-            dpsVm.Regen = e => vm.RegenFor(e.TargetName, e.Server); // the mob's estimated regen and hit points
+            dpsVm.Regen = e => vm.RegenFor(e.TargetName); // the mob's estimated regen and hit points (every server)
         }
 
         // Floating combat text: the numbers collected on the tailing thread are shown about twenty times a second.

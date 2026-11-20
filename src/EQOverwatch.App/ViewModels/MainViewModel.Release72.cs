@@ -151,8 +151,8 @@ public sealed partial class MainViewModel
                 : "—";
             log.AccountText = label;
             log.AccountColor = AccountColorOf(log.ServerName, bank?.Account.Length > 0 ? bank.Account : named);
-            log.IsActiveNow = _pipeline.Activity.IsActive(log.CharacterName, nowUtc);
-            groups[log] = label == "—" ? "solo|" + log.CharacterName : log.ServerName + "|" + label;
+            log.IsActiveNow = _pipeline.Activity.IsActive(log.CharacterName, log.ServerName, nowUtc); // this server only
+            groups[log] = label == "—" ? "solo|" + log.ServerName + "|" + log.CharacterName : log.ServerName + "|" + label;
         }
 
         foreach (IGrouping<string, KeyValuePair<WatchedLogConfig, string>> account in groups.GroupBy(g => g.Value, StringComparer.OrdinalIgnoreCase))
