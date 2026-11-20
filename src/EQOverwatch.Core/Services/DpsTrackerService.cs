@@ -295,6 +295,12 @@ public partial class DpsTrackerService : IDpsEventSink
     /// </summary>
     public event Action<string, bool>? TargetOutOfReach;
 
+    /// <summary>
+    /// A notice line in a log (a follow that broke, a player gone linkdead, a /random roll, a pet buff fading, a level): the log's own
+    /// character and the line. Live lines only.
+    /// </summary>
+    public event Action<string, EQOverwatch.Core.Parsing.NoticeLine>? Notice;
+
     /// <summary>A log's own character used /consider on a mob that showed its level: the character, the mob and its level. Live lines only.</summary>
     public event Action<string, string, int>? MobConsidered;
 
@@ -492,6 +498,12 @@ public partial class DpsTrackerService : IDpsEventSink
         if ((tooFar || unseen) && TargetOutOfReach is not null && LiveOwner(inFight: true) is { } reacher)
         {
             TargetOutOfReach(reacher, unseen);
+        }
+
+        if (Notice is not null && EQOverwatch.Core.Parsing.NoticeLineParser.Parse(message) is { Kind: not EQOverwatch.Core.Parsing.NoticeKind.None } notice
+            && LiveOwner() is { } noticed)
+        {
+            Notice(noticed, notice);
         }
 
         // Boss casts and heals are not combat events, so they arrive here with the log clock set by the line's own timestamp.

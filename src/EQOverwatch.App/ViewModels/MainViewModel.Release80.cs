@@ -184,9 +184,9 @@ public sealed partial class MainViewModel
             .OrderBy(k => k.Start)
             .Take(50_000)
             .ToList();
-        // Only mobs: /con works on players too (some with surnames), and no player names are shared.
+        // Only mobs the raid killed that are no known player or pet: /con works on players too, and no player names are shared.
         HashSet<string> killed = KilledMobs();
-        bool IsMob(string name) => IsSureMob(name, killed);
+        bool IsMob(string name) => IsShareableMob(name, killed);
         List<SharedLevel> levels = _mobLevels.All().Where(l => !string.IsNullOrEmpty(l.Zone) && IsMob(l.Mob))
             .Select(l => new SharedLevel(l.Mob, l.Zone!, l.Lowest, l.Highest)).Take(20_000).ToList();
         var resists = new List<SharedResist>();
@@ -312,6 +312,9 @@ public sealed partial class MainViewModel
         !IsPlayerOrPet(name)
         && (name.StartsWith("a ", StringComparison.Ordinal) || name.StartsWith("an ", StringComparison.Ordinal)
             || name.StartsWith("the ", StringComparison.Ordinal) || killed.Contains(name));
+
+    /// <summary>True for a name that may be shared: a mob your raid killed that is no known player, pet or character of yours.</summary>
+    public bool IsShareableMob(string name, HashSet<string> killed) => killed.Contains(name) && !IsPlayerOrPet(name);
 
     /// <summary>True for a name that is a player or a pet, not a mob (pets and players are /con'd too).</summary>
     private bool IsPlayerOrPet(string name) =>

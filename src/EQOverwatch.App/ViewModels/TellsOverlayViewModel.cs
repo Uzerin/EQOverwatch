@@ -13,15 +13,23 @@ public sealed partial class TellsOverlayViewModel : ObservableObject
     public const int MaxRows = 6;
 
     private readonly TellInbox _inbox;
+    private readonly OverlayNoticeFeed? _notices;
     private readonly Func<DateTime> _utcNow;
     private long _version = -1;
+    private long _noticeVersion = -1;
+    private int _noticeCount;
     private DateTime _lastBuild;
 
-    public TellsOverlayViewModel(TellInbox inbox, Func<DateTime>? utcNow = null)
+    public TellsOverlayViewModel(TellInbox inbox, Func<DateTime>? utcNow = null, OverlayNoticeFeed? notices = null)
     {
         _inbox = inbox ?? throw new ArgumentNullException(nameof(inbox));
+        _notices = notices;
         _utcNow = utcNow ?? (() => DateTime.UtcNow);
     }
+
+    /// <summary>Rolls and linkdead players from the last 30 seconds, newest first.</summary>
+    [ObservableProperty]
+    private IReadOnlyList<OverlayNotice> _recentNotices = Array.Empty<OverlayNotice>();
 
     [ObservableProperty]
     private IReadOnlyList<TellOverlayRow> _rows = Array.Empty<TellOverlayRow>();
@@ -33,6 +41,17 @@ public sealed partial class TellsOverlayViewModel : ObservableObject
     public void Tick()
     {
         DateTime now = _utcNow();
+        if (_notices is not null)
+        {
+            IReadOnlyList<OverlayNotice> current = _notices.Current(now);
+            if (_notices.Version != _noticeVersion || current.Count != _noticeCount)
+            {
+                _noticeVersion = _notices.Version;
+                _noticeCount = current.Count;
+                RecentNotices = current;
+            }
+        }
+
         if (_inbox.Version == _version && now - _lastBuild < TimeSpan.FromSeconds(30))
         {
             return;

@@ -612,10 +612,11 @@ async function mobsUpload(request, env, server, id) {
   const text = (v) => typeof v === "string" && v.length > 0 && v.length <= 64;
   const kills = file.kills.filter((k) => k && text(k.m) && typeof k.s === "number" && k.s > 0 && k.s <= 36000 && count(k.d) > 0
     && Number.isInteger(k.p) && k.p >= 1 && k.p <= 200 && Number.isInteger(k.t) && k.t > now - 5 * 365 * 86400 && k.t <= now + 86400);
-  // No player names: /con works on players too, and players can have surnames. A name is kept only when it reads like a mob ("a ...",
-  // "an ...", "the ...") or the same upload has a kill of it (a named mob).
-  const killedNames = new Set(kills.map((k) => k.m.toLowerCase()));
-  const mobName = (m) => /^(a|an|the) /.test(m) || killedNames.has(m.toLowerCase());
+  // No player names: /con works on players too, and players can have surnames. A level or resist is kept only for a mob this install
+  // has a kill of (in this upload or an earlier one).
+  const earlier = await env.DB.prepare("SELECT DISTINCT mob FROM mob_kills WHERE contributor = ?").bind(id).all();
+  const killedNames = new Set(kills.map((k) => k.m.toLowerCase()).concat((earlier.results || []).map((r) => String(r.mob).toLowerCase())));
+  const mobName = (m) => killedNames.has(m.toLowerCase());
   const levels = file.levels.filter((l) => l && text(l.m) && text(l.z) && Number.isInteger(l.lo) && Number.isInteger(l.hi)
     && l.lo >= 1 && l.hi <= 255 && l.lo <= l.hi && mobName(l.m));
   const resists = file.resists.filter((r) => r && text(r.m) && Number.isInteger(r.r) && r.r >= 0 && r.r <= 20 && count(r.l) + count(r.x) > 0

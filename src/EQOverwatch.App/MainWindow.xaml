@@ -2486,6 +2486,17 @@
                         </StackPanel>
 
                         <TextBlock Margin="0,0,0,6" Foreground="#6FDC8C" Text="{Binding LevelingEtaText}"/>
+                        <TextBlock Margin="0,0,0,6" Foreground="#E8C66A" FontWeight="SemiBold" Text="{Binding BonusXpText}">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Style.Triggers>
+                                        <Trigger Property="Text" Value="">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
                         <TextBlock FontWeight="SemiBold" Margin="0,0,0,6">
                             <Run Text="Best zones for levels"/>
                             <Run Text="{Binding LevelingBandText, Mode=OneWay}"/>
@@ -3390,6 +3401,10 @@
                                               ToolTip="Your characters' unanswered tells. It stays fully visible out of combat."/>
                                     <CheckBox Content="Tell notifications" IsChecked="{Binding TellToast}" Margin="0,0,20,6"
                                               ToolTip="A Windows notification when a tell arrives while EverQuest is not the active window."/>
+                                    <CheckBox Content="Level-up notifications" IsChecked="{Binding LevelUpToast}" Margin="0,0,20,6"
+                                              ToolTip="A Windows notification when one of your characters gains a level while EverQuest is not the active window."/>
+                                    <CheckBox Content="Rolls and linkdead on Tells" IsChecked="{Binding TellsOverlayNotices}" Margin="0,0,20,6"
+                                              ToolTip="Shows /random rolls and players gone linkdead on the Tells overlay for 30 seconds."/>
                                     <CheckBox Content="Mob Card" IsChecked="{Binding IsMobCardOverlayVisible}" Margin="0,0,20,6"
                                               ToolTip="When you /con a mob: its kills and times on your server, the raid's resist rates and its drops, for 10 seconds."/>
                                 </WrapPanel>
@@ -3444,6 +3459,10 @@
                                           ToolTip="Says and shows &quot;Plethora is being attacked by Yasiz the Devourer&quot; when a mob in a fight attacks one of your characters without the Tank box (Characters tab). Rampage hits don't count."/>
                                 <CheckBox Content="Range alert" Margin="0,0,0,6" IsChecked="{Binding RangeAlert}"
                                           ToolTip="Says &quot;Myriad out of range&quot; or &quot;Myriad can't see the target&quot; when one of your characters can't reach its target during a fight."/>
+                                <CheckBox Content="Follow alert" Margin="0,0,0,6" IsChecked="{Binding FollowAlert}"
+                                          ToolTip="Says &quot;Myriad stopped following&quot; when one of your characters stops auto-following."/>
+                                <CheckBox Content="Pet buff faded" Margin="0,0,0,6" IsChecked="{Binding PetBuffAlert}"
+                                          ToolTip="Says &quot;pet Storm Strength faded&quot; when a buff on one of your pets wears off."/>
                                 <CheckBox Content="Show how far along a fight is on the DPS overlay" Margin="0,0,0,6" IsChecked="{Binding ShowFightProgress}"
                                           ToolTip="A bar and &quot;~62% · about 1:40 left&quot;, from the damage the recorded kills of the same mob took on this server (needs 2 kills)."/>
                                 <CheckBox Content="Buff didn't take hold" Margin="0,0,0,6" IsChecked="{Binding TakeHoldAlert}"

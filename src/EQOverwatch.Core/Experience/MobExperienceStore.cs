@@ -298,6 +298,7 @@ public sealed partial class MobExperienceStore : ITriggerLineSink
         string key = Key(characterName, server);
         Line kind = Classify(message, out double percent, out string mob);
         bool changed;
+        (double, int, DateTime)[]? kills = null;
         lock (_gate)
         {
             _recorded = false;
@@ -305,6 +306,13 @@ public sealed partial class MobExperienceStore : ITriggerLineSink
             {
                 matcher = new Matcher(LiveTolerance, (gain, killed) =>
                 {
+                    if (LiveKill is not null && gain.Level > 0
+                        && _rows.TryGetValue(key, out Dictionary<(int, string), Row>? known)
+                        && known.TryGetValue((gain.Level, killed.ToLowerInvariant()), out Row? usual) && usual.Kills > 0)
+                    {
+                        _liveKills.Add((gain.Percent / (usual.Percent / usual.Kills), usual.Kills, gain.Time));
+                    }
+
                     AddLocked(key, gain.Level, killed, gain.Percent, gain.Time);
                     if (_liveDuringScan.TryGetValue(key, out List<LiveRecord>? live))
                     {
@@ -333,13 +341,31 @@ public sealed partial class MobExperienceStore : ITriggerLineSink
             }
 
             changed = _recorded;
+            if (_liveKills.Count > 0)
+            {
+                kills = _liveKills.ToArray();
+                _liveKills.Clear();
+            }
         }
 
         if (changed)
         {
             Interlocked.Increment(ref _version);
         }
+
+        foreach ((double ratio, int usualKills, DateTime time) in kills ?? Array.Empty<(double, int, DateTime)>())
+        {
+            LiveKill?.Invoke(ratio, usualKills, time);
+        }
     }
+
+    /// <summary>
+    /// A live kill's experience against the usual for the same mob at the same level on that character: the ratio (1.0 = as usual),
+    /// how many kills the usual is from, and when. Raised outside the store's lock.
+    /// </summary>
+    public event Action<double, int, DateTime>? LiveKill;
+
+    private readonly List<(double Ratio, int UsualKills, DateTime Time)> _liveKills = new();
 
     /// <summary>Settles gains still waiting for a kill line once their time has passed (a quiet log has no next line to do it).</summary>
     public void ResolveExpired(DateTime nowUtc)

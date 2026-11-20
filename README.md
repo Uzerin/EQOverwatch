@@ -63,63 +63,19 @@ settings are kept.
 
 ## Changelog
 
-### 1.0.80
+### 1.0.81
 
-- Leveling: AA mode, time to level, best mobs per zone, plat/hour and mob levels.
-- Shared mob stats fill in regen, HP, levels, resists and a Server Best column.
-- Regen warning on the DPS overlay, kill time on the Mob Card, level history in Profiles.
-- Zone median on Experience; server boxes follow the character you are playing.
+- Rolls and linkdead players on the Tells overlay; follow and pet buff alerts.
+- Level-up notifications and a bonus XP notice on the Leveling tab.
+- Shared mob stats only include mobs your raid killed that aren't players.
 
-### 1.0.79
+### 1.0.71 to 1.0.80
 
-- Server First (opt-in, with names and guilds): first kills, open targets, guild counts.
-- Class benchmarks per boss, and class rank badges on Encounter DPS and pictures.
-- All sharing switches now live in Settings, with delete buttons and a status light.
-- Guild column on Characters; Account box takes typing again; Discord auto-post removed.
-
-### 1.0.78
-
-- New Leveling tab: best zones per 5-level band and a path, solo or group.
-- Anonymous sharing of leveling; power leveling bursts are left out.
-- Expansions per server found from zones seen, changeable on the tab.
-- All sharing (drops, leveling, player count) is now on; switch off in the app.
-
-### 1.0.77
-
-- Mob HP, regen and fight progress use kills from every server.
-- Green dot shows only for the server you are playing on.
-
-### 1.0.76
-
-- Regen and HP are green on the DPS overlay and shown in the Discord picture.
-- Cons of encounter-locked mobs now update the Mob Card and levels.
-
-### 1.0.75
-
-- Estimated mob regen and HP from kill times: DPS overlay, Mob Card, Encounter DPS, Mob History.
-
-### 1.0.74
-
-- Mob levels are saved per zone; Mob Card uses your current zone.
-
-### 1.0.73
-
-- Floating text: new numbers appear on top and push older ones down, no overlap.
-
-### 1.0.72
-
-- Account names link characters and keep a shared bank per account.
-- Characters list shows account, color, logged-in dot and last played.
-- Floating text now two overlays with misses, merging and font choice.
-- Tell notifications, chat search, kill trends, mob max hits, plat by zone.
-
-### 1.0.71
-
-- New floating combat text overlays for damage, heals and damage taken.
-- New Chat tab with every chat type, name highlights and player filter.
-- DoT damage counted on players and bosses.
-- Mob History opens fights on double-click and shows drops.
-- Legacy XP bonus, character birthdates and Start with Windows.
+- Leveling tab: best zones and path per 5-level band, AA mode, time to level, plat/hour, shared anonymously.
+- Server First (opt-in), class benchmarks and rank badges; all sharing switches in Settings.
+- Shared mob stats: estimated regen and HP, levels per zone, resists and Server Best.
+- Floating combat text overlays, Chat tab, account names and tell notifications.
+- Level history, guild column, and server boxes that follow the character you play.
 
 ### 1.0.61 to 1.0.70
 

@@ -169,6 +169,9 @@ public sealed class CompanionPipeline : IAsyncDisposable
     /// <summary>Player tells to your characters, answered or not.</summary>
     public TellInbox TellInbox { get; }
 
+    /// <summary>Short notices (rolls, linkdead players) shown on the Tells overlay for 30 seconds.</summary>
+    public EQOverwatch.Core.Progress.OverlayNoticeFeed Notices { get; } = new();
+
     /// <summary>Resist counts per mob and resist type, yours and the raid's shares.</summary>
     public MobResistStore ResistStore { get; }
 

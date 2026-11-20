@@ -112,6 +112,7 @@ public sealed partial class MainViewModel : ObservableObject
         Restore(settings);
         UpdateArmedOutline();
         InitializeBoxAlerts();
+        InitializeNotices();
         InitializeReleaseFeatures();
         _characterData.SetPersonaResolver(PersonaWhenWritten); // worn gear is filed under the persona that was on
         _characterData.SetAccountResolver(AccountOf); // shared banks are kept per account
@@ -1507,6 +1508,10 @@ public sealed partial class MainViewModel : ObservableObject
             _characterAccounts = new Dictionary<string, string>(settings.CharacterAccounts ?? new(), StringComparer.OrdinalIgnoreCase);
             _savedAccountColors = new Dictionary<string, string>(settings.AccountColors ?? new(), StringComparer.OrdinalIgnoreCase);
             TellToast = settings.TellToast;
+            LevelUpToast = settings.LevelUpToast;
+            FollowAlert = settings.FollowAlert;
+            PetBuffAlert = settings.PetBuffAlert;
+            TellsOverlayNotices = settings.TellsOverlayNotices;
             RebuildAccountColors();
             AggroAlert = settings.AggroAlert;
             RangeAlert = settings.RangeAlert;
@@ -1598,6 +1603,10 @@ public sealed partial class MainViewModel : ObservableObject
         CharacterAccounts = new Dictionary<string, string>(_characterAccounts, StringComparer.OrdinalIgnoreCase),
         AccountColors = AccountColorsToSave(),
         TellToast = TellToast,
+        LevelUpToast = LevelUpToast,
+        FollowAlert = FollowAlert,
+        PetBuffAlert = PetBuffAlert,
+        TellsOverlayNotices = TellsOverlayNotices,
         AggroAlert = AggroAlert,
         RangeAlert = RangeAlert,
         ShowFightProgress = ShowFightProgress,

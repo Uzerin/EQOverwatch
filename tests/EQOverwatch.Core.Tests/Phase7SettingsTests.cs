@@ -126,8 +126,8 @@ public sealed class Phase7SettingsTests : IDisposable
     [Fact]
     public void The_app_version_is_1_0_0()
     {
-        Assert.Equal("v1.0.80", AppInfo.Version);
-        Assert.Equal("EQ Overwatch v1.0.80", AppInfo.Title);
+        Assert.Equal("v1.0.81", AppInfo.Version);
+        Assert.Equal("EQ Overwatch v1.0.81", AppInfo.Title);
         Assert.Equal("EQ Overwatch", AppInfo.Name);
     }
 

@@ -301,6 +301,18 @@ public sealed class AppSettings
     /// <summary>A Windows notification when a tell arrives while EverQuest is not the active window.</summary>
     public bool TellToast { get; set; } = true;
 
+    /// <summary>A Windows notification when one of your characters gains a level while EverQuest is not the active window.</summary>
+    public bool LevelUpToast { get; set; } = true;
+
+    /// <summary>Speak "X stopped following" when one of your characters stops auto-following.</summary>
+    public bool FollowAlert { get; set; } = true;
+
+    /// <summary>Speak "pet X faded" when a buff on one of your pets wears off.</summary>
+    public bool PetBuffAlert { get; set; }
+
+    /// <summary>Show /random rolls and players gone linkdead on the Tells overlay for 30 seconds.</summary>
+    public bool TellsOverlayNotices { get; set; } = true;
+
     /// <summary>Floating combat text colors by kind (Melee, Ranged, Spell, DamageShield, Heal, Taken) as #RRGGBB; missing ones use the defaults.</summary>
     public Dictionary<string, string>? FloatingColors { get; set; }
 

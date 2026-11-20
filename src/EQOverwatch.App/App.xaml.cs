@@ -104,7 +104,7 @@ public partial class CompanionApp : Application
             }
             else if (kind == OverlayKind.Tells)
             {
-                windows[kind] = new TellsOverlayWindow(new TellsOverlayViewModel(_pipeline.TellInbox));
+                windows[kind] = new TellsOverlayWindow(new TellsOverlayViewModel(_pipeline.TellInbox, notices: _pipeline.Notices));
             }
             else if (kind == OverlayKind.MobCard)
             {
@@ -239,6 +239,13 @@ public partial class CompanionApp : Application
         _viewModel.ConfigureServerFirsts(new EQOverwatch.Core.Firsts.HttpServerFirstService(_sharedDropsHttp));
         _viewModel.ConfigureMobStats(new EQOverwatch.Core.History.HttpMobStatsService(_sharedDropsHttp));
         _viewModel.NoticeRequested += notice => _tellToasts?.Show(notice.Title, notice.Text);
+        _viewModel.LiveNoticeRequested += (notice, onlyWhenAway) => Dispatcher.BeginInvoke(() =>
+        {
+            if (!onlyWhenAway || !EQOverwatch.App.Interop.Win32InputClicker.IsGameWindow(EQOverwatch.App.Interop.Win32InputClicker.GetForegroundWindow()))
+            {
+                _tellToasts?.Show(notice.Title, notice.Text);
+            }
+        });
         _viewModel.ShowFightPictureRequested += fight =>
         {
             var image = EQOverwatch.App.Services.EncounterImageRenderer.Render(fight, _viewModel.ActivePalette, _viewModel.WindowTitle);

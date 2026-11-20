@@ -20,6 +20,24 @@
                            Text="{Binding OverlayName, RelativeSource={RelativeSource AncestorType={x:Type overlays:OverlayWindowBase}}}"/>
             </Border>
             <StackPanel Grid.Row="1" Margin="4" ClipToBounds="True">
+                <ItemsControl ItemsSource="{Binding RecentNotices}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Margin="2,0,0,2" TextTrimming="CharacterEllipsis" Text="{Binding Text}">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource OverlayTextStyle}">
+                                        <Setter Property="Foreground" Value="#7FD1FF"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Kind}" Value="linkdead">
+                                                <Setter Property="Foreground" Value="#FF9A8A"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
                 <TextBlock Margin="2,0,0,3" Style="{StaticResource OverlayMutedTextStyle}" Text="{Binding CountText}"/>
                 <ItemsControl ItemsSource="{Binding Rows}">
                     <ItemsControl.ItemTemplate>
