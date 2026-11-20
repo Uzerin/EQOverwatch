@@ -248,6 +248,11 @@ public partial class MainViewModel
             lines.Add(text);
         }
 
+        if (ServerFirstLine(mob, server) is { } first)
+        {
+            lines.Add(first);
+        }
+
         if (RegenFor(mob) is { } regen)
         {
             lines.Add($"{regen.Describe()} ({regen.Kills.ToString(culture)} kills)");

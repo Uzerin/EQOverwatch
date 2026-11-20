@@ -283,10 +283,12 @@ public sealed partial class MainViewModel
             }
 
             SharedDropsStatus = SharedDropsSummary(servers, uploaded, read);
+            ReportSharing("Drops", null);
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException)
         {
             SharedDropsStatus = $"Couldn't reach the shared drops service ({ex.Message}). It tries again in a few minutes.";
+            ReportSharing("Drops", ex.Message);
             _nextSharedDropsSyncUtc = DateTime.UtcNow + SharedDropsRetryEvery;
         }
         finally

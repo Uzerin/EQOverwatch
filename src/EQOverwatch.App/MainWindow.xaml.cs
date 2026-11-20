@@ -83,7 +83,6 @@ public partial class MainWindow : Window
         Loaded += (_, _) =>
         {
             _refreshTimer.Start();
-            DiscordUrlBox.Password = _viewModel.DiscordWebhookUrl; // a password box cannot be bound, so it is filled in by hand
         };
         SourceInitialized += (_, _) =>
         {
@@ -108,7 +107,6 @@ public partial class MainWindow : Window
         };
     }
 
-    private void DiscordUrlBox_PasswordChanged(object sender, RoutedEventArgs e) => _viewModel.DiscordWebhookUrl = DiscordUrlBox.Password;
 
     private void RegisterAutoClickHotkey()
     {

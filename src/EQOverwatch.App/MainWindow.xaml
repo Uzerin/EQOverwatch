@@ -151,8 +151,13 @@
 
                 <WrapPanel VerticalAlignment="Center">
                     <Ellipse Style="{StaticResource StatusDot}" Margin="0,0,8,0"/>
-                    <TextBlock Text="{Binding LiveStatusText}" VerticalAlignment="Center" Margin="0,0,22,0"
+                    <TextBlock Text="{Binding LiveStatusText}" VerticalAlignment="Center" Margin="0,0,14,0"
                                Foreground="{DynamicResource TextMutedBrush}"/>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,22,0" Background="Transparent"
+                                ToolTip="{Binding SharingLightTip}">
+                        <Ellipse Width="9" Height="9" Fill="{Binding SharingLightColor}" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="Sharing" VerticalAlignment="Center" Foreground="{DynamicResource TextMutedBrush}"/>
+                    </StackPanel>
 
                     <ToggleButton Content="{Binding LockButtonText}" IsChecked="{Binding AreOverlaysLocked}" MinWidth="130" Margin="0,3,10,3"
                                   ToolTip="Locked overlays are click-through, so the mouse reaches EverQuest. Unlock to move and resize them."/>
@@ -271,6 +276,7 @@
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
+                            <DataGridTextColumn Header="Guild" Binding="{Binding GuildText}" Width="Auto"/>
                             <DataGridTemplateColumn Header="Character" Width="Auto" MinWidth="110" SortMemberPath="CharacterName">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
@@ -1152,6 +1158,7 @@
                                         <DataGridTextColumn Header="#" Binding="{Binding Rank}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                                         <DataGridTextColumn Header="Name" Binding="{Binding DisplayName, Mode=OneWay}" Width="Auto"/>
                                         <DataGridTextColumn Header="Class" Binding="{Binding Class}" Width="Auto"/>
+                                        <DataGridTextColumn Header="Class Rank" Binding="{Binding Benchmark}" Width="Auto"/>
                                         <DataGridTemplateColumn Header="Total damage" Width="170" SortMemberPath="TotalDamage">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
@@ -1708,10 +1715,7 @@
                             <TextBlock Style="{StaticResource SectionTitle}" Text="Shared online"/>
                             <TextBlock Style="{StaticResource HintText}" Margin="0,0,0,8"
                                        Text="Pool drops with every EQ Overwatch player on your server. What is sent: each kill and drop's mob, item, zone and time, under a random id. No character names, nothing else. Uploads are merged once a day at 10:00 UTC: a fight several players logged counts once, and a drop only counts when the same player logged the kill."/>
-                            <CheckBox Margin="0,0,0,4" Content="Use shared drops" IsChecked="{Binding UseSharedDrops, Mode=TwoWay}"
-                                      ToolTip="Adds everyone's merged drops to your table (Source: You and all players), plus your own since your last upload. Downloaded after each daily merge."/>
-                            <CheckBox Margin="0,0,0,8" Content="Share my drops" IsChecked="{Binding ShareMyDrops, Mode=TwoWay}"
-                                      ToolTip="Uploads your new kills and drops once a day. Switching it off takes them off the service at the next merge."/>
+                            <TextBlock Style="{StaticResource HintText}" Margin="0,0,0,8" Text="The sharing switches are in Settings, under Sharing."/>
                             <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
                                 <Button Content="Check now" Style="{StaticResource SecondaryButton}" Command="{Binding SyncSharedDropsNowCommand}"/>
                                 <TextBlock Style="{StaticResource HintText}" Margin="10,0,0,0" VerticalAlignment="Center" MaxWidth="620" Text="{Binding SharedDropsStatus}"/>
@@ -1977,6 +1981,8 @@
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
                     <WrapPanel Grid.Row="0" Margin="0,0,0,8">
+                        <RadioButton Content="Mobs" GroupName="MobHistoryView" Margin="0,0,10,6" VerticalAlignment="Center" IsChecked="{Binding ShowMobsView}"/>
+                        <RadioButton Content="Server Firsts" GroupName="MobHistoryView" Margin="0,0,22,6" VerticalAlignment="Center" IsChecked="{Binding ShowServerFirsts}"/>
                         <TextBlock Style="{StaticResource FieldLabel}" Text="Fights with"/>
                         <ComboBox Width="130" Margin="0,0,14,6" ItemsSource="{Binding BossHistorySizes}" SelectedIndex="{Binding BossHistorySizeIndex}"
                                   ToolTip="Hides small fights, such as trash and solo kills."/>
@@ -1996,7 +2002,67 @@
                                 ToolTip="Copies one chat line with your resists for the mobs you cast on most recently. Click again for the next line."/>
                     </WrapPanel>
                     <TextBlock Grid.Row="1" Style="{StaticResource HintText}" Margin="0,0,0,8" TextWrapping="Wrap" Text="{Binding BossHistoryStatus}"/>
-                    <Grid Grid.Row="2">
+
+                    <!-- Server Firsts: each boss's first kill on the server, open raid targets, guild counts and class benchmarks -->
+                    <Grid Grid.Row="2" Visibility="{Binding ShowServerFirsts, Converter={StaticResource BoolToVisibility}}">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <WrapPanel Grid.Row="0" Margin="0,0,0,8">
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="Server"/>
+                            <ComboBox Width="150" Margin="0,0,14,6" ItemsSource="{Binding FirstsServers}" SelectedItem="{Binding SelectedFirstsServer}"/>
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="Guild"/>
+                            <ComboBox Width="220" Margin="0,0,14,6" ItemsSource="{Binding FirstsGuilds}" SelectedItem="{Binding SelectedFirstsGuild}"/>
+                            <Button Content="View fight" Margin="0,0,14,6" Style="{StaticResource SecondaryButton}" Command="{Binding ViewFirstFightCommand}"
+                                    ToolTip="Shows the selected Server First as a picture, with each player's class rank on that boss."/>
+                            <TextBlock Style="{StaticResource HintText}" VerticalAlignment="Center" Margin="0,0,0,6" Text="{Binding FirstsStatus}"/>
+                        </WrapPanel>
+                        <Grid Grid.Row="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="20"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <DataGrid Grid.Column="0" ItemsSource="{Binding ServerFirstRows}" SelectedItem="{Binding SelectedFirstRow, Mode=TwoWay}" HorizontalAlignment="Left"
+                                      AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" SelectionMode="Single" VerticalAlignment="Top"
+                                      HeadersVisibility="Column" GridLinesVisibility="Horizontal">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Boss" Binding="{Binding Mob, Mode=OneWay}" Width="Auto"/>
+                                    <DataGridTextColumn Header="Expansion" Binding="{Binding Expansion, Mode=OneWay}" Width="Auto"/>
+                                    <DataGridTextColumn Header="First Kill" Binding="{Binding Date, Mode=OneWay}" Width="Auto"/>
+                                    <DataGridTextColumn Header="Guild" Binding="{Binding Guild, Mode=OneWay}" Width="Auto"/>
+                                    <DataGridTextColumn Header="Status" Binding="{Binding Status, Mode=OneWay}" Width="Auto"/>
+                                    <DataGridTextColumn Header="Witnesses" Binding="{Binding Witnesses, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                    <DataGridTextColumn Header="Players" Binding="{Binding Players, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                            <StackPanel Grid.Column="2" VerticalAlignment="Top">
+                                <TextBlock FontWeight="SemiBold" Margin="0,0,0,6" Text="Server Firsts by guild"/>
+                                <DataGrid ItemsSource="{Binding GuildFirstsRows}" HorizontalAlignment="Left" AutoGenerateColumns="False" CanUserAddRows="False"
+                                          IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal" MaxHeight="260" Margin="0,0,0,16">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Guild" Binding="{Binding Guild, Mode=OneWay}" Width="Auto"/>
+                                        <DataGridTextColumn Header="Firsts" Binding="{Binding Firsts, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                                <TextBlock FontWeight="SemiBold" Margin="0,0,0,6" TextWrapping="Wrap" Text="{Binding BenchmarkTitle}"/>
+                                <DataGrid ItemsSource="{Binding BenchmarkRows}" HorizontalAlignment="Left" AutoGenerateColumns="False" CanUserAddRows="False"
+                                          IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Class" Binding="{Binding Class, Mode=OneWay}" Width="Auto"/>
+                                        <DataGridTextColumn Header="Fights" Binding="{Binding Fights, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                        <DataGridTextColumn Header="Median DPS" Binding="{Binding MedianDps, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                        <DataGridTextColumn Header="Top 10% DPS" Binding="{Binding TopDps, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                        <DataGridTextColumn Header="Median HPS" Binding="{Binding MedianHps, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                        <DataGridTextColumn Header="Taken/sec" Binding="{Binding MedianTaken, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </StackPanel>
+                        </Grid>
+                    </Grid>
+
+                    <Grid Grid.Row="2" Visibility="{Binding ShowMobsView, Converter={StaticResource BoolToVisibility}}">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="3*" MinWidth="420"/>
                             <ColumnDefinition Width="14"/>
@@ -2027,6 +2093,7 @@
                                         </Style>
                                     </DataGridTextColumn.HeaderStyle>
                                 </DataGridTextColumn>
+                                <DataGridTextColumn Header="Server First" Binding="{Binding ServerFirst, Mode=OneWay}" Width="Auto"/>
                                 <DataGridTextColumn Header="Regen" Binding="{Binding Regen, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}">
                                     <DataGridTextColumn.HeaderStyle>
                                         <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}">
@@ -2379,12 +2446,6 @@
                             <RadioButton Content="Solo" VerticalAlignment="Center" Margin="0,0,10,0" GroupName="LevelingKind"
                                          IsChecked="{Binding LevelingSolo}"/>
                             <RadioButton Content="Group" VerticalAlignment="Center" GroupName="LevelingKind" IsChecked="{Binding LevelingGroup}"/>
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                            <CheckBox Content="Use everyone's shared leveling" IsChecked="{Binding UseSharedLeveling}" Margin="0,0,18,0"
-                                      ToolTip="Downloads what other players shared for this server: time, experience and kills per zone and level band. No names."/>
-                            <CheckBox Content="Share my leveling (no names)" IsChecked="{Binding ShareMyLeveling}"
-                                      ToolTip="Once a day, uploads your zones, levels, time, experience and kills. Power leveling (more than 4 gains in 10 seconds) is left out."/>
                         </StackPanel>
 
                         <TextBlock FontWeight="SemiBold" Text="Expansions on this server" Margin="0,0,0,4"/>
@@ -3456,37 +3517,6 @@
                             </StackPanel>
                         </GroupBox>
 
-                        <GroupBox Header="Discord auto-post">
-                            <StackPanel Margin="4">
-                                <WrapPanel>
-                                    <CheckBox Content="Post finished boss fights to Discord" Margin="0,2,32,8" VerticalAlignment="Center"
-                                              IsChecked="{Binding DiscordPostEnabled}"
-                                              ToolTip="Sends the same picture as Copy Image for Discord to your channel when a fight ends. Off until you turn it on."/>
-                                    <CheckBox Content="Post wipes too" Margin="0,2,0,8" VerticalAlignment="Center" IsChecked="{Binding DiscordPostWipes}"
-                                              ToolTip="Also post fights that ended without the mob dying."/>
-                                </WrapPanel>
-                                <WrapPanel>
-                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Webhook address"
-                                               ToolTip="In Discord: channel settings, Integrations, Webhooks, New Webhook, Copy Webhook URL. It stays on this PC and is left out of backups."/>
-                                    <PasswordBox x:Name="DiscordUrlBox" Width="360" Margin="0,0,8,6" VerticalAlignment="Center" PasswordChanged="DiscordUrlBox_PasswordChanged"/>
-                                    <Button Content="Send test post" Margin="0,0,0,6" Padding="10,2" Command="{Binding SendDiscordTestCommand}"/>
-                                </WrapPanel>
-                                <WrapPanel>
-                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Fewest players"
-                                               ToolTip="A fight needs at least this many attackers to be posted."/>
-                                    <TextBox Width="60" Margin="0,0,32,6" VerticalAlignment="Center"
-                                             Text="{Binding DiscordMinPlayers, UpdateSourceTrigger=LostFocus}"/>
-                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Shortest fight (seconds)"
-                                               ToolTip="A fight needs to last at least this long to be posted."/>
-                                    <TextBox Width="60" Margin="0,0,0,6" VerticalAlignment="Center"
-                                             Text="{Binding DiscordMinSeconds, UpdateSourceTrigger=LostFocus}"/>
-                                </WrapPanel>
-                                <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,0,0,4" Text="{Binding DiscordStatus}"/>
-                                <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap"
-                                           Text="Fights come from all your logs combined, so each one is posted once. Only fights that have just ended are posted, never old ones read from a log. Anyone who has the webhook address can post to your channel, so keep it private."/>
-                            </StackPanel>
-                        </GroupBox>
-
                         <GroupBox Header="Theme &amp; colors">
                             <StackPanel Margin="4">
                                 <WrapPanel Margin="0,0,0,10">
@@ -3537,13 +3567,51 @@
                         </GroupBox>
 
 
+                        <GroupBox Header="Sharing">
+                            <StackPanel Margin="4" MaxWidth="820" HorizontalAlignment="Left">
+                                <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,0,0,10"
+                                           Text="Every switch that sends or downloads shared data is here. Drops, leveling and the player count send no names. Server First is the only one that shares names, and it starts off."/>
+
+                                <TextBlock FontWeight="SemiBold" Text="Drops"/>
+                                <WrapPanel Margin="0,4,0,2">
+                                    <CheckBox Content="Use shared drops" IsChecked="{Binding UseSharedDrops, Mode=TwoWay}" Margin="0,0,18,4"
+                                              ToolTip="Adds everyone's merged drops to the Drop Table (Source: You and all players). Downloaded after each daily merge."/>
+                                    <CheckBox Content="Share my drops" IsChecked="{Binding ShareMyDrops, Mode=TwoWay}" Margin="0,0,18,4"
+                                              ToolTip="Uploads your new kills and drops once a day: mob, item, zone and time under a random id. Switching it off takes them down."/>
+                                    <Button Content="Delete my shared drops" Command="{Binding DeleteMySharedDropsCommand}" Style="{StaticResource SecondaryButton}" Margin="0,0,0,4"/>
+                                </WrapPanel>
+                                <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,0,0,12" Text="{Binding SharedDropsStatus}"/>
+
+                                <TextBlock FontWeight="SemiBold" Text="Leveling"/>
+                                <WrapPanel Margin="0,4,0,2">
+                                    <CheckBox Content="Use everyone's shared leveling" IsChecked="{Binding UseSharedLeveling}" Margin="0,0,18,4"
+                                              ToolTip="Downloads what other players shared for your servers: time, experience, kills and coin per zone and level band. No names."/>
+                                    <CheckBox Content="Share my leveling" IsChecked="{Binding ShareMyLeveling}" Margin="0,0,18,4"
+                                              ToolTip="Once a day, uploads your zones, levels, time, experience and kills. No names. Power leveling (more than 4 gains in 10 seconds) is left out."/>
+                                    <Button Content="Delete my shared leveling" Command="{Binding DeleteMySharedLevelingCommand}" Style="{StaticResource SecondaryButton}" Margin="0,0,0,4"/>
+                                </WrapPanel>
+                                <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,0,0,12" Text="{Binding LevelingShareSummary}"/>
+
+                                <TextBlock FontWeight="SemiBold" Text="Server First"/>
+                                <WrapPanel Margin="0,4,0,2">
+                                    <CheckBox Content="Share my raid fights for Server First (with names and guilds)" IsChecked="{Binding ShareServerFirsts}" Margin="0,0,18,4"
+                                              ToolTip="Shares raid fights with more than 12 players on a named boss: the mob, kill time, length, and every player's name, guild, class, damage, healing and damage taken. You are asked before it turns on."/>
+                                    <Button Content="Delete my Server First fights" Command="{Binding DeleteMySharedFirstsCommand}" Style="{StaticResource SecondaryButton}" Margin="0,0,0,4"/>
+                                </WrapPanel>
+                                <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,0,0,12" Text="{Binding FirstsShareSummary}"/>
+
+                                <TextBlock FontWeight="SemiBold" Text="Player count"/>
+                                <CheckBox Content="Count me in the anonymous player count" IsChecked="{Binding CountMeIn}" Margin="0,4,0,2"
+                                          ToolTip="Once a day the app sends a random id and its version number, so we know how many people use EQ Overwatch. No names, no IP addresses, nothing else."/>
+                                <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" Text="Sends a random id and the app version once a day. Nothing else."/>
+                            </StackPanel>
+                        </GroupBox>
+
                         <GroupBox Header="Updates">
                             <StackPanel Margin="4">
                                 <CheckBox Content="Start with Windows (minimized)" IsChecked="{Binding StartWithWindows}" Margin="0,0,0,6"
                                           ToolTip="Opens EQ Overwatch minimized when you sign in to Windows."/>
                                 <CheckBox Content="Check for a newer version when the app opens" IsChecked="{Binding CheckForUpdates}" Margin="0,0,0,6"/>
-                                <CheckBox Content="Count me in the anonymous player count" IsChecked="{Binding CountMeIn}" Margin="0,0,0,6"
-                                          ToolTip="Once a day the app sends a random id and its version number, so we know how many people use EQ Overwatch. No names, no IP addresses, nothing else."/>
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
                                     <TextBlock Text="Check again while running every (hours)" VerticalAlignment="Center" Margin="0,0,8,0"
                                                ToolTip="How often the app looks for a newer version while it stays open. 0 checks only when the app opens."/>

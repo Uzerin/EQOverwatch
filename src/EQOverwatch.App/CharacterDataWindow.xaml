@@ -111,7 +111,7 @@
         <!-- The account the character is on: links its shared bank with the other characters on the account. -->
         <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8" Visibility="{Binding HasAccounts, Converter={StaticResource BoolToVisibility}}">
             <TextBlock DockPanel.Dock="Left" Text="Account" Style="{StaticResource HintText}" VerticalAlignment="Center" Margin="0,0,8,0"/>
-            <ComboBox DockPanel.Dock="Left" Width="200" IsEditable="True" ItemsSource="{Binding AccountNames}" VerticalAlignment="Center"
+            <ComboBox DockPanel.Dock="Left" Width="200" Style="{StaticResource SearchComboBox}" ItemsSource="{Binding AccountNames}" VerticalAlignment="Center"
                       Text="{Binding AccountName, UpdateSourceTrigger=LostFocus}"
                       ToolTip="Type a name for the EverQuest account this character is on. Characters with the same account name share one shared bank. Leave it empty to group characters whose shared banks look the same."/>
             <TextBlock Style="{StaticResource HintText}" VerticalAlignment="Center" Margin="14,0,0,0" Text="{Binding AccountMembers}" TextTrimming="CharacterEllipsis"/>

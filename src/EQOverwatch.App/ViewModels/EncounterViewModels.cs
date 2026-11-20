@@ -68,6 +68,10 @@ public sealed partial class EncounterRowViewModel : ObservableObject
 /// <summary>One row of the participant breakdown grid. Numeric properties so the grid sorts and formats them natively.</summary>
 public sealed partial class ParticipantRowViewModel : ObservableObject
 {
+    /// <summary>"Top 10% WAR" against the server's shared kills of this boss, or empty.</summary>
+    [ObservableProperty]
+    private string _benchmark = string.Empty;
+
     [ObservableProperty]
     private int _rank;
 

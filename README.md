@@ -63,6 +63,13 @@ settings are kept.
 
 ## Changelog
 
+### 1.0.79
+
+- Server First (opt-in, with names and guilds): first kills, open targets, guild counts.
+- Class benchmarks per boss, and class rank badges on Encounter DPS and pictures.
+- All sharing switches now live in Settings, with delete buttons and a status light.
+- Guild column on Characters; Account box takes typing again; Discord auto-post removed.
+
 ### 1.0.78
 
 - New Leveling tab: best zones per 5-level band and a path, solo or group.

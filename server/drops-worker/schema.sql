@@ -108,3 +108,19 @@ CREATE TABLE IF NOT EXISTS leveling_uploads (
   updated INTEGER NOT NULL,
   PRIMARY KEY (server, id)
 );
+
+-- Server First: raid fights an install chose to share, WITH character names and guilds (the player is warned before turning it on).
+-- received is the worker's own clock, so a kill only counts as a verified first when it was shared within two days of happening.
+CREATE TABLE IF NOT EXISTS firsts (
+  server TEXT NOT NULL,
+  contributor TEXT NOT NULL,
+  mob TEXT NOT NULL COLLATE NOCASE,
+  t INTEGER NOT NULL,
+  seconds REAL NOT NULL,
+  killed INTEGER NOT NULL,
+  players INTEGER NOT NULL,
+  received INTEGER NOT NULL,
+  data TEXT NOT NULL,
+  PRIMARY KEY (server, contributor, mob, t)
+);
+CREATE INDEX IF NOT EXISTS firsts_by_server ON firsts (server, mob, t);

@@ -146,6 +146,11 @@ public sealed partial class MainViewModel
         RefreshDayStats(nowUtc);
         RefreshRelease70(nowUtc);
         RefreshLeveling(nowUtc);
+        RefreshServerFirsts(nowUtc);
+        if (nowUtc.Second < 2)
+        {
+            _ = Task.Run(_pipeline.Guilds.Flush); // about once a minute
+        }
     }
 
     /// <summary>Drops song rows from a saved Spells list: songs now reach the Songs overlay on their own.</summary>

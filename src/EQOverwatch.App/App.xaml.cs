@@ -28,7 +28,6 @@ public partial class CompanionApp : Application
     private AudioNotificationService? _audio;
     private MainViewModel? _viewModel;
     private HttpClient? _http;
-    private HttpClient? _discordHttp;
     private HttpClient? _updateHttp;
     private EQOverwatch.App.Services.TellToastService? _tellToasts;
     private HttpClient? _sharedDropsHttp;
@@ -128,6 +127,7 @@ public partial class CompanionApp : Application
         // Restores logs, triggers, raid timers, spells, timeout, mute, theme and every overlay's bounds / visibility / lock state.
         string appData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), AppInfo.SettingsFolderName);
         _pipeline.Loot.SetStoragePath(Path.Combine(appData, "loot.json"));
+        _pipeline.Guilds.SetStoragePath(Path.Combine(appData, "guilds.json")); // players' guilds from /who
         _pipeline.TimerPause.SetStoragePath(Path.Combine(appData, "bufftimers.json")); // puts back the buff and debuff bars of the last run
         var bossHistory = new EQOverwatch.Core.History.BossHistoryStore();
         bossHistory.SetStoragePath(Path.Combine(appData, "bosshistory.json"));
@@ -136,7 +136,6 @@ public partial class CompanionApp : Application
         var mobLevels = new EQOverwatch.Core.History.MobLevelStore();
         mobLevels.SetStoragePath(Path.Combine(appData, "moblevels.json"));
         _http = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
-        _discordHttp = new HttpClient { Timeout = TimeSpan.FromSeconds(40) };
         _viewModel = new MainViewModel(
             _pipeline, _settingsService, settings, new OverlayHost(windows), _audio, new WpfDialogService(), themeManager, new WpfClipboardService(),
             updateChecker: new GitHubUpdateChecker(_http),
@@ -149,8 +148,6 @@ public partial class CompanionApp : Application
             bossHistory: bossHistory,
             mobLevels: mobLevels,
             clickSender: new EQOverwatch.App.Interop.Win32InputClicker(),
-            discordPoster: new EQOverwatch.Core.Services.DiscordWebhookPoster(_discordHttp!),
-            renderEncounterPng: (encounter, palette, footer) => EQOverwatch.App.Services.EncounterImageRenderer.RenderPng(encounter, palette, footer),
             dataDirectory: appData);
 
         if (dpsVm is not null)
@@ -161,6 +158,7 @@ public partial class CompanionApp : Application
             dpsVm.CopyImageRequested += encounter => vm.CopyImage(encounter);
             dpsVm.Progress = vm.FightProgressFor; // how far along a fight is, from the recorded kills of the same mob
             dpsVm.Regen = e => vm.RegenFor(e.TargetName); // the mob's estimated regen and hit points (every server)
+            dpsVm.FirstPossible = vm.ServerFirstPossible; // a boss nobody on the server has killed yet
         }
 
         // Floating combat text: the numbers collected on the tailing thread are shown about twenty times a second.
@@ -238,6 +236,26 @@ public partial class CompanionApp : Application
         _sharedDropsHttp = new HttpClient { Timeout = TimeSpan.FromSeconds(60) };
         _sharedDropsHttp.DefaultRequestHeaders.UserAgent.ParseAdd(AppInfo.SettingsFolderName);
         _viewModel.ConfigureSharedDrops(new EQOverwatch.Core.Drops.HttpSharedDropsService(_sharedDropsHttp));
+        _viewModel.ConfigureServerFirsts(new EQOverwatch.Core.Firsts.HttpServerFirstService(_sharedDropsHttp));
+        _viewModel.NoticeRequested += notice => _tellToasts?.Show(notice.Title, notice.Text);
+        _viewModel.ShowFightPictureRequested += fight =>
+        {
+            var image = EQOverwatch.App.Services.EncounterImageRenderer.Render(fight, _viewModel.ActivePalette, _viewModel.WindowTitle);
+            var window = new Window
+            {
+                Title = "Server First: " + fight.TargetName,
+                Owner = MainWindow,
+                SizeToContent = SizeToContent.WidthAndHeight,
+                MaxWidth = SystemParameters.WorkArea.Width * 0.95,
+                MaxHeight = SystemParameters.WorkArea.Height * 0.95,
+                Content = new System.Windows.Controls.ScrollViewer
+                {
+                    HorizontalScrollBarVisibility = System.Windows.Controls.ScrollBarVisibility.Auto,
+                    Content = new System.Windows.Controls.Image { Source = image, Stretch = System.Windows.Media.Stretch.None },
+                },
+            };
+            window.Show();
+        };
         _viewModel.ConfigureLeveling(new EQOverwatch.Core.Leveling.HttpLevelingService(_sharedDropsHttp), Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), AppInfo.SettingsFolderName, "leveling.json"));
 
@@ -373,6 +391,7 @@ public partial class CompanionApp : Application
     {
         Microsoft.Win32.SystemEvents.DisplaySettingsChanged -= OnDisplaySettingsChanged;
         _tellToasts?.Dispose();
+        _pipeline?.Guilds.Flush();
         if (_viewModel is not null)
         {
             _viewModel.Shutdown(); // no-op if the main window's Closing handler already ran it

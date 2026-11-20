@@ -152,6 +152,7 @@ public sealed partial class MainViewModel
             log.AccountText = label;
             log.AccountColor = AccountColorOf(log.ServerName, bank?.Account.Length > 0 ? bank.Account : named);
             log.IsActiveNow = _pipeline.Activity.IsActive(log.CharacterName, log.ServerName, nowUtc); // this server only
+            log.GuildText = _pipeline.Guilds.Get(log.CharacterName, log.ServerName);
             groups[log] = label == "—" ? "solo|" + log.ServerName + "|" + log.CharacterName : log.ServerName + "|" + label;
         }
 

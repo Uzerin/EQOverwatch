@@ -35,6 +35,7 @@ public sealed class CompanionPipeline : IAsyncDisposable
         Uptime = new BuffUptimeTracker(Buffs);
         TimerPause = new TimerPauseService(Triggers);
         Roster = new PlayerRoster();
+        Guilds = new GuildBook();
         LiveDps = new LiveDpsTracker(inactivityTimeout, roster: Roster);
         LiveDpsTracker liveDps = LiveDps;
         // A tracked debuff landing on the mob being fought counts for uptime (it gets no bar of its own).
@@ -70,7 +71,7 @@ public sealed class CompanionPipeline : IAsyncDisposable
 
         // Every sink sees every line of every trigger-enabled log. Historical imports use none of them.
         var triggerSinks = new CompositeTriggerSink(
-            new ITriggerLineSink[] { Triggers, Buffs, Songs, Charm, SpellAlerts, TimerPause, RaidBosses, ChChain, Cooldowns, Abilities, SharedTriggers, Roster, Loot, Tells, Experience, MobExperience, Resists, Zones, Drops, Progress, TellInbox, OutputFiles, Chat }, RaiseError);
+            new ITriggerLineSink[] { Triggers, Buffs, Songs, Charm, SpellAlerts, TimerPause, RaidBosses, ChChain, Cooldowns, Abilities, SharedTriggers, Roster, Loot, Tells, Experience, MobExperience, Resists, Zones, Drops, Progress, TellInbox, OutputFiles, Chat, Guilds }, RaiseError);
         Activity = new CharacterActivityService();
         Songs.SetOwnCharacterProbe(IsMonitoredCharacter);
         Songs.SetActivityProbe(Activity.IsActive);
@@ -155,6 +156,9 @@ public sealed class CompanionPipeline : IAsyncDisposable
 
     /// <summary>Each character's zone and last /loc, for the Maps tab.</summary>
     public ZoneTracker Zones { get; }
+
+    /// <summary>Players' guilds from /who lines, per server.</summary>
+    public GuildBook Guilds { get; }
 
     /// <summary>The drop table: which mobs drop which items and how often, per server.</summary>
     public DropStore Drops { get; }

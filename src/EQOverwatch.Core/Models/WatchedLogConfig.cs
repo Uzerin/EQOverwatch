@@ -35,6 +35,15 @@ public sealed partial class WatchedLogConfig : ObservableObject
 
     public string ServerName { get; }
 
+    private string _guildText = string.Empty;
+
+    /// <summary>The character's guild from /who (empty when not seen), for the Characters list.</summary>
+    public string GuildText
+    {
+        get => _guildText;
+        set => SetProperty(ref _guildText, value ?? string.Empty);
+    }
+
     public string DisplayName => string.IsNullOrEmpty(ServerName) ? CharacterName : $"{CharacterName} ({ServerName})";
 
     /// <summary>The character's level as last seen in a /who line or level-up message, or 0 (shown as a dash).</summary>

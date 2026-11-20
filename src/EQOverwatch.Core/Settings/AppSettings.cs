@@ -72,21 +72,6 @@ public sealed class AppSettings
     /// <summary>Hex color per attack type name (see <see cref="AttackType"/>); missing types use the default.</summary>
     public Dictionary<string, string>? AttackColors { get; set; }
 
-    /// <summary>When true, a finished boss fight is posted to the Discord webhook below. Off by default.</summary>
-    public bool DiscordAutoPostEnabled { get; set; }
-
-    /// <summary>The Discord channel's webhook address. Kept on this PC only: left out of backups and never synced.</summary>
-    public string DiscordWebhookUrl { get; set; } = string.Empty;
-
-    /// <summary>Post fights that ended without a kill as well.</summary>
-    public bool DiscordPostWipes { get; set; }
-
-    /// <summary>Shortest fight, in seconds, that is posted.</summary>
-    public int DiscordMinSeconds { get; set; } = 30;
-
-    /// <summary>Fewest attackers a posted fight must have.</summary>
-    public int DiscordMinPlayers { get; set; } = 6;
-
     /// <summary>The global hotkey that switches the auto-click on and off, such as "Ctrl+Alt+F9".</summary>
     public string AutoClickHotkey { get; set; } = "Ctrl+Alt+F9";
     public OverlaySettings BuffsOverlay { get; set; } = OverlaySettings.ForCategory(TimerOverlayCategory.Buffs);
@@ -198,6 +183,12 @@ public sealed class AppSettings
     public int SharingDefaultsVersion { get; set; }
 
     public const int CurrentSharingDefaults = 1;
+
+    /// <summary>
+    /// Share qualifying raid fights for Server First, WITH character names and guilds. Off by default; the app warns before turning it on.
+    /// The one-time "sharing on" of 1.0.78 does not touch it.
+    /// </summary>
+    public bool ShareServerFirsts { get; set; }
 
     /// <summary>This install's random id for shared leveling (never a character name).</summary>
     public string LevelingId { get; set; } = string.Empty;

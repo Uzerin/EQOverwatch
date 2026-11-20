@@ -76,9 +76,7 @@ public sealed partial class MainViewModel : ObservableObject
         BossHistoryStore? bossHistory = null,
         string? dataDirectory = null,
         MobLevelStore? mobLevels = null,
-        IClickSender? clickSender = null,
-        IDiscordPoster? discordPoster = null,
-        Func<EncounterSnapshot, ThemePalette, string, byte[]>? renderEncounterPng = null)
+        IClickSender? clickSender = null)
     {
         _bossHistory = bossHistory ?? new BossHistoryStore();
         _mobLevels = mobLevels ?? new MobLevelStore();
@@ -115,7 +113,6 @@ public sealed partial class MainViewModel : ObservableObject
         UpdateArmedOutline();
         InitializeBoxAlerts();
         InitializeReleaseFeatures();
-        ConfigureDiscord(discordPoster, renderEncounterPng);
         _characterData.SetPersonaResolver(PersonaWhenWritten); // worn gear is filed under the persona that was on
         _characterData.SetAccountResolver(AccountOf); // shared banks are kept per account
         _characterData.ScanAll(EqFolderPath); // output files written while the app was closed
@@ -983,6 +980,7 @@ public sealed partial class MainViewModel : ObservableObject
             }
 
             Participants[i].Update(i + 1, ranked[i], topDealt);
+            Participants[i].Benchmark = BenchmarkBadge(encounter, ranked[i]);
         }
 
         IReadOnlyList<DamageTakenSnapshot> taken = encounter.TakenRows;
@@ -1450,11 +1448,6 @@ public sealed partial class MainViewModel : ObservableObject
             OverlayIdlePercent = settings.OverlayIdlePercent;
             DpsHideSeconds = settings.DpsHideSeconds;
             RestoreAttackColors(settings.AttackColors);
-            DiscordPostEnabled = settings.DiscordAutoPostEnabled;
-            DiscordWebhookUrl = settings.DiscordWebhookUrl ?? string.Empty;
-            DiscordPostWipes = settings.DiscordPostWipes;
-            DiscordMinSeconds = settings.DiscordMinSeconds;
-            DiscordMinPlayers = settings.DiscordMinPlayers <= 0 ? DiscordAutoPostSelector.DefaultMinPlayers : settings.DiscordMinPlayers;
 
             EncounterTimeoutSeconds = settings.EncounterTimeoutSeconds;
             _pipeline.EncounterTimeout = TimeSpan.FromSeconds(EncounterTimeoutSeconds);
@@ -1583,11 +1576,6 @@ public sealed partial class MainViewModel : ObservableObject
         OverlayIdlePercent = OverlayIdlePercent,
         DpsHideSeconds = DpsHideSeconds,
         AttackColors = AttackColorSettings(),
-        DiscordAutoPostEnabled = DiscordPostEnabled,
-        DiscordWebhookUrl = DiscordWebhookUrl.Trim(),
-        DiscordPostWipes = DiscordPostWipes,
-        DiscordMinSeconds = DiscordMinSeconds,
-        DiscordMinPlayers = DiscordMinPlayers,
         AutoClickHotkey = AutoClickHotkey,
         BuffsOverlay = _overlays.Capture(OverlayKind.Buffs),
         DebuffsOverlay = _overlays.Capture(OverlayKind.Debuffs),
@@ -1648,6 +1636,7 @@ public sealed partial class MainViewModel : ObservableObject
         UseSharedDrops = UseSharedDrops,
         ShareMyDrops = ShareMyDrops,
         UseSharedLeveling = UseSharedLeveling,
+        ShareServerFirsts = ShareServerFirsts,
         ShareMyLeveling = ShareMyLeveling,
         LevelingId = _levelingId,
         LevelingKey = _levelingKey,

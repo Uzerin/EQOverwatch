@@ -74,6 +74,13 @@ public sealed partial class DpsOverlayViewModel : ObservableObject
     /// <summary>When set, the mob's estimated regen and hit points from its recorded kills (null when there are too few).</summary>
     public Func<EncounterSnapshot, EQOverwatch.Core.History.MobRegen?>? Regen { get; set; }
 
+    /// <summary>When set, true while the raid fights a boss nobody on the server has killed yet.</summary>
+    public Func<EncounterSnapshot, bool>? FirstPossible { get; set; }
+
+    /// <summary>Shows "Server first possible" under the mob's name.</summary>
+    [ObservableProperty]
+    private bool _isFirstPossible;
+
     /// <summary>"Regen ~45/s · HP ~1.2M", or empty.</summary>
     [ObservableProperty]
     private string _regenText = string.Empty;
@@ -174,6 +181,7 @@ public sealed partial class DpsOverlayViewModel : ObservableObject
             ProgressText = string.Empty;
             ProgressFraction = 0;
             RegenText = string.Empty;
+            IsFirstPossible = false;
             Rows.Clear();
             return;
         }
@@ -182,6 +190,7 @@ public sealed partial class DpsOverlayViewModel : ObservableObject
         ProgressText = estimate?.Describe() ?? string.Empty;
         ProgressFraction = estimate?.Fraction ?? 0;
         RegenText = Regen?.Invoke(encounter)?.Describe() ?? string.Empty;
+        IsFirstPossible = encounter.IsActive && FirstPossible?.Invoke(encounter) == true;
 
         TargetName = encounter.TargetName;
         DurationText = OverlayFormat.Duration(encounter.DurationSeconds);

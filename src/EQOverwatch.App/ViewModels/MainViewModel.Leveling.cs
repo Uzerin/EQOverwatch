@@ -107,6 +107,7 @@ public sealed partial class MainViewModel
         LevelingGroup = settings.LevelingGroup;
         UseSharedLeveling = settings.UseSharedLeveling;
         ShareMyLeveling = settings.ShareMyLeveling;
+        ShareServerFirsts = settings.ShareServerFirsts;
     }
 
     partial void OnUseSharedLevelingChanged(bool value)
@@ -208,11 +209,15 @@ public sealed partial class MainViewModel
                     await ShareLevelingAsync(service, server, nowUtc);
                     await DownloadLevelingAsync(service, server, nowUtc);
                 }
+
+                ReportSharing("Leveling", null);
             }
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException)
         {
             LevelingStatus = "Shared leveling: " + ex.Message;
+            ReportSharing("Leveling", ex.Message);
+            _nextLevelingUpload.Clear(); // try again at the next scan rather than in a day
         }
         finally
         {
@@ -220,6 +225,7 @@ public sealed partial class MainViewModel
         }
 
         ShowLeveling(rebuildExpansions: LevelingExpansionChoices.Count == 0);
+        UpdateShareSummaries();
     }
 
     private async Task ShareLevelingAsync(ILevelingService service, string server, DateTime nowUtc)
@@ -236,12 +242,7 @@ public sealed partial class MainViewModel
             return;
         }
 
-        if (_levelingId.Length == 0 || _levelingKey.Length == 0)
-        {
-            (_levelingId, _levelingKey) = Core.Drops.HttpSharedDropsService.NewInstall();
-            RequestSave();
-        }
-
+        EnsureSharingId();
         List<LevelingStretch> batch = unshared.OrderBy(s => s.Start).Take(20_000).ToList();
         if (await service.UploadAsync(server, _levelingId, _levelingKey, batch))
         {

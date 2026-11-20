@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using EQOverwatch.App.Services;
 using EQOverwatch.Core.Backup;
+using EQOverwatch.Core.Firsts;
 using EQOverwatch.Core.History;
 using EQOverwatch.Core.Models;
 using EQOverwatch.Core.Parsing;
@@ -27,7 +28,7 @@ public sealed record BossKillRow(
 public sealed record BossHistoryRow(
     string Boss, string HighestLevel, string LowestLevel, int Kills, int Attempts, string Fastest, string Average, string BestDps, int Players, string LastFought,
     string Magic = "–", string Fire = "–", string Cold = "–", string Poison = "–", string Disease = "–", string SharedBy = "–",
-    string Trend = "–", string Regen = "–", string Hp = "–");
+    string Trend = "–", string Regen = "–", string Hp = "–", string ServerFirst = "");
 
 // Boss kill history, backup and restore, and saved overlay layouts.
 public sealed partial class MainViewModel
@@ -67,7 +68,7 @@ public sealed partial class MainViewModel
                 _bossLiveVersion = live.Version;
                 _bossHistory.Record(live.Completed);
                 _pipeline.BossAbilities.Learn(live.Completed);
-                PostFinishedFightsToDiscord(live);
+                QueueServerFirsts(live.Completed);
             }
 
             if (imported.Version != _bossHistoricalVersion)
@@ -194,6 +195,7 @@ public sealed partial class MainViewModel
                     s.MostPlayers,
                     s.LastFought == default ? "—" : s.LastFought.ToString("MMM d", CultureInfo.CurrentCulture))) with
                 {
+                    ServerFirst = FirstsOn(ToolsServerFilter).Find(s.Boss) is { IsOpen: false } first ? HttpServerFirstService.DateText(first.FirstKill) : string.Empty,
                     Regen = RegenFor(s.Boss) is { } regen ? regen.RegenText : "–",
                     Hp = RegenFor(s.Boss) is { } estimate ? estimate.HpText : "–",
                     Trend = KillTrendText(BossHistoryStore.Trend(fights.Concat(loaded)

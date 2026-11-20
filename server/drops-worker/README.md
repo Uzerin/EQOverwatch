@@ -9,7 +9,10 @@ A Cloudflare Worker (Workers Paid plan, for the daily merge's CPU time).
   or group, time, experience (bonuses and power leveling taken out by the app) and kills. The app downloads them summed per player
   (players numbered per answer, not named), zone, 5-level band and solo/group, and ranks zones itself.
 - **Player count:** once a day the app sends a random install id and its version. Stored: the id, the version, the first and last day seen.
-- Never stores character names or IP addresses.
+- **Server First (opt-in, off by default):** raid fights with more than 12 players on a named boss, shared WITH character names,
+  guilds, classes, damage, healing and damage taken. The app warns before turning it on. A kill counts as a verified first only when
+  shared within two days of happening (the worker's own clock). The same data gives class benchmarks per boss.
+- Never stores IP addresses. Character names and guilds are stored only for Server First fights.
 
 ## Deploy
 

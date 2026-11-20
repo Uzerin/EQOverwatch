@@ -60,6 +60,11 @@
                     </DockPanel>
                 </Border>
 
+                <!-- A boss nobody on the server has killed yet -->
+                <TextBlock Margin="6,2,6,0" Text="★ Server first possible" FontSize="11" Foreground="{DynamicResource AlertTextBrush}"
+                           Style="{StaticResource OverlayTextStyle}"
+                           Visibility="{Binding IsFirstPossible, Converter={StaticResource BoolToVisibility}}"/>
+
                 <!-- How far along the fight is, from the recorded kills of this mob (hidden when there are too few) -->
                 <StackPanel Margin="6,3,6,0">
                     <StackPanel.Style>

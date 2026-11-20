@@ -4,7 +4,8 @@
 // mobs, items, kill and drop times; no character names). Uploads go into the events table. Once a day at 10:00 UTC a merge counts
 // every mob's kills and drops with the counted-once rule (a fight several players logged counts once), and writes one merged file per
 // server that the app downloads. A take-down or an admin block removes that install's events, and the next merge subtracts them.
-// Nothing here stores IP addresses or character names.
+// Nothing here stores IP addresses. Character names and guilds are stored only for Server First fights, which a player shares only
+// after turning Server First on and being told exactly what it shares.
 //
 //   GET    /v1/merged/{server}[?have=T]  the merged file (gzip); 304 when it is not newer than T. Headers X-Updated, X-Players,
 //                                        X-Last-Merge (when the daily merge last finished)
@@ -12,6 +13,10 @@
 //   DELETE /v1/drops/{server}/{id}       take your drops down          (X-Install-Key)
 //   PUT    /v1/leveling/{server}/{id}    upload leveling stretches (gzip JSON, X-Install-Key)  once a day
 //   GET    /v1/leveling/{server}[?skip=id] everyone's leveling per player, zone, 5-level band, solo/group (players numbered, not named)
+//   DELETE /v1/leveling/{server}/{id}    take your leveling down          (X-Install-Key)
+//   PUT    /v1/firsts/{server}/{id}      share raid fights for Server First, WITH names and guilds (X-Install-Key)  up to 200 a day
+//   GET    /v1/firsts/{server}[?me=id]   each mob's first kill, open raid targets and class benchmarks
+//   DELETE /v1/firsts/{server}/{id}      take your Server First fights down (X-Install-Key)
 //   POST   /v1/ping                      { id, version }: counts this install as active today
 //   GET    /v1/stats                     public player counts
 //   GET    /v1/admin/stats               the same with the versions in use        (Authorization: Bearer ADMIN_KEY)
@@ -92,6 +97,18 @@ async function route(request, env) {
 
     if (parts.length === 3 && method === "GET") return levelingDownload(env, server, url.searchParams.get("skip") || "");
     if (parts.length === 4 && method === "PUT" && ID.test(parts[3])) return levelingUpload(request, env, server, parts[3]);
+    if (parts.length === 4 && method === "DELETE" && ID.test(parts[3])) return removeMine(request, env, server, parts[3], "leveling");
+  }
+
+  if (parts[1] === "firsts" && parts.length >= 3) {
+    const server = parts[2].toLowerCase();
+    if (!SERVER.test(server)) {
+      return json({ error: "Bad server." }, 400);
+    }
+
+    if (parts.length === 3 && method === "GET") return firstsDownload(env, server, url.searchParams.get("me") || "");
+    if (parts.length === 4 && method === "PUT" && ID.test(parts[3])) return firstsUpload(request, env, server, parts[3]);
+    if (parts.length === 4 && method === "DELETE" && ID.test(parts[3])) return removeMine(request, env, server, parts[3], "firsts");
   }
 
   if (parts[1] === "ping" && parts.length === 2 && method === "POST") {
@@ -387,6 +404,7 @@ async function takeDown(env, server, id) {
     env.DB.prepare("DELETE FROM uploads WHERE server = ? AND id = ?").bind(server, id),
     env.DB.prepare("DELETE FROM leveling WHERE server = ? AND contributor = ?").bind(server, id),
     env.DB.prepare("DELETE FROM leveling_uploads WHERE server = ? AND id = ?").bind(server, id),
+    env.DB.prepare("DELETE FROM firsts WHERE server = ? AND contributor = ?").bind(server, id),
     env.DB.prepare("INSERT INTO merged (server, pending) VALUES (?, 1) ON CONFLICT(server) DO UPDATE SET pending = 1").bind(server),
   ]);
   await env.FILES.delete(`drops/${server}/${id}`); // a file from before the daily merge
@@ -481,6 +499,189 @@ async function levelingDownload(env, server, skip) {
   });
   const zones = [...new Set(rows.map((r) => r.z))];
   return json({ rows, zones, players: numbers.size }, 200, { "Cache-Control": "public, max-age=3600" });
+}
+
+/** Takes down one kind of an install's shared data (leveling or firsts) on a server. */
+async function removeMine(request, env, server, id, kind) {
+  const key = request.headers.get("X-Install-Key") || "";
+  const install = await env.DB.prepare("SELECT key_hash FROM installs WHERE id = ?").bind(id).first();
+  if (!install || !KEY.test(key) || !equal(install.key_hash, await sha256(key))) {
+    return json({ error: "Not allowed." }, 403);
+  }
+
+  if (kind === "leveling") {
+    await env.DB.batch([
+      env.DB.prepare("DELETE FROM leveling WHERE server = ? AND contributor = ?").bind(server, id),
+      env.DB.prepare("DELETE FROM leveling_uploads WHERE server = ? AND id = ?").bind(server, id),
+    ]);
+  } else {
+    await env.DB.prepare("DELETE FROM firsts WHERE server = ? AND contributor = ?").bind(server, id).run();
+  }
+
+  return json({ ok: true });
+}
+
+// ───────────────────────── Server First ─────────────────────────
+
+const FIRSTS_FORMAT = "EQOverwatchFirsts";
+const MAX_FIRSTS_PER_DAY = 200;
+const VERIFIED_SECONDS = 2 * 86400; // a kill shared later than this is only the earliest known, not a verified first
+const SAME_FIGHT_SECONDS = 600; // fights of one mob closer than this are the same fight logged by several installs
+const NAME = /^[A-Za-z]{2,32}$/;
+
+/** Adds an install's raid fights (with names and guilds: the player turned this on after a warning). */
+async function firstsUpload(request, env, server, id) {
+  const key = request.headers.get("X-Install-Key") || "";
+  if (!KEY.test(key)) {
+    return json({ error: "Missing install key." }, 401);
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  const hash = await sha256(key);
+  const install = await env.DB.prepare("SELECT key_hash, blocked FROM installs WHERE id = ?").bind(id).first();
+  if (install) {
+    if (!equal(install.key_hash, hash)) return json({ error: "That id belongs to another install." }, 403);
+    if (install.blocked) return json({ error: "This install's uploads are turned off." }, 403);
+  } else {
+    const today = await env.DB.prepare("SELECT new_installs FROM daily WHERE day = ?").bind(day(now)).first();
+    if (today && today.new_installs >= MAX_NEW_INSTALLS_PER_DAY) {
+      return json({ error: "Too many new installs today. Try again tomorrow." }, 429);
+    }
+  }
+
+  const length = Number(request.headers.get("Content-Length") || "0");
+  if (length > MAX_BYTES) {
+    return json({ error: "That file is too large." }, 413);
+  }
+
+  let file;
+  try {
+    file = JSON.parse(await request.text());
+  } catch {
+    file = null;
+  }
+
+  if (!file || file.format !== FIRSTS_FORMAT || !Array.isArray(file.fights) || file.fights.length > 50) {
+    return json({ error: "That isn't a Server First file." }, 400);
+  }
+
+  const sent = await env.DB.prepare("SELECT COUNT(*) AS n FROM firsts WHERE server = ? AND contributor = ? AND received > ?")
+    .bind(server, id, now - 86400).first();
+  if (sent && sent.n >= MAX_FIRSTS_PER_DAY) {
+    return json({ error: "Too many fights shared today." }, 429);
+  }
+
+  const fights = file.fights.filter((f) =>
+    f && typeof f.m === "string" && f.m.length > 0 && f.m.length <= 64 && Number.isInteger(f.s) && f.s > now - 5 * 365 * 86400 && f.s <= now + 86400
+    && typeof f.l === "number" && f.l > 0 && f.l <= 36000 && typeof f.k === "boolean" && Array.isArray(f.p) && f.p.length >= 1 && f.p.length <= 120
+    && f.p.every((p) => p && NAME.test(p.n) && typeof p.g === "string" && p.g.length <= 64 && typeof p.c === "string" && p.c.length <= 24
+      && [p.d, p.h, p.t, p.x].every((v) => Number.isInteger(v) && v >= 0 && v < 1e12)));
+
+  if (!install) {
+    await env.DB.batch([
+      env.DB.prepare("INSERT INTO installs (id, key_hash, created) VALUES (?, ?, ?)").bind(id, hash, now),
+      env.DB.prepare("INSERT INTO daily (day, new_installs) VALUES (?, 1) ON CONFLICT(day) DO UPDATE SET new_installs = new_installs + 1").bind(day(now)),
+    ]);
+  }
+
+  const insert = env.DB.prepare(
+    "INSERT OR IGNORE INTO firsts (server, contributor, mob, t, seconds, killed, players, received, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+  if (fights.length > 0) {
+    await env.DB.batch(fights.map((f) => insert.bind(server, id, f.m, f.s, f.l, f.k ? 1 : 0, f.p.length, now,
+      JSON.stringify({ m: f.m, s: f.s, l: f.l, k: f.k, p: f.p.map((p) => ({ n: p.n, g: p.g, c: p.c, d: p.d, h: p.h, t: p.t, x: p.x })) }))));
+  }
+
+  return json({ ok: true, added: fights.length });
+}
+
+/** Each mob's first kill on the server (verified or earliest known), the raid targets nobody has killed, and class benchmarks. */
+async function firstsDownload(env, server, me) {
+  const result = await env.DB.prepare(
+    "SELECT contributor, mob, t, killed, players, received, data FROM firsts WHERE server = ? " +
+    "AND contributor NOT IN (SELECT id FROM installs WHERE blocked = 1) ORDER BY mob, t").bind(server).all();
+  const byMob = new Map();
+  for (const r of result.results || []) {
+    const key = r.mob.toLowerCase();
+    if (!byMob.has(key)) byMob.set(key, []);
+    byMob.get(key).push(r);
+  }
+
+  const firsts = [];
+  const benchmarks = [];
+  for (const rows of byMob.values()) {
+    // the same fight logged by several installs is one fight
+    const fights = [];
+    for (const r of rows) {
+      const last = fights[fights.length - 1];
+      if (last && r.t - last.t <= SAME_FIGHT_SECONDS) last.rows.push(r);
+      else fights.push({ t: r.t, rows: [r] });
+    }
+
+    for (const f of fights) {
+      f.killed = f.rows.some((r) => r.killed === 1);
+      f.best = f.rows.reduce((a, b) => (b.players > a.players ? b : a));
+      f.verified = f.rows.some((r) => r.killed === 1 && r.received - r.t <= VERIFIED_SECONDS);
+      f.contributors = new Set(f.rows.map((r) => r.contributor));
+    }
+
+    const kills = fights.filter((f) => f.killed);
+    const mob = rows[0].mob;
+    if (kills.length === 0) {
+      firsts.push({ mob, first: 0, verified: false, witnesses: 0, mine: false, fight: null });
+    } else {
+      const first = kills.find((f) => f.verified) || kills[0];
+      firsts.push({
+        mob, first: first.t, verified: first.verified, witnesses: first.contributors.size,
+        mine: ID.test(me) && first.contributors.has(me), fight: JSON.parse(first.best.data),
+      });
+    }
+
+    // how each class does on this boss across every kill
+    const byClass = new Map();
+    for (const f of kills) {
+      const d = JSON.parse(f.best.data);
+      const seconds = Math.max(1, d.l);
+      for (const p of d.p) {
+        if (!p.c) continue;
+        if (!byClass.has(p.c)) byClass.set(p.c, { fights: 0, dps: [], hps: [], taken: [] });
+        const c = byClass.get(p.c);
+        c.fights++;
+        if (p.d > 0) c.dps.push(p.d / seconds);
+        if (p.h > 0) c.hps.push(p.h / seconds);
+        if (p.t > 0) c.taken.push(p.t / seconds);
+      }
+    }
+
+    for (const [cls, c] of byClass) {
+      if (c.dps.length + c.hps.length < 3) continue;
+      benchmarks.push({ mob, class: cls, fights: c.fights, dps: deciles(c.dps), hps: median(c.hps), taken: median(c.taken) });
+    }
+  }
+
+  firsts.sort((a, b) => (a.first || Infinity) - (b.first || Infinity));
+  return json({ firsts, benchmarks, updated: Math.floor(Date.now() / 1000) }, 200, { "Cache-Control": "private, max-age=300" });
+}
+
+function median(values) {
+  if (values.length === 0) return 0;
+  const v = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(v.length / 2);
+  return v.length % 2 ? v[mid] : (v[mid - 1] + v[mid]) / 2;
+}
+
+/** The 10th, 20th ... 90th percentiles (empty with fewer than 3 values). */
+function deciles(values) {
+  if (values.length < 3) return [];
+  const v = [...values].sort((a, b) => a - b);
+  const out = [];
+  for (let i = 1; i <= 9; i++) {
+    const at = (i / 10) * (v.length - 1);
+    const lo = Math.floor(at);
+    const hi = Math.ceil(at);
+    out.push(Math.round((v[lo] + (v[hi] - v[lo]) * (at - lo)) * 10) / 10);
+  }
+
+  return out;
 }
 
 // ───────────────────────── the daily merge ─────────────────────────

@@ -132,6 +132,16 @@ public sealed class LevelingStore
         }
     }
 
+    /// <summary>Forgets what was shared on <paramref name="server"/>, so everything is shared again next time (after a take-down).</summary>
+    public void ForgetShared(string server)
+    {
+        lock (_gate)
+        {
+            _file.SharedThrough.Remove(server);
+            Save();
+        }
+    }
+
     /// <summary>Marks the stretches on <paramref name="server"/> up to <paramref name="through"/> (Unix seconds) as shared.</summary>
     public void MarkShared(string server, long through)
     {
@@ -179,6 +189,9 @@ public interface ILevelingService
 
     /// <summary>Everyone else's leveling on <paramref name="server"/> (this install's own rows, sent as <paramref name="id"/>, left out).</summary>
     Task<SharedLeveling> DownloadAsync(string server, string id, CancellationToken cancellation = default);
+
+    /// <summary>Takes down everything this install shared for leveling on <paramref name="server"/>.</summary>
+    Task DeleteAsync(string server, string id, string key, CancellationToken cancellation = default);
 }
 
 public sealed class HttpLevelingService : ILevelingService
@@ -235,6 +248,17 @@ public sealed class HttpLevelingService : ILevelingService
         using HttpResponseMessage response = await _http.GetAsync(address, cancellation).ConfigureAwait(false);
         await ThrowIfFailed(response, cancellation).ConfigureAwait(false);
         return Parse(await response.Content.ReadAsStringAsync(cancellation).ConfigureAwait(false));
+    }
+
+    public async Task DeleteAsync(string server, string id, string key, CancellationToken cancellation = default)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Delete, new Uri(_base, $"v1/leveling/{Uri.EscapeDataString(server.ToLowerInvariant())}/{Uri.EscapeDataString(id)}"));
+        request.Headers.Add("X-Install-Key", key);
+        using HttpResponseMessage response = await _http.SendAsync(request, cancellation).ConfigureAwait(false);
+        if (response.StatusCode != HttpStatusCode.NotFound)
+        {
+            await ThrowIfFailed(response, cancellation).ConfigureAwait(false);
+        }
     }
 
     /// <summary>Reads the service's answer: { rows: [{ z, b, g, p, s, x, k }], zones: [...], players }.</summary>
