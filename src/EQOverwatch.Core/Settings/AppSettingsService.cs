@@ -198,26 +198,31 @@ public sealed class AppSettingsService : IDisposable
     /// <summary>Writes any pending snapshot immediately. Failures are reported through <see cref="SaveFailed"/>.</summary>
     public void Flush()
     {
-        AppSettings? pending;
-        lock (_gate)
+        // Held across taking and writing the snapshot, so a Flush that finds nothing pending still waits for a save the timer is
+        // writing right now (otherwise the file could be read before that save lands).
+        lock (_ioGate)
         {
-            pending = _pending;
-            _pending = null;
-            _timer?.Change(Timeout.Infinite, Timeout.Infinite);
-        }
+            AppSettings? pending;
+            lock (_gate)
+            {
+                pending = _pending;
+                _pending = null;
+                _timer?.Change(Timeout.Infinite, Timeout.Infinite);
+            }
 
-        if (pending is null)
-        {
-            return;
-        }
+            if (pending is null)
+            {
+                return;
+            }
 
-        try
-        {
-            Save(pending);
-        }
-        catch (Exception ex)
-        {
-            SaveFailed?.Invoke(ex);
+            try
+            {
+                Save(pending);
+            }
+            catch (Exception ex)
+            {
+                SaveFailed?.Invoke(ex);
+            }
         }
     }
 
