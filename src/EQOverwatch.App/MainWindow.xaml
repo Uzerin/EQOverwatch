@@ -2367,6 +2367,75 @@
                 </Grid>
             </TabItem>
 
+            <!-- ═════════ Leveling ═════════ -->
+            <TabItem Header="Leveling">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="6">
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <TextBlock Text="Server" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <ComboBox Width="140" ItemsSource="{Binding LevelingServers}" SelectedItem="{Binding SelectedLevelingServer}" Margin="0,0,16,0"/>
+                            <TextBlock Text="Level" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <TextBox Width="50" VerticalAlignment="Center" Text="{Binding LevelingLevel, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,16,0"/>
+                            <RadioButton Content="Solo" VerticalAlignment="Center" Margin="0,0,10,0" GroupName="LevelingKind"
+                                         IsChecked="{Binding LevelingSolo}"/>
+                            <RadioButton Content="Group" VerticalAlignment="Center" GroupName="LevelingKind" IsChecked="{Binding LevelingGroup}"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                            <CheckBox Content="Use everyone's shared leveling" IsChecked="{Binding UseSharedLeveling}" Margin="0,0,18,0"
+                                      ToolTip="Downloads what other players shared for this server: time, experience and kills per zone and level band. No names."/>
+                            <CheckBox Content="Share my leveling (no names)" IsChecked="{Binding ShareMyLeveling}"
+                                      ToolTip="Once a day, uploads your zones, levels, time, experience and kills. Power leveling (more than 4 gains in 10 seconds) is left out."/>
+                        </StackPanel>
+
+                        <TextBlock FontWeight="SemiBold" Text="Expansions on this server" Margin="0,0,0,4"/>
+                        <ItemsControl ItemsSource="{Binding LevelingExpansionChoices}" HorizontalAlignment="Left">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel MaxWidth="900"/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <CheckBox Content="{Binding Name}" IsChecked="{Binding IsOn}" Margin="0,2,14,2"/>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <StackPanel Orientation="Horizontal" Margin="0,4,0,12">
+                            <TextBlock Style="{StaticResource HintText}" VerticalAlignment="Center" Text="{Binding LevelingExpansionHint}"/>
+                            <Button Content="Use zones seen" Command="{Binding UseZonesSeenForExpansionsCommand}" Margin="10,0,0,0" Style="{StaticResource SecondaryButton}"/>
+                        </StackPanel>
+
+                        <TextBlock FontWeight="SemiBold" Margin="0,0,0,6">
+                            <Run Text="Best zones for levels"/>
+                            <Run Text="{Binding LevelingBandText, Mode=OneWay}"/>
+                        </TextBlock>
+                        <DataGrid ItemsSource="{Binding LevelingZoneRows}" HorizontalAlignment="Left" AutoGenerateColumns="False" CanUserAddRows="False"
+                                  IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal" Margin="0,0,0,14">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Zone" Binding="{Binding Zone, Mode=OneWay}" Width="Auto"/>
+                                <DataGridTextColumn Header="Expansion" Binding="{Binding Expansion, Mode=OneWay}" Width="Auto"/>
+                                <DataGridTextColumn Header="XP/hour" Binding="{Binding XpPerHour, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                <DataGridTextColumn Header="Kills/hour" Binding="{Binding KillsPerHour, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                <DataGridTextColumn Header="Players" Binding="{Binding Players, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                <DataGridTextColumn Header="Hours" Binding="{Binding Hours, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                <DataGridTextColumn Header="Data" Binding="{Binding Data, Mode=OneWay}" Width="Auto"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                        <TextBlock FontWeight="SemiBold" Margin="0,0,0,6" Text="Leveling path"/>
+                        <DataGrid ItemsSource="{Binding LevelingPathRows}" HorizontalAlignment="Left" AutoGenerateColumns="False" CanUserAddRows="False"
+                                  IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal" MaxHeight="420" Margin="0,0,0,10">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Levels" Binding="{Binding Levels, Mode=OneWay}" Width="Auto"/>
+                                <DataGridTextColumn Header="Best Zone" Binding="{Binding Zone, Mode=OneWay}" Width="Auto"/>
+                                <DataGridTextColumn Header="XP/hour" Binding="{Binding XpPerHour, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                        <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" MaxWidth="760" HorizontalAlignment="Left" Text="{Binding LevelingStatus}"/>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
             <!-- ═════════ Spell Stats ═════════ -->
             <TabItem Header="Spell Stats">
                 <Grid Margin="6">

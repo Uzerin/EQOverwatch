@@ -339,6 +339,17 @@ public sealed class AppSettingsService : IDisposable
 
     private static AppSettings Normalize(AppSettings settings)
     {
+        // Files from before sharing was on by default: every sharing switch is turned on once.
+        if (settings.SharingDefaultsVersion < AppSettings.CurrentSharingDefaults)
+        {
+            settings.UseSharedDrops = true;
+            settings.ShareMyDrops = true;
+            settings.UseSharedLeveling = true;
+            settings.ShareMyLeveling = true;
+            settings.CountMeIn = true;
+            settings.SharingDefaultsVersion = AppSettings.CurrentSharingDefaults;
+        }
+
         settings.WatchedLogs ??= new List<WatchedLogSettings>();
         settings.WatchedLogs.RemoveAll(l => l is null || string.IsNullOrWhiteSpace(l.FilePath));
         settings.Triggers ??= new List<TriggerRule>();

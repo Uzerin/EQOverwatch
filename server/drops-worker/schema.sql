@@ -84,3 +84,27 @@ CREATE TABLE IF NOT EXISTS meta (
   key TEXT PRIMARY KEY,
   value INTEGER NOT NULL
 );
+
+-- Shared leveling: each install's stretches (zone, level, solo or group, time, experience with bonuses taken out, kills, start time).
+-- No character names; the contributor is the install's random id.
+CREATE TABLE IF NOT EXISTS leveling (
+  server TEXT NOT NULL,
+  contributor TEXT NOT NULL,
+  zone TEXT NOT NULL COLLATE NOCASE,
+  level INTEGER NOT NULL,
+  grp INTEGER NOT NULL,
+  seconds REAL NOT NULL,
+  xp REAL NOT NULL,
+  kills INTEGER NOT NULL,
+  t INTEGER NOT NULL,
+  PRIMARY KEY (server, contributor, t, zone, grp)
+);
+CREATE INDEX IF NOT EXISTS leveling_by_server ON leveling (server, t);
+
+-- The last leveling upload of each install on each server (once a day).
+CREATE TABLE IF NOT EXISTS leveling_uploads (
+  server TEXT NOT NULL,
+  id TEXT NOT NULL,
+  updated INTEGER NOT NULL,
+  PRIMARY KEY (server, id)
+);

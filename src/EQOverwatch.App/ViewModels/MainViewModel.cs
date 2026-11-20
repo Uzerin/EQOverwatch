@@ -1405,6 +1405,7 @@ public sealed partial class MainViewModel : ObservableObject
             CheckForUpdates = settings.CheckForUpdates;
             UpdateCheckHours = settings.UpdateCheckHours;
             RestoreSharedDrops(settings);
+            RestoreLeveling(settings);
             RestoreTells(settings);
             _skippedUpdateVersion = settings.SkippedUpdateVersion ?? string.Empty;
 
@@ -1646,8 +1647,15 @@ public sealed partial class MainViewModel : ObservableObject
         SkippedUpdateVersion = _skippedUpdateVersion,
         UseSharedDrops = UseSharedDrops,
         ShareMyDrops = ShareMyDrops,
+        UseSharedLeveling = UseSharedLeveling,
+        ShareMyLeveling = ShareMyLeveling,
+        LevelingId = _levelingId,
+        LevelingKey = _levelingKey,
+        LevelingExpansions = new Dictionary<string, List<int>>(_levelingExpansions, StringComparer.OrdinalIgnoreCase),
+        LevelingGroup = LevelingGroup,
         SharedDropsId = _sharedDropsId,
         SharedDropsKey = _sharedDropsKey,
+        SharingDefaultsVersion = Core.Settings.AppSettings.CurrentSharingDefaults, // so switching sharing off stays off
         CountMeIn = CountMeIn,
         AllLogsLoadOffered = _allLogsLoadOffered,
         PlayerCountId = _playerCountId,

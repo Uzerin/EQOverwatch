@@ -10,6 +10,8 @@
 //                                        X-Last-Merge (when the daily merge last finished)
 //   PUT    /v1/drops/{server}/{id}       upload new kills and drops   (X-Install-Key, X-Kills, X-Drops)  once a day
 //   DELETE /v1/drops/{server}/{id}       take your drops down          (X-Install-Key)
+//   PUT    /v1/leveling/{server}/{id}    upload leveling stretches (gzip JSON, X-Install-Key)  once a day
+//   GET    /v1/leveling/{server}[?skip=id] everyone's leveling per player, zone, 5-level band, solo/group (players numbered, not named)
 //   POST   /v1/ping                      { id, version }: counts this install as active today
 //   GET    /v1/stats                     public player counts
 //   GET    /v1/admin/stats               the same with the versions in use        (Authorization: Bearer ADMIN_KEY)
@@ -29,6 +31,10 @@ const SERVER = /^[a-z0-9_-]{2,32}$/;
 const KEY = /^[A-Za-z0-9_-]{32,64}$/;
 const VERSION = /^[0-9A-Za-z.+-]{1,24}$/;
 const FORMAT = "EQOverwatchDrops";
+const LEVELING_FORMAT = "EQOverwatchLeveling";
+const MAX_STRETCHES = 20_000;
+const LEVELING_KEEP_SECONDS = 730 * 86400;
+const BAND = 5;
 const MERGED_FORMAT = "EQOverwatchDropsMerged";
 
 export default {
@@ -76,6 +82,16 @@ async function route(request, env) {
 
     if (method === "PUT") return upload(request, env, server, id);
     if (method === "DELETE") return remove(request, env, server, id);
+  }
+
+  if (parts[1] === "leveling" && parts.length >= 3) {
+    const server = parts[2].toLowerCase();
+    if (!SERVER.test(server)) {
+      return json({ error: "Bad server." }, 400);
+    }
+
+    if (parts.length === 3 && method === "GET") return levelingDownload(env, server, url.searchParams.get("skip") || "");
+    if (parts.length === 4 && method === "PUT" && ID.test(parts[3])) return levelingUpload(request, env, server, parts[3]);
   }
 
   if (parts[1] === "ping" && parts.length === 2 && method === "POST") {
@@ -369,9 +385,102 @@ async function takeDown(env, server, id) {
       "WHERE server = ? AND contributor = ?").bind(server, id),
     env.DB.prepare("DELETE FROM events WHERE server = ? AND contributor = ?").bind(server, id),
     env.DB.prepare("DELETE FROM uploads WHERE server = ? AND id = ?").bind(server, id),
+    env.DB.prepare("DELETE FROM leveling WHERE server = ? AND contributor = ?").bind(server, id),
+    env.DB.prepare("DELETE FROM leveling_uploads WHERE server = ? AND id = ?").bind(server, id),
     env.DB.prepare("INSERT INTO merged (server, pending) VALUES (?, 1) ON CONFLICT(server) DO UPDATE SET pending = 1").bind(server),
   ]);
   await env.FILES.delete(`drops/${server}/${id}`); // a file from before the daily merge
+}
+
+// ───────────────────────── shared leveling ─────────────────────────
+
+/** Adds an install's leveling stretches (once a day per server). The same stretch sent again is not added twice. */
+async function levelingUpload(request, env, server, id) {
+  const key = request.headers.get("X-Install-Key") || "";
+  if (!KEY.test(key)) {
+    return json({ error: "Missing install key." }, 401);
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  const hash = await sha256(key);
+  const install = await env.DB.prepare("SELECT key_hash, blocked FROM installs WHERE id = ?").bind(id).first();
+  if (install) {
+    if (!equal(install.key_hash, hash)) return json({ error: "That id belongs to another install." }, 403);
+    if (install.blocked) return json({ error: "This install's uploads are turned off." }, 403);
+  } else {
+    const today = await env.DB.prepare("SELECT new_installs FROM daily WHERE day = ?").bind(day(now)).first();
+    if (today && today.new_installs >= MAX_NEW_INSTALLS_PER_DAY) {
+      return json({ error: "Too many new installs today. Try again tomorrow." }, 429);
+    }
+  }
+
+  const last = await env.DB.prepare("SELECT updated FROM leveling_uploads WHERE server = ? AND id = ?").bind(server, id).first();
+  if (last && now - last.updated < MIN_SECONDS_BETWEEN_UPLOADS) {
+    return json({ error: "Uploaded too recently.", retryAfter: MIN_SECONDS_BETWEEN_UPLOADS - (now - last.updated) }, 429);
+  }
+
+  const bytes = new Uint8Array(await request.arrayBuffer());
+  if (bytes.length < 20 || bytes.length > MAX_BYTES || bytes[0] !== 0x1f || bytes[1] !== 0x8b) {
+    return json({ error: "That isn't a leveling file." }, 400);
+  }
+
+  let file;
+  try {
+    const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
+    file = JSON.parse(await new Response(stream).text());
+  } catch {
+    file = null;
+  }
+
+  if (!file || file.format !== LEVELING_FORMAT || !Array.isArray(file.stretches) || file.stretches.length > MAX_STRETCHES) {
+    return json({ error: "That isn't a leveling file." }, 400);
+  }
+
+  const oldest = now - LEVELING_KEEP_SECONDS;
+  const rows = file.stretches.filter((s) =>
+    s && typeof s.z === "string" && s.z.length > 0 && s.z.length <= 64
+    && Number.isInteger(s.l) && s.l >= 1 && s.l <= 255 && (s.g === 0 || s.g === 1)
+    && typeof s.s === "number" && s.s > 0 && s.s <= 86400 && typeof s.x === "number" && s.x >= 0 && s.x <= 100000
+    && Number.isInteger(s.k) && s.k >= 0 && s.k <= 100000 && Number.isInteger(s.t) && s.t >= oldest && s.t <= now + 86400);
+
+  if (!install) {
+    await env.DB.batch([
+      env.DB.prepare("INSERT INTO installs (id, key_hash, created) VALUES (?, ?, ?)").bind(id, hash, now),
+      env.DB.prepare("INSERT INTO daily (day, new_installs) VALUES (?, 1) ON CONFLICT(day) DO UPDATE SET new_installs = new_installs + 1").bind(day(now)),
+    ]);
+  }
+
+  const insert = env.DB.prepare(
+    "INSERT OR IGNORE INTO leveling (server, contributor, zone, level, grp, seconds, xp, kills, t) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+  for (let i = 0; i < rows.length; i += 50) {
+    await env.DB.batch(rows.slice(i, i + 50).map((s) => insert.bind(server, id, s.z, s.l, s.g, s.s, s.x, s.k, s.t)));
+  }
+
+  await env.DB.batch([
+    env.DB.prepare("INSERT INTO leveling_uploads (server, id, updated) VALUES (?, ?, ?) ON CONFLICT(server, id) DO UPDATE SET updated = excluded.updated")
+      .bind(server, id, now),
+    env.DB.prepare("DELETE FROM leveling WHERE server = ? AND t < ?").bind(server, oldest),
+  ]);
+  return json({ ok: true, added: rows.length });
+}
+
+/**
+ * Everyone's leveling on a server, summed per player, zone, 5-level band and solo/group. Players are numbered for this answer only
+ * (never named, and not the install id); the asking install's own rows are left out when it sends its id as skip.
+ */
+async function levelingDownload(env, server, skip) {
+  const band = `((level - 1) / ${BAND}) * ${BAND} + 1`;
+  const result = await env.DB.prepare(
+    `SELECT contributor, zone, ${band} AS b, grp, SUM(seconds) AS s, SUM(xp) AS x, SUM(kills) AS k FROM leveling ` +
+    "WHERE server = ? AND contributor <> ? AND contributor NOT IN (SELECT id FROM installs WHERE blocked = 1) " +
+    "GROUP BY contributor, zone, b, grp").bind(server, ID.test(skip) ? skip : "").all();
+  const numbers = new Map();
+  const rows = (result.results || []).map((r) => {
+    if (!numbers.has(r.contributor)) numbers.set(r.contributor, numbers.size + 1);
+    return { z: r.zone, b: r.b, g: r.grp, p: numbers.get(r.contributor), s: r.s, x: r.x, k: r.k };
+  });
+  const zones = [...new Set(rows.map((r) => r.z))];
+  return json({ rows, zones, players: numbers.size }, 200, { "Cache-Control": "public, max-age=3600" });
 }
 
 // ───────────────────────── the daily merge ─────────────────────────

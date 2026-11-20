@@ -63,6 +63,13 @@ settings are kept.
 
 ## Changelog
 
+### 1.0.78
+
+- New Leveling tab: best zones per 5-level band and a path, solo or group.
+- Anonymous sharing of leveling; power leveling bursts are left out.
+- Expansions per server found from zones seen, changeable on the tab.
+- All sharing (drops, leveling, player count) is now on; switch off in the app.
+
 ### 1.0.77
 
 - Mob HP, regen and fight progress use kills from every server.

@@ -145,6 +145,7 @@ public sealed partial class MainViewModel
         RefreshProgress(nowUtc);
         RefreshDayStats(nowUtc);
         RefreshRelease70(nowUtc);
+        RefreshLeveling(nowUtc);
     }
 
     /// <summary>Drops song rows from a saved Spells list: songs now reach the Songs overlay on their own.</summary>

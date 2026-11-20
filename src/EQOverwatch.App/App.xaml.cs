@@ -238,6 +238,8 @@ public partial class CompanionApp : Application
         _sharedDropsHttp = new HttpClient { Timeout = TimeSpan.FromSeconds(60) };
         _sharedDropsHttp.DefaultRequestHeaders.UserAgent.ParseAdd(AppInfo.SettingsFolderName);
         _viewModel.ConfigureSharedDrops(new EQOverwatch.Core.Drops.HttpSharedDropsService(_sharedDropsHttp));
+        _viewModel.ConfigureLeveling(new EQOverwatch.Core.Leveling.HttpLevelingService(_sharedDropsHttp), Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), AppInfo.SettingsFolderName, "leveling.json"));
 
         var main = new MainWindow(_viewModel);
         MainWindow = main; // closing it ends the app (ShutdownMode=OnMainWindowClose)

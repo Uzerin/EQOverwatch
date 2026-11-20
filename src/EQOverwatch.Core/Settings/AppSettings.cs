@@ -185,11 +185,37 @@ public sealed class AppSettings
     /// <summary>Hours between checks for a newer version while the app stays open. 0 checks only when the app opens.</summary>
     public int UpdateCheckHours { get; set; } = 4;
 
-    /// <summary>Add the drops other players shared online to the Drop Table (off until switched on).</summary>
-    public bool UseSharedDrops { get; set; }
+    /// <summary>Rank leveling zones with what other players shared online (on unless switched off).</summary>
+    public bool UseSharedLeveling { get; set; } = true;
 
-    /// <summary>Upload this PC's drops to the online shared table (off until switched on).</summary>
-    public bool ShareMyDrops { get; set; }
+    /// <summary>Upload this PC's leveling stretches, with no names (on unless switched off).</summary>
+    public bool ShareMyLeveling { get; set; } = true;
+
+    /// <summary>
+    /// 1 once the sharing switches were turned on by default (v1.0.78 turned them all on once, for every install). Missing (0) in older
+    /// files.
+    /// </summary>
+    public int SharingDefaultsVersion { get; set; }
+
+    public const int CurrentSharingDefaults = 1;
+
+    /// <summary>This install's random id for shared leveling (never a character name).</summary>
+    public string LevelingId { get; set; } = string.Empty;
+
+    /// <summary>The secret that lets only this install add leveling under its id.</summary>
+    public string LevelingKey { get; set; } = string.Empty;
+
+    /// <summary>The Leveling tab's expansions per server, when changed by hand (expansion numbers; missing: found from zones seen).</summary>
+    public Dictionary<string, List<int>> LevelingExpansions { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>The Leveling tab ranks group zones (false: solo).</summary>
+    public bool LevelingGroup { get; set; } = true;
+
+    /// <summary>Add the drops other players shared online to the Drop Table (on unless switched off).</summary>
+    public bool UseSharedDrops { get; set; } = true;
+
+    /// <summary>Upload this PC's drops to the online shared table (on unless switched off).</summary>
+    public bool ShareMyDrops { get; set; } = true;
 
     /// <summary>This install's random id in the online shared table (made on the first upload; never a character name).</summary>
     public string SharedDropsId { get; set; } = string.Empty;

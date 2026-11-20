@@ -176,6 +176,8 @@ public partial class MainViewModelTests
         using var h = new Harness();
         FillDrops(h.Pipeline.Drops); // 4 orc pawn kills of your own
         var service = new FakeSharedDrops();
+        h.Vm.UseSharedDrops = false; // sharing starts on; this test switches it on itself below
+        h.Vm.ShareMyDrops = false;
         h.Vm.ConfigureSharedDrops(service);
         Assert.Equal(new[] { MainViewModel.DropSourceAll, MainViewModel.DropSourceMine }, h.Vm.DropSources);
 
