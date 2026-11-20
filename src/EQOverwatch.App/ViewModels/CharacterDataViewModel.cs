@@ -48,7 +48,8 @@ public sealed record CharacterProgressSource(
     Func<IReadOnlyList<string>>? AchievementsDone = null,
     Func<string>? Account = null,
     Action<string>? SetAccount = null,
-    Func<IReadOnlyList<string>>? AccountNames = null);
+    Func<IReadOnlyList<string>>? AccountNames = null,
+    Func<IReadOnlyList<EQOverwatch.Core.Leveling.LevelEvent>>? LevelHistory = null);
 
 /// <summary>
 /// One character's data window: inventory, spellbook, missing spells and key ring, read from the character's <c>/outputfile</c> files.
@@ -156,6 +157,12 @@ public sealed partial class CharacterDataViewModel : ObservableObject
 
     /// <summary>True when the window can name the character's account (not in tests).</summary>
     public bool HasAccounts => _progress?.SetAccount is not null;
+
+    /// <summary>The levels the character reached, from its log (for the level history chart).</summary>
+    public IReadOnlyList<EQOverwatch.Core.Leveling.LevelEvent> LevelHistory =>
+        _progress?.LevelHistory?.Invoke() ?? Array.Empty<EQOverwatch.Core.Leveling.LevelEvent>();
+
+    public bool HasLevelHistory => LevelHistory.Count >= 2;
 
     /// <summary>The account names already used on this server, for the Account box.</summary>
     public IReadOnlyList<string> AccountNames => _progress?.AccountNames?.Invoke() ?? Array.Empty<string>();

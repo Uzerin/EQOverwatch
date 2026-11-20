@@ -63,6 +63,13 @@ settings are kept.
 
 ## Changelog
 
+### 1.0.80
+
+- Leveling: AA mode, time to level, best mobs per zone, plat/hour and mob levels.
+- Shared mob stats fill in regen, HP, levels, resists and a Server Best column.
+- Regen warning on the DPS overlay, kill time on the Mob Card, level history in Profiles.
+- Zone median on Experience; server boxes follow the character you are playing.
+
 ### 1.0.79
 
 - Server First (opt-in, with names and guilds): first kills, open targets, guild counts.

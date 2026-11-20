@@ -237,6 +237,7 @@ public partial class CompanionApp : Application
         _sharedDropsHttp.DefaultRequestHeaders.UserAgent.ParseAdd(AppInfo.SettingsFolderName);
         _viewModel.ConfigureSharedDrops(new EQOverwatch.Core.Drops.HttpSharedDropsService(_sharedDropsHttp));
         _viewModel.ConfigureServerFirsts(new EQOverwatch.Core.Firsts.HttpServerFirstService(_sharedDropsHttp));
+        _viewModel.ConfigureMobStats(new EQOverwatch.Core.History.HttpMobStatsService(_sharedDropsHttp));
         _viewModel.NoticeRequested += notice => _tellToasts?.Show(notice.Title, notice.Text);
         _viewModel.ShowFightPictureRequested += fight =>
         {

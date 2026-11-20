@@ -119,11 +119,20 @@ public partial class MainViewModel
             _regenFights ??= _bossHistory.Fights().ToLookup(f => f.Boss.Trim(), StringComparer.OrdinalIgnoreCase);
             if (!_regenCache.TryGetValue(key, out MobRegen? regen))
             {
-                regen = MobRegenEstimator.Estimate(_regenFights[mob.Trim()], mob);
+                regen = MobRegenEstimator.Estimate(_regenFights[mob.Trim()], mob) ?? SharedMobs()?.Regen(mob); // your own kills first
                 _regenCache[key] = regen;
             }
 
             return regen;
+        }
+    }
+
+    /// <summary>Forgets the worked-out regen (after shared mob stats arrive).</summary>
+    private void ClearRegenCache()
+    {
+        lock (_regenGate)
+        {
+            _regenCache.Clear();
         }
     }
 
@@ -255,7 +264,7 @@ public partial class MainViewModel
 
         if (RegenFor(mob) is { } regen)
         {
-            lines.Add($"{regen.Describe()} ({regen.Kills.ToString(culture)} kills)");
+            lines.Add($"{regen.Describe()} ({regen.Kills.ToString(culture)} kills){KillTimeText(mob, regen)}");
         }
 
         MobResistReport report = _pipeline.ResistStore.Report(mob, raid: true);
@@ -266,6 +275,10 @@ public partial class MainViewModel
         if (resists.Length > 0)
         {
             lines.Add("Resisted: " + string.Join(" · ", resists));
+        }
+        else if (SharedResistLine(mob) is { } everyone)
+        {
+            lines.Add(everyone);
         }
 
         if (YourSpellResists(mob) is { Length: > 0 } yours)
@@ -297,7 +310,7 @@ public partial class MainViewModel
         }
 
         string heading = $"{mob} · level {level.ToString(culture)}";
-        if (_mobLevels.Find(mob, zone) is { } seen && seen.Lowest != seen.Highest)
+        if ((_mobLevels.Find(mob, zone) ?? SharedMobs(server)?.LevelRange(mob, zone)) is { } seen && seen.Lowest != seen.Highest)
         {
             heading += $" (seen {seen.Lowest.ToString(culture)}–{seen.Highest.ToString(culture)})";
         }

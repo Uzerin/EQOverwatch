@@ -162,7 +162,7 @@ public partial class MainViewModelTests
             h.Pipeline.LiveDps.OnNonCombatMessage("Xi Vius scowls at you, ready to attack -- looks kind of dangerous. (Lvl: 60)");
 
             MobCardInfo card = Assert.Single(cards);
-            Assert.Contains(card.Lines, l => l.StartsWith("Regen ~20/s · HP ~8", StringComparison.Ordinal) && l.EndsWith("(3 kills)", StringComparison.Ordinal));
+            Assert.Contains(card.Lines, l => l.StartsWith("Regen ~20/s · HP ~8", StringComparison.Ordinal) && l.Contains("(3 kills)", StringComparison.Ordinal));
         }
     }
 

@@ -2001,7 +2001,10 @@
                         <Button Content="Share all" Margin="0,0,8,6" Style="{StaticResource SecondaryButton}" Command="{Binding ShareAllResistsCommand}"
                                 ToolTip="Copies one chat line with your resists for the mobs you cast on most recently. Click again for the next line."/>
                     </WrapPanel>
-                    <TextBlock Grid.Row="1" Style="{StaticResource HintText}" Margin="0,0,0,8" TextWrapping="Wrap" Text="{Binding BossHistoryStatus}"/>
+                    <StackPanel Grid.Row="1" Margin="0,0,0,8">
+                        <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" Text="{Binding BossHistoryStatus}"/>
+                        <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" Text="{Binding MobStatsFreshness}"/>
+                    </StackPanel>
 
                     <!-- Server Firsts: each boss's first kill on the server, open raid targets, guild counts and class benchmarks -->
                     <Grid Grid.Row="2" Visibility="{Binding ShowServerFirsts, Converter={StaticResource BoolToVisibility}}">
@@ -2094,6 +2097,13 @@
                                     </DataGridTextColumn.HeaderStyle>
                                 </DataGridTextColumn>
                                 <DataGridTextColumn Header="Server First" Binding="{Binding ServerFirst, Mode=OneWay}" Width="Auto"/>
+                                <DataGridTextColumn Header="Server Best" Binding="{Binding ServerBest, Mode=OneWay}" Width="Auto">
+                                    <DataGridTextColumn.HeaderStyle>
+                                        <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}">
+                                            <Setter Property="ToolTip" Value="The fastest kill and best raid DPS anyone has shared for this mob on this server."/>
+                                        </Style>
+                                    </DataGridTextColumn.HeaderStyle>
+                                </DataGridTextColumn>
                                 <DataGridTextColumn Header="Regen" Binding="{Binding Regen, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}">
                                     <DataGridTextColumn.HeaderStyle>
                                         <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}">
@@ -2289,6 +2299,13 @@
                             <DataGridTextColumn Header="Level" Binding="{Binding Level, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                             <DataGridTextColumn Header="XP this session" Binding="{Binding XpSession, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                             <DataGridTextColumn Header="XP / hour" Binding="{Binding XpPerHour, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                            <DataGridTextColumn Header="Zone Median" Binding="{Binding ZoneMedian, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}">
+                                <DataGridTextColumn.HeaderStyle>
+                                    <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}">
+                                        <Setter Property="ToolTip" Value="Everyone's median XP per hour in the zone the character is in, at its level band (from the Leveling tab)."/>
+                                    </Style>
+                                </DataGridTextColumn.HeaderStyle>
+                            </DataGridTextColumn>
                             <DataGridTextColumn Header="Next level in" Binding="{Binding NextLevel, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                             <DataGridTextColumn Header="AAs gained" Binding="{Binding AaGained, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                             <DataGridTextColumn Header="AA / hour" Binding="{Binding AaPerHour, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
@@ -2445,7 +2462,9 @@
                             <TextBox Width="50" VerticalAlignment="Center" Text="{Binding LevelingLevel, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,16,0"/>
                             <RadioButton Content="Solo" VerticalAlignment="Center" Margin="0,0,10,0" GroupName="LevelingKind"
                                          IsChecked="{Binding LevelingSolo}"/>
-                            <RadioButton Content="Group" VerticalAlignment="Center" GroupName="LevelingKind" IsChecked="{Binding LevelingGroup}"/>
+                            <RadioButton Content="Group" VerticalAlignment="Center" Margin="0,0,10,0" GroupName="LevelingKind" IsChecked="{Binding LevelingGroupChoice}"/>
+                            <RadioButton Content="AA" VerticalAlignment="Center" GroupName="LevelingKind" IsChecked="{Binding LevelingAa}"
+                                         ToolTip="Ranks zones by AA points per hour, solo and group together. Picked on its own at the server's highest level seen."/>
                         </StackPanel>
 
                         <TextBlock FontWeight="SemiBold" Text="Expansions on this server" Margin="0,0,0,4"/>
@@ -2466,20 +2485,35 @@
                             <Button Content="Use zones seen" Command="{Binding UseZonesSeenForExpansionsCommand}" Margin="10,0,0,0" Style="{StaticResource SecondaryButton}"/>
                         </StackPanel>
 
+                        <TextBlock Margin="0,0,0,6" Foreground="#6FDC8C" Text="{Binding LevelingEtaText}"/>
                         <TextBlock FontWeight="SemiBold" Margin="0,0,0,6">
                             <Run Text="Best zones for levels"/>
                             <Run Text="{Binding LevelingBandText, Mode=OneWay}"/>
                         </TextBlock>
-                        <DataGrid ItemsSource="{Binding LevelingZoneRows}" HorizontalAlignment="Left" AutoGenerateColumns="False" CanUserAddRows="False"
-                                  IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal" Margin="0,0,0,14">
+                        <DataGrid ItemsSource="{Binding LevelingZoneRows}" SelectedItem="{Binding SelectedLevelingZone, Mode=TwoWay}" HorizontalAlignment="Left"
+                                  AutoGenerateColumns="False" CanUserAddRows="False" SelectionMode="Single"
+                                  IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal" Margin="0,0,0,8">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="Zone" Binding="{Binding Zone, Mode=OneWay}" Width="Auto"/>
                                 <DataGridTextColumn Header="Expansion" Binding="{Binding Expansion, Mode=OneWay}" Width="Auto"/>
                                 <DataGridTextColumn Header="XP/hour" Binding="{Binding XpPerHour, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                                 <DataGridTextColumn Header="Kills/hour" Binding="{Binding KillsPerHour, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                <DataGridTextColumn Header="Plat/hour" Binding="{Binding PlatPerHour, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                <DataGridTextColumn Header="Mob Levels" Binding="{Binding MobLevels, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                                 <DataGridTextColumn Header="Players" Binding="{Binding Players, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                                 <DataGridTextColumn Header="Hours" Binding="{Binding Hours, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                                 <DataGridTextColumn Header="Data" Binding="{Binding Data, Mode=OneWay}" Width="Auto"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                        <TextBlock FontWeight="SemiBold" Margin="0,6,0,6" Text="{Binding LevelingBestMobsTitle}"/>
+                        <DataGrid ItemsSource="{Binding LevelingBestMobs}" HorizontalAlignment="Left" AutoGenerateColumns="False" CanUserAddRows="False"
+                                  IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal" Margin="0,0,0,14">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Mob" Binding="{Binding Mob, Mode=OneWay}" Width="Auto"/>
+                                <DataGridTextColumn Header="Levels" Binding="{Binding Levels, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                <DataGridTextColumn Header="XP/kill" Binding="{Binding XpPerKill, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                <DataGridTextColumn Header="Your Kills" Binding="{Binding Kills, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                             </DataGrid.Columns>
                         </DataGrid>
 
@@ -3365,20 +3399,20 @@
                                 <WrapPanel>
                                     <CheckBox Content="Damage" IsChecked="{Binding IsFctDamageOverlayVisible}" VerticalAlignment="Center" Margin="0,0,6,6"
                                               ToolTip="Damage you deal on the left, damage you take on the right."/>
-                                    <TextBox Width="44" Margin="0,0,20,6" Text="{Binding FctDamageTextSize}" ToolTip="Text size of the numbers (10 to 48)."/>
+                                    <TextBox Width="64" Margin="0,0,20,6" HorizontalContentAlignment="Center" Text="{Binding FctDamageTextSize}" ToolTip="Text size of the numbers (10 to 48)."/>
                                     <CheckBox Content="Heals" IsChecked="{Binding IsFctHealsOverlayVisible}" VerticalAlignment="Center" Margin="0,0,6,6"
                                               ToolTip="Heals you cast on others on the left, heals you receive on the right."/>
-                                    <TextBox Width="44" Margin="0,0,20,6" Text="{Binding FctHealsTextSize}" ToolTip="Text size of the numbers (10 to 48)."/>
+                                    <TextBox Width="64" Margin="0,0,20,6" HorizontalContentAlignment="Center" Text="{Binding FctHealsTextSize}" ToolTip="Text size of the numbers (10 to 48)."/>
                                     <CheckBox Content="Merge rapid hits" IsChecked="{Binding FctMergeHits}" VerticalAlignment="Center" Margin="0,0,20,6"
                                               ToolTip="Hits within 0.3 seconds from one character on one target show as one number, like 3,412 x4."/>
                                     <CheckBox Content="Show misses" IsChecked="{Binding FctShowMisses}" VerticalAlignment="Center" Margin="0,0,20,6"
                                               ToolTip="Dodge, Parry, Block, Riposte, Miss and Resisted show as small gray words."/>
                                     <TextBlock Text="Font" Style="{StaticResource HintText}" VerticalAlignment="Center" Margin="0,0,6,6"/>
                                     <ComboBox Width="130" Margin="0,0,8,6" ItemsSource="{Binding FctFontChoices}" SelectedItem="{Binding FctFont}"/>
-                                    <ComboBox Width="90" Margin="0,0,20,6" ItemsSource="{Binding FctWeightChoices}" SelectedItem="{Binding FctWeight}"/>
+                                    <ComboBox Width="120" Margin="0,0,20,6" ItemsSource="{Binding FctWeightChoices}" SelectedItem="{Binding FctWeight}"/>
                                 </WrapPanel>
                                 <TextBlock Style="{StaticResource HintText}"
-                                           Text="Numbers float down and fade over 3 seconds; crits are bold. Left lane: what your character deals or casts. Right lane: what it takes or receives. The boxes are text sizes; colors are in the Colors window."/>
+                                           Text="New numbers appear at the top and push older ones down; each fades over 3 seconds and crits are bold. Left lane: what your character deals or casts. Right lane: what it takes or receives. The boxes are text sizes; colors are in the Colors window."/>
                             </StackPanel>
                         </GroupBox>
 
@@ -3591,6 +3625,16 @@
                                     <Button Content="Delete my shared leveling" Command="{Binding DeleteMySharedLevelingCommand}" Style="{StaticResource SecondaryButton}" Margin="0,0,0,4"/>
                                 </WrapPanel>
                                 <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,0,0,12" Text="{Binding LevelingShareSummary}"/>
+
+                                <TextBlock FontWeight="SemiBold" Text="Mob stats"/>
+                                <WrapPanel Margin="0,4,0,2">
+                                    <CheckBox Content="Use everyone's mob stats" IsChecked="{Binding UseSharedMobStats}" Margin="0,0,18,4"
+                                              ToolTip="Regen and HP, /con levels and resist rates from everyone, used when your own logs have none; and the Server Best column."/>
+                                    <CheckBox Content="Share my mob stats" IsChecked="{Binding ShareMyMobStats}" Margin="0,0,18,4"
+                                              ToolTip="Once a day: your kills (time, damage, attackers), /con levels by zone and resist counts. No names."/>
+                                    <Button Content="Delete my shared mob stats" Command="{Binding DeleteMySharedMobStatsCommand}" Style="{StaticResource SecondaryButton}" Margin="0,0,0,4"/>
+                                </WrapPanel>
+                                <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,0,0,12" Text="{Binding MobStatsShareSummary}"/>
 
                                 <TextBlock FontWeight="SemiBold" Text="Server First"/>
                                 <WrapPanel Margin="0,4,0,2">

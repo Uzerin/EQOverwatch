@@ -18,8 +18,13 @@ public sealed class LevelingStore
     /// <summary>Stretches older than this are dropped (zones and experience change over time).</summary>
     public static readonly TimeSpan KeepFor = TimeSpan.FromDays(730);
 
+    /// <summary>2: stretches carry coin and AA points, and levels are kept. Older files are read again from the logs.</summary>
+    private const int FileVersion = 2;
+
     private sealed class SavedFile
     {
+        public int Version { get; set; }
+        public Dictionary<string, List<LevelEvent>> Levels { get; set; } = new(StringComparer.OrdinalIgnoreCase);
         public Dictionary<string, LevelingScanState> Logs { get; set; } = new(StringComparer.OrdinalIgnoreCase);
         public List<ServerStretch> Stretches { get; set; } = new();
         public Dictionary<string, long> SharedThrough { get; set; } = new(StringComparer.OrdinalIgnoreCase);
@@ -41,10 +46,12 @@ public sealed class LevelingStore
                 if (File.Exists(path))
                 {
                     SavedFile? saved = JsonSerializer.Deserialize<SavedFile>(File.ReadAllText(path));
-                    if (saved is not null)
+                    if (saved is not null && saved.Version >= FileVersion)
                     {
                         _file = new SavedFile
                         {
+                            Version = FileVersion,
+                            Levels = new Dictionary<string, List<LevelEvent>>(saved.Levels ?? new(), StringComparer.OrdinalIgnoreCase),
                             Logs = new Dictionary<string, LevelingScanState>(saved.Logs ?? new(), StringComparer.OrdinalIgnoreCase),
                             Stretches = (saved.Stretches ?? new()).Where(s => s?.Stretch?.Zone is not null && !string.IsNullOrEmpty(s.Server)).ToList(),
                             SharedThrough = new Dictionary<string, long>(saved.SharedThrough ?? new(), StringComparer.OrdinalIgnoreCase),
@@ -78,10 +85,20 @@ public sealed class LevelingStore
 
             try
             {
-                (IReadOnlyList<LevelingStretch> stretches, LevelingScanState next) = LevelingScanner.ScanLog(path, state);
+                (IReadOnlyList<LevelingStretch> stretches, LevelingScanState next, IReadOnlyList<LevelEvent> levels) = LevelingScanner.ScanLogWithLevels(path, state);
                 lock (_gate)
                 {
                     _file.Logs[path] = next;
+                    if (levels.Count > 0)
+                    {
+                        if (!_file.Levels.TryGetValue(path, out List<LevelEvent>? list))
+                        {
+                            _file.Levels[path] = list = new List<LevelEvent>();
+                        }
+
+                        list.AddRange(levels);
+                    }
+
                     _file.Stretches.AddRange(stretches.Select(s => new ServerStretch(server.ToLowerInvariant(), s)));
                     found += stretches.Count;
                 }
@@ -101,6 +118,15 @@ public sealed class LevelingStore
 
         Changed?.Invoke();
         return found;
+    }
+
+    /// <summary>The levels a log's character reached, oldest first.</summary>
+    public IReadOnlyList<LevelEvent> Levels(string path)
+    {
+        lock (_gate)
+        {
+            return _file.Levels.TryGetValue(path, out List<LevelEvent>? list) ? list.OrderBy(l => l.Time).ToList() : Array.Empty<LevelEvent>();
+        }
     }
 
     /// <summary>Your stretches on <paramref name="server"/>.</summary>
@@ -168,6 +194,7 @@ public sealed class LevelingStore
             }
 
             string temp = _path + ".tmp";
+            _file.Version = FileVersion;
             File.WriteAllText(temp, JsonSerializer.Serialize(_file));
             File.Move(temp, _path, overwrite: true);
         }
@@ -214,7 +241,7 @@ public sealed class HttpLevelingService : ILevelingService
         {
             format = Format,
             version = 1,
-            stretches = stretches.Select(s => new { z = s.Zone, l = s.Level, g = s.Group ? 1 : 0, s = s.Seconds, x = s.Xp, k = s.Kills, t = s.Start }),
+            stretches = stretches.Select(s => new { z = s.Zone, l = s.Level, g = s.Group ? 1 : 0, s = s.Seconds, x = s.Xp, k = s.Kills, t = s.Start, c = s.Copper, a = s.Aa }),
         });
         using var output = new MemoryStream();
         using (var gzip = new GZipStream(output, CompressionLevel.Optimal, leaveOpen: true))
@@ -274,7 +301,10 @@ public sealed class HttpLevelingService : ILevelingService
                 rows.Add(new LevelingRow(
                     r.GetProperty("z").GetString() ?? string.Empty, r.GetProperty("b").GetInt32(), r.GetProperty("g").GetInt32() == 1,
                     "p" + r.GetProperty("p").GetInt32().ToString(System.Globalization.CultureInfo.InvariantCulture),
-                    r.GetProperty("s").GetDouble(), r.GetProperty("x").GetDouble(), r.GetProperty("k").GetInt32()));
+                    r.GetProperty("s").GetDouble(), r.GetProperty("x").GetDouble(), r.GetProperty("k").GetInt32(),
+                    r.TryGetProperty("c", out JsonElement c) && c.ValueKind == JsonValueKind.Number ? c.GetInt64() : 0,
+                    r.TryGetProperty("a", out JsonElement a) && a.ValueKind == JsonValueKind.Number ? a.GetInt32() : 0,
+                    r.TryGetProperty("q", out JsonElement q) && q.ValueKind == JsonValueKind.Number && q.GetInt32() == 1));
             }
         }
 

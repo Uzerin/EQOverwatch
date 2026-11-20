@@ -10,7 +10,11 @@ using EQOverwatch.Core.Maps;
 namespace EQOverwatch.App.ViewModels;
 
 /// <summary>A zone on the Leveling tab.</summary>
-public sealed record LevelingZoneView(string Zone, string Expansion, string XpPerHour, string KillsPerHour, int Players, string Hours, string Data);
+public sealed record LevelingZoneView(string Zone, string Expansion, string XpPerHour, string KillsPerHour, int Players, string Hours, string Data,
+    string PlatPerHour = "—", string MobLevels = "—");
+
+/// <summary>A mob in the selected zone: its levels and the experience per kill your characters got near your level.</summary>
+public sealed record BestMobView(string Mob, string Levels, string XpPerKill, int Kills);
 
 /// <summary>One level band of the leveling path.</summary>
 public sealed record LevelingPathView(string Levels, string Zone, string XpPerHour);
@@ -135,16 +139,38 @@ public sealed partial class MainViewModel
         _nextLevelingScan = DateTime.MinValue;
     }
 
-    /// <summary>The Solo button: the other side of <see cref="LevelingGroup"/>.</summary>
+    /// <summary>The Solo button.</summary>
     public bool LevelingSolo
     {
-        get => !LevelingGroup;
-        set => LevelingGroup = !value;
+        get => !LevelingGroup && !LevelingAa;
+        set
+        {
+            if (value)
+            {
+                LevelingAa = false;
+                LevelingGroup = false;
+            }
+        }
+    }
+
+    /// <summary>The Group button.</summary>
+    public bool LevelingGroupChoice
+    {
+        get => LevelingGroup && !LevelingAa;
+        set
+        {
+            if (value)
+            {
+                LevelingAa = false;
+                LevelingGroup = true;
+            }
+        }
     }
 
     partial void OnLevelingGroupChanged(bool value)
     {
         OnPropertyChanged(nameof(LevelingSolo));
+        OnPropertyChanged(nameof(LevelingGroupChoice));
         if (!_restoring)
         {
             RequestSave();
@@ -165,6 +191,8 @@ public sealed partial class MainViewModel
         LevelingStretch? latest = _leveling.Stretches(value).MaxBy(s => s.Start);
         _levelingShowing = true;
         LevelingLevel = latest?.Level ?? 1;
+        int top = _leveling.Stretches(value).Select(s => s.Level).DefaultIfEmpty(0).Max();
+        LevelingAa = top > 0 && LevelingLevel >= top && LevelingLevel >= 50; // at the server's highest level seen: AA points
         _levelingShowing = false;
         ShowLeveling(rebuildExpansions: true);
     }
@@ -224,7 +252,19 @@ public sealed partial class MainViewModel
             _levelingBusy = false;
         }
 
-        ShowLeveling(rebuildExpansions: LevelingExpansionChoices.Count == 0);
+        // The first scan of a log can finish after the tab was filled: pick up the level and the expansions it found.
+        if (SelectedLevelingServer is { } current)
+        {
+            if (LevelingLevel <= 1 && _leveling.Stretches(current).MaxBy(s => s.Start) is { } latest)
+            {
+                OnSelectedLevelingServerChanged(current);
+            }
+            else
+            {
+                ShowLeveling(rebuildExpansions: !_levelingExpansions.ContainsKey(current));
+            }
+        }
+
         UpdateShareSummaries();
     }
 
@@ -259,6 +299,7 @@ public sealed partial class MainViewModel
 
         _nextLevelingDownload[server] = nowUtc + LevelingDownloadEvery;
         _sharedLeveling[server] = await service.DownloadAsync(server, _levelingId.Length > 0 ? _levelingId : "none");
+        _sharedLevelingAt[server] = DateTime.UtcNow;
     }
 
     private ZoneDirectory LevelingZones()
@@ -316,7 +357,8 @@ public sealed partial class MainViewModel
 
             IReadOnlyList<LevelingStretch> mine = _leveling.Stretches(server);
             SharedLeveling? shared = UseSharedLeveling ? _sharedLeveling.GetValueOrDefault(server) : null;
-            var rows = LevelingRanking.Rows(mine, "you").Concat(shared?.Rows ?? Array.Empty<LevelingRow>()).ToList();
+            List<LevelingRow> rows = LevelingRowsFor(server);
+            LevelingMode mode = LevelingMode_;
 
             ZoneDirectory zones = LevelingZones();
             IReadOnlySet<int> open = LevelingOpenExpansions(server, zones, mine.Select(s => s.Zone).Concat(shared?.Zones ?? Array.Empty<string>()), rebuildExpansions);
@@ -325,31 +367,38 @@ public sealed partial class MainViewModel
             CultureInfo culture = CultureInfo.CurrentCulture;
             int band = LevelingRanking.BandOf(LevelingLevel);
             LevelingBandText = LevelingRanking.BandText(band);
-            IReadOnlyList<ZoneRank> ranked = LevelingRanking.Rank(rows, band, LevelingGroup, allowed);
+            IReadOnlyList<ZoneRank> ranked = LevelingRanking.Rank(rows, band, mode, allowed);
+            string Rate(double value) => mode == LevelingMode.Aa ? value.ToString("0.0", culture) + " AA" : value.ToString("0.0", culture) + "%";
+            string? keepZone = SelectedLevelingZone?.Zone;
             foreach (ZoneRank r in ranked.Where(r => r.Enough).Take(TopZones).Concat(ranked.Where(r => !r.Enough)).Take(TopZones))
             {
                 LevelingZoneRows.Add(new LevelingZoneView(
                     r.Zone,
                     LevelingRanking.ExpansionOf(zones, r.Zone) is { } e && e > 0 ? ZoneDirectory.ExpansionName(e) : "—",
-                    r.XpPerHour.ToString("0.0", culture) + "%",
+                    Rate(r.XpPerHour),
                     r.KillsPerHour.ToString("0", culture),
                     r.Players,
                     r.Hours.ToString("0.0", culture),
-                    r.Enough ? "Ranked" : "Not enough data"));
+                    r.Enough ? "Ranked" : "Not enough data",
+                    r.PlatPerHour > 0 ? r.PlatPerHour.ToString("N0", culture) + "p" : "—",
+                    ZoneMobLevels(r.Zone)));
             }
 
-            foreach ((int pathBand, ZoneRank? best) in LevelingRanking.Path(rows, LevelingLevel, LevelingGroup, allowed))
+            SelectedLevelingZone = LevelingZoneRows.FirstOrDefault(z => z.Zone == keepZone) ?? LevelingZoneRows.FirstOrDefault();
+            foreach ((int pathBand, ZoneRank? best) in LevelingRanking.Path(rows, LevelingLevel, mode, allowed))
             {
                 LevelingPathRows.Add(new LevelingPathView(
                     LevelingRanking.BandText(pathBand),
                     best?.Zone ?? "Not enough data",
-                    best is null ? "—" : best.XpPerHour.ToString("0.0", culture) + "%"));
+                    best is null ? "—" : Rate(best.XpPerHour)));
             }
+
+            LevelingEtaText = LevelingEta(server, mode, ranked.FirstOrDefault(r => r.Enough) ?? ranked.FirstOrDefault());
 
             double hours = mine.Sum(s => s.Seconds) / 3600;
             string sharedText = !UseSharedLeveling ? "Shared leveling is off, so only your own logs are used."
                 : shared is null ? "Shared leveling: not downloaded yet."
-                : $"Shared leveling: {shared.Players.ToString(culture)} other player(s) on {server}.";
+                : $"Shared leveling: {shared.Players.ToString(culture)} other player(s) on {server}, from {AgoText(DateTime.UtcNow - _sharedLevelingAt.GetValueOrDefault(server, DateTime.UtcNow))}.";
             LevelingStatus = $"Your logs: {mine.Count.ToString(culture)} stretches on {server} ({hours.ToString("0.0", culture)} h). {sharedText} " +
                              $"A zone is ranked once {LevelingRanking.MinPlayers} players and {LevelingRanking.MinHours.ToString(culture)} hours are in.";
         }

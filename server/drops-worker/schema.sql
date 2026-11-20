@@ -124,3 +124,53 @@ CREATE TABLE IF NOT EXISTS firsts (
   PRIMARY KEY (server, contributor, mob, t)
 );
 CREATE INDEX IF NOT EXISTS firsts_by_server ON firsts (server, mob, t);
+
+-- Leveling extras added later (coin looted and AA points per stretch), kept beside the leveling rows.
+CREATE TABLE IF NOT EXISTS leveling_extra (
+  server TEXT NOT NULL,
+  contributor TEXT NOT NULL,
+  zone TEXT NOT NULL COLLATE NOCASE,
+  grp INTEGER NOT NULL,
+  t INTEGER NOT NULL,
+  copper INTEGER NOT NULL,
+  aa INTEGER NOT NULL,
+  PRIMARY KEY (server, contributor, t, zone, grp)
+);
+
+-- Shared mob stats (no names): kills (time, damage, attackers), /con level ranges per zone and resist counts per resist type.
+CREATE TABLE IF NOT EXISTS mob_kills (
+  server TEXT NOT NULL,
+  contributor TEXT NOT NULL,
+  mob TEXT NOT NULL COLLATE NOCASE,
+  t INTEGER NOT NULL,
+  seconds REAL NOT NULL,
+  damage INTEGER NOT NULL,
+  players INTEGER NOT NULL,
+  PRIMARY KEY (server, contributor, mob, t)
+);
+CREATE INDEX IF NOT EXISTS mob_kills_by_mob ON mob_kills (mob, t);
+
+CREATE TABLE IF NOT EXISTS mob_levels (
+  contributor TEXT NOT NULL,
+  mob TEXT NOT NULL COLLATE NOCASE,
+  zone TEXT NOT NULL COLLATE NOCASE,
+  lo INTEGER NOT NULL,
+  hi INTEGER NOT NULL,
+  PRIMARY KEY (contributor, mob, zone)
+);
+
+CREATE TABLE IF NOT EXISTS mob_resists (
+  contributor TEXT NOT NULL,
+  mob TEXT NOT NULL COLLATE NOCASE,
+  type INTEGER NOT NULL,
+  landed INTEGER NOT NULL,
+  resisted INTEGER NOT NULL,
+  PRIMARY KEY (contributor, mob, type)
+);
+
+CREATE TABLE IF NOT EXISTS mobs_uploads (
+  server TEXT NOT NULL,
+  id TEXT NOT NULL,
+  updated INTEGER NOT NULL,
+  PRIMARY KEY (server, id)
+);

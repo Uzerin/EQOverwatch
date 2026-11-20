@@ -14,7 +14,7 @@ namespace EQOverwatch.App.ViewModels;
 /// <summary>One row of the Experience tab.</summary>
 public sealed record ExperienceRowView(
     string Character, string Level, string XpSession, string XpPerHour, string NextLevel, int AaGained, string AaPerHour, int Kills, string LastGain,
-    string NextAa = "—", string LegacyBonus = "—");
+    string NextAa = "—", string LegacyBonus = "—", string ZoneMedian = "—");
 
 /// <summary>One resist type of the selected mob: landed, resisted and the resist %.</summary>
 public sealed record ResistTypeRow(string Type, int Landed, int Resisted, string Percent);
@@ -147,6 +147,8 @@ public sealed partial class MainViewModel
         RefreshRelease70(nowUtc);
         RefreshLeveling(nowUtc);
         RefreshServerFirsts(nowUtc);
+        RefreshMobStats(nowUtc);
+        FollowPlayedCharacter(nowUtc);
         if (nowUtc.Second < 2)
         {
             _ = Task.Run(_pipeline.Guilds.Flush); // about once a minute
@@ -219,7 +221,8 @@ public sealed partial class MainViewModel
                 r.Kills,
                 r.LastGainUtc == default ? "—" : Ago(nowUtc - r.LastGainUtc),
                 r.NextAaIn is { } nextAa ? FormatSpan(nextAa) : "—",
-                LegacyBonusText(r.Character)))
+                LegacyBonusText(r.Character),
+                ZoneMedianFor(r)))
             .ToList();
 
         ExperienceSession = $"Session started {start.ToLocalTime().ToString("t", CultureInfo.CurrentCulture)}";

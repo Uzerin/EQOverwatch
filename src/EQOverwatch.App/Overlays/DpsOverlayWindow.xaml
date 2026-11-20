@@ -60,6 +60,11 @@
                     </DockPanel>
                 </Border>
 
+                <!-- The raid out-damages the mob's regen by too little -->
+                <TextBlock Margin="6,2,6,0" Text="DPS too low for its regen" FontSize="11" Foreground="{DynamicResource BarUrgentFillBrush}"
+                           Style="{StaticResource OverlayTextStyle}"
+                           Visibility="{Binding RegenWarning, Converter={StaticResource BoolToVisibility}}"/>
+
                 <!-- A boss nobody on the server has killed yet -->
                 <TextBlock Margin="6,2,6,0" Text="★ Server first possible" FontSize="11" Foreground="{DynamicResource AlertTextBrush}"
                            Style="{StaticResource OverlayTextStyle}"

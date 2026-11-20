@@ -11,7 +11,10 @@ namespace EQOverwatch.Core.Leveling;
 /// bonus taken out; <see cref="Seconds"/> is the time spent earning it (gaps between gains, each counted up to five minutes);
 /// <see cref="Start"/> is the first gain in Unix seconds (UTC). No character names: these are what is shared.
 /// </summary>
-public sealed record LevelingStretch(string Zone, int Level, bool Group, double Seconds, double Xp, int Kills, long Start);
+public sealed record LevelingStretch(string Zone, int Level, bool Group, double Seconds, double Xp, int Kills, long Start, long Copper = 0, int Aa = 0);
+
+/// <summary>A level the character reached (Unix seconds, UTC), for the level history chart.</summary>
+public sealed record LevelEvent(long Time, int Level);
 
 /// <summary>The scanner's place in one log, so the next scan carries on from it.</summary>
 public sealed record LevelingScanState(long Offset, string? Zone, int Level, int LegacyBonus);
@@ -49,8 +52,15 @@ public sealed partial class LevelingScanner
 
     private readonly record struct Gain(DateTime Time, double Xp, bool Group);
 
+    private const string AbilityPoint = "You have gained an ability point!";
+
     private readonly List<Gain> _gains = new();
     private readonly List<LevelingStretch> _done = new();
+    private readonly List<LevelEvent> _levels = new();
+    private long _soloCopper;
+    private long _groupCopper;
+    private int _soloAa;
+    private int _groupAa;
     private string? _zone;
     private int _level;
     private int _legacy;
@@ -66,6 +76,16 @@ public sealed partial class LevelingScanner
     public int Level => _level;
     public int LegacyBonus => _legacy;
 
+    /// <summary>Levels reached in what was read (and forgets them).</summary>
+    public IReadOnlyList<LevelEvent> TakeLevels()
+    {
+        var levels = _levels.ToList();
+        _levels.Clear();
+        return levels;
+    }
+
+    private bool LastGainWasGroup => _gains.Count > 0 && _gains[^1].Group;
+
     /// <summary>Reads one line's message at its log time.</summary>
     public void Feed(DateTime time, ReadOnlySpan<char> message)
     {
@@ -77,7 +97,7 @@ public sealed partial class LevelingScanner
         if (message[0] == 'Y' && message.StartsWith("You gain", StringComparison.Ordinal))
         {
             Match xp = XpLine().Match(message.ToString());
-            if (!xp.Success || !xp.Groups["p"].Success || xp.Groups["kind"].Value == "raid" || _level <= 0 || string.IsNullOrEmpty(_zone))
+            if (!xp.Success || xp.Groups["kind"].Value == "raid" || _level <= 0 || string.IsNullOrEmpty(_zone))
             {
                 return;
             }
@@ -87,7 +107,8 @@ public sealed partial class LevelingScanner
                 Flush();
             }
 
-            double percent = double.Parse(xp.Groups["p"].Value, NumberStyles.Float, CultureInfo.InvariantCulture);
+            // No percentage: at the level cap, where kills give AA experience only. The kill and its time still count (for AA mode).
+            double percent = xp.Groups["p"].Success ? double.Parse(xp.Groups["p"].Value, NumberStyles.Float, CultureInfo.InvariantCulture) : 0;
             _gains.Add(new Gain(time, percent / (1 + (_legacy / 100.0)), xp.Groups["kind"].Value == "party"));
             return;
         }
@@ -115,9 +136,40 @@ public sealed partial class LevelingScanner
             {
                 Flush();
                 _level = n;
+                _levels.Add(new LevelEvent(new DateTimeOffset(DateTime.SpecifyKind(time, DateTimeKind.Local)).ToUnixTimeSeconds(), n));
+            }
+            else if (message.StartsWith(AbilityPoint, StringComparison.Ordinal) && _gains.Count > 0)
+            {
+                if (LastGainWasGroup)
+                {
+                    _groupAa++;
+                }
+                else
+                {
+                    _soloAa++;
+                }
             }
 
             return;
+        }
+
+        if ((message[0] == 'Y' || message[0] == 'A') && _gains.Count > 0)
+        {
+            string text = message.ToString();
+            if (Session.DayAccumulator.IsMoneyLine(text))
+            {
+                long copper = Session.DayAccumulator.CopperIn(text);
+                if (LastGainWasGroup)
+                {
+                    _groupCopper += copper;
+                }
+                else
+                {
+                    _soloCopper += copper;
+                }
+
+                return;
+            }
         }
 
         if (message.StartsWith("Your legacy", StringComparison.Ordinal) && ProgressStore.LegacyBonus(message.ToString()) is { } bonus)
@@ -144,12 +196,14 @@ public sealed partial class LevelingScanner
                 List<Gain> gains = _gains.Where(g => g.Group == group).ToList();
                 if (Stretch(gains, group) is { } stretch)
                 {
-                    _done.Add(stretch);
+                    _done.Add(stretch with { Copper = group ? _groupCopper : _soloCopper, Aa = group ? _groupAa : _soloAa });
                 }
             }
         }
 
         _gains.Clear();
+        _soloCopper = _groupCopper = 0;
+        _soloAa = _groupAa = 0;
     }
 
     /// <summary>One stretch from gains of one kind, with power-leveling bursts taken out; null when too little is left.</summary>
@@ -163,7 +217,8 @@ public sealed partial class LevelingScanner
         bool[] burst = Bursts(gains);
         double total = gains.Sum(g => g.Xp);
         double burstXp = gains.Where((_, i) => burst[i]).Sum(g => g.Xp);
-        if (total <= 0 || burstXp > total / 2)
+        bool mostlyBursts = total > 0 ? burstXp > total / 2 : burst.Count(b => b) > gains.Count / 2;
+        if (mostlyBursts)
         {
             return null; // mostly power leveling
         }
@@ -227,6 +282,13 @@ public sealed partial class LevelingScanner
     /// </summary>
     public static (IReadOnlyList<LevelingStretch> Stretches, LevelingScanState State) ScanLog(string path, LevelingScanState? state)
     {
+        (IReadOnlyList<LevelingStretch> stretches, LevelingScanState next, _) = ScanLogWithLevels(path, state);
+        return (stretches, next);
+    }
+
+    /// <summary>The same, with the levels reached in what was read.</summary>
+    public static (IReadOnlyList<LevelingStretch> Stretches, LevelingScanState State, IReadOnlyList<LevelEvent> Levels) ScanLogWithLevels(string path, LevelingScanState? state)
+    {
         var scanner = new LevelingScanner(state);
         long offset = state?.Offset ?? 0;
         using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete, 1 << 16);
@@ -279,7 +341,7 @@ public sealed partial class LevelingScanner
 
         // a last line without its newline is half-written: it is read next time
         IReadOnlyList<LevelingStretch> found = scanner.Finish();
-        return (found, new LevelingScanState(lineStart, scanner.Zone, scanner.Level, scanner.LegacyBonus));
+        return (found, new LevelingScanState(lineStart, scanner.Zone, scanner.Level, scanner.LegacyBonus), scanner.TakeLevels());
     }
 
     private static void Read(LevelingScanner scanner, string line)

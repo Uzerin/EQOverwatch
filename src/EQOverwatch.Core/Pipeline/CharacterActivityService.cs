@@ -111,6 +111,27 @@ public sealed class CharacterActivityService : ILogActivityObserver
         }
     }
 
+    /// <summary>The character (and server) whose log had the newest line, while it is still logged in; null when nobody is.</summary>
+    public (string Character, string Server)? MostRecentActive(DateTime nowUtc)
+    {
+        lock (_gate)
+        {
+            (string Character, string Server)? best = null;
+            DateTime newest = default;
+            foreach ((string key, DateTime last) in _onServer)
+            {
+                if (last > newest && IsRecent(last, nowUtc))
+                {
+                    int bar = key.IndexOf('|');
+                    newest = last;
+                    best = (key[..bar], key[(bar + 1)..]);
+                }
+            }
+
+            return best;
+        }
+    }
+
     /// <summary>When each character's log last had a line (UTC).</summary>
     public IReadOnlyList<(string Character, DateTime LastLineUtc)> LastLines()
     {

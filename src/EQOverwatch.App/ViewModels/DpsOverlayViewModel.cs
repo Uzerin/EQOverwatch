@@ -81,6 +81,10 @@ public sealed partial class DpsOverlayViewModel : ObservableObject
     [ObservableProperty]
     private bool _isFirstPossible;
 
+    /// <summary>Shows "DPS too low for its regen": the raid's DPS is under twice the mob's regen (after 10 seconds).</summary>
+    [ObservableProperty]
+    private bool _regenWarning;
+
     /// <summary>"Regen ~45/s · HP ~1.2M", or empty.</summary>
     [ObservableProperty]
     private string _regenText = string.Empty;
@@ -182,6 +186,7 @@ public sealed partial class DpsOverlayViewModel : ObservableObject
             ProgressFraction = 0;
             RegenText = string.Empty;
             IsFirstPossible = false;
+            RegenWarning = false;
             Rows.Clear();
             return;
         }
@@ -189,7 +194,10 @@ public sealed partial class DpsOverlayViewModel : ObservableObject
         EQOverwatch.Core.History.FightEstimate? estimate = encounter.IsActive && encounter.Id > 0 ? Progress?.Invoke(encounter) : null;
         ProgressText = estimate?.Describe() ?? string.Empty;
         ProgressFraction = estimate?.Fraction ?? 0;
-        RegenText = Regen?.Invoke(encounter)?.Describe() ?? string.Empty;
+        EQOverwatch.Core.History.MobRegen? regen = Regen?.Invoke(encounter);
+        RegenText = regen?.Describe() ?? string.Empty;
+        RegenWarning = regen is { RegenPerSecond: > 0 } r && encounter.IsActive && encounter.DurationSeconds >= 10
+                       && encounter.TotalDamage / Math.Max(1.0, encounter.DurationSeconds) < 2 * r.RegenPerSecond;
         IsFirstPossible = encounter.IsActive && FirstPossible?.Invoke(encounter) == true;
 
         TargetName = encounter.TargetName;

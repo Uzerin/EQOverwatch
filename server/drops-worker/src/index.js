@@ -16,6 +16,9 @@
 //   DELETE /v1/leveling/{server}/{id}    take your leveling down          (X-Install-Key)
 //   PUT    /v1/firsts/{server}/{id}      share raid fights for Server First, WITH names and guilds (X-Install-Key)  up to 200 a day
 //   GET    /v1/firsts/{server}[?me=id]   each mob's first kill, open raid targets and class benchmarks
+//   PUT    /v1/mobs/{server}/{id}        share mob stats: kills, /con levels by zone, resist counts (no names)  once a day
+//   GET    /v1/mobs/{server}             pooled regen/HP, levels and resists (every server) and best kills on this server
+//   DELETE /v1/mobs/{server}/{id}        take your mob stats down
 //   DELETE /v1/firsts/{server}/{id}      take your Server First fights down (X-Install-Key)
 //   POST   /v1/ping                      { id, version }: counts this install as active today
 //   GET    /v1/stats                     public player counts
@@ -98,6 +101,17 @@ async function route(request, env) {
     if (parts.length === 3 && method === "GET") return levelingDownload(env, server, url.searchParams.get("skip") || "");
     if (parts.length === 4 && method === "PUT" && ID.test(parts[3])) return levelingUpload(request, env, server, parts[3]);
     if (parts.length === 4 && method === "DELETE" && ID.test(parts[3])) return removeMine(request, env, server, parts[3], "leveling");
+  }
+
+  if (parts[1] === "mobs" && parts.length >= 3) {
+    const server = parts[2].toLowerCase();
+    if (!SERVER.test(server)) {
+      return json({ error: "Bad server." }, 400);
+    }
+
+    if (parts.length === 3 && method === "GET") return mobsDownload(env, server);
+    if (parts.length === 4 && method === "PUT" && ID.test(parts[3])) return mobsUpload(request, env, server, parts[3]);
+    if (parts.length === 4 && method === "DELETE" && ID.test(parts[3])) return removeMine(request, env, server, parts[3], "mobs");
   }
 
   if (parts[1] === "firsts" && parts.length >= 3) {
@@ -405,9 +419,15 @@ async function takeDown(env, server, id) {
     env.DB.prepare("DELETE FROM leveling WHERE server = ? AND contributor = ?").bind(server, id),
     env.DB.prepare("DELETE FROM leveling_uploads WHERE server = ? AND id = ?").bind(server, id),
     env.DB.prepare("DELETE FROM firsts WHERE server = ? AND contributor = ?").bind(server, id),
+    env.DB.prepare("DELETE FROM leveling_extra WHERE server = ? AND contributor = ?").bind(server, id),
+    env.DB.prepare("DELETE FROM mob_kills WHERE server = ? AND contributor = ?").bind(server, id),
+    env.DB.prepare("DELETE FROM mob_levels WHERE contributor = ?").bind(id),
+    env.DB.prepare("DELETE FROM mob_resists WHERE contributor = ?").bind(id),
+    env.DB.prepare("DELETE FROM mobs_uploads WHERE server = ? AND id = ?").bind(server, id),
     env.DB.prepare("INSERT INTO merged (server, pending) VALUES (?, 1) ON CONFLICT(server) DO UPDATE SET pending = 1").bind(server),
   ]);
   await env.FILES.delete(`drops/${server}/${id}`); // a file from before the daily merge
+  await clearMobsCache(env);
 }
 
 // ───────────────────────── shared leveling ─────────────────────────
@@ -470,8 +490,13 @@ async function levelingUpload(request, env, server, id) {
 
   const insert = env.DB.prepare(
     "INSERT OR IGNORE INTO leveling (server, contributor, zone, level, grp, seconds, xp, kills, t) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+  const extra = env.DB.prepare(
+    "INSERT INTO leveling_extra (server, contributor, zone, grp, t, copper, aa) VALUES (?, ?, ?, ?, ?, ?, ?) " +
+    "ON CONFLICT(server, contributor, t, zone, grp) DO UPDATE SET copper = excluded.copper, aa = excluded.aa");
   for (let i = 0; i < rows.length; i += 50) {
-    await env.DB.batch(rows.slice(i, i + 50).map((s) => insert.bind(server, id, s.z, s.l, s.g, s.s, s.x, s.k, s.t)));
+    const part = rows.slice(i, i + 50);
+    await env.DB.batch(part.map((s) => insert.bind(server, id, s.z, s.l, s.g, s.s, s.x, s.k, s.t))
+      .concat(part.map((s) => extra.bind(server, id, s.z, s.g, s.t, count(s.c), count(s.a)))));
   }
 
   await env.DB.batch([
@@ -489,13 +514,15 @@ async function levelingUpload(request, env, server, id) {
 async function levelingDownload(env, server, skip) {
   const band = `((level - 1) / ${BAND}) * ${BAND} + 1`;
   const result = await env.DB.prepare(
-    `SELECT contributor, zone, ${band} AS b, grp, SUM(seconds) AS s, SUM(xp) AS x, SUM(kills) AS k FROM leveling ` +
-    "WHERE server = ? AND contributor <> ? AND contributor NOT IN (SELECT id FROM installs WHERE blocked = 1) " +
-    "GROUP BY contributor, zone, b, grp").bind(server, ID.test(skip) ? skip : "").all();
+    `SELECT l.contributor, l.zone, ${band} AS b, l.grp, SUM(l.seconds) AS s, SUM(l.xp) AS x, SUM(l.kills) AS k, ` +
+    "SUM(COALESCE(e.copper, 0)) AS c, SUM(COALESCE(e.aa, 0)) AS a, (l.xp <= 0) AS q FROM leveling l LEFT JOIN leveling_extra e " +
+    "ON e.server = l.server AND e.contributor = l.contributor AND e.t = l.t AND e.zone = l.zone AND e.grp = l.grp " +
+    "WHERE l.server = ? AND l.contributor <> ? AND l.contributor NOT IN (SELECT id FROM installs WHERE blocked = 1) " +
+    "GROUP BY l.contributor, l.zone, b, l.grp, q").bind(server, ID.test(skip) ? skip : "").all();
   const numbers = new Map();
   const rows = (result.results || []).map((r) => {
     if (!numbers.has(r.contributor)) numbers.set(r.contributor, numbers.size + 1);
-    return { z: r.zone, b: r.b, g: r.grp, p: numbers.get(r.contributor), s: r.s, x: r.x, k: r.k };
+    return { z: r.zone, b: r.b, g: r.grp, p: numbers.get(r.contributor), s: r.s, x: r.x, k: r.k, c: r.c, a: r.a, q: r.q ? 1 : 0 };
   });
   const zones = [...new Set(rows.map((r) => r.z))];
   return json({ rows, zones, players: numbers.size }, 200, { "Cache-Control": "public, max-age=3600" });
@@ -512,13 +539,186 @@ async function removeMine(request, env, server, id, kind) {
   if (kind === "leveling") {
     await env.DB.batch([
       env.DB.prepare("DELETE FROM leveling WHERE server = ? AND contributor = ?").bind(server, id),
+      env.DB.prepare("DELETE FROM leveling_extra WHERE server = ? AND contributor = ?").bind(server, id),
       env.DB.prepare("DELETE FROM leveling_uploads WHERE server = ? AND id = ?").bind(server, id),
     ]);
+  } else if (kind === "mobs") {
+    await env.DB.batch([
+      env.DB.prepare("DELETE FROM mob_kills WHERE server = ? AND contributor = ?").bind(server, id),
+      env.DB.prepare("DELETE FROM mob_levels WHERE contributor = ?").bind(id),
+      env.DB.prepare("DELETE FROM mob_resists WHERE contributor = ?").bind(id),
+      env.DB.prepare("DELETE FROM mobs_uploads WHERE server = ? AND id = ?").bind(server, id),
+    ]);
+    await clearMobsCache(env);
   } else {
     await env.DB.prepare("DELETE FROM firsts WHERE server = ? AND contributor = ?").bind(server, id).run();
   }
 
   return json({ ok: true });
+}
+
+function count(v) {
+  return Number.isInteger(v) && v >= 0 && v < 1e12 ? v : 0;
+}
+
+// ───────────────────────── shared mob stats ─────────────────────────
+
+const MOBS_FORMAT = "EQOverwatchMobs";
+const MOBS_CACHE_SECONDS = 6 * 3600;
+const REGEN_KILLS = 80; // the newest kills of each mob used for its regen
+
+/** Adds an install's kills (new ones) and replaces its /con level ranges and resist counts. Once a day per server. */
+async function mobsUpload(request, env, server, id) {
+  const key = request.headers.get("X-Install-Key") || "";
+  if (!KEY.test(key)) {
+    return json({ error: "Missing install key." }, 401);
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  const hash = await sha256(key);
+  const install = await env.DB.prepare("SELECT key_hash, blocked FROM installs WHERE id = ?").bind(id).first();
+  if (install) {
+    if (!equal(install.key_hash, hash)) return json({ error: "That id belongs to another install." }, 403);
+    if (install.blocked) return json({ error: "This install's uploads are turned off." }, 403);
+  } else {
+    const today = await env.DB.prepare("SELECT new_installs FROM daily WHERE day = ?").bind(day(now)).first();
+    if (today && today.new_installs >= MAX_NEW_INSTALLS_PER_DAY) {
+      return json({ error: "Too many new installs today. Try again tomorrow." }, 429);
+    }
+  }
+
+  const last = await env.DB.prepare("SELECT updated FROM mobs_uploads WHERE server = ? AND id = ?").bind(server, id).first();
+  if (last && now - last.updated < MIN_SECONDS_BETWEEN_UPLOADS) {
+    return json({ error: "Uploaded too recently.", retryAfter: MIN_SECONDS_BETWEEN_UPLOADS - (now - last.updated) }, 429);
+  }
+
+  const length = Number(request.headers.get("Content-Length") || "0");
+  if (length > MAX_BYTES) {
+    return json({ error: "That file is too large." }, 413);
+  }
+
+  let file;
+  try {
+    file = JSON.parse(await request.text());
+  } catch {
+    file = null;
+  }
+
+  if (!file || file.format !== MOBS_FORMAT || !Array.isArray(file.kills) || !Array.isArray(file.levels) || !Array.isArray(file.resists)
+      || file.kills.length > 50000 || file.levels.length > 20000 || file.resists.length > 20000) {
+    return json({ error: "That isn't a mob stats file." }, 400);
+  }
+
+  const text = (v) => typeof v === "string" && v.length > 0 && v.length <= 64;
+  const kills = file.kills.filter((k) => k && text(k.m) && typeof k.s === "number" && k.s > 0 && k.s <= 36000 && count(k.d) > 0
+    && Number.isInteger(k.p) && k.p >= 1 && k.p <= 200 && Number.isInteger(k.t) && k.t > now - 5 * 365 * 86400 && k.t <= now + 86400);
+  // No player names: /con works on players too, and players can have surnames. A name is kept only when it reads like a mob ("a ...",
+  // "an ...", "the ...") or the same upload has a kill of it (a named mob).
+  const killedNames = new Set(kills.map((k) => k.m.toLowerCase()));
+  const mobName = (m) => /^(a|an|the) /.test(m) || killedNames.has(m.toLowerCase());
+  const levels = file.levels.filter((l) => l && text(l.m) && text(l.z) && Number.isInteger(l.lo) && Number.isInteger(l.hi)
+    && l.lo >= 1 && l.hi <= 255 && l.lo <= l.hi && mobName(l.m));
+  const resists = file.resists.filter((r) => r && text(r.m) && Number.isInteger(r.r) && r.r >= 0 && r.r <= 20 && count(r.l) + count(r.x) > 0
+    && mobName(r.m));
+
+  if (!install) {
+    await env.DB.batch([
+      env.DB.prepare("INSERT INTO installs (id, key_hash, created) VALUES (?, ?, ?)").bind(id, hash, now),
+      env.DB.prepare("INSERT INTO daily (day, new_installs) VALUES (?, 1) ON CONFLICT(day) DO UPDATE SET new_installs = new_installs + 1").bind(day(now)),
+    ]);
+  }
+
+  const kill = env.DB.prepare("INSERT OR IGNORE INTO mob_kills (server, contributor, mob, t, seconds, damage, players) VALUES (?, ?, ?, ?, ?, ?, ?)");
+  const level = env.DB.prepare("INSERT INTO mob_levels (contributor, mob, zone, lo, hi) VALUES (?, ?, ?, ?, ?) " +
+    "ON CONFLICT(contributor, mob, zone) DO UPDATE SET lo = excluded.lo, hi = excluded.hi");
+  const resist = env.DB.prepare("INSERT INTO mob_resists (contributor, mob, type, landed, resisted) VALUES (?, ?, ?, ?, ?) " +
+    "ON CONFLICT(contributor, mob, type) DO UPDATE SET landed = excluded.landed, resisted = excluded.resisted");
+  const statements = kills.map((k) => kill.bind(server, id, k.m, k.t, k.s, k.d, k.p))
+    .concat(levels.map((l) => level.bind(id, l.m, l.z, l.lo, l.hi)))
+    .concat(resists.map((r) => resist.bind(id, r.m, r.r, count(r.l), count(r.x))));
+  for (let i = 0; i < statements.length; i += 100) {
+    await env.DB.batch(statements.slice(i, i + 100));
+  }
+
+  await env.DB.prepare("INSERT INTO mobs_uploads (server, id, updated) VALUES (?, ?, ?) ON CONFLICT(server, id) DO UPDATE SET updated = excluded.updated")
+    .bind(server, id, now).run();
+  await clearMobsCache(env);
+  return json({ ok: true, kills: kills.length, levels: levels.length, resists: resists.length });
+}
+
+/** Forgets every server's worked-out mob stats, so the next download works them out again. */
+async function clearMobsCache(env) {
+  const listed = await env.FILES.list({ prefix: "mobs/" });
+  await Promise.all(listed.keys.map((k) => env.FILES.delete(k.name)));
+}
+
+/** Pooled regen/HP, levels and resists over every server, and the best kills on this server. Worked out at most every 6 hours. */
+async function mobsDownload(env, server) {
+  const cacheKey = `mobs/${server}`;
+  const cached = await env.FILES.get(cacheKey);
+  if (cached) {
+    return new Response(cached, { status: 200, headers: { "Content-Type": "application/json" } });
+  }
+
+  const blocked = "SELECT id FROM installs WHERE blocked = 1";
+  const killRows = (await env.DB.prepare(
+    `SELECT mob, t, seconds, damage, server FROM mob_kills WHERE contributor NOT IN (${blocked}) ORDER BY mob, t DESC`).all()).results || [];
+  const byMob = new Map();
+  for (const k of killRows) {
+    const key = k.mob.toLowerCase();
+    if (!byMob.has(key)) byMob.set(key, { mob: k.mob, kills: [], best: null });
+    const m = byMob.get(key);
+    if (m.kills.length < REGEN_KILLS) m.kills.push(k);
+    if (k.server === server && k.seconds > 0) {
+      const dps = k.damage / k.seconds;
+      m.best = m.best ? { f: Math.min(m.best.f, k.seconds), dps: Math.max(m.best.dps, dps) } : { f: k.seconds, dps };
+    }
+  }
+
+  const regen = [];
+  const best = [];
+  for (const m of byMob.values()) {
+    const r = estimateRegen(m.kills.map((k) => [k.seconds, k.damage]));
+    if (r) regen.push({ m: m.mob, r: Math.round(r.regen * 10) / 10, hp: r.hp, k: r.kills });
+    if (m.best) best.push({ m: m.mob, f: Math.round(m.best.f * 10) / 10, dps: Math.round(m.best.dps) });
+  }
+
+  const levels = ((await env.DB.prepare(
+    `SELECT mob AS m, zone AS z, MIN(lo) AS lo, MAX(hi) AS hi FROM mob_levels WHERE contributor NOT IN (${blocked}) GROUP BY mob, zone`).all()).results || []);
+  const resists = ((await env.DB.prepare(
+    `SELECT mob AS m, type AS r, SUM(landed) AS l, SUM(resisted) AS x FROM mob_resists WHERE contributor NOT IN (${blocked}) GROUP BY mob, type`).all()).results || []);
+  const body = JSON.stringify({ regen, levels, resists, best, updated: Math.floor(Date.now() / 1000) });
+  await env.FILES.put(cacheKey, body, { expirationTtl: MOBS_CACHE_SECONDS });
+  return new Response(body, { status: 200, headers: { "Content-Type": "application/json" } });
+}
+
+/**
+ * A mob's regen and hit points from kills of different lengths, the same way the app works it out: leave out kills that saw only part
+ * of the damage, take the median of the pairwise slopes, and give nothing when the kills disagree. [seconds, damage] pairs.
+ */
+function estimateRegen(kills) {
+  const all = kills.filter(([s, d]) => s >= 5 && d > 0);
+  if (all.length < 3) return null;
+  const fast = [...all].sort((a, b) => a[0] - b[0]).slice(0, Math.max(3, Math.floor(all.length / 3))).map((k) => k[1]).sort((a, b) => a - b);
+  const complete = fast[Math.floor(0.75 * (fast.length - 1))];
+  const kept = all.filter(([, d]) => d >= 0.85 * complete);
+  if (kept.length < 3) return null;
+  const times = kept.map((k) => k[0]);
+  if (Math.max(...times) - Math.min(...times) < 30) return null;
+  const slopes = [];
+  for (let i = 0; i < kept.length; i++) {
+    for (let j = i + 1; j < kept.length; j++) {
+      const dt = kept[j][0] - kept[i][0];
+      if (Math.abs(dt) >= 10) slopes.push((kept[j][1] - kept[i][1]) / dt);
+    }
+  }
+
+  if (slopes.length === 0) return null;
+  const regen = Math.max(0, median(slopes));
+  const hp = median(kept.map(([s, d]) => d - regen * s));
+  const spread = median(kept.map(([s, d]) => Math.abs(d - regen * s - hp)));
+  if (hp <= 0 || spread > 0.15 * hp) return null;
+  return { regen, hp: Math.round(hp), kills: kept.length };
 }
 
 // ───────────────────────── Server First ─────────────────────────

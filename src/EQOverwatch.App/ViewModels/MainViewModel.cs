@@ -1404,6 +1404,7 @@ public sealed partial class MainViewModel : ObservableObject
             UpdateCheckHours = settings.UpdateCheckHours;
             RestoreSharedDrops(settings);
             RestoreLeveling(settings);
+            RestoreRelease80(settings);
             RestoreTells(settings);
             _skippedUpdateVersion = settings.SkippedUpdateVersion ?? string.Empty;
 
@@ -1637,6 +1638,9 @@ public sealed partial class MainViewModel : ObservableObject
         ShareMyDrops = ShareMyDrops,
         UseSharedLeveling = UseSharedLeveling,
         ShareServerFirsts = ShareServerFirsts,
+        UseSharedMobStats = UseSharedMobStats,
+        ShareMyMobStats = ShareMyMobStats,
+        MobStatsSharedThrough = new Dictionary<string, long>(_mobStatsSharedThrough, StringComparer.OrdinalIgnoreCase),
         ShareMyLeveling = ShareMyLeveling,
         LevelingId = _levelingId,
         LevelingKey = _levelingKey,

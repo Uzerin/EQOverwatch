@@ -199,6 +199,15 @@ public sealed class AppSettings
     /// <summary>The Leveling tab's expansions per server, when changed by hand (expansion numbers; missing: found from zones seen).</summary>
     public Dictionary<string, List<int>> LevelingExpansions { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>Use everyone's shared mob stats (regen/HP, levels, resists, best kills) when your own logs have none.</summary>
+    public bool UseSharedMobStats { get; set; } = true;
+
+    /// <summary>Share this PC's kills, /con levels and resist counts once a day (no names).</summary>
+    public bool ShareMyMobStats { get; set; } = true;
+
+    /// <summary>Per server: the newest kill already shared for mob stats (Unix seconds).</summary>
+    public Dictionary<string, long> MobStatsSharedThrough { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>The Leveling tab ranks group zones (false: solo).</summary>
     public bool LevelingGroup { get; set; } = true;
 
