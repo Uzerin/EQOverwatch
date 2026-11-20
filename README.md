@@ -63,6 +63,10 @@ settings are kept.
 
 ## Changelog
 
+### 1.0.75
+
+- Estimated mob regen and HP from kill times: DPS overlay, Mob Card, Encounter DPS, Mob History.
+
 ### 1.0.74
 
 - Mob levels are saved per zone; Mob Card uses your current zone.

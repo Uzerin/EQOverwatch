@@ -84,6 +84,49 @@ public partial class MainViewModel
     public FightEstimate? FightProgressFor(EncounterSnapshot encounter) =>
         ShowFightProgress ? FightProgress.Estimate(_bossHistory.Fights(), encounter.TargetName, encounter.Server, encounter.TotalDamage, encounter.DurationSeconds) : null;
 
+    private readonly object _regenGate = new();
+    private readonly Dictionary<string, MobRegen?> _regenCache = new(StringComparer.OrdinalIgnoreCase);
+    private ILookup<string, BossFight>? _regenFights;
+    private bool _regenHooked;
+
+    /// <summary>
+    /// The mob's estimated regen and hit points from its recorded kills on <paramref name="server"/> (null: every server), or null with
+    /// too few kills. Kept until a fight is recorded, since the DPS overlay asks several times a second.
+    /// </summary>
+    public MobRegen? RegenFor(string mob, string? server)
+    {
+        if (string.IsNullOrWhiteSpace(mob) || mob == DpsOverlayViewModel.IdleTitle)
+        {
+            return null;
+        }
+
+        string key = mob.Trim() + "|" + (server ?? string.Empty);
+        lock (_regenGate)
+        {
+            if (!_regenHooked)
+            {
+                _regenHooked = true;
+                _bossHistory.Changed += () =>
+                {
+                    lock (_regenGate)
+                    {
+                        _regenFights = null;
+                        _regenCache.Clear();
+                    }
+                };
+            }
+
+            _regenFights ??= _bossHistory.Fights().ToLookup(f => f.Boss.Trim(), StringComparer.OrdinalIgnoreCase);
+            if (!_regenCache.TryGetValue(key, out MobRegen? regen))
+            {
+                regen = MobRegenEstimator.Estimate(_regenFights[mob.Trim()], mob, string.IsNullOrEmpty(server) ? null : server);
+                _regenCache[key] = regen;
+            }
+
+            return regen;
+        }
+    }
+
     /// <summary>Your characters (the watched logs) with their server and Tank box, kept for the tailing thread.</summary>
     private void RefreshOwnCharacters()
     {
@@ -199,6 +242,11 @@ public partial class MainViewModel
             }
 
             lines.Add(text);
+        }
+
+        if (RegenFor(mob, server) is { } regen)
+        {
+            lines.Add($"{regen.Describe()} ({regen.Kills.ToString(culture)} kills)");
         }
 
         MobResistReport report = _pipeline.ResistStore.Report(mob, raid: true);

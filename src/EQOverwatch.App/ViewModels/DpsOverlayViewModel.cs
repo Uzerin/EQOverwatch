@@ -71,6 +71,13 @@ public sealed partial class DpsOverlayViewModel : ObservableObject
     /// </summary>
     public Func<EncounterSnapshot, EQOverwatch.Core.History.FightEstimate?>? Progress { get; set; }
 
+    /// <summary>When set, the mob's estimated regen and hit points from its recorded kills (null when there are too few).</summary>
+    public Func<EncounterSnapshot, EQOverwatch.Core.History.MobRegen?>? Regen { get; set; }
+
+    /// <summary>"Regen ~45/s · HP ~1.2M", or empty.</summary>
+    [ObservableProperty]
+    private string _regenText = string.Empty;
+
     /// <summary>"~62% · about 1:40 left (from 3 kills)", or empty.</summary>
     [ObservableProperty]
     private string _progressText = string.Empty;
@@ -166,6 +173,7 @@ public sealed partial class DpsOverlayViewModel : ObservableObject
             IsLive = false;
             ProgressText = string.Empty;
             ProgressFraction = 0;
+            RegenText = string.Empty;
             Rows.Clear();
             return;
         }
@@ -173,6 +181,7 @@ public sealed partial class DpsOverlayViewModel : ObservableObject
         EQOverwatch.Core.History.FightEstimate? estimate = encounter.IsActive && encounter.Id > 0 ? Progress?.Invoke(encounter) : null;
         ProgressText = estimate?.Describe() ?? string.Empty;
         ProgressFraction = estimate?.Fraction ?? 0;
+        RegenText = Regen?.Invoke(encounter)?.Describe() ?? string.Empty;
 
         TargetName = encounter.TargetName;
         DurationText = OverlayFormat.Duration(encounter.DurationSeconds);

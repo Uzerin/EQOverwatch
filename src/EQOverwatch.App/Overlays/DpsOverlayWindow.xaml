@@ -54,6 +54,8 @@
                             <TextBlock Text="{Binding GroupDpsText}" Margin="10,0,0,0" Foreground="{DynamicResource AlertTextBrush}" Style="{StaticResource OverlayTextStyle}"/>
                             <TextBlock Text=" DPS" Style="{StaticResource OverlayMutedTextStyle}"/>
                         </StackPanel>
+                        <!-- The mob's estimated regen and hit points, from its recorded kills (empty when there are too few) -->
+                        <TextBlock DockPanel.Dock="Right" Text="{Binding RegenText}" Margin="8,0,0,0" FontSize="11" VerticalAlignment="Center" Style="{StaticResource OverlayMutedTextStyle}"/>
                         <TextBlock Text="{Binding TargetName}" TextTrimming="CharacterEllipsis" Style="{StaticResource OverlayTextStyle}"/>
                     </DockPanel>
                 </Border>

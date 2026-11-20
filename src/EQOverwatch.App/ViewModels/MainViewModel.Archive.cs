@@ -27,7 +27,7 @@ public sealed record BossKillRow(
 public sealed record BossHistoryRow(
     string Boss, string HighestLevel, string LowestLevel, int Kills, int Attempts, string Fastest, string Average, string BestDps, int Players, string LastFought,
     string Magic = "–", string Fire = "–", string Cold = "–", string Poison = "–", string Disease = "–", string SharedBy = "–",
-    string Trend = "–");
+    string Trend = "–", string Regen = "–", string Hp = "–");
 
 // Boss kill history, backup and restore, and saved overlay layouts.
 public sealed partial class MainViewModel
@@ -194,6 +194,8 @@ public sealed partial class MainViewModel
                     s.MostPlayers,
                     s.LastFought == default ? "—" : s.LastFought.ToString("MMM d", CultureInfo.CurrentCulture))) with
                 {
+                    Regen = RegenFor(s.Boss, ToolsServerFilter) is { } regen ? regen.RegenText : "–",
+                    Hp = RegenFor(s.Boss, ToolsServerFilter) is { } estimate ? estimate.HpText : "–",
                     Trend = KillTrendText(BossHistoryStore.Trend(fights.Concat(loaded)
                         .Where(f => f.Boss.Equals(s.Boss, StringComparison.OrdinalIgnoreCase) && f.Players >= BossHistoryMinPlayers)
                         .DistinctBy(f => f.Start))),

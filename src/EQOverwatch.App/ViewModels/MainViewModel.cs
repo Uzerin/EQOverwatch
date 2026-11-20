@@ -1018,7 +1018,8 @@ public sealed partial class MainViewModel : ObservableObject
         double groupDps = encounter.TotalDamage / Math.Max(1.0, encounter.DurationSeconds);
         EncounterSummary =
             $"{encounter.TargetName} — {encounter.StartTime:yyyy-MM-dd HH:mm:ss}, {OverlayFormat.Duration(encounter.DurationSeconds)}, " +
-            $"{encounter.TotalDamage:N0} damage, group DPS {groupDps:N0}" + (encounter.IsActive ? " (in progress)" : string.Empty);
+            $"{encounter.TotalDamage:N0} damage, group DPS {groupDps:N0}" + (encounter.IsActive ? " (in progress)" : string.Empty) +
+            (RegenFor(encounter.TargetName, encounter.Server) is { } regen ? " · " + regen.Describe() : string.Empty);
     }
 
     private void UpdateLiveStatus()

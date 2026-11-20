@@ -2027,6 +2027,14 @@
                                         </Style>
                                     </DataGridTextColumn.HeaderStyle>
                                 </DataGridTextColumn>
+                                <DataGridTextColumn Header="Regen" Binding="{Binding Regen, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}">
+                                    <DataGridTextColumn.HeaderStyle>
+                                        <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}">
+                                            <Setter Property="ToolTip" Value="Estimated hit points regained per second, from kills of different lengths (3 kills or more)."/>
+                                        </Style>
+                                    </DataGridTextColumn.HeaderStyle>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn Header="Est. HP" Binding="{Binding Hp, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                                 <DataGridTextColumn Header="Best DPS" Binding="{Binding BestDps, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                                 <DataGridTextColumn Header="Most players" Binding="{Binding Players, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                                 <DataGridTextColumn Header="Last fought" Binding="{Binding LastFought, Mode=OneWay}" Width="Auto"/>
