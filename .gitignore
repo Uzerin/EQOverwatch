@@ -4,3 +4,6 @@ obj/
 *.user
 publish/
 *.zip
+
+# Claude Code local settings and worktrees
+.claude/
