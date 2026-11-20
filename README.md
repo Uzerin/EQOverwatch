@@ -63,6 +63,10 @@ settings are kept.
 
 ## Changelog
 
+### 1.0.73
+
+- Floating text: new numbers appear on top and push older ones down, no overlap.
+
 ### 1.0.72
 
 - Account names link characters and keep a shared bank per account.

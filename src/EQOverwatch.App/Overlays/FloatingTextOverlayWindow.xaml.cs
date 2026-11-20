@@ -12,13 +12,19 @@ public readonly record struct FloatingLook(Color Color, double Size, FontFamily 
 
 /// <summary>
 /// Floating combat text in two lanes: what your character deals or casts on the left, what it takes or receives on the right. Each new
-/// number appears at the top of its lane with its character's name under it, slides down and fades out over <see cref="Seconds"/>
-/// seconds. Crits are bold and larger; misses and resists are small gray words. At most <see cref="MaxShown"/> numbers are up at once.
+/// number appears at the top of its lane with its character's name under it and pushes the older ones down, so they never overlap;
+/// each fades out over <see cref="Seconds"/> seconds, and one pushed past the bottom is removed. Crits are bold and larger; misses and
+/// resists are small gray words. At most <see cref="MaxShown"/> numbers are up in each lane.
 /// </summary>
 public partial class FloatingTextOverlayWindow : OverlayWindowBase
 {
     public const double Seconds = 3;
     public const int MaxShown = 16;
+
+    /// <summary>How long the older numbers take to slide down when a new one arrives.</summary>
+    public static readonly TimeSpan PushTime = TimeSpan.FromMilliseconds(120);
+
+    private const double Gap = 2;
 
     /// <summary>Hits this close together, from one character on one target, merge into one number when merging is on.</summary>
     public static readonly TimeSpan MergeWindow = TimeSpan.FromMilliseconds(300);
@@ -26,6 +32,8 @@ public partial class FloatingTextOverlayWindow : OverlayWindowBase
     private static readonly Brush WordBrush = Freeze(new SolidColorBrush(Color.FromRgb(0xB8, 0xB8, 0xB8)));
 
     private readonly Dictionary<string, Merged> _merged = new(StringComparer.OrdinalIgnoreCase);
+    private readonly List<StackPanel> _left = new();
+    private readonly List<StackPanel> _right = new();
 
     private sealed class Merged
     {
@@ -71,12 +79,14 @@ public partial class FloatingTextOverlayWindow : OverlayWindowBase
             merged.Stack.Children[0] = Number(mergedText, merged.Critical, look);
             merged.Stack.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
             Canvas.SetLeft(merged.Stack, LeftFor(merged.Stack.DesiredSize.Width, look.Right));
+            Restack(look.Right ? _right : _left);
             return;
         }
 
-        while (Lane.Children.Count >= MaxShown)
+        List<StackPanel> lane = look.Right ? _right : _left;
+        while (lane.Count >= MaxShown)
         {
-            Lane.Children.RemoveAt(0);
+            Remove(lane, lane[^1]);
         }
 
         bool word = amount == 0;
@@ -92,20 +102,18 @@ public partial class FloatingTextOverlayWindow : OverlayWindowBase
         }
 
         stack.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-        double height = stack.DesiredSize.Height;
         Canvas.SetLeft(stack, LeftFor(stack.DesiredSize.Width, look.Right));
         Canvas.SetTop(stack, 0);
         Lane.Children.Add(stack);
+        lane.Insert(0, stack);
+        Restack(lane);
         if (!word && mergeKey.Length > 0)
         {
             _merged[key] = new Merged { Stack = stack, Prefix = prefix, Total = amount, Count = 1, Critical = critical, Last = now };
         }
 
-        var duration = new Duration(TimeSpan.FromSeconds(Seconds));
-        var fall = new DoubleAnimation(0, Math.Max(0, Lane.ActualHeight - height), duration);
-        var fade = new DoubleAnimation(1, 0, duration) { EasingFunction = new PowerEase { EasingMode = EasingMode.EaseIn, Power = 2 } };
-        fade.Completed += (_, _) => Lane.Children.Remove(stack);
-        stack.BeginAnimation(Canvas.TopProperty, fall);
+        var fade = new DoubleAnimation(1, 0, new Duration(TimeSpan.FromSeconds(Seconds))) { EasingFunction = new PowerEase { EasingMode = EasingMode.EaseIn, Power = 3 } };
+        fade.Completed += (_, _) => Remove(lane, stack);
         stack.BeginAnimation(OpacityProperty, fade);
         if (_merged.Count > 64)
         {
@@ -114,6 +122,40 @@ public partial class FloatingTextOverlayWindow : OverlayWindowBase
                 _merged.Remove(old);
             }
         }
+    }
+
+    /// <summary>Lays a lane out newest first from the top, sliding each number to its new place; drops any pushed past the bottom.</summary>
+    private void Restack(List<StackPanel> lane)
+    {
+        double y = 0;
+        foreach (StackPanel item in lane.ToList())
+        {
+            double height = item.DesiredSize.Height;
+            if (y > 0 && y + height > Lane.ActualHeight)
+            {
+                Remove(lane, item);
+                continue;
+            }
+
+            double from = (double)item.GetValue(Canvas.TopProperty);
+            if (double.IsNaN(from) || Math.Abs(from - y) < 0.5)
+            {
+                item.BeginAnimation(Canvas.TopProperty, null);
+                Canvas.SetTop(item, y);
+            }
+            else
+            {
+                item.BeginAnimation(Canvas.TopProperty, new DoubleAnimation(from, y, new Duration(PushTime)) { EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut } });
+            }
+
+            y += height + Gap;
+        }
+    }
+
+    private void Remove(List<StackPanel> lane, StackPanel item)
+    {
+        lane.Remove(item);
+        Lane.Children.Remove(item);
     }
 
     private static OutlinedText Number(string text, bool critical, FloatingLook look)
