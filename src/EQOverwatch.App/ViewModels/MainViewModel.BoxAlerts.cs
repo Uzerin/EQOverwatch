@@ -154,7 +154,8 @@ public partial class MainViewModel
         }
 
         string? server = _ownCharacters.TryGetValue(character, out (string Server, bool Tank) own) ? own.Server : null;
-        if (BuildMobCard(mob, level, server) is { } card)
+        string? zone = server is null ? null : _pipeline.Zones.Get(character, server)?.Zone;
+        if (BuildMobCard(mob, level, server, zone) is { } card)
         {
             MobCardReady(card);
         }
@@ -173,9 +174,10 @@ public partial class MainViewModel
 
     /// <summary>
     /// The mob card for <paramref name="mob"/>: its fights on <paramref name="server"/> (kills, attempts, times, best DPS), the raid's
-    /// resist rates and its drops. Null when the app has none of these for the mob.
+    /// resist rates and its drops. Null when the app has none of these for the mob. The level range seen is the one for
+    /// <paramref name="zone"/> (the zone the character is in), since one mob name can have other levels in other zones.
     /// </summary>
-    public MobCardInfo? BuildMobCard(string mob, int level, string? server)
+    public MobCardInfo? BuildMobCard(string mob, int level, string? server, string? zone = null)
     {
         CultureInfo culture = CultureInfo.CurrentCulture;
         var lines = new List<string>();
@@ -238,7 +240,7 @@ public partial class MainViewModel
         }
 
         string heading = $"{mob} · level {level.ToString(culture)}";
-        if (_mobLevels.Find(mob) is { } seen && seen.Lowest != seen.Highest)
+        if (_mobLevels.Find(mob, zone) is { } seen && seen.Lowest != seen.Highest)
         {
             heading += $" (seen {seen.Lowest.ToString(culture)}–{seen.Highest.ToString(culture)})";
         }

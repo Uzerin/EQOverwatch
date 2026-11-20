@@ -103,8 +103,8 @@ public sealed partial class MainViewModel : ObservableObject
             _pipeline.AutoClick.Sender = clickSender;
         }
 
-        _pipeline.LiveDps.MobLevelSeen = (mob, level) => _mobLevels.Observe(mob, level); // /consider lines feed the shared level ranges
-        _pipeline.HistoricalDps.MobLevelSeen = (mob, level) => _mobLevels.Observe(mob, level);
+        _pipeline.LiveDps.MobLevelSeen = (mob, level, zone) => _mobLevels.Observe(mob, level, zone); // /consider lines feed the shared level ranges, per zone
+        _pipeline.HistoricalDps.MobLevelSeen = (mob, level, zone) => _mobLevels.Observe(mob, level, zone);
         ArgumentNullException.ThrowIfNull(settings);
 
         PendingSharedTriggers.CollectionChanged += (_, _) => OnPendingSharedChanged();

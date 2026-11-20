@@ -104,6 +104,7 @@ public partial class DpsTrackerService : IDpsEventSink
     private const int MaxPendingCastNames = 32;
     private readonly Dictionary<string, List<BossCastSnapshot>> _recentCasts = new(StringComparer.OrdinalIgnoreCase);
     private string _logOwner = string.Empty;
+    private readonly Dictionary<string, string> _ownerZones = new(StringComparer.OrdinalIgnoreCase);
     private readonly RepeatFilter _repeats = new();
     private string _server = string.Empty;
     private readonly List<PlayerCastSnapshot> _recentPlayerCasts = new();
@@ -438,8 +439,11 @@ public partial class DpsTrackerService : IDpsEventSink
     private static string CombatKey(in CombatEvent e) =>
         string.Create(CultureInfo.InvariantCulture, $"c{(int)e.Kind}|{e.Source}|{e.Target}|{e.Amount}|{(int)e.DamageKind}");
 
-    /// <summary>Called with the mob's name and level for every /consider line that shows one, while a log is tailed, imported or caught up.</summary>
-    public Action<string, int>? MobLevelSeen { get; set; }
+    /// <summary>
+    /// Called with the mob's name, its level, and the zone the log last entered (null when not seen yet) for every /consider line that
+    /// shows a level, while a log is tailed, imported or caught up.
+    /// </summary>
+    public Action<string, int, string?>? MobLevelSeen { get; set; }
 
     /// <summary>Lets the roster learn from /who and /pet leader lines, including while a log is imported or caught up.</summary>
     public void OnNonCombatMessage(ReadOnlySpan<char> message)
@@ -452,12 +456,30 @@ public partial class DpsTrackerService : IDpsEventSink
 
         _roster?.Observe(message, server);
 
+        // Each log's zone, so a mob's level range is kept per zone.
+        if (message.StartsWith("You have entered ", StringComparison.Ordinal) && EQOverwatch.Core.Maps.ZoneTracker.ParseZone(message) is { } entered)
+        {
+            lock (_gate)
+            {
+                if (_logOwner.Length > 0)
+                {
+                    _ownerZones[_logOwner] = entered;
+                }
+            }
+        }
+
         // /consider lines that show a level ("... (Lvl: 62)") feed the shared mob level ranges.
-        Action<string, int>? levelSeen = MobLevelSeen;
+        Action<string, int, string?>? levelSeen = MobLevelSeen;
         if ((levelSeen is not null || MobConsidered is not null)
             && EQOverwatch.Core.Parsing.ConLineParser.TryParse(message, out string conMob, out int conLevel))
         {
-            levelSeen?.Invoke(conMob, conLevel);
+            string? zone;
+            lock (_gate)
+            {
+                zone = _ownerZones.TryGetValue(_logOwner, out string? z) ? z : null;
+            }
+
+            levelSeen?.Invoke(conMob, conLevel, zone);
             if (LiveOwner() is { } consider)
             {
                 MobConsidered?.Invoke(consider, conMob, conLevel);

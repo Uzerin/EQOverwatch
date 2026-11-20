@@ -414,13 +414,83 @@ public class ArchiveAndSyncDataTests
     public void The_tracker_reports_the_level_on_a_con_line_it_reads()
     {
         var tracker = new LiveDpsTracker();
-        var seen = new List<(string Mob, int Level)>();
-        tracker.MobLevelSeen = (mob, level) => seen.Add((mob, level));
+        var seen = new List<(string Mob, int Level, string? Zone)>();
+        tracker.MobLevelSeen = (mob, level, zone) => seen.Add((mob, level, zone));
 
+        tracker.OnLogOwner("Ream");
         tracker.OnNonCombatMessage("A Praetorian Pius scowls at you, ready to attack -- looks like he would wipe the floor with you! (Lvl: 62)");
         tracker.OnNonCombatMessage("You say, 'hello (Lvl: 3)'");
+        tracker.OnNonCombatMessage("You have entered Ssraeshza Temple.");
+        tracker.OnNonCombatMessage("A Praetorian Pius scowls at you, ready to attack -- looks like he would wipe the floor with you! (Lvl: 63)");
+        tracker.OnLogOwner("Stackprime"); // another log, not zoned yet
+        tracker.OnNonCombatMessage("A Praetorian Pius scowls at you, ready to attack -- looks like he would wipe the floor with you! (Lvl: 64)");
 
-        Assert.Equal(("a Praetorian Pius", 62), Assert.Single(seen));
+        Assert.Equal(new (string, int, string?)[] { ("a Praetorian Pius", 62, null), ("a Praetorian Pius", 63, "Ssraeshza Temple"), ("a Praetorian Pius", 64, null) }, seen);
+    }
+
+    [Fact]
+    public void Mob_levels_are_kept_per_zone_with_the_old_ranges_as_fallback()
+    {
+        string path = Path.Combine(Path.GetTempPath(), "eqo-levels-" + Guid.NewGuid().ToString("N") + ".json");
+        try
+        {
+            File.WriteAllText(path, "[{\"Mob\":\"a bandit\",\"Lowest\":10,\"Highest\":33}]"); // a file from before zones
+            var store = new MobLevelStore();
+            store.SetStoragePath(path);
+            Assert.False(store.ZonesRebuilt);
+            Assert.Equal((10, 33), (store.Find("a bandit", "Qeynos Hills")!.Lowest, store.Find("a bandit", "Qeynos Hills")!.Highest));
+
+            Assert.True(store.Observe("a bandit", 12, "Qeynos Hills"));
+            Assert.True(store.Observe("a bandit", 14, "Qeynos Hills"));
+            Assert.True(store.Observe("a bandit", 30, "Rathe Mountains"));
+            Assert.Equal((12, 14), (store.Find("a bandit", "qeynos hills")!.Lowest, store.Find("a bandit", "qeynos hills")!.Highest));
+            Assert.Equal((10, 33), (store.Find("a bandit", "West Karana")!.Lowest, store.Find("a bandit", "West Karana")!.Highest)); // no range there: the old one
+            Assert.Equal((10, 33), (store.Find("a bandit")!.Lowest, store.Find("a bandit")!.Highest)); // over every zone
+
+            var again = new MobLevelStore();
+            again.SetStoragePath(path);
+            Assert.Equal((30, 30), (again.Find("a bandit", "Rathe Mountains")!.Lowest, again.Find("a bandit", "Rathe Mountains")!.Highest));
+            Assert.Equal(3, again.All().Count); // no zone, Qeynos Hills, Rathe Mountains
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void A_log_scan_gives_each_con_level_its_zone_and_marks_the_rebuild_done()
+    {
+        string path = Path.Combine(Path.GetTempPath(), "eqo-log-" + Guid.NewGuid().ToString("N") + ".txt");
+        string levels = Path.ChangeExtension(path, ".json");
+        const string Crlf = "\r\n";
+        try
+        {
+            File.WriteAllText(path, string.Join(Crlf,
+                "[Wed Oct 21 19:40:00 2026] a bandit scowls at you, ready to attack -- what would you like your tombstone to say? (Lvl: 8)",
+                "[Wed Oct 21 19:41:00 2026] You have entered Qeynos Hills.",
+                "[Wed Oct 21 19:42:00 2026] a bandit scowls at you, ready to attack -- what would you like your tombstone to say? (Lvl: 12)",
+                "[Wed Oct 21 19:43:00 2026] You have entered an area where levitation is prohibited.",
+                "[Wed Oct 21 19:44:00 2026] You have entered Rathe Mountains.",
+                "[Wed Oct 21 19:45:00 2026] a bandit scowls at you, ready to attack -- what would you like your tombstone to say? (Lvl: 31)") + Crlf);
+
+            var found = MobLevelStore.ScanLog(path).ToList();
+            Assert.Equal(new (string, int, string?)[] { ("a bandit", 8, null), ("a bandit", 12, "Qeynos Hills"), ("a bandit", 31, "Rathe Mountains") }, found);
+
+            var store = new MobLevelStore();
+            store.SetStoragePath(levels);
+            store.ObserveAll(found);
+            Assert.True(store.ZonesRebuilt);
+            var again = new MobLevelStore();
+            again.SetStoragePath(levels);
+            Assert.True(again.ZonesRebuilt);
+            Assert.Equal(31, again.Find("a bandit", "Rathe Mountains")!.Lowest);
+        }
+        finally
+        {
+            File.Delete(path);
+            File.Delete(levels);
+        }
     }
 
     [Fact]

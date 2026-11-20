@@ -1,4 +1,6 @@
 using System.Globalization;
+using System.IO;
+using EQOverwatch.Core.History;
 using CommunityToolkit.Mvvm.ComponentModel;
 using EQOverwatch.Core.Attendance;
 using EQOverwatch.Core.Models;
@@ -204,6 +206,7 @@ public sealed partial class MainViewModel
             _weekResists = result.WeekResists;
         }
 
+        RebuildMobLevelsOnce();
         if (nowUtc - _lastDayScan < DayScanEvery || Logs.Count == 0 || Interlocked.CompareExchange(ref _dayScanRunning, 1, 0) != 0)
         {
             return;
@@ -228,6 +231,47 @@ public sealed partial class MainViewModel
             finally
             {
                 Interlocked.Exchange(ref _dayScanRunning, 0);
+            }
+        });
+    }
+
+    private int _mobLevelRebuildRunning;
+
+    /// <summary>
+    /// Once, in the background: reads every watched log for /consider levels and the zone each was seen in, so the saved level ranges
+    /// are kept per zone. Ranges saved before keep working as the fallback for mobs not seen in a zone.
+    /// </summary>
+    private void RebuildMobLevelsOnce()
+    {
+        if (_mobLevels.ZonesRebuilt || Logs.Count == 0 || Interlocked.CompareExchange(ref _mobLevelRebuildRunning, 1, 0) != 0)
+        {
+            return;
+        }
+
+        var paths = Logs.Select(l => l.FilePath).Where(p => !string.IsNullOrEmpty(p)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        MobLevelStore store = _mobLevels;
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                var sightings = new List<(string, int, string?)>();
+                foreach (string path in paths)
+                {
+                    try
+                    {
+                        sightings.AddRange(MobLevelStore.ScanLog(path));
+                    }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                    {
+                        // a log that cannot be read is skipped
+                    }
+                }
+
+                store.ObserveAll(sightings);
+            }
+            finally
+            {
+                Interlocked.Exchange(ref _mobLevelRebuildRunning, 0);
             }
         });
     }

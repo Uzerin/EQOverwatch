@@ -63,6 +63,10 @@ settings are kept.
 
 ## Changelog
 
+### 1.0.74
+
+- Mob levels are saved per zone; Mob Card uses your current zone.
+
 ### 1.0.73
 
 - Floating text: new numbers appear on top and push older ones down, no overlap.
