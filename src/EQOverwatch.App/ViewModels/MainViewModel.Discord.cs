@@ -128,7 +128,7 @@ public sealed partial class MainViewModel
         byte[] png;
         try
         {
-            png = _renderPng(fight, ActivePalette, WindowTitle); // drawn here, on the UI thread
+            png = _renderPng(WithRegen(fight), ActivePalette, WindowTitle); // drawn here, on the UI thread
         }
         catch (Exception ex)
         {

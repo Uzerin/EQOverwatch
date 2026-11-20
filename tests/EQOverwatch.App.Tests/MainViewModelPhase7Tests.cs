@@ -30,8 +30,8 @@ public partial class MainViewModelTests
         using var h = new Harness();
 
         Assert.Equal("EQ Overwatch", h.Vm.AppName);
-        Assert.Equal("v1.0.75", h.Vm.AppVersion);
-        Assert.Equal("EQ Overwatch v1.0.75", h.Vm.WindowTitle);
+        Assert.Equal("v1.0.76", h.Vm.AppVersion);
+        Assert.Equal("EQ Overwatch v1.0.76", h.Vm.WindowTitle);
     }
 
     [Fact]
@@ -251,7 +251,7 @@ public partial class MainViewModelTests
 
         var image = Assert.Single(h.Clipboard.Images);
         Assert.Equal(Giant, image.Encounter.TargetName);
-        Assert.Equal("EQ Overwatch v1.0.75", image.Footer);
+        Assert.Equal("EQ Overwatch v1.0.76", image.Footer);
         Assert.Equal(EncounterExport.AllAttackers, image.TopCount); // the picture lists everyone, not just the top 12
     }
 

@@ -11,6 +11,7 @@
     <SolidColorBrush x:Key="OverlayTextBrush" Color="#FFFFFFFF"/>
     <SolidColorBrush x:Key="OverlayMutedTextBrush" Color="#FFB8BCC8"/>
     <SolidColorBrush x:Key="AlertTextBrush" Color="#FFFFD54A"/>
+    <SolidColorBrush x:Key="RegenTextBrush" Color="#FF6FDC8C"/>
     <SolidColorBrush x:Key="BarBackBrush" Color="#88000000"/>
     <SolidColorBrush x:Key="BarFillBrush" Color="#FF3FA9F5"/>
     <SolidColorBrush x:Key="BarUrgentFillBrush" Color="#FFE0483E"/>

@@ -63,6 +63,11 @@ settings are kept.
 
 ## Changelog
 
+### 1.0.76
+
+- Regen and HP are green on the DPS overlay and shown in the Discord picture.
+- Cons of encounter-locked mobs now update the Mob Card and levels.
+
 ### 1.0.75
 
 - Estimated mob regen and HP from kill times: DPS overlay, Mob Card, Encounter DPS, Mob History.

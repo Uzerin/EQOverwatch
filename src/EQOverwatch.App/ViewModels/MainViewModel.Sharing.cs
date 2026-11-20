@@ -263,7 +263,7 @@ public sealed partial class MainViewModel
             return;
         }
 
-        encounter = encounter.WithClassesOnServer(ClassLabelOnServer);
+        encounter = WithRegen(encounter.WithClassesOnServer(ClassLabelOnServer));
         try
         {
             _clipboard.SetEncounterImage(encounter, ActivePalette, WindowTitle, EncounterExport.AllAttackers);

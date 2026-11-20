@@ -24,6 +24,11 @@ public static class EncounterImageRenderer
     private const double Padding = 22;
     private const double RowHeight = 28;
     private const double HeaderHeight = 74;
+
+    /// <summary>The estimated regen and hit points line under the summary (only when there is an estimate).</summary>
+    private const double RegenLineHeight = 19;
+
+    private const string RegenColor = "#6FDC8C";
     private const double TableHeaderHeight = 26;
     private const double FooterHeight = 38;
     private const double SectionHeight = 40;
@@ -145,7 +150,8 @@ public static class EncounterImageRenderer
         double graphWidth = width - (2 * Padding);
         double graphHeight = timeline is null ? 0 : DpsGraph.TotalHeight(timeline, graphWidth, GraphPlotHeight, Scale);
         double graphBlock = timeline is null ? 0 : TitleHeight + graphHeight + SectionGap;
-        double bodyTop = HeaderHeight + graphBlock;
+        double headerHeight = HeaderHeight + (encounter.RegenText.Length > 0 ? RegenLineHeight : 0);
+        double bodyTop = headerHeight + graphBlock;
         double height = bodyTop + Math.Max(dpsHeight, Math.Max(healHeight, tankHeight)) + FooterHeight;
 
         Brush window = Solid(palette.WindowBg);
@@ -167,11 +173,15 @@ public static class EncounterImageRenderer
             // header, across all three columns
             Draw(dc, encounter.TargetName, Bold, 22, text, Padding + 6, 20, width - (2 * Padding) - 6, TextAlignment.Left);
             Draw(dc, SummaryLine(encounter), Regular, 13, muted, Padding + 6, 52, width - (2 * Padding) - 6, TextAlignment.Left);
+            if (encounter.RegenText.Length > 0)
+            {
+                Draw(dc, encounter.RegenText, Regular, 13, Solid(RegenColor), Padding + 6, 52 + RegenLineHeight, width - (2 * Padding) - 6, TextAlignment.Left);
+            }
 
             if (timeline is not null)
             {
-                DrawTitle(dc, "DPS over time", "group + top " + timeline.Players.Count.ToString(CultureInfo.InvariantCulture), graphWidth, HeaderHeight, text, muted, Bold);
-                DpsGraph.Draw(dc, timeline, new Rect(Padding, HeaderHeight + TitleHeight, graphWidth, graphHeight), GraphPlotHeight, text, muted, line, text, Scale);
+                DrawTitle(dc, "DPS over time", "group + top " + timeline.Players.Count.ToString(CultureInfo.InvariantCulture), graphWidth, headerHeight, text, muted, Bold);
+                DpsGraph.Draw(dc, timeline, new Rect(Padding, headerHeight + TitleHeight, graphWidth, graphHeight), GraphPlotHeight, text, muted, line, text, Scale);
             }
 
             // thin dividers between the columns

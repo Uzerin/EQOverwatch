@@ -12,9 +12,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>EQOverwatch.Core</RootNamespace>
     <AnalysisLevel>latest</AnalysisLevel>
-    <Version>1.0.75</Version>
-    <AssemblyVersion>1.0.75.0</AssemblyVersion>
-    <FileVersion>1.0.75.0</FileVersion>
+    <Version>1.0.76</Version>
+    <AssemblyVersion>1.0.76.0</AssemblyVersion>
+    <FileVersion>1.0.76.0</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>

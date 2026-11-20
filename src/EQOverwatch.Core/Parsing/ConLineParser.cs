@@ -46,7 +46,16 @@ public static class ConLineParser
             return false;
         }
 
-        ReadOnlySpan<char> number = message[(marker + LevelMarker.Length)..^1];
+        // The level may be followed by tags such as " (Encounter Lock: Stackprime)".
+        ReadOnlySpan<char> afterMarker = message[(marker + LevelMarker.Length)..];
+        int close = afterMarker.IndexOf(')');
+        ReadOnlySpan<char> tags = afterMarker[(close + 1)..].Trim();
+        if (close <= 0 || (tags.Length > 0 && (tags[0] != '(' || tags[^1] != ')')))
+        {
+            return false;
+        }
+
+        ReadOnlySpan<char> number = afterMarker[..close];
         if (!int.TryParse(number, NumberStyles.None, CultureInfo.InvariantCulture, out level) || level <= 0 || level > 255)
         {
             level = 0;

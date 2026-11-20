@@ -143,6 +143,29 @@ public partial class MainViewModelTests
         }
     }
 
+    [Fact]
+    public void The_mob_card_shows_the_estimated_regen_and_hit_points()
+    {
+        (Harness h, _) = BoxHarness();
+        using (h)
+        {
+            h.BossHistory.Record(new[]
+            {
+                Fight("Xi Vius", FightStart.AddDays(-3), 40, 8_800, killed: true),
+                Fight("Xi Vius", FightStart.AddDays(-2), 80, 9_600, killed: true),
+                Fight("Xi Vius", FightStart.AddDays(-1), 120, 10_400, killed: true),
+            });
+            var cards = new List<MobCardInfo>();
+            h.Vm.MobCardReady += cards.Add;
+
+            h.Pipeline.LiveDps.OnLogOwner("Stackprime");
+            h.Pipeline.LiveDps.OnNonCombatMessage("Xi Vius scowls at you, ready to attack -- looks kind of dangerous. (Lvl: 60)");
+
+            MobCardInfo card = Assert.Single(cards);
+            Assert.Contains(card.Lines, l => l.StartsWith("Regen ~20/s · HP ~8", StringComparison.Ordinal) && l.EndsWith("(3 kills)", StringComparison.Ordinal));
+        }
+    }
+
     private static EncounterSnapshot Fight(string mob, DateTime start, int seconds, long damage, bool killed) =>
         new(1, mob, start, start.AddSeconds(seconds), seconds, damage, false, Array.Empty<ParticipantSnapshot>(), Killed: killed) { Server = "Frostreaver" };
 
