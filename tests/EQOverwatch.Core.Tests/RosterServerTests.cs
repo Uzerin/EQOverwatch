@@ -119,7 +119,7 @@ public class RosterServerTests
     }
 
     [Fact]
-    public void Lines_carry_their_server_from_the_log_through_the_pipeline()
+    public async Task Lines_carry_their_server_from_the_log_through_the_pipeline()
     {
         var roster = new PlayerRoster();
         var sinks = new CompositeTriggerSink(new ITriggerLineSink[] { roster });
@@ -128,7 +128,7 @@ public class RosterServerTests
         channel.Writer.TryWrite(new LogEvent("Kaelith", "[Mon Nov 09 12:00:01 2026] [12 Acolyte (Shaman)] Kaelith (Troll)", Now, LogRoute.Triggers, serverName: "newserver"));
         channel.Writer.Complete();
 
-        LogEventProcessor.RunAsync(channel.Reader, sinks, null, null, CancellationToken.None).GetAwaiter().GetResult();
+        await LogEventProcessor.RunAsync(channel.Reader, sinks, null, null, CancellationToken.None);
 
         Assert.Equal(125, roster.GetLevel("Kaelith", "frostreaver"));
         Assert.Equal(12, roster.GetLevel("Kaelith", "newserver"));

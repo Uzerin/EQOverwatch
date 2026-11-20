@@ -3,12 +3,11 @@ using EQOverwatch.Core.Models;
 using EQOverwatch.Core.Parsing;
 using EQOverwatch.Core.Services;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace EQOverwatch.Core.Tests;
 
 /// <summary>Several mobs fought at once (some of them mezzed) are one live fight; each gets its own row when it dies or the fight ends.</summary>
-public class CombinedFightTests(ITestOutputHelper output)
+public class CombinedFightTests
 {
     private static readonly string[] Adds =
     {

@@ -35,7 +35,7 @@ public static class LogEventProcessor
     private static void Dispatch(
         in LogEvent evt, ITriggerLineSink? triggerSink, IDpsEventSink? dpsSink, Action<Exception>? onError, ILogActivityObserver? activity)
     {
-        activity?.OnLogLine(evt.CharacterName, evt.ServerName ?? string.Empty, evt.ReceivedUtc);
+        activity?.OnLogLine(evt.CharacterName, evt.ServerName, evt.ReceivedUtc);
 
         if (triggerSink is not null && (evt.Routes & LogRoute.Triggers) != 0)
         {
