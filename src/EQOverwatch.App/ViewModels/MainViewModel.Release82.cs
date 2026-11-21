@@ -62,6 +62,7 @@ public sealed partial class MainViewModel
     private DateTime _nextResourceScan = DateTime.MinValue;
     private readonly Dictionary<string, (DateTime Next, string Day)> _nextResourceDownload = new(StringComparer.OrdinalIgnoreCase);
     private bool _resourceBusy;
+    private readonly SemaphoreSlim _resourceGate = new(1, 1);
     private long _resourceVersion = -1;
     private string? _resourceShownFor;
     private string _resourceShownFilter = string.Empty;
@@ -151,6 +152,7 @@ public sealed partial class MainViewModel
     public async Task RunResourceHunterAsync(IReadOnlyList<(string Path, string Server)> logs, DateTime nowUtc)
     {
         _resourceBusy = true;
+        await _resourceGate.WaitAsync();
         try
         {
             ResourceHunterStore store = _pipeline.ResourceHunter;
@@ -230,6 +232,7 @@ public sealed partial class MainViewModel
         finally
         {
             _resourceBusy = false;
+            _resourceGate.Release();
         }
     }
 

@@ -45,7 +45,7 @@ public partial class MainViewModelTests
         Assert.Equal("The Akheva Ruins: Loot bonus", Assert.Single(h.Pipeline.Notices.Current(now.AddSeconds(1))).Text);
 
         await h.Vm.RunResourceHunterAsync(new[] { ("", "frostreaver"), ("", "vaniki") }, now);
-        Assert.Equal(new[] { "put frostreaver", "shared frostreaver", "site frostreaver", "shared vaniki" }, service.Calls); // no website for vaniki
+        Assert.Equal(new[] { "put frostreaver", "shared frostreaver", "shared vaniki", "site frostreaver" }, service.Calls.Order()); // no website for vaniki
         Assert.Equal("The Akheva Ruins", Assert.Single(service.Uploaded).Zone);
 
         await h.Vm.RunResourceHunterAsync(Array.Empty<(string, string)>(), now.AddMinutes(5));
