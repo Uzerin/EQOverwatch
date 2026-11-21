@@ -57,6 +57,7 @@ public sealed partial class CompanionPipeline : IAsyncDisposable
         Experience = new ExperienceTracker(DateTime.UtcNow);
         MobExperience = new MobExperienceStore();
         Zones = new ZoneTracker();
+        ResourceHunter = new ResourceHunter.ResourceHunterStore();
         Drops = new DropStore();
         Progress = new ProgressStore();
         TellInbox = new TellInbox();
@@ -70,7 +71,7 @@ public sealed partial class CompanionPipeline : IAsyncDisposable
 
         // Every sink sees every line of every trigger-enabled log. Historical imports use none of them.
         var triggerSinks = new CompositeTriggerSink(
-            new ITriggerLineSink[] { Triggers, Buffs, Songs, Charm, SpellAlerts, TimerPause, RaidBosses, ChChain, Cooldowns, Abilities, SharedTriggers, Roster, Loot, Tells, Experience, MobExperience, Resists, Zones, Drops, Progress, TellInbox, OutputFiles, Chat, Guilds }, RaiseError);
+            new ITriggerLineSink[] { Triggers, Buffs, Songs, Charm, SpellAlerts, TimerPause, RaidBosses, ChChain, Cooldowns, Abilities, SharedTriggers, Roster, Loot, Tells, Experience, MobExperience, Resists, Zones, Drops, Progress, TellInbox, OutputFiles, Chat, Guilds, ResourceHunter }, RaiseError);
         Activity = new CharacterActivityService();
         Songs.SetOwnCharacterProbe(IsMonitoredCharacter);
         Songs.SetActivityProbe(Activity.IsActive);
@@ -80,6 +81,7 @@ public sealed partial class CompanionPipeline : IAsyncDisposable
         Resists.SetPlayerProbe(name => IsMonitoredCharacter(name) || Roster.IsVerifiedPlayer(name));
         ZoneTracker zones = Zones;
         Drops.SetZoneProvider((name, server) => zones.Get(name, server)?.Zone);
+        ResourceHunter.SetZoneProvider((name, server) => zones.Get(name, server)?.Zone);
         Drops.SetPlayerProbe(name => IsMonitoredCharacter(name) || Roster.IsVerifiedPlayer(name) || Roster.IsPet(name));
         TellInbox.SetOwnCharacterProbe(IsMonitoredCharacter);
         Progress.SetClassProvider((name, server) => Roster.GetClass(name, server));
@@ -161,6 +163,9 @@ public sealed partial class CompanionPipeline : IAsyncDisposable
 
     /// <summary>Each character's zone and last /loc, for the Maps tab.</summary>
     public ZoneTracker Zones { get; }
+
+    /// <summary>The Resource Hunter zone bonuses your logs show, and today's bonuses other players and the tracking websites report.</summary>
+    public ResourceHunter.ResourceHunterStore ResourceHunter { get; }
 
     /// <summary>Players' guilds from /who lines, per server.</summary>
     public GuildBook Guilds { get; }

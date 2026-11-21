@@ -31,6 +31,9 @@
                                             <DataTrigger Binding="{Binding Kind}" Value="linkdead">
                                                 <Setter Property="Foreground" Value="#FF9A8A"/>
                                             </DataTrigger>
+                                            <DataTrigger Binding="{Binding Kind}" Value="bonus">
+                                                <Setter Property="Foreground" Value="#E8C66A"/>
+                                            </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
                                 </TextBlock.Style>

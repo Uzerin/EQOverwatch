@@ -69,6 +69,7 @@ public sealed partial class MainViewModel
                 _bossHistory.Record(live.Completed);
                 _pipeline.BossAbilities.Learn(live.Completed);
                 QueueServerFirsts(live.Completed);
+                CheckPersonalBests(live.Completed);
             }
 
             if (imported.Version != _bossHistoricalVersion)

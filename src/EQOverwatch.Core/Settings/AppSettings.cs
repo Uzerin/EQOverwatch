@@ -285,6 +285,18 @@ public sealed partial class AppSettings
     /// <summary>Show /random rolls and players gone linkdead on the Tells overlay for 30 seconds.</summary>
     public bool TellsOverlayNotices { get; set; } = true;
 
+    /// <summary>"Karnor's Castle: AA bonus" on the Tells overlay when one of your characters enters a Resource Hunter bonus zone.</summary>
+    public bool ResourceHunterNotices { get; set; } = true;
+
+    /// <summary>Fill in Resource Hunter zones your logs have not seen from the server's tracking website (Frostreaver, Fangbreaker).</summary>
+    public bool UseResourceWebsites { get; set; } = true;
+
+    /// <summary>Share the Resource Hunter bonuses your logs find (zone, bonus and day only) and use what other players shared.</summary>
+    public bool ShareResourceBonuses { get; set; } = true;
+
+    /// <summary>A Windows notification when one of your characters beats its best DPS, overall or against a mob.</summary>
+    public bool PersonalBestToast { get; set; } = true;
+
     /// <summary>Floating combat text colors by kind (Melee, Ranged, Spell, DamageShield, Heal, Taken) as #RRGGBB; missing ones use the defaults.</summary>
     public Dictionary<string, string>? FloatingColors { get; set; }
 

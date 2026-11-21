@@ -1114,7 +1114,19 @@
                                   AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
                                   SelectionMode="Single" HeadersVisibility="Column" GridLinesVisibility="Horizontal">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="Target" Binding="{Binding TargetName}" Width="Auto" MinWidth="120"/>
+                                <DataGridTextColumn Header="Target" Binding="{Binding TargetName}" Width="Auto" MinWidth="120">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsPersonalBest}" Value="True">
+                                                    <Setter Property="Foreground" Value="#E8C66A"/>
+                                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                                    <Setter Property="ToolTip" Value="One of your characters' best DPS, overall or against this mob."/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
                                 <DataGridTextColumn Header="Start" Binding="{Binding StartText}" SortMemberPath="StartTime" Width="Auto"/>
                                 <DataGridTextColumn Header="Length" Binding="{Binding DurationText}" SortMemberPath="DurationSeconds" Width="Auto"
                                                     ElementStyle="{StaticResource NumericCell}"/>
@@ -2511,11 +2523,39 @@
                                 <DataGridTextColumn Header="Kills/hour" Binding="{Binding KillsPerHour, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                                 <DataGridTextColumn Header="Plat/hour" Binding="{Binding PlatPerHour, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                                 <DataGridTextColumn Header="Mob Levels" Binding="{Binding MobLevels, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                <DataGridTextColumn Header="Bonus Today" Binding="{Binding BonusToday, Mode=OneWay}" Width="Auto"/>
                                 <DataGridTextColumn Header="Players" Binding="{Binding Players, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                                 <DataGridTextColumn Header="Hours" Binding="{Binding Hours, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                                 <DataGridTextColumn Header="Data" Binding="{Binding Data, Mode=OneWay}" Width="Auto"/>
                             </DataGrid.Columns>
                         </DataGrid>
+
+                        <TextBlock FontWeight="SemiBold" Margin="0,6,0,6" Text="Resource Hunter bonuses today"/>
+                        <ListBox ItemsSource="{Binding ResourceFilters}" SelectedItem="{Binding SelectedResourceFilter}" HorizontalAlignment="Left"
+                                 BorderThickness="0" Background="Transparent" Margin="0,0,0,6" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                 ToolTip="Show only zones with this bonus.">
+                            <ListBox.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel/>
+                                </ItemsPanelTemplate>
+                            </ListBox.ItemsPanel>
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding}" Margin="6,2"/>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                        <DataGrid ItemsSource="{Binding ResourceRows}" HorizontalAlignment="Left" AutoGenerateColumns="False" CanUserAddRows="False"
+                                  IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal" MaxHeight="360" Margin="0,0,0,4">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Zone" Binding="{Binding Zone, Mode=OneWay}" Width="Auto"/>
+                                <DataGridTextColumn Header="Bonus" Binding="{Binding Bonus, Mode=OneWay}" Width="Auto"/>
+                                <DataGridTextColumn Header="Source" Binding="{Binding Source, Mode=OneWay}" Width="Auto"/>
+                                <DataGridTextColumn Header="Your Last 30 Days" Binding="{Binding Last30, Mode=OneWay}" Width="Auto"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                        <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" MaxWidth="760" HorizontalAlignment="Left" Margin="0,0,0,12"
+                                   Text="{Binding ResourceHunterStatus}"/>
 
                         <TextBlock FontWeight="SemiBold" Margin="0,6,0,6" Text="{Binding LevelingBestMobsTitle}"/>
                         <DataGrid ItemsSource="{Binding LevelingBestMobs}" HorizontalAlignment="Left" AutoGenerateColumns="False" CanUserAddRows="False"
@@ -3405,6 +3445,10 @@
                                               ToolTip="A Windows notification when one of your characters gains a level while EverQuest is not the active window."/>
                                     <CheckBox Content="Rolls and linkdead on Tells" IsChecked="{Binding TellsOverlayNotices}" Margin="0,0,20,6"
                                               ToolTip="Shows /random rolls and players gone linkdead on the Tells overlay for 30 seconds."/>
+                                    <CheckBox Content="Zone bonuses on Tells" IsChecked="{Binding ResourceHunterNotices}" Margin="0,0,20,6"
+                                              ToolTip="Shows &quot;Karnor's Castle: AA bonus&quot; on the Tells overlay when one of your characters enters a Resource Hunter bonus zone."/>
+                                    <CheckBox Content="Personal best notifications" IsChecked="{Binding PersonalBestToast}" Margin="0,0,20,6"
+                                              ToolTip="A Windows notification when one of your characters beats its best DPS, overall or against a mob. Those fights show in gold."/>
                                     <CheckBox Content="Mob Card" IsChecked="{Binding IsMobCardOverlayVisible}" Margin="0,0,20,6"
                                               ToolTip="When you /con a mob: its kills and times on your server, the raid's resist rates and its drops, for 10 seconds."/>
                                 </WrapPanel>
@@ -3641,6 +3685,14 @@
                                     <Button Content="Delete my shared leveling" Command="{Binding DeleteMySharedLevelingCommand}" Style="{StaticResource SecondaryButton}" Margin="0,0,0,4"/>
                                 </WrapPanel>
                                 <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,0,0,12" Text="{Binding LevelingShareSummary}"/>
+
+                                <TextBlock FontWeight="SemiBold" Text="Resource Hunter"/>
+                                <WrapPanel Margin="0,4,0,12">
+                                    <CheckBox Content="Share zone bonuses" IsChecked="{Binding ShareResourceBonuses}" Margin="0,0,18,4"
+                                              ToolTip="Shares the zone bonuses your logs show (zone, bonus and day only, no names) and uses what other players shared. Fetched once an hour."/>
+                                    <CheckBox Content="Use the server's bonus website" IsChecked="{Binding UseResourceWebsites}" Margin="0,0,18,4"
+                                              ToolTip="Fills in zones nobody has shared from frostreaver.zone or fangbreaker.zone, once an hour. Other servers use EQ Overwatch data only."/>
+                                </WrapPanel>
 
                                 <TextBlock FontWeight="SemiBold" Text="Mob stats"/>
                                 <WrapPanel Margin="0,4,0,2">

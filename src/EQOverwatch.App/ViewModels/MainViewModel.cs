@@ -107,6 +107,7 @@ public sealed partial class MainViewModel : ObservableObject
         InitializeEdition();
         InitializeBoxAlerts();
         InitializeNotices();
+        InitializeRelease82();
         InitializeReleaseFeatures();
         _characterData.SetPersonaResolver(PersonaWhenWritten); // worn gear is filed under the persona that was on
         _characterData.SetAccountResolver(AccountOf); // shared banks are kept per account
@@ -803,6 +804,7 @@ public sealed partial class MainViewModel : ObservableObject
         UpdateKnownMobs();
         DrainRosterChanges();
         RefreshEdition();
+        RefreshRelease82(DateTime.UtcNow);
         _pipeline.TimerPause.Tick(DateTime.UtcNow);
         RefreshRaidNight();
         RefreshReleaseFeatures();
@@ -908,6 +910,7 @@ public sealed partial class MainViewModel : ObservableObject
             }
         }
 
+        MarkPersonalBestRows();
         if (SelectedEncounter is null && Encounters.Count > 0)
         {
             SelectedEncounter = Encounters[0]; // newest first
@@ -1497,6 +1500,7 @@ public sealed partial class MainViewModel : ObservableObject
             FollowAlert = settings.FollowAlert;
             PetBuffAlert = settings.PetBuffAlert;
             TellsOverlayNotices = settings.TellsOverlayNotices;
+            RestoreRelease82(settings);
             RebuildAccountColors();
             AggroAlert = settings.AggroAlert;
             RangeAlert = settings.RangeAlert;
@@ -1543,6 +1547,7 @@ public sealed partial class MainViewModel : ObservableObject
     public AppSettings BuildSettings()
     {
         AppSettings settings = BuildCoreSettings();
+        SaveRelease82(settings);
         SaveEdition(settings);
         return settings;
     }

@@ -51,6 +51,10 @@ public sealed partial class EncounterRowViewModel : ObservableObject
     [ObservableProperty]
     private bool _isActive;
 
+    /// <summary>True when the fight holds one of your characters' best DPS (overall or against that mob): shown in gold.</summary>
+    [ObservableProperty]
+    private bool _isPersonalBest;
+
     public void Update(EncounterSnapshot snapshot)
     {
         Snapshot = snapshot;

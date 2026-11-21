@@ -11,7 +11,7 @@ namespace EQOverwatch.App.ViewModels;
 
 /// <summary>A zone on the Leveling tab.</summary>
 public sealed record LevelingZoneView(string Zone, string Expansion, string XpPerHour, string KillsPerHour, int Players, string Hours, string Data,
-    string PlatPerHour = "—", string MobLevels = "—");
+    string PlatPerHour = "—", string MobLevels = "—", string BonusToday = "—");
 
 /// <summary>A mob in the selected zone: its levels and the experience per kill your characters got near your level.</summary>
 public sealed record BestMobView(string Mob, string Levels, string XpPerKill, int Kills);
@@ -381,7 +381,8 @@ public sealed partial class MainViewModel
                     r.Hours.ToString("0.0", culture),
                     r.Enough ? "Ranked" : "Not enough data",
                     r.PlatPerHour > 0 ? r.PlatPerHour.ToString("N0", culture) + "p" : "—",
-                    ZoneMobLevels(r.Zone)));
+                    ZoneMobLevels(r.Zone),
+                    BonusTodayIn(r.Zone)));
             }
 
             SelectedLevelingZone = LevelingZoneRows.FirstOrDefault(z => z.Zone == keepZone) ?? LevelingZoneRows.FirstOrDefault();

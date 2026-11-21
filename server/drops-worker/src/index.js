@@ -20,6 +20,8 @@
 //   GET    /v1/mobs/{server}             pooled regen/HP, levels and resists (every server) and best kills on this server
 //   DELETE /v1/mobs/{server}/{id}        take your mob stats down
 //   DELETE /v1/firsts/{server}/{id}      take your Server First fights down (X-Install-Key)
+//   PUT    /v1/bonuses/{server}/{id}     share Resource Hunter zone bonuses your logs showed: { bonuses: [{ d, z, b }] } (X-Install-Key)
+//   GET    /v1/bonuses/{server}?day=D    today's zone bonuses: { day, zones: [{ z, b, n }] } (n: installs that reported it)
 //   POST   /v1/ping                      { id, version }: counts this install as active today
 //   GET    /v1/stats                     public player counts
 //   GET    /v1/admin/stats               the same with the versions in use        (Authorization: Bearer ADMIN_KEY)
@@ -123,6 +125,16 @@ async function route(request, env) {
     if (parts.length === 3 && method === "GET") return firstsDownload(env, server, url.searchParams.get("me") || "");
     if (parts.length === 4 && method === "PUT" && ID.test(parts[3])) return firstsUpload(request, env, server, parts[3]);
     if (parts.length === 4 && method === "DELETE" && ID.test(parts[3])) return removeMine(request, env, server, parts[3], "firsts");
+  }
+
+  if (parts[1] === "bonuses" && parts.length >= 3) {
+    const server = parts[2].toLowerCase();
+    if (!SERVER.test(server)) {
+      return json({ error: "Bad server." }, 400);
+    }
+
+    if (parts.length === 3 && method === "GET") return bonusesDownload(request, env, server, url.searchParams.get("day") || "");
+    if (parts.length === 4 && method === "PUT" && ID.test(parts[3])) return bonusesUpload(request, env, server, parts[3]);
   }
 
   if (parts[1] === "ping" && parts.length === 2 && method === "POST") {
@@ -645,6 +657,106 @@ async function mobsUpload(request, env, server, id) {
     .bind(server, id, now).run();
   await clearMobsCache(env);
   return json({ ok: true, kills: kills.length, levels: levels.length, resists: resists.length });
+}
+
+const BONUS_KEYS = new Set(["experience", "aa", "loot", "coin", "rare", "respawn", "skill", "faction"]);
+const DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Today's and yesterday's Pacific days: bonuses change at midnight Pacific, and a report may come from either side of it. */
+function pacificDays() {
+  const fmt = (t) => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Los_Angeles", year: "numeric", month: "2-digit", day: "2-digit" }).format(t);
+  const now = Date.now();
+  return new Set([fmt(now), fmt(now - 86400 * 1000)]);
+}
+
+function zoneKey(zone) {
+  let name = zone.trim();
+  const paren = name.indexOf("(");
+  if (paren > 0) name = name.slice(0, paren);
+  if (/^the /i.test(name)) name = name.slice(4);
+  return name.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
+}
+
+/** Resource Hunter bonuses an install's logs showed. Only new rows are written; each install counts once per zone and day. */
+async function bonusesUpload(request, env, server, id) {
+  const key = request.headers.get("X-Install-Key") || "";
+  if (!KEY.test(key)) {
+    return json({ error: "Missing install key." }, 401);
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  const hash = await sha256(key);
+  const install = await env.DB.prepare("SELECT key_hash, blocked FROM installs WHERE id = ?").bind(id).first();
+  if (install) {
+    if (!equal(install.key_hash, hash)) return json({ error: "That id belongs to another install." }, 403);
+    if (install.blocked) return json({ error: "This install's uploads are turned off." }, 403);
+  } else {
+    const today = await env.DB.prepare("SELECT new_installs FROM daily WHERE day = ?").bind(day(now)).first();
+    if (today && today.new_installs >= MAX_NEW_INSTALLS_PER_DAY) {
+      return json({ error: "Too many new installs today. Try again tomorrow." }, 429);
+    }
+  }
+
+  if (Number(request.headers.get("Content-Length") || "0") > 64 * 1024) {
+    return json({ error: "That is too large." }, 413);
+  }
+
+  let file;
+  try {
+    file = JSON.parse(await request.text());
+  } catch {
+    file = null;
+  }
+
+  if (!file || !Array.isArray(file.bonuses) || file.bonuses.length > 300) {
+    return json({ error: "That isn't a bonus list." }, 400);
+  }
+
+  const days = pacificDays();
+  const rows = file.bonuses.filter((x) => x && typeof x.z === "string" && x.z.length > 0 && x.z.length <= 64 && BONUS_KEYS.has(x.b)
+    && typeof x.d === "string" && DAY.test(x.d) && days.has(x.d) && zoneKey(x.z).length > 0);
+
+  if (!install) {
+    await env.DB.batch([
+      env.DB.prepare("INSERT INTO installs (id, key_hash, created) VALUES (?, ?, ?)").bind(id, hash, now),
+      env.DB.prepare("INSERT INTO daily (day, new_installs) VALUES (?, 1) ON CONFLICT(day) DO UPDATE SET new_installs = new_installs + 1").bind(day(now)),
+    ]);
+  }
+
+  const put = env.DB.prepare("INSERT INTO zone_bonuses (server, day, zone_key, zone, bonus, contributor) VALUES (?, ?, ?, ?, ?, ?) " +
+    "ON CONFLICT(server, day, zone_key, contributor) DO UPDATE SET bonus = excluded.bonus WHERE bonus <> excluded.bonus");
+  const statements = rows.map((x) => put.bind(server, x.d, zoneKey(x.z), x.z, x.b, id));
+  for (let i = 0; i < statements.length; i += 100) {
+    await env.DB.batch(statements.slice(i, i + 100));
+  }
+
+  // Old days are not needed: a day's bonuses only matter that day.
+  await env.DB.prepare("DELETE FROM zone_bonuses WHERE day < ?").bind([...days].sort()[0]).run();
+  return json({ ok: true, bonuses: rows.length });
+}
+
+/** A day's zone bonuses on a server: for each zone the bonus most installs reported. Kept at the edge for 5 minutes. */
+async function bonusesDownload(request, env, server, wanted) {
+  const days = pacificDays();
+  const theDay = DAY.test(wanted) && days.has(wanted) ? wanted : [...days].sort()[1];
+  const cache = caches.default;
+  const cacheKey = new Request(`https://cache.eqoverwatch/bonuses/${server}/${theDay}`);
+  const hit = await cache.match(cacheKey);
+  if (hit) return hit;
+
+  const blocked = "SELECT id FROM installs WHERE blocked = 1";
+  const counted = (await env.DB.prepare(
+    `SELECT zone_key, MIN(zone) AS zone, bonus, COUNT(*) AS n FROM zone_bonuses WHERE server = ? AND day = ? AND contributor NOT IN (${blocked}) ` +
+    "GROUP BY zone_key, bonus").bind(server, theDay).all()).results || [];
+  const best = new Map();
+  for (const r of counted) {
+    const now = best.get(r.zone_key);
+    if (!now || r.n > now.n) best.set(r.zone_key, { z: r.zone, b: r.bonus, n: r.n });
+  }
+
+  const response = json({ day: theDay, zones: [...best.values()] }, 200, { "Cache-Control": "public, max-age=300" });
+  await cache.put(cacheKey, response.clone());
+  return response;
 }
 
 /** Forgets every server's worked-out mob stats, so the next download works them out again. */

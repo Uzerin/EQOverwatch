@@ -24,6 +24,7 @@ as many characters as you play, without touching the game.
 **Your characters**
 - Inventory, worn gear, spellbook and missing spells for every character and class persona, with the scrolls your other characters carry.
 - Experience and AA per hour, and experience by mob at each level.
+- Resource Hunter zone bonuses for today, shared between players.
 - Drop Table: drop rates by mob and item for each server, pooled online with other players if you like.
 - Maps: add your own labels to the in-game maps.
 - Skills with their caps, tradeskill success rates and faction for each character.
@@ -62,6 +63,12 @@ settings are kept.
 - Spell data comes from your own `spells_us.txt`.
 
 ## Changelog
+
+### 1.0.83
+
+- Resource Hunter: today's zone bonuses on the Leveling tab from your logs, other players and the server's website.
+- A zone's bonus shows on the Tells overlay when you enter it.
+- Personal best DPS notifications, with those fights in gold.
 
 ### 1.0.82
 

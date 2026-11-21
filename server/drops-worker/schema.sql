@@ -174,3 +174,15 @@ CREATE TABLE IF NOT EXISTS mobs_uploads (
   updated INTEGER NOT NULL,
   PRIMARY KEY (server, id)
 );
+
+-- Resource Hunter zone bonuses (zone, bonus and Pacific day only; no names). One row per install, zone and day.
+CREATE TABLE IF NOT EXISTS zone_bonuses (
+  server TEXT NOT NULL,
+  day TEXT NOT NULL,
+  zone_key TEXT NOT NULL,
+  zone TEXT NOT NULL,
+  bonus TEXT NOT NULL,
+  contributor TEXT NOT NULL,
+  PRIMARY KEY (server, day, zone_key, contributor)
+);
+CREATE INDEX IF NOT EXISTS zone_bonuses_by_day ON zone_bonuses (server, day);

@@ -19,10 +19,10 @@ public sealed partial class MainViewModel
     /// <summary>"EQ Overwatch".</summary>
     public string AppName => AppInfo.Name;
 
-    /// <summary>"v1.0.82", read from this assembly's version.</summary>
+    /// <summary>"v1.0.83", read from this assembly's version.</summary>
     public string AppVersion { get; } = AppInfo.FormatVersion(typeof(MainViewModel).Assembly);
 
-    /// <summary>"EQ Overwatch v1.0.82": the window title, and the footer of the Discord picture.</summary>
+    /// <summary>"EQ Overwatch v1.0.83": the window title, and the footer of the Discord picture.</summary>
     public string WindowTitle => $"{AppName} {AppVersion}";
 
     // ───────────────────────── EverQuest folder ─────────────────────────
