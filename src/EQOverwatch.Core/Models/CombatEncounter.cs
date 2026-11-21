@@ -17,7 +17,12 @@ public sealed class CombatEncounter : ObservableObject
     private readonly Dictionary<string, HealStats> _healers = new(StringComparer.Ordinal);
     private readonly List<PlayerCastSnapshot> _playerCasts = new();
     private readonly TimelineRecorder _timeline = new();
+    private readonly Dictionary<string, List<RecentEventSnapshot>> _recent = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, (DateTime Time, RecentEventSnapshot[] Events)> _lastDeathWindow = new(StringComparer.Ordinal);
     private const int MaxCasts = 2000;
+
+    /// <summary>How far back the "last seconds" of a player go: before their death, or before the end of the fight.</summary>
+    public const int RecentSeconds = 10;
     private const int MaxPlayerCasts = 20_000;
 
     public CombatEncounter(int id, string targetName, DateTime startTime)
@@ -145,10 +150,58 @@ public sealed class CombatEncounter : ObservableObject
     internal void AddDeath(string name, DateTime time = default, string killedBy = "", string killingBlow = "")
     {
         _deaths[name] = _deaths.GetValueOrDefault(name) + 1;
+        if (time != default)
+        {
+            RecentEventSnapshot[] window = _recent.TryGetValue(name, out List<RecentEventSnapshot>? events)
+                ? events.Where(e => e.Time <= time && e.Time >= time.AddSeconds(-RecentSeconds)).ToArray()
+                : Array.Empty<RecentEventSnapshot>();
+            _lastDeathWindow[name] = (time, window);
+        }
+
         if (_deathLog.Count < 200)
         {
             _deathLog.Add(new DeathSnapshot(time, name, killedBy ?? string.Empty, killingBlow ?? string.Empty));
         }
+    }
+
+    /// <summary>A hit (or heal) that landed on a player or pet while this fight was on, kept for <see cref="RecentSeconds"/>.</summary>
+    internal void AddRecent(string victim, RecentEventSnapshot e)
+    {
+        if (!_recent.TryGetValue(victim, out List<RecentEventSnapshot>? events))
+        {
+            _recent[victim] = events = new List<RecentEventSnapshot>();
+        }
+
+        events.Add(e);
+        DateTime oldest = e.Time.AddSeconds(-RecentSeconds - 1);
+        if (events.Count > 16 && events[0].Time < oldest)
+        {
+            events.RemoveAll(x => x.Time < oldest);
+        }
+    }
+
+    /// <summary>
+    /// Each player's or pet's last <see cref="RecentSeconds"/> seconds of hits and heals: before their last death in the fight, or else
+    /// before the fight's end.
+    /// </summary>
+    internal IReadOnlyList<LastSecondsSnapshot> LastSeconds()
+    {
+        var windows = new List<LastSecondsSnapshot>();
+        foreach (string name in _takenByName.Keys.Concat(_lastDeathWindow.Keys).Distinct(StringComparer.Ordinal))
+        {
+            if (_lastDeathWindow.TryGetValue(name, out (DateTime Time, RecentEventSnapshot[] Events) death))
+            {
+                windows.Add(new LastSecondsSnapshot(name, death.Time, true, new ValueList<RecentEventSnapshot>(death.Events)));
+                continue;
+            }
+
+            RecentEventSnapshot[] events = _recent.TryGetValue(name, out List<RecentEventSnapshot>? list)
+                ? list.Where(e => e.Time <= EndTime && e.Time >= EndTime.AddSeconds(-RecentSeconds)).ToArray()
+                : Array.Empty<RecentEventSnapshot>();
+            windows.Add(new LastSecondsSnapshot(name, EndTime, false, new ValueList<RecentEventSnapshot>(events)));
+        }
+
+        return windows;
     }
 
     /// <summary>Each death in order, with the log time and the killer when known.</summary>

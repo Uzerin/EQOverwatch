@@ -64,6 +64,10 @@ settings are kept.
 
 ## Changelog
 
+### 1.0.86
+
+- Damage Taken has a Last 10 Seconds sub-tab: every hit (from any mob) and heal on the selected player before their death or the fight's end.
+
 ### 1.0.85
 
 - Loot: a kill that drops several of the same item counts as one kill; rates can go above 100%.

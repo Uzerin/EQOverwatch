@@ -101,6 +101,20 @@ public sealed record PlayerCastSnapshot(DateTime Time, string Caster, string Spe
 /// A player or pet that died during a fight; <see cref="KilledBy"/> is empty when the log did not say. <see cref="KillingBlow"/> is the
 /// killer's last hit on the victim ("175 punch", "2,400 Judgment"), or empty when the log did not show it.
 /// </summary>
+/// <summary>A hit on a player or pet (<see cref="IsHeal"/> false) or a heal it received, for the "last seconds" view.</summary>
+public sealed record RecentEventSnapshot(DateTime Time, string Source, string What, int Amount, bool IsHeal);
+
+/// <summary>
+/// A player's or pet's last <see cref="CombatEncounter.RecentSeconds"/> seconds in a fight, up to <see cref="End"/>: their death when
+/// <see cref="Died"/>, else the fight's end.
+/// </summary>
+public sealed record LastSecondsSnapshot(string Name, DateTime End, bool Died, ValueList<RecentEventSnapshot> Events)
+{
+    public long Taken => Events.Where(e => !e.IsHeal).Sum(e => (long)e.Amount);
+
+    public long Healed => Events.Where(e => e.IsHeal).Sum(e => (long)e.Amount);
+}
+
 public sealed record DeathSnapshot(DateTime Time, string Name, string KilledBy, string KillingBlow = "");
 
 /// <summary>What one healer healed during a fight. Overheal is what the spells could have healed beyond what landed.</summary>
@@ -149,6 +163,9 @@ public sealed record EncounterSnapshot(
 
     /// <summary>Healers, most effective healing first.</summary>
     public IReadOnlyList<HealingSnapshot> HealingRows => Healing ?? Array.Empty<HealingSnapshot>();
+
+    /// <summary>Each player's last seconds of hits and heals (before their death, or before the fight's end).</summary>
+    public IReadOnlyList<LastSecondsSnapshot> LastSeconds { get; init; } = Array.Empty<LastSecondsSnapshot>();
 
     /// <summary>Who the target hurt, most damage first (empty when nothing was recorded).</summary>
     public IReadOnlyList<DamageTakenSnapshot> TakenRows => DamageTaken ?? Array.Empty<DamageTakenSnapshot>();
@@ -228,6 +245,7 @@ public sealed record EncounterSnapshot(
             Array.AsReadOnly(encounter.PlayerCasts.ToArray()), encounter.BuildTimeline(), encounter.ShieldSummary())
         {
             Server = encounter.Server,
+            LastSeconds = encounter.LastSeconds(),
         };
     }
 
@@ -332,6 +350,8 @@ public sealed record EncounterSnapshot(
             Array.AsReadOnly(deaths), Killed: false, Array.AsReadOnly(casts), ordered[0].Timeline, null)
         {
             Server = ordered[0].Server,
+            LastSeconds = parts.SelectMany(p => p.LastSeconds).GroupBy(w => w.Name, StringComparer.Ordinal)
+                .Select(g => g.OrderByDescending(w => w.Died).ThenByDescending(w => w.End).First()).ToList(),
         };
     }
 }

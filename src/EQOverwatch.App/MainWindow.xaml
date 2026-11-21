@@ -1208,10 +1208,13 @@
 
                             <TabControl Grid.Row="2">
                                 <TabItem Header="Damage Taken">
+                                    <TabControl Margin="0,6,0,0">
+                                        <TabItem Header="Summary">
                                     <DockPanel Margin="0,6,0,0">
                                         <TextBlock DockPanel.Dock="Top" FontWeight="SemiBold" Margin="0,0,0,8" TextWrapping="Wrap"
                                                    Text="{Binding DamageTakenSummary}"/>
                                         <DataGrid ItemsSource="{Binding DamageTaken}" HorizontalAlignment="Left"
+                                          SelectedItem="{Binding SelectedTakenRow}"
                                           AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
                                           HeadersVisibility="Column" GridLinesVisibility="Horizontal"
                                           FrozenColumnCount="2" HorizontalScrollBarVisibility="Auto">
@@ -1253,6 +1256,35 @@
                                     </DataGrid.Columns>
                                 </DataGrid>
                                     </DockPanel>
+                                        </TabItem>
+                                        <TabItem Header="Last 10 Seconds">
+                                            <DockPanel Margin="0,6,0,0">
+                                                <TextBlock DockPanel.Dock="Top" FontWeight="SemiBold" Margin="0,0,0,8" TextWrapping="Wrap"
+                                                           Text="{Binding LastSecondsTitle}"/>
+                                                <DataGrid ItemsSource="{Binding LastSecondsRows}" HorizontalAlignment="Left"
+                                                          AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
+                                                          HeadersVisibility="Column" GridLinesVisibility="Horizontal">
+                                                    <DataGrid.RowStyle>
+                                                        <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsHeal}" Value="True">
+                                                                    <Setter Property="Foreground" Value="#7CCB7C"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </DataGrid.RowStyle>
+                                                    <DataGrid.Columns>
+                                                        <DataGridTextColumn Header="Time" Binding="{Binding Time}" Width="Auto"/>
+                                                        <DataGridTextColumn Header="Sec" Binding="{Binding Seconds}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                                        <DataGridTextColumn Header="From" Binding="{Binding From}" Width="Auto"/>
+                                                        <DataGridTextColumn Header="Attack / spell" Binding="{Binding What}" Width="Auto"/>
+                                                        <DataGridTextColumn Header="Damage" Binding="{Binding Damage}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                                        <DataGridTextColumn Header="Healed" Binding="{Binding Healed}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                                    </DataGrid.Columns>
+                                                </DataGrid>
+                                            </DockPanel>
+                                        </TabItem>
+                                    </TabControl>
                                 </TabItem>
 
                                 <TabItem Header="Graph">

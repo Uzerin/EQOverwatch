@@ -360,6 +360,8 @@ public partial class DpsTrackerService : IDpsEventSink
                     if (!isAttack && Classify(combatEvent.Target) != NameKind.Npc && Classify(FoeName(combatEvent.Source)) == NameKind.Npc)
                     {
                         RememberHitOnPlayer(combatEvent);
+                        NoteRecent(combatEvent.Target, new RecentEventSnapshot(combatEvent.Timestamp, FoeName(combatEvent.Source),
+                            RecentLabel(combatEvent), combatEvent.Amount, false));
                     }
 
                     if (isAttack)
@@ -740,6 +742,7 @@ public partial class DpsTrackerService : IDpsEventSink
                 return; // the same heal seen in another character's log
             }
 
+            NoteRecent(target, new RecentEventSnapshot(_logClock, healer, match.Groups["spell"].Value, actual, true));
             foreach (CombatEncounter encounter in _active.Values)
             {
                 encounter.AddHeal(healer, match.Groups["spell"].Value, actual, possible, isCritical);
@@ -811,6 +814,26 @@ public partial class DpsTrackerService : IDpsEventSink
     public static readonly TimeSpan KillingBlowWindow = TimeSpan.FromSeconds(30);
 
     private static string HitKey(string victim, string attacker) => victim.Trim() + "|" + FoeName(attacker.Trim());
+
+    /// <summary>A hit or heal on a player or pet goes into every running fight's "last seconds", so adds and heals show too.</summary>
+    private void NoteRecent(string victim, RecentEventSnapshot e)
+    {
+        foreach (CombatEncounter encounter in _active.Values)
+        {
+            encounter.AddRecent(victim, e);
+        }
+    }
+
+    private static string RecentLabel(in CombatEvent hit)
+    {
+        string label = KillingBlowLabel(hit.DamageKind, hit.Detail);
+        if (hit.IsRampage)
+        {
+            label = "rampage";
+        }
+
+        return hit.IsCritical ? label + " (crit)" : label;
+    }
 
     private void RememberHitOnPlayer(in CombatEvent hit)
     {
@@ -958,6 +981,7 @@ public partial class DpsTrackerService : IDpsEventSink
 
         if (Classify(e.Target) != NameKind.Npc && _active.Count > 0)
         {
+            NoteRecent(e.Target, new RecentEventSnapshot(e.Timestamp, "Unknown", "DoT", e.Amount, false));
             _active.Values.MaxBy(f => f.EndTime)!.AddDamageTaken(e.Target, e.Amount, isRampage: false, isDot: true);
             return true;
         }
