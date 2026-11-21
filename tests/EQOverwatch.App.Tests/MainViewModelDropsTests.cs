@@ -181,8 +181,8 @@ public partial class MainViewModelTests
         h.Vm.ConfigureSharedDrops(service);
         Assert.Equal(new[] { MainViewModel.DropSourceAll, MainViewModel.DropSourceMine }, h.Vm.DropSources);
 
-        // This morning's merge: 10 kills by 5 other players.
-        long morning = DateTimeOffset.UtcNow.AddHours(-1).ToUnixTimeSeconds();
+        // Today's merge (UTC midnight, so it is "today" whenever the test runs): 10 kills by 5 other players.
+        long morning = new DateTimeOffset(DateTime.UtcNow.Date, TimeSpan.Zero).ToUnixTimeSeconds();
         service.LastMerge = morning;
         service.Merged["frostreaver"] = (morning, 5, MergedFile(10));
 
