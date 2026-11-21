@@ -449,7 +449,8 @@ public sealed partial class DropStore : ITriggerLineSink
 
     /// <summary>
     /// The drop table for one server: each mob that dropped something, with its kills and each item's drops, most-killed first. Kills
-    /// are never shown below the drops of its most common item (a corpse looted whose kill no log saw still was a kill).
+    /// come from the kill lines; a mob with drops but no kill line seen counts each round of looting (a gap of <see cref="LootRoundSeconds"/>)
+    /// as one kill. One kill can drop several of the same item, so an item's drops can be more than the kills.
     /// </summary>
     public IReadOnlyList<DropMobRow> Table(string server, bool includeImported) =>
         Table(server, includeImported ? DropScope.Everyone : DropScope.Mine);
@@ -478,6 +479,7 @@ public sealed partial class DropStore : ITriggerLineSink
 
             var kills = new Dictionary<(int Zone, int Mob), int>();
             var drops = new Dictionary<(int Zone, int Mob), Dictionary<int, int>>();
+            var lootTimes = new Dictionary<(int Zone, int Mob), List<long>>();
             foreach (IGrouping<(EventKind Kind, int Zone, int Mob, int Item), Event> group in events.GroupBy(e => (e.Kind, e.Zone, e.Mob, e.Item)))
             {
                 int count = Count(group);
@@ -493,6 +495,12 @@ public sealed partial class DropStore : ITriggerLineSink
                     }
 
                     items[group.Key.Item] = count;
+                    if (!lootTimes.TryGetValue((group.Key.Zone, group.Key.Mob), out List<long>? times))
+                    {
+                        lootTimes[(group.Key.Zone, group.Key.Mob)] = times = new List<long>();
+                    }
+
+                    times.AddRange(group.Select(e => e.Time));
                 }
             }
 
@@ -517,7 +525,12 @@ public sealed partial class DropStore : ITriggerLineSink
             var rows = new List<DropMobRow>();
             foreach (((int zone, int mob), Dictionary<int, int> items) in drops)
             {
-                int killCount = Math.Max(kills.GetValueOrDefault((zone, mob)), items.Values.Max());
+                int killCount = kills.GetValueOrDefault((zone, mob));
+                if (killCount <= 0)
+                {
+                    killCount = Math.Max(1, LootRounds(lootTimes.GetValueOrDefault((zone, mob))));
+                }
+
                 rows.Add(new DropMobRow(
                     _names.ZoneName(zone),
                     _names.MobName(mob),
@@ -528,6 +541,29 @@ public sealed partial class DropStore : ITriggerLineSink
 
             return rows.OrderByDescending(r => r.Kills).ThenBy(r => r.Mob, StringComparer.OrdinalIgnoreCase).ToList();
         }
+    }
+
+    /// <summary>Looting of the same mob with a gap longer than this is another corpse.</summary>
+    public const int LootRoundSeconds = 300;
+
+    private static int LootRounds(List<long>? times)
+    {
+        if (times is null || times.Count == 0)
+        {
+            return 0;
+        }
+
+        times.Sort();
+        int rounds = 1;
+        for (int i = 1; i < times.Count; i++)
+        {
+            if (times[i] - times[i - 1] > LootRoundSeconds)
+            {
+                rounds++;
+            }
+        }
+
+        return rounds;
     }
 
     /// <summary>

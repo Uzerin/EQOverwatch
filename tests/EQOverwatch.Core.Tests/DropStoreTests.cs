@@ -56,6 +56,33 @@ public sealed class DropStoreTests : IDisposable
     }
 
     [Fact]
+    public void One_kill_that_drops_several_of_an_item_is_still_one_kill()
+    {
+        DropStore store = Store();
+        foreach (string log in new[] { "Ream", "Stackprime" })
+        {
+            Line(store, log, "Diabo Xi Va was slain by Jannder!", 0);
+            for (int i = 0; i < 4; i++)
+            {
+                Line(store, log, "--Jannder has looted a Bracer of the Silent Star from Diabo Xi Va's corpse.--", 60 + i / 2);
+            }
+
+            Line(store, log, "--Jannder has looted a Cap of the Silent Star from Diabo Xi Va's corpse.--", 62);
+        }
+
+        // Two corpses looted 10 minutes apart with no kill line seen are two kills.
+        Line(store, "Ream", "--You have looted a Torch from orc pawn's corpse.--", 0);
+        Line(store, "Ream", "--You have looted a Torch from orc pawn's corpse.--", 2);
+        Line(store, "Ream", "--You have looted a Torch from orc pawn's corpse.--", 600);
+
+        IReadOnlyList<DropMobRow> table = store.Table("frostreaver", true);
+        DropMobRow diabo = table.Single(r => r.Mob == "Diabo Xi Va");
+        Assert.Equal(1, diabo.Kills);
+        Assert.Equal(new[] { new DropItemRow("Bracer of the Silent Star", 4), new DropItemRow("Cap of the Silent Star", 1) }, diabo.Items);
+        Assert.Equal((2, 3), (table.Single(r => r.Mob == "orc pawn").Kills, table.Single(r => r.Mob == "orc pawn").Items.Single().Drops));
+    }
+
+    [Fact]
     public void A_kill_and_drop_seen_by_several_logs_count_once_but_two_together_count_two()
     {
         DropStore store = Store();

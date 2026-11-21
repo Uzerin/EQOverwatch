@@ -64,6 +64,11 @@ settings are kept.
 
 ## Changelog
 
+### 1.0.85
+
+- Loot: a kill that drops several of the same item counts as one kill; rates can go above 100%.
+- Leveling shared before a rule change is replaced even when this copy never shared it.
+
 ### 1.0.84
 
 - Power leveling is spotted over 30 and 60 seconds and left out of leveling with 5 minutes either side; big single kills still count.
