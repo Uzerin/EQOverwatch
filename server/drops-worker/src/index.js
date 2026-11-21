@@ -486,6 +486,11 @@ async function levelingUpload(request, env, server, id) {
     return json({ error: "That isn't a leveling file." }, 400);
   }
 
+  // Version 2 files leave power leveling out the way 1.0.84 does (bursts over 30 and 60 seconds, 5 minutes either side).
+  if (!(Number(file.version) >= 2)) {
+    return json({ error: "Please update EQ Overwatch to share leveling." }, 426);
+  }
+
   const oldest = now - LEVELING_KEEP_SECONDS;
   const rows = file.stretches.filter((s) =>
     s && typeof s.z === "string" && s.z.length > 0 && s.z.length <= 64

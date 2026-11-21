@@ -230,6 +230,20 @@ public sealed partial class MainViewModel
         {
             await Task.Run(() => _leveling.Scan(logs, nowUtc));
             IEnumerable<string> servers = _leveling.Servers().Concat(logs.Select(l => l.Server.ToLowerInvariant())).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            if (_levelingService is { } remover && _leveling.ReadAgain)
+            {
+                // Read again under a newer power-leveling rule: what was shared under the old one is taken down, then shared again.
+                if (_levelingId.Length > 0 && _levelingKey.Length > 0)
+                {
+                    foreach (string server in servers)
+                    {
+                        await remover.DeleteAsync(server, _levelingId, _levelingKey);
+                    }
+                }
+
+                _leveling.ReadAgainHandled();
+            }
+
             if (_levelingService is { } service)
             {
                 foreach (string server in servers)

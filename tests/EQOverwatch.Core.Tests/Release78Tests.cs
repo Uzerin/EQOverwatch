@@ -16,23 +16,23 @@ public class Release78Tests
     public void Leveling_time_and_experience_come_from_gains_with_power_leveling_bursts_left_out()
     {
         LevelingScanner scanner = Scanner();
-        for (int i = 0; i < 10; i++)
+        for (int i = 0; i < 20; i++)
         {
             scanner.Feed(T0.AddSeconds(i * 60), "You gain party experience! (1.000%)");
         }
 
-        // a power-leveling burst: 6 gains within 10 seconds
-        for (int i = 0; i < 6; i++)
+        // a power-leveling burst: 9 gains within 30 seconds (its 5 minutes either side reach back to 1200 s, after the last kill above)
+        for (int i = 0; i < 9; i++)
         {
-            scanner.Feed(T0.AddSeconds(600 + i), "You gain party experience! (0.500%)");
+            scanner.Feed(T0.AddSeconds(1500 + i), "You gain party experience! (0.500%)");
         }
 
-        scanner.Feed(T0.AddSeconds(700), "You gained raid experience (with a bonus)! (3.000%)"); // raid: left out
+        scanner.Feed(T0.AddSeconds(1600), "You gained raid experience (with a bonus)! (3.000%)"); // raid: left out
         LevelingStretch stretch = Assert.Single(scanner.Finish());
         Assert.Equal(("The Ruins of Sebilis", 51, true), (stretch.Zone, stretch.Level, stretch.Group));
-        Assert.Equal(10, stretch.Kills);
-        Assert.Equal(10.0, stretch.Xp, 3);
-        Assert.Equal(540, stretch.Seconds); // 9 gaps of a minute; the burst's time is not counted
+        Assert.Equal(20, stretch.Kills);
+        Assert.Equal(20.0, stretch.Xp, 3);
+        Assert.Equal(1140, stretch.Seconds); // 19 gaps of a minute; the burst's time is not counted
     }
 
     [Fact]
@@ -42,14 +42,15 @@ public class Release78Tests
         scanner.Feed(T0, "You gain experience! (1.000%)");
         scanner.Feed(T0.AddSeconds(120), "You gain experience! (1.000%)");
         scanner.Feed(T0.AddSeconds(240), "You gain experience! (1.000%)");
-        for (int i = 0; i < 8; i++)
+        for (int i = 0; i < 9; i++)
         {
             scanner.Feed(T0.AddSeconds(300 + i), "You gain experience! (2.000%)");
         }
 
-        Assert.Empty(scanner.Finish());
-        Assert.Equal(new[] { false, false, false, false, false }, LevelingScanner.Bursts(new[] { T0, T0.AddSeconds(1), T0.AddSeconds(2), T0.AddSeconds(3), T0.AddSeconds(30) }));
-        Assert.All(LevelingScanner.Bursts(Enumerable.Range(0, 5).Select(i => T0.AddSeconds(i * 2)).ToList()), Assert.True);
+        Assert.Empty(scanner.Finish()); // 9 gains in 30 seconds, and the 3 before it are within 5 minutes
+        Assert.All(LevelingScanner.Bursts(Enumerable.Range(0, 8).Select(i => T0.AddSeconds(i)).ToList()), Assert.False); // 8 in 30 s is a real group
+        Assert.All(LevelingScanner.Bursts(Enumerable.Range(0, 9).Select(i => T0.AddSeconds(i * 3)).ToList()), Assert.True);
+        Assert.All(LevelingScanner.Bursts(Enumerable.Range(0, 13).Select(i => T0.AddSeconds(i * 4.5)).ToList()), Assert.True); // 13 in a minute
     }
 
     [Fact]

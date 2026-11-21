@@ -18,8 +18,11 @@ public sealed class LevelingStore
     /// <summary>Stretches older than this are dropped (zones and experience change over time).</summary>
     public static readonly TimeSpan KeepFor = TimeSpan.FromDays(730);
 
-    /// <summary>2: stretches carry coin and AA points, and levels are kept. Older files are read again from the logs.</summary>
-    private const int FileVersion = 2;
+    /// <summary>
+    /// 2: stretches carry coin and AA points, and levels are kept. 3: the power-leveling rule of 1.0.84 (bursts over 30 and 60 seconds,
+    /// with 5 minutes either side). Older files are read again from the logs.
+    /// </summary>
+    private const int FileVersion = 3;
 
     private sealed class SavedFile
     {
@@ -36,6 +39,14 @@ public sealed class LevelingStore
 
     public event Action? Changed;
 
+    /// <summary>
+    /// True when the file was made under an older rule and had been shared: the logs are read again, so what was shared must be taken
+    /// down and shared again. Cleared with <see cref="ReadAgainHandled"/>.
+    /// </summary>
+    public bool ReadAgain { get; private set; }
+
+    public void ReadAgainHandled() => ReadAgain = false;
+
     public void SetStoragePath(string path)
     {
         lock (_gate)
@@ -46,6 +57,7 @@ public sealed class LevelingStore
                 if (File.Exists(path))
                 {
                     SavedFile? saved = JsonSerializer.Deserialize<SavedFile>(File.ReadAllText(path));
+                    ReadAgain = saved is not null && saved.Version < FileVersion && saved.SharedThrough is { Count: > 0 };
                     if (saved is not null && saved.Version >= FileVersion)
                     {
                         _file = new SavedFile
@@ -240,7 +252,7 @@ public sealed class HttpLevelingService : ILevelingService
         string json = JsonSerializer.Serialize(new
         {
             format = Format,
-            version = 1,
+            version = 2, // 2: made under the power-leveling rule of 1.0.84 (the server refuses older files)
             stretches = stretches.Select(s => new { z = s.Zone, l = s.Level, g = s.Group ? 1 : 0, s = s.Seconds, x = s.Xp, k = s.Kills, t = s.Start, c = s.Copper, a = s.Aa }),
         });
         using var output = new MemoryStream();

@@ -64,6 +64,11 @@ settings are kept.
 
 ## Changelog
 
+### 1.0.84
+
+- Power leveling is spotted over 30 and 60 seconds and left out of leveling with 5 minutes either side; big single kills still count.
+- Your leveling is read again and shared again under the new rule.
+
 ### 1.0.83
 
 - Resource Hunter: today's zone bonuses on the Leveling tab from your logs, other players and the server's website.

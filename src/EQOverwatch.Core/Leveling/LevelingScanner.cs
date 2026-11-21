@@ -17,20 +17,28 @@ public sealed record LevelingStretch(string Zone, int Level, bool Group, double 
 public sealed record LevelEvent(long Time, int Level);
 
 /// <summary>The scanner's place in one log, so the next scan carries on from it.</summary>
-public sealed record LevelingScanState(long Offset, string? Zone, int Level, int LegacyBonus);
+public sealed record LevelingScanState(long Offset, string? Zone, int Level, int LegacyBonus, long TaintedUntil = 0);
 
 /// <summary>
 /// Reads a character's log into <see cref="LevelingStretch"/>es. Only experience lines that show a percentage count, and only once the
-/// character's level is known (from "Welcome to level N!"). Raid experience is left out. Power leveling is left out too: when more than
-/// <see cref="BurstGains"/> gains come within <see cref="BurstWindow"/>, those gains (and their time) are dropped, and a stretch whose
-/// experience was mostly such bursts is dropped whole.
+/// character's level is known (from "Welcome to level N!"). Raid experience is left out. Power leveling is left out too: a burst is more
+/// than <see cref="BurstGains"/> gains within <see cref="BurstWindow"/>, or more than <see cref="LongBurstGains"/> within
+/// <see cref="LongBurstWindow"/> (a real group, mercenaries included, never gets there). Every gain from <see cref="BurstMargin"/>
+/// before a burst to <see cref="BurstMargin"/> after it is dropped (and its time), across level-ups, and a stretch whose experience was
+/// mostly such gains is dropped whole. How much a single kill gives does not matter (Resource Hunter bonuses can be large).
 /// </summary>
 public sealed partial class LevelingScanner
 {
     private const char CarriageReturn = (char)13;
 
-    public const int BurstGains = 4;
-    public static readonly TimeSpan BurstWindow = TimeSpan.FromSeconds(10);
+    public const int BurstGains = 8;
+    public static readonly TimeSpan BurstWindow = TimeSpan.FromSeconds(30);
+
+    public const int LongBurstGains = 12;
+    public static readonly TimeSpan LongBurstWindow = TimeSpan.FromSeconds(60);
+
+    /// <summary>Gains this close before or after a burst are part of the power leveling too.</summary>
+    public static readonly TimeSpan BurstMargin = TimeSpan.FromMinutes(5);
 
     /// <summary>A gap between gains counts as leveling time up to this long (longer: away, or between pulls for a long time).</summary>
     public static readonly TimeSpan MaxGap = TimeSpan.FromMinutes(5);
@@ -55,6 +63,13 @@ public sealed partial class LevelingScanner
     private const string AbilityPoint = "You have gained an ability point!";
 
     private readonly List<Gain> _gains = new();
+    private readonly List<DateTime> _recent = new(); // every gain in the last minute, solo and group, for spotting bursts
+    private readonly List<(DateTime From, DateTime To)> _tainted = new();
+    private readonly List<Pending> _pending = new();
+    private DateTime _taintedUntil;
+
+    // A stretch's gains wait until BurstMargin has passed after its last gain, in case a burst follows.
+    private sealed record Pending(string Zone, int Level, List<Gain> Gains, long SoloCopper, long GroupCopper, int SoloAa, int GroupAa);
     private readonly List<LevelingStretch> _done = new();
     private readonly List<LevelEvent> _levels = new();
     private long _soloCopper;
@@ -70,6 +85,22 @@ public sealed partial class LevelingScanner
         _zone = state?.Zone;
         _level = state?.Level ?? 0;
         _legacy = state?.LegacyBonus ?? 0;
+        _taintedUntil = state is { TaintedUntil: > 0 } ? DateTimeOffset.FromUnixTimeSeconds(state.TaintedUntil).LocalDateTime : DateTime.MinValue;
+    }
+
+    /// <summary>The end of the last power-leveling margin (Unix seconds), carried into the next scan of the log.</summary>
+    public long TaintedUntil
+    {
+        get
+        {
+            DateTime until = _tainted.Count > 0 ? _tainted.Max(t => t.To) : DateTime.MinValue;
+            if (_taintedUntil > until)
+            {
+                until = _taintedUntil;
+            }
+
+            return until == DateTime.MinValue ? 0 : new DateTimeOffset(DateTime.SpecifyKind(until, DateTimeKind.Local)).ToUnixTimeSeconds();
+        }
     }
 
     public string? Zone => _zone;
@@ -94,6 +125,11 @@ public sealed partial class LevelingScanner
             return;
         }
 
+        if (_pending.Count > 0 && time - _pending[0].Gains[^1].Time > BurstMargin)
+        {
+            FinishPending(time);
+        }
+
         if (message[0] == 'Y' && message.StartsWith("You gain", StringComparison.Ordinal))
         {
             Match xp = XpLine().Match(message.ToString());
@@ -110,6 +146,7 @@ public sealed partial class LevelingScanner
             // No percentage: at the level cap, where kills give AA experience only. The kill and its time still count (for AA mode).
             double percent = xp.Groups["p"].Success ? double.Parse(xp.Groups["p"].Value, NumberStyles.Float, CultureInfo.InvariantCulture) : 0;
             _gains.Add(new Gain(time, percent / (1 + (_legacy / 100.0)), xp.Groups["kind"].Value == "party"));
+            NoteBurst(time);
             return;
         }
 
@@ -182,6 +219,7 @@ public sealed partial class LevelingScanner
     public IReadOnlyList<LevelingStretch> Finish()
     {
         Flush();
+        FinishPending(DateTime.MaxValue);
         var found = _done.ToList();
         _done.Clear();
         return found;
@@ -191,14 +229,7 @@ public sealed partial class LevelingScanner
     {
         if (_gains.Count > 0 && _zone is not null && _level > 0)
         {
-            foreach (bool group in new[] { false, true })
-            {
-                List<Gain> gains = _gains.Where(g => g.Group == group).ToList();
-                if (Stretch(gains, group) is { } stretch)
-                {
-                    _done.Add(stretch with { Copper = group ? _groupCopper : _soloCopper, Aa = group ? _groupAa : _soloAa });
-                }
-            }
+            _pending.Add(new Pending(_zone, _level, _gains.ToList(), _soloCopper, _groupCopper, _soloAa, _groupAa));
         }
 
         _gains.Clear();
@@ -206,15 +237,55 @@ public sealed partial class LevelingScanner
         _soloAa = _groupAa = 0;
     }
 
-    /// <summary>One stretch from gains of one kind, with power-leveling bursts taken out; null when too little is left.</summary>
-    private LevelingStretch? Stretch(List<Gain> gains, bool group)
+    // Notes a burst ending at this gain: more than BurstGains in BurstWindow, or LongBurstGains in LongBurstWindow.
+    private void NoteBurst(DateTime time)
+    {
+        _recent.Add(time);
+        _recent.RemoveAll(t => time - t > LongBurstWindow);
+        int inShort = _recent.Count(t => time - t <= BurstWindow);
+        if (inShort > BurstGains || _recent.Count > LongBurstGains)
+        {
+            DateTime from = inShort > BurstGains ? _recent.First(t => time - t <= BurstWindow) : _recent[0];
+            _tainted.Add((from - BurstMargin, time + BurstMargin));
+        }
+    }
+
+    private bool IsTainted(DateTime time) => time <= _taintedUntil || _tainted.Any(t => time >= t.From && time <= t.To);
+
+    // Turns the stretches whose margin has passed (all of them at the end) into stretches.
+    private void FinishPending(DateTime now)
+    {
+        while (_pending.Count > 0 && (now == DateTime.MaxValue || now - _pending[0].Gains[^1].Time > BurstMargin))
+        {
+            Pending p = _pending[0];
+            _pending.RemoveAt(0);
+            foreach (bool group in new[] { false, true })
+            {
+                List<Gain> gains = p.Gains.Where(g => g.Group == group).ToList();
+                if (Stretch(gains, group, p.Zone, p.Level) is { } stretch)
+                {
+                    _done.Add(stretch with { Copper = group ? p.GroupCopper : p.SoloCopper, Aa = group ? p.GroupAa : p.SoloAa });
+                }
+            }
+        }
+
+        if (_pending.Count == 0 && now != DateTime.MaxValue)
+        {
+            // Margins nothing still waiting can fall in: before the stretch in progress, and long enough ago.
+            DateTime oldest = _gains.Count > 0 && _gains[0].Time < now - BurstMargin ? _gains[0].Time : now - BurstMargin;
+            _tainted.RemoveAll(t => t.To < oldest);
+        }
+    }
+
+    /// <summary>One stretch from gains of one kind, with power leveling taken out; null when too little is left.</summary>
+    private LevelingStretch? Stretch(List<Gain> gains, bool group, string zone, int level)
     {
         if (gains.Count < 2)
         {
             return null;
         }
 
-        bool[] burst = Bursts(gains);
+        bool[] burst = gains.Select(g => IsTainted(g.Time)).ToArray();
         double total = gains.Sum(g => g.Xp);
         double burstXp = gains.Where((_, i) => burst[i]).Sum(g => g.Xp);
         bool mostlyBursts = total > 0 ? burstXp > total / 2 : burst.Count(b => b) > gains.Count / 2;
@@ -247,34 +318,23 @@ public sealed partial class LevelingScanner
         }
 
         long start = new DateTimeOffset(DateTime.SpecifyKind(gains[0].Time, DateTimeKind.Local)).ToUnixTimeSeconds();
-        return new LevelingStretch(_zone!, _level, group, Math.Round(seconds, 1), Math.Round(xp, 4), kills, start);
+        return new LevelingStretch(zone, level, group, Math.Round(seconds, 1), Math.Round(xp, 4), kills, start);
     }
 
-    /// <summary>True for each gain that is part of more than <see cref="BurstGains"/> gains within <see cref="BurstWindow"/>.</summary>
+    /// <summary>
+    /// True for each gain in power leveling: in a burst (more than <see cref="BurstGains"/> within <see cref="BurstWindow"/>, or more than
+    /// <see cref="LongBurstGains"/> within <see cref="LongBurstWindow"/>) or within <see cref="BurstMargin"/> of one.
+    /// </summary>
     public static bool[] Bursts(IReadOnlyList<DateTime> times)
     {
-        var burst = new bool[times.Count];
-        int start = 0;
-        for (int end = 0; end < times.Count; end++)
+        var scanner = new LevelingScanner();
+        foreach (DateTime t in times)
         {
-            while (times[end] - times[start] >= BurstWindow)
-            {
-                start++;
-            }
-
-            if (end - start + 1 > BurstGains)
-            {
-                for (int i = start; i <= end; i++)
-                {
-                    burst[i] = true;
-                }
-            }
+            scanner.NoteBurst(t);
         }
 
-        return burst;
+        return times.Select(scanner.IsTainted).ToArray();
     }
-
-    private static bool[] Bursts(List<Gain> gains) => Bursts(gains.Select(g => g.Time).ToList());
 
     /// <summary>
     /// Reads a log from <paramref name="state"/>'s offset to the end (shared, so EQ can keep writing). Returns the stretches found and
@@ -341,7 +401,7 @@ public sealed partial class LevelingScanner
 
         // a last line without its newline is half-written: it is read next time
         IReadOnlyList<LevelingStretch> found = scanner.Finish();
-        return (found, new LevelingScanState(lineStart, scanner.Zone, scanner.Level, scanner.LegacyBonus), scanner.TakeLevels());
+        return (found, new LevelingScanState(lineStart, scanner.Zone, scanner.Level, scanner.LegacyBonus, scanner.TaintedUntil), scanner.TakeLevels());
     }
 
     private static void Read(LevelingScanner scanner, string line)
