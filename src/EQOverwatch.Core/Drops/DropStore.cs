@@ -66,8 +66,15 @@ public sealed partial class DropStore : ITriggerLineSink
     [GeneratedRegex(@"^(?:You have slain (?<mob>.+)|(?<mob>.+?) (?:was|has been) slain by .+)!$", RegexOptions.CultureInvariant)]
     private static partial Regex KillRegex();
 
-    [GeneratedRegex(@"^--(?<looter>.+?) (?:has|have) looted (?<item>.+?) from (?<mob>.+?)'s corpse\.--$", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"^--(?<looter>.+?) (?:has|have) looted (?<item>.+?) from (?<mob>.+?)(?:'s corpse)?\.--$", RegexOptions.CultureInvariant)]
     private static partial Regex LootRegex();
+
+    // "--a Shissar Fangs was left on Eom Centien's corpse.--": an item nobody took.
+    [GeneratedRegex(@"^--(?<item>.+?) (?:was|were) left on (?<mob>.+?)'s corpse\.--$", RegexOptions.CultureInvariant)]
+    private static partial Regex LeftRegex();
+
+    /// <summary>Goes up when the way logs are read changes, so every log is read again once.</summary>
+    private const int ReadRules = 2;
 
     [GeneratedRegex(@"^\S+ won the (?:need|greed) roll on \d+ item\(s\): (?<item>.+) with a roll of \d+\.$", RegexOptions.CultureInvariant)]
     private static partial Regex RollWonRegex();
@@ -223,15 +230,37 @@ public sealed partial class DropStore : ITriggerLineSink
 
         if (text.StartsWith("--", StringComparison.Ordinal) && LootRegex().Match(text) is { Success: true } loot)
         {
-            string item = CleanItem(loot.Groups["item"].Value);
+            string item = CleanItem(loot.Groups["item"].Value, out int stack);
             if (item.Length == 0 || CoinRegex().IsMatch(item))
             {
                 return;
             }
 
             state.Pending.RemoveAll(p => string.Equals(p.Item, item, StringComparison.OrdinalIgnoreCase));
-            into.Add(new Event(EventKind.Drop, time, _names.Server(state.Server), _names.Zone(zone), _names.Mob(loot.Groups["mob"].Value.Trim()),
-                _names.Item(item), observer, OwnSource));
+            for (int i = 0; i < stack; i++)
+            {
+                into.Add(new Event(EventKind.Drop, time, _names.Server(state.Server), _names.Zone(zone), _names.Mob(loot.Groups["mob"].Value.Trim()),
+                    _names.Item(item), observer, OwnSource));
+            }
+
+            return;
+        }
+
+        if (text.StartsWith("--", StringComparison.Ordinal) && LeftRegex().Match(text) is { Success: true } left)
+        {
+            string item = CleanItem(left.Groups["item"].Value, out int stack);
+            int mobId = _names.Mob(left.Groups["mob"].Value.Trim());
+            int itemId = _names.Item(item);
+            if (item.Length == 0 || CoinRegex().IsMatch(item) || state.Claimed.Any(c => c.Mob == mobId && c.Item == itemId))
+            {
+                return; // already counted as a won roll nobody looted
+            }
+
+            for (int i = 0; i < stack; i++)
+            {
+                into.Add(new Event(EventKind.Drop, time, _names.Server(state.Server), _names.Zone(zone), mobId, itemId, observer, OwnSource));
+            }
+
             return;
         }
 
@@ -283,8 +312,12 @@ public sealed partial class DropStore : ITriggerLineSink
         }
     }
 
-    private static string CleanItem(string text)
+    private static string CleanItem(string text) => CleanItem(text, out _);
+
+    /// <summary>The item's name without "a", "an" or a count; <paramref name="stack"/> is the count ("3 Bone Chips" is 3).</summary>
+    private static string CleanItem(string text, out int stack)
     {
+        stack = 1;
         string item = text.Trim();
         if (item.StartsWith("a ", StringComparison.Ordinal))
         {
@@ -297,8 +330,9 @@ public sealed partial class DropStore : ITriggerLineSink
         else
         {
             int space = item.IndexOf(' ');
-            if (space > 0 && item[..space].All(char.IsAsciiDigit))
+            if (space is > 0 and <= 3 && item[..space].All(char.IsAsciiDigit))
             {
+                stack = Math.Clamp(int.Parse(item[..space], System.Globalization.CultureInfo.InvariantCulture), 1, 100);
                 item = item[(space + 1)..]; // "3 Bone Chips"
             }
         }
@@ -1036,9 +1070,16 @@ public sealed partial class DropStore : ITriggerLineSink
             _tag = saved.Tag;
         }
 
-        foreach (string key in saved.Scanned)
+        if (saved.ReadRules >= ReadRules)
         {
-            _scanned.Add(key);
+            foreach (string key in saved.Scanned)
+            {
+                _scanned.Add(key);
+            }
+        }
+        else
+        {
+            _dirty = true; // every log is read again under the new rules
         }
 
         // Saved indexes are into the file's own name lists.
@@ -1111,7 +1152,7 @@ public sealed partial class DropStore : ITriggerLineSink
             _dirty = false;
             path = _filePath;
             Compact();
-            var file = new StoreFile { Tag = _tag, Scanned = _scanned.OrderBy(s => s, StringComparer.OrdinalIgnoreCase).ToList() };
+            var file = new StoreFile { Tag = _tag, ReadRules = ReadRules, Scanned = _scanned.OrderBy(s => s, StringComparer.OrdinalIgnoreCase).ToList() };
             file.Servers.AddRange(_names.Servers);
             file.Zones.AddRange(_names.Zones);
             file.Mobs.AddRange(_names.Mobs);
@@ -1330,6 +1371,9 @@ public sealed partial class DropStore : ITriggerLineSink
         public string Tag { get; set; } = string.Empty;
 
         public List<string> Scanned { get; set; } = new();
+
+        /// <summary>The <see cref="ReadRules"/> the logs were read under.</summary>
+        public int ReadRules { get; set; }
 
         public List<string> Servers { get; set; } = new();
 

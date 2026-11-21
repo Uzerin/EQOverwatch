@@ -64,6 +64,11 @@ settings are kept.
 
 ## Changelog
 
+### 1.0.87
+
+- Loot is filed under the server of the log it came from, and a "You have looted" line is no longer kept twice; the last 7 days are put right once.
+- Loot lines without "'s corpse" are read; the drop table counts stacks in full and items left on the corpse.
+
 ### 1.0.86
 
 - Damage Taken has a Last 10 Seconds sub-tab: every hit (from any mob) and heal on the selected player before their death or the fight's end.

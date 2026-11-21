@@ -168,6 +168,36 @@ public sealed partial class MainViewModel
         }
 
         RebuildDrops(tableToo: true);
+        _ = RereadLootOnceAsync();
+    }
+
+    /// <summary>
+    /// Once (1.0.87): reads the last 7 days of loot from the logs again, so loot filed under the wrong server or kept twice is put right.
+    /// </summary>
+    private async Task RereadLootOnceAsync()
+    {
+        if (_dataDirectory is null)
+        {
+            return;
+        }
+
+        string marker = Path.Combine(_dataDirectory, "loot.reread-1.0.87");
+        IReadOnlyList<string> paths = ExistingLogPaths();
+        if (File.Exists(marker) || paths.Count == 0)
+        {
+            return;
+        }
+
+        try
+        {
+            int changed = await Task.Run(() => _pipeline.Loot.Repair(paths, DateTime.Now.AddDays(-7)));
+            File.WriteAllText(marker, changed.ToString(CultureInfo.InvariantCulture));
+            _lootDirty = true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // tried again next start
+        }
     }
 
     private List<(string Path, string Character, string Server)> WatchedLogsForDrops()

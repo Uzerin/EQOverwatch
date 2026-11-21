@@ -24,7 +24,7 @@ public static partial class LootLineParser
 {
     // "--Warshield has looted a Mnemonic of Khati Sha from Lord Inquisitor Seru's corpse.--"  /  "--You have looted ..."
     [GeneratedRegex(
-        @"^--(?<looter>.+?) (?:has|have) looted (?:an? )?(?<item>.+?) from (?<mob>.+?)'s corpse\.--$",
+        @"^--(?<looter>.+?) (?:has|have) looted (?:an? )?(?<item>.+?) from (?<mob>.+?)(?:'s corpse)?\.--$",
         RegexOptions.CultureInvariant)]
     private static partial Regex LootRegex();
 
@@ -321,9 +321,14 @@ public sealed class LootTracker : ITriggerLineSink
         Changed?.Invoke();
     }
 
-    public void OnLine(string characterName, ReadOnlySpan<char> message, DateTime receivedUtc)
+    public void OnLine(string characterName, ReadOnlySpan<char> message, DateTime receivedUtc) =>
+        OnLine(characterName, string.Empty, message, receivedUtc);
+
+    /// <summary>A live line; new entries are filed under <paramref name="serverName"/>, the server of the log it came from.</summary>
+    public void OnLine(string characterName, string serverName, ReadOnlySpan<char> message, DateTime receivedUtc)
     {
-        if (HandleMoney(characterName, message, receivedUtc))
+        string server = serverName.Length > 0 ? serverName : ServerOf(characterName);
+        if (HandleMoney(characterName, server, message, receivedUtc))
         {
             Changed?.Invoke();
             return;
@@ -344,7 +349,11 @@ public sealed class LootTracker : ITriggerLineSink
         string text = message.ToString();
         lock (_gate)
         {
-            if (IsDuplicateFromOtherLog(text, characterName, receivedUtc))
+            // "--You have looted ..." in one log is "--Ream has looted ..." in the others: the same line.
+            string key = text.StartsWith("--You have looted ", StringComparison.Ordinal)
+                ? "--" + characterName + " has looted " + text["--You have looted ".Length..]
+                : text;
+            if (IsDuplicateFromOtherLog(key, characterName, receivedUtc))
             {
                 return;
             }
@@ -358,7 +367,7 @@ public sealed class LootTracker : ITriggerLineSink
 
             if (maybeLoot && LootLineParser.TryParseLoot(text, characterName, out string looter, out string item, out string mob))
             {
-                AddLoot(local, looter, item, mob, ServerOf(characterName));
+                AddLoot(local, looter, item, mob, server);
                 Save();
             }
             else
@@ -370,11 +379,8 @@ public sealed class LootTracker : ITriggerLineSink
         Changed?.Invoke();
     }
 
-    /// <summary>
-    /// Reads the loot lines of a log file and adds those not already recorded (the same looter, item and corpse within a few
-    /// seconds counts as recorded). Returns how many were added.
-    /// </summary>
-    public int ScanLog(string path, DateTime? from = null)
+    /// <summary>The loot (linked to won rolls) and money splits in a log, from <paramref name="from"/> on.</summary>
+    private static (List<LootEntry> Loot, List<MoneyEntry> Money) ReadLog(string path, DateTime? from)
     {
         var scanned = new List<LootEntry>();
         var wins = new List<(RollWin Win, DateTime Time)>();
@@ -466,6 +472,132 @@ public sealed class LootTracker : ITriggerLineSink
             scannedMoney.Add(new MoneyEntry(last.Time, owner, last.Copper, "(unknown)", ownerServer));
         }
 
+        return (scanned, scannedMoney);
+    }
+
+    /// <summary>
+    /// Puts the loot since <paramref name="from"/> right from the logs: each item is filed under the server of the log that saw it, and a
+    /// line several logs saw (or saw as "You have looted") is kept once. Entries no log has (from another PC) are left alone. Returns how
+    /// many entries changed.
+    /// </summary>
+    public int Repair(IReadOnlyList<string> paths, DateTime from)
+    {
+        var copies = new List<(LootEntry Entry, int Log)>();
+        for (int log = 0; log < paths.Count; log++)
+        {
+            copies.AddRange(ReadLog(paths[log], from).Loot.Select(e => (e, log)));
+        }
+
+        var bunches = new List<(LootEntry[] Keep, DateTime Start, DateTime End)>();
+        foreach (var group in copies.GroupBy(c => (c.Entry.Looter.ToLowerInvariant(), c.Entry.Item.ToLowerInvariant(), c.Entry.Mob.ToLowerInvariant())))
+        {
+            var bunch = new List<(LootEntry Entry, int Log)>();
+            void Close()
+            {
+                if (bunch.Count == 0)
+                {
+                    return;
+                }
+
+                LootEntry[] keep = bunch.GroupBy(c => c.Log).MaxBy(g => g.Count())!.Select(c => c.Entry).OrderBy(e => e.Time).ToArray();
+                (LootEntry Entry, int Log) rolled = bunch.FirstOrDefault(c => c.Entry.Roll > 0);
+                if (rolled.Entry is not null && keep.All(e => e.Roll == 0))
+                {
+                    keep[0] = keep[0] with { RollType = rolled.Entry.RollType, Roll = rolled.Entry.Roll };
+                }
+
+                bunches.Add((keep, bunch[0].Entry.Time, bunch[^1].Entry.Time));
+                bunch.Clear();
+            }
+
+            foreach ((LootEntry Entry, int Log) copy in group.OrderBy(c => c.Entry.Time))
+            {
+                if (bunch.Count > 0 && copy.Entry.Time - bunch[^1].Entry.Time > SameEventWindow)
+                {
+                    Close();
+                }
+
+                bunch.Add(copy);
+            }
+
+            Close();
+        }
+
+        int changed = 0;
+        lock (_gate)
+        {
+            var remove = new HashSet<int>();
+            foreach ((LootEntry[] keep, DateTime start, DateTime end) in bunches)
+            {
+                LootEntry first = keep[0];
+                List<int> stored = Enumerable.Range(0, _entries.Count)
+                    .Where(i => !remove.Contains(i)
+                                && _entries[i].Looter.Equals(first.Looter, StringComparison.OrdinalIgnoreCase)
+                                && _entries[i].Item.Equals(first.Item, StringComparison.OrdinalIgnoreCase)
+                                && _entries[i].Mob.Equals(first.Mob, StringComparison.OrdinalIgnoreCase)
+                                && _entries[i].Time >= start - SameEventWindow && _entries[i].Time <= end + SameEventWindow)
+                    .OrderByDescending(i => _entries[i].Roll > 0).ThenBy(i => _entries[i].Time).ToList();
+                for (int k = 0; k < keep.Length; k++)
+                {
+                    if (k < stored.Count)
+                    {
+                        LootEntry old = _entries[stored[k]];
+                        LootEntry fixedEntry = old with
+                        {
+                            Server = keep[k].Server,
+                            RollType = old.Roll > 0 ? old.RollType : keep[k].RollType,
+                            Roll = old.Roll > 0 ? old.Roll : keep[k].Roll,
+                        };
+                        if (fixedEntry != old)
+                        {
+                            _entries[stored[k]] = fixedEntry;
+                            changed++;
+                        }
+                    }
+                    else
+                    {
+                        _entries.Add(keep[k]);
+                        changed++;
+                    }
+                }
+
+                foreach (int extra in stored.Skip(keep.Length))
+                {
+                    remove.Add(extra);
+                    changed++;
+                }
+            }
+
+            if (changed > 0)
+            {
+                for (int i = _entries.Count - 1; i >= 0; i--)
+                {
+                    if (remove.Contains(i))
+                    {
+                        _entries.RemoveAt(i);
+                    }
+                }
+
+                _entries.Sort((a, b) => a.Time.CompareTo(b.Time));
+                Save();
+            }
+        }
+
+        if (changed > 0)
+        {
+            Changed?.Invoke();
+        }
+
+        return changed;
+    }
+
+    /// <summary>
+    /// Reads the loot lines of a log file and adds those not already recorded (the same looter, item and corpse within a few
+    /// seconds counts as recorded). Returns how many were added.
+    /// </summary>
+    public int ScanLog(string path, DateTime? from = null)
+    {
+        (List<LootEntry> scanned, List<MoneyEntry> scannedMoney) = ReadLog(path, from);
         int added = 0;
         int addedMoney = 0;
         lock (_gate)
@@ -644,7 +776,7 @@ public sealed class LootTracker : ITriggerLineSink
     /// Follows split lines. The mob is named by the corpse or kill line right after the split; if none comes within a few seconds the
     /// split is kept with the mob "(unknown)". Returns true when the money list changed.
     /// </summary>
-    private bool HandleMoney(string character, ReadOnlySpan<char> message, DateTime utc)
+    private bool HandleMoney(string character, string server, ReadOnlySpan<char> message, DateTime utc)
     {
         bool isSplit = message.StartsWith("You receive ", StringComparison.Ordinal) && message.IndexOf(" as your split", StringComparison.Ordinal) > 0;
         lock (_gate)
@@ -654,13 +786,13 @@ public sealed class LootTracker : ITriggerLineSink
             {
                 if (utc - pending.Utc > SplitMobWindow)
                 {
-                    AddMoney(pending.Local, character, pending.Copper, "(unknown)");
+                    AddMoney(pending.Local, character, pending.Copper, "(unknown)", server);
                     _pendingSplits.Remove(character);
                     changed = true;
                 }
                 else if (!isSplit && LootLineParser.TryParseMobLine(message, out string mob))
                 {
-                    AddMoney(pending.Local, character, pending.Copper, mob);
+                    AddMoney(pending.Local, character, pending.Copper, mob, server);
                     _pendingSplits.Remove(character);
                     changed = true;
                 }
@@ -670,7 +802,7 @@ public sealed class LootTracker : ITriggerLineSink
             {
                 if (_pendingSplits.Remove(character, out var previous))
                 {
-                    AddMoney(previous.Local, character, previous.Copper, "(unknown)");
+                    AddMoney(previous.Local, character, previous.Copper, "(unknown)", server);
                     changed = true;
                 }
 
@@ -686,9 +818,9 @@ public sealed class LootTracker : ITriggerLineSink
         }
     }
 
-    private void AddMoney(DateTime time, string character, long copper, string mob)
+    private void AddMoney(DateTime time, string character, long copper, string mob, string server)
     {
-        _money.Add(new MoneyEntry(time, character, copper, mob, ServerOf(character)));
+        _money.Add(new MoneyEntry(time, character, copper, mob, server));
         if (_money.Count > MaxEntries)
         {
             _money.RemoveRange(0, _money.Count - MaxEntries);
