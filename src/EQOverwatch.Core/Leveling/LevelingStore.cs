@@ -40,8 +40,8 @@ public sealed class LevelingStore
     public event Action? Changed;
 
     /// <summary>
-    /// True when the file was made under an older rule and had been shared: the logs are read again, so what was shared must be taken
-    /// down and shared again. Cleared with <see cref="ReadAgainHandled"/>.
+    /// True when the file was made under an older rule: the logs are read again, so whatever this install shared must be taken down and
+    /// shared again. Cleared with <see cref="ReadAgainHandled"/>.
     /// </summary>
     public bool ReadAgain { get; private set; }
 
@@ -57,7 +57,7 @@ public sealed class LevelingStore
                 if (File.Exists(path))
                 {
                     SavedFile? saved = JsonSerializer.Deserialize<SavedFile>(File.ReadAllText(path));
-                    ReadAgain = saved is not null && saved.Version < FileVersion && saved.SharedThrough is { Count: > 0 };
+                    ReadAgain = saved is not null && saved.Version < FileVersion; // shared under the old rule, here or by a copy with the same id
                     if (saved is not null && saved.Version >= FileVersion)
                     {
                         _file = new SavedFile
