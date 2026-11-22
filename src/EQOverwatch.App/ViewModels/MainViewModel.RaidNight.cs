@@ -144,6 +144,78 @@ public sealed partial class MainViewModel
         }
     }
 
+    /// <summary>The Loot tab's selected sub-tab; remembered between runs.</summary>
+    [ObservableProperty]
+    private int _selectedLootTab;
+
+    partial void OnSelectedLootTabChanged(int value)
+    {
+        if (!_restoring)
+        {
+            RequestSave();
+        }
+    }
+
+    /// <summary>The Raid tab's selected sub-tab; remembered between runs.</summary>
+    [ObservableProperty]
+    private int _selectedRaidTab;
+
+    partial void OnSelectedRaidTabChanged(int value)
+    {
+        if (!_restoring)
+        {
+            RequestSave();
+        }
+    }
+
+    /// <summary>The Progress tab's selected sub-tab; remembered between runs.</summary>
+    [ObservableProperty]
+    private int _selectedProgressTab;
+
+    partial void OnSelectedProgressTabChanged(int value)
+    {
+        if (!_restoring)
+        {
+            RequestSave();
+        }
+    }
+
+    /// <summary>The Logs tab's selected sub-tab; remembered between runs.</summary>
+    [ObservableProperty]
+    private int _selectedLogsTab;
+
+    partial void OnSelectedLogsTabChanged(int value)
+    {
+        if (!_restoring)
+        {
+            RequestSave();
+        }
+    }
+
+    /// <summary>Restores the main tab and each group's sub-tab, moving a tab saved with an older arrangement to where it is now.</summary>
+    private void RestoreTabs(AppSettings settings)
+    {
+        SelectedTriggersTab = Math.Clamp(settings.LastTriggersTab, 0, 3);
+        SelectedLootTab = Math.Clamp(settings.LastLootTab, 0, 2);
+        SelectedRaidTab = Math.Clamp(settings.LastRaidTab, 0, 2);
+        SelectedProgressTab = Math.Clamp(settings.LastProgressTab, 0, 3);
+        SelectedLogsTab = Math.Clamp(settings.LastLogsTab, 0, 1);
+
+        (int main, int sub) = AppSettings.MigrateTabIndex(settings.LastTabIndex, settings.TabLayout);
+        SelectedMainTab = Math.Clamp(main, 0, MainTabCount - 1);
+        if (sub >= 0)
+        {
+            switch (main)
+            {
+                case TriggersTab: SelectedTriggersTab = sub; break;
+                case LootTab: SelectedLootTab = sub; break;
+                case RaidTab: SelectedRaidTab = sub; break;
+                case ProgressTab: SelectedProgressTab = sub; break;
+                case LogsTab: SelectedLogsTab = sub; break;
+            }
+        }
+    }
+
     // ───────────────────────── selected fight: boss abilities and healing ─────────────────────────
 
     [ObservableProperty]

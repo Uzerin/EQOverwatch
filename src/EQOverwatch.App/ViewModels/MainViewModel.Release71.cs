@@ -130,6 +130,14 @@ public sealed partial class MainViewModel
     /// <summary>The main window's Encounter DPS tab.</summary>
     public const int EncounterDpsTab = 2;
 
+    /// <summary>Main tab positions: Characters, Triggers, Encounter DPS, Loot, Raid, Progress, Maps, Logs, Settings.</summary>
+    public const int TriggersTab = 1;
+    public const int LootTab = 3;
+    public const int RaidTab = 4;
+    public const int ProgressTab = 5;
+    public const int LogsTab = 7;
+    public const int MainTabCount = 9;
+
     [CommunityToolkit.Mvvm.Input.RelayCommand]
     private void OpenBossKill(BossKillRow? row)
     {

@@ -64,55 +64,17 @@ settings are kept.
 
 ## Changelog
 
-### 1.0.90
+### 1.0.91
 
-- Tabs: Custom Triggers, Raid Triggers, Spells and AAs & Discs are now sub-tabs of one Triggers tab, and tab rows no longer jump around when you pick a tab.
-- Maps: an Install/Update Overwatch Maps button installs the Overwatch map pack into maps\Overwatch; map files you edited are only replaced if you say so, after a backup.
+- Tabs grouped: Loot (Loot Log, Drop Table, Items & Scrolls), Raid (Attendance, Mob History, Players & Pets), Progress (Experience, Session, Leveling, Spell Stats) and Logs (Chat, Log Search); Triggers sub-tabs are now Custom, Raid, Spells and AAs & Discs.
 
-### 1.0.89
+### 1.0.81 to 1.0.90
 
-- Graph times: a small mark every 30 seconds (every minute past 10 minutes) and the fight's end time at the right.
-
-### 1.0.88
-
-- Fight graph: red lines where someone died, yellow ticks for the boss's casts, and a damage-taken graph under it (also on the Discord picture, which drops its Deaths table).
-- Damage Taken: a Tank Timeline sub-tab, and Last 20 Seconds now shows the boss's hits, heals landed and every heal cast.
-
-### 1.0.87
-
-- Loot is filed under the server of the log it came from, and a "You have looted" line is no longer kept twice; the last 7 days are put right once.
-- Loot lines without "'s corpse" are read; the drop table counts stacks in full and items left on the corpse.
-
-### 1.0.86
-
-- Damage Taken has a Last 10 Seconds sub-tab: every hit (from any mob) and heal on the selected player before their death or the fight's end.
-
-### 1.0.85
-
-- Loot: a kill that drops several of the same item counts as one kill; rates can go above 100%.
-- Leveling shared before a rule change is replaced even when this copy never shared it.
-
-### 1.0.84
-
-- Power leveling is spotted over 30 and 60 seconds and left out of leveling with 5 minutes either side; big single kills still count.
-- Your leveling is read again and shared again under the new rule.
-
-### 1.0.83
-
-- Resource Hunter: today's zone bonuses on the Leveling tab from your logs, other players and the server's website.
-- A zone's bonus shows on the Tells overlay when you enter it.
-- Personal best DPS notifications, with those fights in gold.
-
-### 1.0.82
-
-- Windows notifications check for EverQuest in front without extra parts.
-- Settings can be copied from another edition on first start.
-
-### 1.0.81
-
-- Rolls and linkdead players on the Tells overlay; follow and pet buff alerts.
-- Level-up notifications and a bonus XP notice on the Leveling tab.
-- Shared mob stats only include mobs your raid killed that aren't players.
+- Tabs that stay put (six per row), a Triggers group, and an Install/Update Overwatch Maps button that protects maps you edited.
+- Fight graph: death lines, boss cast ticks, a damage-taken graph and 30-second time marks; Damage Taken gets Last 20 Seconds and Tank Timeline.
+- Loot filed under the right server, no "You have looted" doubles, stacks and left-on-corpse items counted, one kill per drop.
+- Leveling: Resource Hunter zone bonuses, power-leveling filter, level-up and bonus XP notices.
+- Personal best DPS notices, rolls and linkdead on the Tells overlay, follow and pet buff alerts, settings copied from another edition.
 
 ### 1.0.71 to 1.0.80
 

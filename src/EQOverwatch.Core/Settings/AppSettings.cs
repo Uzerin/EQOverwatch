@@ -98,32 +98,74 @@ public sealed partial class AppSettings
     /// <summary>The tab that was showing when the app closed, so it opens on the same one next time.</summary>
     public int LastTabIndex { get; set; }
 
-    /// <summary>The Triggers tab's last sub-tab (Custom Triggers, Raid Triggers, Spells, AAs &amp; Discs).</summary>
+    /// <summary>The Triggers tab's last sub-tab (Custom, Raid, Spells, AAs &amp; Discs).</summary>
     public int LastTriggersTab { get; set; }
 
+    /// <summary>The Loot tab's last sub-tab (Loot Log, Drop Table, Items &amp; Scrolls).</summary>
+    public int LastLootTab { get; set; }
+
+    /// <summary>The Raid tab's last sub-tab (Attendance, Mob History, Players &amp; Pets).</summary>
+    public int LastRaidTab { get; set; }
+
+    /// <summary>The Progress tab's last sub-tab (Experience, Session, Leveling, Spell Stats).</summary>
+    public int LastProgressTab { get; set; }
+
+    /// <summary>The Logs tab's last sub-tab (Chat, Log Search).</summary>
+    public int LastLogsTab { get; set; }
+
     /// <summary>
-    /// Which tab arrangement <see cref="LastTabIndex"/> was saved with: 0 before Custom Triggers, Raid Triggers, Spells and
-    /// AAs &amp; Discs were grouped under Triggers, 1 after.
+    /// Which tab arrangement <see cref="LastTabIndex"/> was saved with: 0 = the original 20 tabs, 1 = with the Triggers group,
+    /// 2 = with the Loot, Raid, Progress and Logs groups too.
     /// </summary>
     public int TabLayout { get; set; }
 
     /// <summary>The current tab arrangement; see <see cref="TabLayout"/>.</summary>
-    public const int CurrentTabLayout = 1;
+    public const int CurrentTabLayout = 2;
 
-    /// <summary>Turns a tab index saved with an older arrangement into (main tab, Triggers sub-tab).</summary>
-    public static (int MainTab, int TriggersTab) MigrateTabIndex(int index, int layout, int triggersTab)
+    /// <summary>
+    /// Turns a tab index saved with an older arrangement into the current main tab and, when the old tab is now a sub-tab, its
+    /// position in that group (-1 when the saved sub-tab choices still apply).
+    /// </summary>
+    public static (int MainTab, int SubTab) MigrateTabIndex(int index, int layout)
     {
         index = Math.Max(0, index);
         if (layout >= CurrentTabLayout)
         {
-            return (index, Math.Clamp(triggersTab, 0, 3));
+            return (index, -1);
         }
 
+        int triggersSub = -1;
+        if (layout < 1)
+        {
+            (index, triggersSub) = index switch
+            {
+                0 => (0, -1),
+                <= 4 => (1, index - 1),
+                _ => (index - 3, -1),
+            };
+        }
+
+        // Layout 1: Characters, Triggers, Encounter DPS, Loot, Drop Table, Attendance, Items & Scrolls, Mob History, Experience,
+        // Session, Leveling, Spell Stats, Maps, Log Search, Chat, Players & Pets, Settings.
         return index switch
         {
-            0 => (0, 0),
-            <= 4 => (1, index - 1),
-            _ => (index - 3, 0),
+            0 => (0, -1),
+            1 => (1, triggersSub),
+            2 => (2, -1),
+            3 => (3, 0),
+            4 => (3, 1),
+            5 => (4, 0),
+            6 => (3, 2),
+            7 => (4, 1),
+            8 => (5, 0),
+            9 => (5, 1),
+            10 => (5, 2),
+            11 => (5, 3),
+            12 => (6, -1),
+            13 => (7, 1),
+            14 => (7, 0),
+            15 => (4, 2),
+            _ => (8, -1),
         };
     }
 

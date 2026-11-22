@@ -146,14 +146,22 @@ public sealed class MapPackInstallerTests : IDisposable
     }
 
     [Theory]
-    [InlineData(0, 0, 0, 0, 0)]
-    [InlineData(1, 0, 0, 1, 0)]
-    [InlineData(4, 0, 0, 1, 3)]
-    [InlineData(5, 0, 0, 2, 0)]
-    [InlineData(19, 0, 0, 16, 0)]
-    [InlineData(2, 1, 3, 2, 3)]
-    public void OldTabIndexMovesToTheTriggersLayout(int index, int layout, int triggers, int expectedMain, int expectedTriggers)
+    [InlineData(0, 0, 0, -1)]   // Characters
+    [InlineData(2, 0, 1, 1)]    // old Raid Triggers -> Triggers / Raid
+    [InlineData(5, 0, 2, -1)]   // old Encounter DPS
+    [InlineData(7, 0, 3, 1)]    // old Drop Table -> Loot / Drop Table
+    [InlineData(18, 0, 4, 2)]   // old Players & Pets -> Raid / Players & Pets
+    [InlineData(19, 0, 8, -1)]  // old Settings
+    [InlineData(1, 1, 1, -1)]   // Triggers keeps its saved sub-tab
+    [InlineData(6, 1, 3, 2)]    // Items & Scrolls -> Loot / Items & Scrolls
+    [InlineData(10, 1, 5, 2)]   // Leveling -> Progress / Leveling
+    [InlineData(12, 1, 6, -1)]  // Maps
+    [InlineData(13, 1, 7, 1)]   // Log Search -> Logs / Log Search
+    [InlineData(14, 1, 7, 0)]   // Chat -> Logs / Chat
+    [InlineData(16, 1, 8, -1)]  // Settings
+    [InlineData(5, 2, 5, -1)]   // already current
+    public void OldTabIndexMovesToTheGroupedLayout(int index, int layout, int expectedMain, int expectedSub)
     {
-        Assert.Equal((expectedMain, expectedTriggers), AppSettings.MigrateTabIndex(index, layout, triggers));
+        Assert.Equal((expectedMain, expectedSub), AppSettings.MigrateTabIndex(index, layout));
     }
 }
