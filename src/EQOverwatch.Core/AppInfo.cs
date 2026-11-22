@@ -24,10 +24,10 @@ public static class AppInfo
     /// <summary>The folder earlier versions (EQ Companion) used; its settings are migrated on first start.</summary>
     public const string LegacySettingsFolderName = "EQCompanion";
 
-    /// <summary>"v1.0.88": the assembly's major.minor.build, read at run time so it can never disagree with the binary.</summary>
+    /// <summary>"v1.0.89": the assembly's major.minor.build, read at run time so it can never disagree with the binary.</summary>
     public static string Version { get; } = FormatVersion(typeof(AppInfo).Assembly);
 
-    /// <summary>"EQ Overwatch v1.0.88".</summary>
+    /// <summary>"EQ Overwatch v1.0.89".</summary>
     public static string Title => $"{Name} {Version}";
 
     /// <summary>"v{major}.{minor}.{build}" for <paramref name="assembly"/>.</summary>

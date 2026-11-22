@@ -39,6 +39,12 @@ public sealed record DpsTimeline(double BucketSeconds, ValueList<double> Group, 
     /// <summary>Number of buckets.</summary>
     public int Count => Group.Count;
 
+    /// <summary>The fight's length in seconds (0 when unknown: the buckets' span is used).</summary>
+    public double DurationSeconds { get; init; }
+
+    /// <summary>The seconds the time axis runs over.</summary>
+    public double Span => DurationSeconds > 0 ? DurationSeconds : Count * BucketSeconds;
+
     /// <summary>Damage the raid took per second in each bucket (the incoming graph), or null when none was recorded.</summary>
     public ValueList<double>? Incoming { get; init; }
 

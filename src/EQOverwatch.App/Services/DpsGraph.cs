@@ -32,7 +32,7 @@ internal static class DpsGraph
     /// <summary>The boss casts drawn within a few pixels of <paramref name="x"/>, for a tooltip.</summary>
     public static IReadOnlyList<TimelineMark> CastsNear(DpsTimeline timeline, Rect plot, double x)
     {
-        double total = Math.Max(1, timeline.Count * timeline.BucketSeconds);
+        double total = Math.Max(1, timeline.Span);
         return (timeline.Casts ?? new ValueList<TimelineMark>(Array.Empty<TimelineMark>()))
             .Where(c => Math.Abs(plot.X + (plot.Width * Math.Clamp(c.Seconds / total, 0, 1)) - x) <= 4).ToList();
     }
@@ -45,7 +45,7 @@ internal static class DpsGraph
         Rect plot = PlotRect(area, plotHeight);
         IReadOnlyList<double> values = timeline.Incoming ?? (IReadOnlyList<double>)Array.Empty<double>();
         double peak = NiceCeiling(values.Count == 0 ? 0 : values.Max());
-        Axes(dc, plot, peak, timeline.Count * timeline.BucketSeconds, muted, grid, pixelsPerDip);
+        Axes(dc, plot, peak, timeline.Span, muted, grid, pixelsPerDip);
         DrawLine(dc, values, plot, peak, SolidOf(IncomingColor), 2.2);
         DrawDeaths(dc, timeline, plot, pixelsPerDip, labels: false);
     }
@@ -59,18 +59,39 @@ internal static class DpsGraph
             Label(dc, FormatRate(peak * i / 4.0), muted, 11, plot.X - LeftMargin + 2, y - 8, TextAlignment.Right, LeftMargin - 8, pixelsPerDip);
         }
 
-        for (int i = 0; i <= 4; i++)
+        // Time: a small tick at the top and bottom edge every 30 seconds (every minute past 10 minutes), and the end time at the right.
+        int step = totalSeconds < 600 ? 30 : 60;
+        Pen tick = new(muted, 1);
+        tick.Freeze();
+        void Tick(double x)
         {
-            double x = plot.X + (plot.Width * i / 4.0);
-            string time = FormatTime(totalSeconds * i / 4.0);
-            double boxWidth = 60;
-            double left = i == 0 ? x : i == 4 ? x - boxWidth : x - (boxWidth / 2);
-            Label(dc, time, muted, 11, left, plot.Bottom + 4, i == 0 ? TextAlignment.Left : i == 4 ? TextAlignment.Right : TextAlignment.Center, boxWidth, pixelsPerDip);
+            dc.DrawLine(tick, new Point(x, plot.Top), new Point(x, plot.Top + 5));
+            dc.DrawLine(tick, new Point(x, plot.Bottom - 5), new Point(x, plot.Bottom));
         }
+
+        const double boxWidth = 60;
+        Label(dc, FormatTime(0), muted, 11, plot.X, plot.Bottom + 4, TextAlignment.Left, boxWidth, pixelsPerDip);
+        double endLabelLeft = plot.Right - Measure(FormatTime(totalSeconds), 11, pixelsPerDip) - 8;
+        double lastRight = plot.X + Measure(FormatTime(0), 11, pixelsPerDip);
+        for (int t = step; t < totalSeconds; t += step)
+        {
+            double x = plot.X + (plot.Width * t / totalSeconds);
+            Tick(x);
+            string time = FormatTime(t);
+            double half = Measure(time, 11, pixelsPerDip) / 2;
+            if (x - half > lastRight + 6 && x + half < endLabelLeft)
+            {
+                Label(dc, time, muted, 11, x - (boxWidth / 2), plot.Bottom + 4, TextAlignment.Center, boxWidth, pixelsPerDip);
+                lastRight = x + half;
+            }
+        }
+
+        Tick(plot.Right);
+        Label(dc, FormatTime(totalSeconds), muted, 11, plot.Right - boxWidth, plot.Bottom + 4, TextAlignment.Right, boxWidth, pixelsPerDip);
     }
 
     private static double MarkX(DpsTimeline timeline, Rect plot, double seconds) =>
-        plot.X + (plot.Width * Math.Clamp(seconds / Math.Max(1, timeline.Count * timeline.BucketSeconds), 0, 1));
+        plot.X + (plot.Width * Math.Clamp(seconds / Math.Max(1, timeline.Span), 0, 1));
 
     // A red dashed line where someone died, with the name at the top (staggered so close deaths stay readable).
     private static void DrawDeaths(DrawingContext dc, DpsTimeline timeline, Rect plot, double pixelsPerDip, bool labels)
@@ -125,7 +146,7 @@ internal static class DpsGraph
     {
         Rect plot = PlotRect(area, plotHeight);
         double peak = NiceCeiling(timeline.Peak);
-        Axes(dc, plot, peak, timeline.Count * timeline.BucketSeconds, muted, grid, pixelsPerDip);
+        Axes(dc, plot, peak, timeline.Span, muted, grid, pixelsPerDip);
         DrawCasts(dc, timeline, plot);
 
         for (int p = 0; p < timeline.Players.Count; p++)

@@ -160,6 +160,7 @@ public sealed class CombatEncounter : ObservableObject
         double Offset(DateTime time) => Math.Clamp((time - StartTime).TotalSeconds, 0, DurationSeconds);
         return timeline with
         {
+            DurationSeconds = DurationSeconds,
             Deaths = new ValueList<TimelineMark>(_deathLog.Where(d => d.Time != default).Select(d => new TimelineMark(Offset(d.Time), d.Name)).ToArray()),
             Casts = new ValueList<TimelineMark>(_casts.Select(c => new TimelineMark(Offset(c.Time), c.Spell)).ToArray()),
         };

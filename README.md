@@ -64,6 +64,10 @@ settings are kept.
 
 ## Changelog
 
+### 1.0.89
+
+- Graph times: a small mark every 30 seconds (every minute past 10 minutes) and the fight's end time at the right.
+
 ### 1.0.88
 
 - Fight graph: red lines where someone died, yellow ticks for the boss's casts, and a damage-taken graph under it (also on the Discord picture, which drops its Deaths table).
