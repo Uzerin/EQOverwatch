@@ -4,15 +4,30 @@ using EQOverwatch.Core.Models;
 
 namespace EQOverwatch.App.ViewModels;
 
-/// <summary>One hit or heal in the Damage Taken tab's "Last 10 Seconds" list.</summary>
-public sealed record LastSecondsRowView(string Time, string Seconds, string From, string What, string Damage, string Healed, bool IsHeal);
+/// <summary>One hit, heal or heal cast in the Damage Taken tab's "Last 20 Seconds" list.</summary>
+public sealed record LastSecondsRowView(string Time, string Seconds, string From, string What, string Damage, string Healed, bool IsHeal, bool IsCast = false);
+
+/// <summary>One turn on the Tank Timeline list.</summary>
+public sealed record TankRowView(string Name, string From, string To, string Length, int Swings);
 
 public partial class MainViewModel
 {
     private IReadOnlyList<LastSecondsSnapshot> _lastSecondsWindows = Array.Empty<LastSecondsSnapshot>();
     private string? _lastSecondsName;
 
-    /// <summary>The row picked in the Damage Taken summary; its last seconds show in the "Last 10 Seconds" sub-tab.</summary>
+    [ObservableProperty]
+    private IReadOnlyList<TankSpanSnapshot> _tankSpans = Array.Empty<TankSpanSnapshot>();
+
+    [ObservableProperty]
+    private double _tankDuration;
+
+    [ObservableProperty]
+    private double _tankTimelineHeight = 60;
+
+    [ObservableProperty]
+    private IReadOnlyList<TankRowView> _tankRows = Array.Empty<TankRowView>();
+
+    /// <summary>The row picked in the Damage Taken summary; its last seconds show in the "Last 20 Seconds" sub-tab.</summary>
     [ObservableProperty]
     private DamageTakenRowViewModel? _selectedTakenRow;
 
@@ -35,6 +50,20 @@ public partial class MainViewModel
     {
         _lastSecondsWindows = encounter?.LastSeconds ?? Array.Empty<LastSecondsSnapshot>();
         RebuildLastSeconds();
+        IReadOnlyList<TankSpanSnapshot> spans = encounter?.TankSpans ?? Array.Empty<TankSpanSnapshot>();
+        if (!spans.SequenceEqual(TankSpans) || TankDuration != (encounter?.DurationSeconds ?? 0))
+        {
+            TankSpans = spans;
+            TankDuration = encounter?.DurationSeconds ?? 0;
+            TankTimelineHeight = Controls.TankTimelineControl.HeightFor(spans);
+            TankRows = spans.Select(t => new TankRowView(t.Name, Clock(t.Start), Clock(t.End), Clock(t.End - t.Start), t.Swings)).ToList();
+        }
+
+        static string Clock(double seconds)
+        {
+            int s = (int)Math.Round(seconds);
+            return $"{s / 60}:{s % 60:00}";
+        }
     }
 
     private void RebuildLastSeconds()
@@ -57,8 +86,11 @@ public partial class MainViewModel
         {
             int seconds = (int)Math.Round((e.Time - window.End).TotalSeconds);
             string amount = e.Amount.ToString("N0", culture);
-            rows.Add(new LastSecondsRowView(e.Time.ToString("HH:mm:ss", culture), seconds.ToString(culture), e.Source, e.What,
-                e.IsHeal ? string.Empty : amount, e.IsHeal ? amount : string.Empty, e.IsHeal));
+            string time = e.Time.ToString("HH:mm:ss", culture);
+            rows.Add(e.IsCast
+                ? new LastSecondsRowView(time, seconds.ToString(culture), e.Source, "casting " + e.What, string.Empty, string.Empty, false, true)
+                : new LastSecondsRowView(time, seconds.ToString(culture), e.Source, e.What,
+                    e.IsHeal ? string.Empty : amount, e.IsHeal ? amount : string.Empty, e.IsHeal));
         }
 
         if (window.Died)

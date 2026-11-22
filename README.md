@@ -64,6 +64,11 @@ settings are kept.
 
 ## Changelog
 
+### 1.0.88
+
+- Fight graph: red lines where someone died, yellow ticks for the boss's casts, and a damage-taken graph under it (also on the Discord picture, which drops its Deaths table).
+- Damage Taken: a Tank Timeline sub-tab, and Last 20 Seconds now shows the boss's hits, heals landed and every heal cast.
+
 ### 1.0.87
 
 - Loot is filed under the server of the log it came from, and a "You have looted" line is no longer kept twice; the last 7 days are put right once.

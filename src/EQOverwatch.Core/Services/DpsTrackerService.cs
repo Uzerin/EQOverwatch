@@ -360,8 +360,6 @@ public partial class DpsTrackerService : IDpsEventSink
                     if (!isAttack && Classify(combatEvent.Target) != NameKind.Npc && Classify(FoeName(combatEvent.Source)) == NameKind.Npc)
                     {
                         RememberHitOnPlayer(combatEvent);
-                        NoteRecent(combatEvent.Target, new RecentEventSnapshot(combatEvent.Timestamp, FoeName(combatEvent.Source),
-                            RecentLabel(combatEvent), combatEvent.Amount, false));
                     }
 
                     if (isAttack)
@@ -384,13 +382,20 @@ public partial class DpsTrackerService : IDpsEventSink
                             attacked = (combatEvent.Target, foe.TargetName);
                         }
 
+                        if (combatEvent.DamageKind == DamageKind.Melee && !combatEvent.IsRampage)
+                        {
+                            foe.AddTankSwing(combatEvent.Timestamp, combatEvent.Target);
+                        }
+
+                        foe.AddRecent(combatEvent.Target, new RecentEventSnapshot(combatEvent.Timestamp, foe.TargetName, RecentLabel(combatEvent),
+                            combatEvent.Amount, false));
                         if (combatEvent.DamageKind == DamageKind.DamageShield)
                         {
                             foe.AddShieldTaken(combatEvent.Timestamp, combatEvent.Target, combatEvent.Amount);
                         }
                         else
                         {
-                            foe.AddDamageTaken(combatEvent.Target, combatEvent.Amount, combatEvent.IsRampage);
+                            foe.AddDamageTaken(combatEvent.Target, combatEvent.Amount, combatEvent.IsRampage, timestamp: combatEvent.Timestamp);
                         }
 
                         changed = true;
@@ -409,6 +414,11 @@ public partial class DpsTrackerService : IDpsEventSink
                     // The fight's target swung at a player or pet and missed: the player avoided the attack.
                     missingFoe.AddWitness(_logOwner);
                     missingFoe.AddAvoided(combatEvent.Target, combatEvent.Avoid, combatEvent.IsRampage);
+                    if (!combatEvent.IsRampage)
+                    {
+                        missingFoe.AddTankSwing(combatEvent.Timestamp, combatEvent.Target);
+                    }
+
                     if (!combatEvent.IsRampage && _batchDepth == 0)
                     {
                         attacked = (combatEvent.Target, missingFoe.TargetName);
@@ -981,8 +991,9 @@ public partial class DpsTrackerService : IDpsEventSink
 
         if (Classify(e.Target) != NameKind.Npc && _active.Count > 0)
         {
-            NoteRecent(e.Target, new RecentEventSnapshot(e.Timestamp, "Unknown", "DoT", e.Amount, false));
-            _active.Values.MaxBy(f => f.EndTime)!.AddDamageTaken(e.Target, e.Amount, isRampage: false, isDot: true);
+            CombatEncounter newest = _active.Values.MaxBy(f => f.EndTime)!;
+            newest.AddRecent(e.Target, new RecentEventSnapshot(e.Timestamp, "Unknown", "DoT", e.Amount, false));
+            newest.AddDamageTaken(e.Target, e.Amount, isRampage: false, isDot: true, timestamp: e.Timestamp);
             return true;
         }
 

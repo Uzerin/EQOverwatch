@@ -22,7 +22,7 @@ public sealed class CombatEncounter : ObservableObject
     private const int MaxCasts = 2000;
 
     /// <summary>How far back the "last seconds" of a player go: before their death, or before the end of the fight.</summary>
-    public const int RecentSeconds = 10;
+    public const int RecentSeconds = 20;
     private const int MaxPlayerCasts = 20_000;
 
     public CombatEncounter(int id, string targetName, DateTime startTime)
@@ -70,8 +70,13 @@ public sealed class CombatEncounter : ObservableObject
     }
 
     /// <summary>Damage the fight's target dealt to <paramref name="victim"/> (a player or pet) during the fight.</summary>
-    internal void AddDamageTaken(string victim, int amount, bool isRampage = false, bool isDot = false)
+    internal void AddDamageTaken(string victim, int amount, bool isRampage = false, bool isDot = false, DateTime timestamp = default)
     {
+        if (timestamp != default)
+        {
+            _timeline.RecordIncoming((int)(timestamp - StartTime).TotalSeconds, amount);
+        }
+
         if (!_takenByName.TryGetValue(victim, out DamageTakenStats? stats))
         {
             stats = new DamageTakenStats(victim);
@@ -108,6 +113,7 @@ public sealed class CombatEncounter : ObservableObject
 
         stats.RecordShield(amount);
         TotalDamageTaken += amount;
+        _timeline.RecordIncoming((int)(timestamp - StartTime).TotalSeconds, amount);
         _shieldTotal += amount;
         _shieldHits++;
         double offset = Math.Max(0.0, (timestamp - StartTime).TotalSeconds);
@@ -141,10 +147,46 @@ public sealed class CombatEncounter : ObservableObject
     }
 
     /// <summary>Damage per second across the fight for the group and the <see cref="DpsTimeline.MaxPlayers"/> top dealers, or null when too short.</summary>
-    internal DpsTimeline? BuildTimeline() =>
-        _timeline.Build(
+    internal DpsTimeline? BuildTimeline()
+    {
+        DpsTimeline? timeline = _timeline.Build(
             DurationSeconds,
             _participants.OrderByDescending(p => p.TotalDamage).ThenBy(p => p.Name, StringComparer.Ordinal).Select(p => p.Name).ToArray());
+        if (timeline is null)
+        {
+            return null;
+        }
+
+        double Offset(DateTime time) => Math.Clamp((time - StartTime).TotalSeconds, 0, DurationSeconds);
+        return timeline with
+        {
+            Deaths = new ValueList<TimelineMark>(_deathLog.Where(d => d.Time != default).Select(d => new TimelineMark(Offset(d.Time), d.Name)).ToArray()),
+            Casts = new ValueList<TimelineMark>(_casts.Select(c => new TimelineMark(Offset(c.Time), c.Spell)).ToArray()),
+        };
+    }
+
+    private readonly List<TankSpanSnapshot> _tankSpans = new();
+
+    /// <summary>A stretch longer than this with no melee swing at the same player ends their turn tanking.</summary>
+    public const double TankGapSeconds = 6;
+
+    /// <summary>The fight's target swung at <paramref name="victim"/> in melee (not a rampage): who it was tanking, and when.</summary>
+    internal void AddTankSwing(DateTime timestamp, string victim)
+    {
+        double at = Math.Max(0, (timestamp - StartTime).TotalSeconds);
+        if (_tankSpans.Count > 0 && _tankSpans[^1] is { } last
+            && string.Equals(last.Name, victim, StringComparison.Ordinal) && at - last.End <= TankGapSeconds)
+        {
+            _tankSpans[^1] = last with { End = Math.Max(last.End, at), Swings = last.Swings + 1 };
+        }
+        else if (_tankSpans.Count < 2000)
+        {
+            _tankSpans.Add(new TankSpanSnapshot(victim, at, at, 1));
+        }
+    }
+
+    /// <summary>Who the target meleed, in turns, through the fight.</summary>
+    internal IReadOnlyList<TankSpanSnapshot> TankSpans => _tankSpans;
 
     /// <summary>A player or pet died during the fight.</summary>
     internal void AddDeath(string name, DateTime time = default, string killedBy = "", string killingBlow = "")
@@ -191,17 +233,27 @@ public sealed class CombatEncounter : ObservableObject
         {
             if (_lastDeathWindow.TryGetValue(name, out (DateTime Time, RecentEventSnapshot[] Events) death))
             {
-                windows.Add(new LastSecondsSnapshot(name, death.Time, true, new ValueList<RecentEventSnapshot>(death.Events)));
+                windows.Add(new LastSecondsSnapshot(name, death.Time, true, WithHealCasts(death.Events, death.Time)));
                 continue;
             }
 
             RecentEventSnapshot[] events = _recent.TryGetValue(name, out List<RecentEventSnapshot>? list)
                 ? list.Where(e => e.Time <= EndTime && e.Time >= EndTime.AddSeconds(-RecentSeconds)).ToArray()
                 : Array.Empty<RecentEventSnapshot>();
-            windows.Add(new LastSecondsSnapshot(name, EndTime, false, new ValueList<RecentEventSnapshot>(events)));
+            windows.Add(new LastSecondsSnapshot(name, EndTime, false, WithHealCasts(events, EndTime)));
         }
 
         return windows;
+    }
+
+    // Every heal anyone began casting in the window (a cast line does not say who it is for), with the hits and heals that landed.
+    private ValueList<RecentEventSnapshot> WithHealCasts(IEnumerable<RecentEventSnapshot> events, DateTime end)
+    {
+        DateTime start = end.AddSeconds(-RecentSeconds);
+        IEnumerable<RecentEventSnapshot> casts = _playerCasts
+            .Where(c => c.Time >= start && c.Time <= end && _healSpells.Contains(c.Spell))
+            .Select(c => new RecentEventSnapshot(c.Time, c.Caster, c.Spell, 0, true, IsCast: true));
+        return new ValueList<RecentEventSnapshot>(events.Concat(casts).OrderBy(e => e.Time).ToArray());
     }
 
     /// <summary>Each death in order, with the log time and the killer when known.</summary>
@@ -271,8 +323,11 @@ public sealed class CombatEncounter : ObservableObject
     internal IReadOnlyList<BossCastSnapshot> Casts => _casts;
 
     /// <summary>A heal landed during the fight. <paramref name="possible"/> is what the spell could have healed.</summary>
+    private readonly HashSet<string> _healSpells = new(StringComparer.OrdinalIgnoreCase);
+
     internal void AddHeal(string healer, string spell, int actual, int possible, bool isCritical = false)
     {
+        _healSpells.Add(spell);
         if (!_healers.TryGetValue(healer, out HealStats? stats))
         {
             stats = new HealStats(healer);

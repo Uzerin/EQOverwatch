@@ -22,6 +22,9 @@ public sealed class ValueList<T> : System.Collections.ObjectModel.ReadOnlyCollec
     }
 }
 
+/// <summary>A moment marked on the graph: a death (the name) or a spell the fight's target cast.</summary>
+public sealed record TimelineMark(double Seconds, string Label);
+
 /// <summary>One line on the DPS-over-time graph: a player's damage per second in each time bucket.</summary>
 public sealed record TimelineSeries(string Name, ValueList<double> Dps);
 
@@ -36,6 +39,15 @@ public sealed record DpsTimeline(double BucketSeconds, ValueList<double> Group, 
     /// <summary>Number of buckets.</summary>
     public int Count => Group.Count;
 
+    /// <summary>Damage the raid took per second in each bucket (the incoming graph), or null when none was recorded.</summary>
+    public ValueList<double>? Incoming { get; init; }
+
+    /// <summary>When someone died, with their name.</summary>
+    public ValueList<TimelineMark>? Deaths { get; init; }
+
+    /// <summary>When the fight's target began casting, with the spell.</summary>
+    public ValueList<TimelineMark>? Casts { get; init; }
+
     /// <summary>The highest value on any line (what the vertical axis must reach).</summary>
     public double Peak => Math.Max(Group.Count == 0 ? 0.0 : Group.Max(), Players.Count == 0 ? 0.0 : Players.Max(p => p.Dps.Count == 0 ? 0.0 : p.Dps.Max()));
 }
@@ -47,6 +59,16 @@ internal sealed class TimelineRecorder
     private const int TargetBuckets = 60;
     private readonly Dictionary<string, List<long>> _byPlayer = new(StringComparer.Ordinal);
     private readonly List<long> _group = new();
+    private readonly List<long> _incoming = new();
+
+    /// <summary>Damage a player or pet took, for the incoming graph.</summary>
+    public void RecordIncoming(int secondsIn, int amount)
+    {
+        if (secondsIn is >= 0 and < MaxSeconds)
+        {
+            Add(_incoming, secondsIn, amount);
+        }
+    }
 
     public void Record(string player, int secondsIn, int amount)
     {
@@ -120,6 +142,9 @@ internal sealed class TimelineRecorder
             }
         }
 
-        return new DpsTimeline(bucket, Cut(_group), new ValueList<TimelineSeries>(series));
+        return new DpsTimeline(bucket, Cut(_group), new ValueList<TimelineSeries>(series))
+        {
+            Incoming = _incoming.Count == 0 ? null : Cut(_incoming),
+        };
     }
 }

@@ -18,6 +18,99 @@ internal static class DpsGraph
     private const double LegendLine = 20;
     private static readonly string[] PlayerColors = { "#5CC98A", "#E5845C", "#6AA9F0", "#E7C547", "#C084E6" };
     private const string GroupColor = "#FFFFFF";
+    private const string DeathColor = "#E5484D";
+    private const string CastColor = "#E7C547";
+    private const string IncomingColor = "#E5845C";
+
+    /// <summary>The height the incoming-damage graph needs for a plot area <paramref name="plotHeight"/> tall.</summary>
+    public static double IncomingHeight(double plotHeight) => TopMargin + plotHeight + AxisHeight + 4;
+
+    /// <summary>The plot area inside <paramref name="area"/>.</summary>
+    public static Rect PlotRect(Rect area, double plotHeight) =>
+        new(area.X + LeftMargin, area.Y + TopMargin, Math.Max(10, area.Width - LeftMargin - RightMargin), Math.Max(10, plotHeight));
+
+    /// <summary>The boss casts drawn within a few pixels of <paramref name="x"/>, for a tooltip.</summary>
+    public static IReadOnlyList<TimelineMark> CastsNear(DpsTimeline timeline, Rect plot, double x)
+    {
+        double total = Math.Max(1, timeline.Count * timeline.BucketSeconds);
+        return (timeline.Casts ?? new ValueList<TimelineMark>(Array.Empty<TimelineMark>()))
+            .Where(c => Math.Abs(plot.X + (plot.Width * Math.Clamp(c.Seconds / total, 0, 1)) - x) <= 4).ToList();
+    }
+
+    /// <summary>
+    /// The damage the raid took per second, under the DPS graph, with the same time axis and the deaths marked.
+    /// </summary>
+    public static void DrawIncoming(DrawingContext dc, DpsTimeline timeline, Rect area, double plotHeight, Brush muted, Brush grid, double pixelsPerDip)
+    {
+        Rect plot = PlotRect(area, plotHeight);
+        IReadOnlyList<double> values = timeline.Incoming ?? (IReadOnlyList<double>)Array.Empty<double>();
+        double peak = NiceCeiling(values.Count == 0 ? 0 : values.Max());
+        Axes(dc, plot, peak, timeline.Count * timeline.BucketSeconds, muted, grid, pixelsPerDip);
+        DrawLine(dc, values, plot, peak, SolidOf(IncomingColor), 2.2);
+        DrawDeaths(dc, timeline, plot, pixelsPerDip, labels: false);
+    }
+
+    private static void Axes(DrawingContext dc, Rect plot, double peak, double totalSeconds, Brush muted, Brush grid, double pixelsPerDip)
+    {
+        for (int i = 0; i <= 4; i++)
+        {
+            double y = plot.Bottom - (plot.Height * i / 4.0);
+            dc.DrawRectangle(grid, null, new Rect(plot.X, y - 0.5, plot.Width, 1));
+            Label(dc, FormatRate(peak * i / 4.0), muted, 11, plot.X - LeftMargin + 2, y - 8, TextAlignment.Right, LeftMargin - 8, pixelsPerDip);
+        }
+
+        for (int i = 0; i <= 4; i++)
+        {
+            double x = plot.X + (plot.Width * i / 4.0);
+            string time = FormatTime(totalSeconds * i / 4.0);
+            double boxWidth = 60;
+            double left = i == 0 ? x : i == 4 ? x - boxWidth : x - (boxWidth / 2);
+            Label(dc, time, muted, 11, left, plot.Bottom + 4, i == 0 ? TextAlignment.Left : i == 4 ? TextAlignment.Right : TextAlignment.Center, boxWidth, pixelsPerDip);
+        }
+    }
+
+    private static double MarkX(DpsTimeline timeline, Rect plot, double seconds) =>
+        plot.X + (plot.Width * Math.Clamp(seconds / Math.Max(1, timeline.Count * timeline.BucketSeconds), 0, 1));
+
+    // A red dashed line where someone died, with the name at the top (staggered so close deaths stay readable).
+    private static void DrawDeaths(DrawingContext dc, DpsTimeline timeline, Rect plot, double pixelsPerDip, bool labels)
+    {
+        if (timeline.Deaths is not { Count: > 0 } deaths)
+        {
+            return;
+        }
+
+        Brush red = SolidOf(DeathColor);
+        var pen = new Pen(red, 1.2) { DashStyle = new DashStyle(new double[] { 3, 3 }, 0) };
+        pen.Freeze();
+        for (int i = 0; i < deaths.Count; i++)
+        {
+            double x = MarkX(timeline, plot, deaths[i].Seconds);
+            dc.DrawLine(pen, new Point(x, plot.Top), new Point(x, plot.Bottom));
+            if (labels)
+            {
+                double y = plot.Top + 2 + ((i % 4) * 13);
+                bool left = x > plot.Right - 90;
+                Label(dc, deaths[i].Label, red, 10, left ? x - 92 : x + 3, y, left ? TextAlignment.Right : TextAlignment.Left, 89, pixelsPerDip);
+            }
+        }
+    }
+
+    // A small tick at the foot of the plot each time the boss began a cast.
+    private static void DrawCasts(DrawingContext dc, DpsTimeline timeline, Rect plot)
+    {
+        if (timeline.Casts is not { Count: > 0 } casts)
+        {
+            return;
+        }
+
+        Brush amber = SolidOf(CastColor);
+        foreach (TimelineMark cast in casts)
+        {
+            double x = MarkX(timeline, plot, cast.Seconds);
+            dc.DrawRectangle(amber, null, new Rect(x - 1, plot.Bottom - 9, 2, 9));
+        }
+    }
 
     /// <summary>The colors the lines use: the group first, then the players in order.</summary>
     public static string ColorOf(int index) => index < 0 ? GroupColor : PlayerColors[index % PlayerColors.Length];
@@ -30,28 +123,10 @@ internal static class DpsGraph
         DrawingContext dc, DpsTimeline timeline, Rect area, double plotHeight, Brush text, Brush muted, Brush grid, Brush groupBrush,
         double pixelsPerDip)
     {
-        var plot = new Rect(area.X + LeftMargin, area.Y + TopMargin, Math.Max(10, area.Width - LeftMargin - RightMargin), Math.Max(10, plotHeight));
+        Rect plot = PlotRect(area, plotHeight);
         double peak = NiceCeiling(timeline.Peak);
-        int count = timeline.Count;
-        double totalSeconds = count * timeline.BucketSeconds;
-
-        // horizontal grid + y labels
-        for (int i = 0; i <= 4; i++)
-        {
-            double y = plot.Bottom - (plot.Height * i / 4.0);
-            dc.DrawRectangle(grid, null, new Rect(plot.X, y - 0.5, plot.Width, 1));
-            Label(dc, FormatRate(peak * i / 4.0), muted, 11, plot.X - LeftMargin + 2, y - 8, TextAlignment.Right, LeftMargin - 8, pixelsPerDip);
-        }
-
-        // x labels
-        for (int i = 0; i <= 4; i++)
-        {
-            double x = plot.X + (plot.Width * i / 4.0);
-            string time = FormatTime(totalSeconds * i / 4.0);
-            double boxWidth = 60;
-            double left = i == 0 ? x : i == 4 ? x - boxWidth : x - (boxWidth / 2);
-            Label(dc, time, muted, 11, left, plot.Bottom + 4, i == 0 ? TextAlignment.Left : i == 4 ? TextAlignment.Right : TextAlignment.Center, boxWidth, pixelsPerDip);
-        }
+        Axes(dc, plot, peak, timeline.Count * timeline.BucketSeconds, muted, grid, pixelsPerDip);
+        DrawCasts(dc, timeline, plot);
 
         for (int p = 0; p < timeline.Players.Count; p++)
         {
@@ -59,6 +134,7 @@ internal static class DpsGraph
         }
 
         DrawLine(dc, timeline.Group, plot, peak, groupBrush, 2.6);
+        DrawDeaths(dc, timeline, plot, pixelsPerDip, labels: true);
 
         // legend
         double lx = area.X + LeftMargin;

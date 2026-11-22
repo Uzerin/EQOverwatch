@@ -10,7 +10,7 @@ namespace EQOverwatch.App.Services;
 
 /// <summary>
 /// Draws the "Copy Image for Discord" picture in three columns under the encounter summary and graph: the damage dealt (Total, SDPS,
-/// Max Hit, Max Crit, Crit %) with every attacker, then healing, then tanking (damage taken) with the deaths and killing blows under it.
+/// Max Hit, Max Crit, Crit %) with every attacker, then healing, then tanking (damage taken), and the damage taken over time across the bottom.
 /// Every row is listed, the product footer runs along the bottom, and everything uses the active theme's colors. Rendered at twice the layout size so it
 /// stays sharp when Discord scales it. Call on the UI thread.
 /// </summary>
@@ -35,6 +35,7 @@ public static class EncounterImageRenderer
     private const double SectionGap = 10;
     private const double TitleHeight = SectionHeight - SectionGap;
     private const double GraphPlotHeight = 170;
+    private const double IncomingPlotHeight = 110;
 
     private static readonly Typeface Regular = new("Segoe UI");
     private static readonly Typeface Bold = new(new FontFamily("Segoe UI"), FontStyles.Normal, FontWeights.SemiBold, FontStretches.Normal);
@@ -58,7 +59,6 @@ public static class EncounterImageRenderer
         IReadOnlyList<EncounterExportRow> rows = EncounterExport.BuildRows(encounter, topCount);
         IReadOnlyList<DamageTakenSnapshot> taken = encounter.TakenRows;
         IReadOnlyList<HealingSnapshot> healing = encounter.HealingRows;
-        IReadOnlyList<DeathSnapshot> deaths = encounter.DeathRows;
 
         colors ??= AttackColorScheme.Current;
         IReadOnlyList<AttackType> legend = AttackTypes.All
@@ -99,37 +99,23 @@ public static class EncounterImageRenderer
                 h.MaxHeal.ToString("N0", CultureInfo.InvariantCulture),
             }).ToList());
 
-        Table? deathTable = deaths.Count == 0 ? null : new Table(
-            new[] { "#", "Name", "Time", "Killed by", "Killing Blow" },
-            new[] { false, false, true, false, false }, flexColumn: 4,
-            deaths.Select((d, i) => new[]
-            {
-                (i + 1).ToString(CultureInfo.InvariantCulture), d.Name,
-                EncounterExport.FormatDuration((d.Time - encounter.StartTime).TotalSeconds),
-                string.IsNullOrWhiteSpace(d.KilledBy) ? "—" : d.KilledBy,
-                string.IsNullOrWhiteSpace(d.KillingBlow) ? "—" : d.KillingBlow,
-            }).ToList());
-
         string dpsTotalText = $"{encounter.TotalDamage.ToString("N0", CultureInfo.InvariantCulture)} total";
         const string takenTitle = "Tanking";
         string takenTotalText = $"{encounter.TotalDamageTaken.ToString("N0", CultureInfo.InvariantCulture)} total";
         string healTitle = healing.Any(h => h.CritHeals > 0) ? "Healing  (lighter shade = crits)" : "Healing";
         string healTotalText = $"{healTotal.ToString("N0", CultureInfo.InvariantCulture)} total";
-        string deathTotalText = deaths.Count == 0 ? "none" : $"{deaths.Count.ToString("N0", CultureInfo.InvariantCulture)} total";
 
-        // Three columns side by side (DPS, Healing, Tanking with Deaths under it), each as wide as its widest table or title needs.
+        // Three columns side by side (DPS, Healing, Tanking; deaths show there and on the graphs), each as wide as its widest table or title needs.
         double dpsContent = Math.Max(MinContentWidth, Math.Max(dpsTable.NaturalWidth, TitleWidth("DPS", dpsTotalText)));
         double healContent = Math.Max(MinSideWidth, Math.Max(healTable?.NaturalWidth ?? 0, TitleWidth(healTitle, healTotalText)));
         double tankContent = Math.Max(MinSideWidth, new[]
         {
-            takenTable?.NaturalWidth ?? 0, deathTable?.NaturalWidth ?? 0,
-            TitleWidth(takenTitle, takenTotalText), TitleWidth("Deaths", deathTotalText),
+            takenTable?.NaturalWidth ?? 0, TitleWidth(takenTitle, takenTotalText),
         }.Max());
 
         dpsTable.FitTo(dpsContent);
         healTable?.FitTo(healContent);
         takenTable?.FitTo(tankContent);
-        deathTable?.FitTo(tankContent);
 
         double dpsColumn = dpsContent + (2 * Padding);
         double healColumn = healContent + (2 * Padding);
@@ -143,7 +129,7 @@ public static class EncounterImageRenderer
 
         double dpsHeight = TitleHeight + TableHeaderHeight + (Math.Max(1, rows.Count) * RowHeight) + legendHeight;
         double healHeight = SectionBlock(healing.Count);
-        double tankHeight = SectionBlock(taken.Count) + SectionGap + SectionBlock(deaths.Count);
+        double tankHeight = SectionBlock(taken.Count);
 
         // The graph runs the full width of the picture, between the mob's name and the tables.
         DpsTimeline? timeline = encounter.Timeline;
@@ -152,7 +138,12 @@ public static class EncounterImageRenderer
         double graphBlock = timeline is null ? 0 : TitleHeight + graphHeight + SectionGap;
         double headerHeight = HeaderHeight + (encounter.RegenText.Length > 0 ? RegenLineHeight : 0);
         double bodyTop = headerHeight + graphBlock;
-        double height = bodyTop + Math.Max(dpsHeight, Math.Max(healHeight, tankHeight)) + FooterHeight;
+        double columnsHeight = Math.Max(dpsHeight, Math.Max(healHeight, tankHeight));
+
+        // The damage the raid took per second runs the full width under the tables.
+        bool incoming = timeline?.Incoming is { Count: > 0 };
+        double incomingBlock = incoming ? SectionGap + TitleHeight + DpsGraph.IncomingHeight(IncomingPlotHeight) : 0;
+        double height = bodyTop + columnsHeight + incomingBlock + FooterHeight;
 
         Brush window = Solid(palette.WindowBg);
         Brush card = Solid(palette.CardBg);
@@ -186,7 +177,7 @@ public static class EncounterImageRenderer
 
             // thin dividers between the columns
             Brush divider = Solid(palette.TextPrimary, 0x20);
-            double dividerHeight = Math.Max(0, height - bodyTop - FooterHeight - 4);
+            double dividerHeight = Math.Max(0, columnsHeight - 4);
             dc.DrawRectangle(divider, null, new Rect(dpsColumn - 0.5, bodyTop + 4, 1, dividerHeight));
             dc.DrawRectangle(divider, null, new Rect(dpsColumn + healColumn - 0.5, bodyTop + 4, 1, dividerHeight));
 
@@ -266,7 +257,7 @@ public static class EncounterImageRenderer
 
             dc.Pop();
 
-            // ── third column: tanking, with the deaths under it ──
+            // ── third column: tanking ──
             dc.PushTransform(new TranslateTransform(dpsColumn + healColumn, 0));
             double ry = bodyTop;
             DrawTitle(dc, takenTitle, takenTotalText, tankContent, ry, text, muted, Bold);
@@ -296,30 +287,16 @@ public static class EncounterImageRenderer
                 }
             }
 
-            ry += SectionGap;
-
-            // Deaths: who died, when in the fight, who killed them and with what. Always shown, so the layout is the same from fight to fight.
-            DrawTitle(dc, "Deaths", deathTotalText, tankContent, ry, text, muted, Bold);
-            ry += SectionHeight - SectionGap;
-
-            if (deathTable is null)
-            {
-                Draw(dc, "No deaths.", Regular, 14, muted, Padding + 6, ry + 4, 400, TextAlignment.Left);
-            }
-            else
-            {
-                deathTable.DrawHeader(dc, ry, muted);
-                ry += TableHeaderHeight;
-                dc.DrawRectangle(line, null, new Rect(Padding, ry - 2, tankContent, 1));
-
-                for (int i = 0; i < deaths.Count; i++)
-                {
-                    deathTable.DrawRow(dc, i, ry, text);
-                    ry += RowHeight;
-                }
-            }
-
             dc.Pop();
+
+            if (incoming)
+            {
+                double iy = bodyTop + columnsHeight + SectionGap;
+                long takenSum = encounter.TotalDamageTaken;
+                DrawTitle(dc, "Damage taken over time", $"{takenSum.ToString("N0", CultureInfo.InvariantCulture)} total", graphWidth, iy, text, muted, Bold);
+                DpsGraph.DrawIncoming(dc, timeline!, new Rect(Padding, iy + TitleHeight, graphWidth, DpsGraph.IncomingHeight(IncomingPlotHeight)),
+                    IncomingPlotHeight, muted, line, Scale);
+            }
 
             // footer
             Draw(dc, footer, Regular, 12, muted, Padding, height - FooterHeight + 4, width - (2 * Padding), TextAlignment.Right);

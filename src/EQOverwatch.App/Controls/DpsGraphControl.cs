@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Media;
 using EQOverwatch.App.Services;
 using EQOverwatch.Core.Models;
@@ -16,6 +17,42 @@ public sealed class DpsGraphControl : FrameworkElement
     {
         get => (DpsTimeline?)GetValue(TimelineProperty);
         set => SetValue(TimelineProperty, value);
+    }
+
+    public static readonly DependencyProperty IncomingProperty = DependencyProperty.Register(
+        nameof(Incoming), typeof(bool), typeof(DpsGraphControl), new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.AffectsRender));
+
+    /// <summary>True to draw the damage the raid took per second instead of the DPS lines.</summary>
+    public bool Incoming
+    {
+        get => (bool)GetValue(IncomingProperty);
+        set => SetValue(IncomingProperty, value);
+    }
+
+    private Rect _plot;
+
+    public DpsGraphControl()
+    {
+        ToolTipService.SetInitialShowDelay(this, 0);
+    }
+
+    // The boss's casts under the mouse show as a tooltip.
+    protected override void OnMouseMove(System.Windows.Input.MouseEventArgs e)
+    {
+        base.OnMouseMove(e);
+        if (Incoming || Timeline is not { } timeline)
+        {
+            return;
+        }
+
+        Point p = e.GetPosition(this);
+        IReadOnlyList<TimelineMark> near = p.Y >= _plot.Top && p.Y <= _plot.Bottom + 4 ? DpsGraph.CastsNear(timeline, _plot, p.X) : Array.Empty<TimelineMark>();
+        string? tip = near.Count == 0 ? null
+            : string.Join("\n", near.Select(c => $"{DpsGraph.FormatTime(c.Seconds)}  {c.Label}"));
+        if (!Equals(ToolTip as string, tip))
+        {
+            ToolTip = tip;
+        }
     }
 
     private Brush Themed(string key, Brush fallback) => TryFindResource(key) as Brush ?? fallback;
@@ -38,9 +75,18 @@ public sealed class DpsGraphControl : FrameworkElement
         Brush muted = Themed("TextMutedBrush", Brushes.Gray);
         Brush grid = Themed("BorderSoftBrush", Brushes.DimGray);
 
+        var area = new Rect(0, 0, ActualWidth, ActualHeight);
+        if (Incoming)
+        {
+            double incomingPlot = Math.Max(40, ActualHeight - DpsGraph.IncomingHeight(0));
+            DpsGraph.DrawIncoming(drawingContext, timeline, area, incomingPlot, muted, grid, ppd);
+            return;
+        }
+
         // the plot takes whatever the legend leaves
         double legendAndAxis = DpsGraph.TotalHeight(timeline, ActualWidth, 0, ppd);
         double plot = Math.Max(60, ActualHeight - legendAndAxis - 4);
-        DpsGraph.Draw(drawingContext, timeline, new Rect(0, 0, ActualWidth, ActualHeight), plot, text, muted, grid, text, ppd);
+        _plot = DpsGraph.PlotRect(area, plot);
+        DpsGraph.Draw(drawingContext, timeline, area, plot, text, muted, grid, text, ppd);
     }
 }

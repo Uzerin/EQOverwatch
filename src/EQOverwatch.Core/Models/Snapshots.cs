@@ -102,7 +102,14 @@ public sealed record PlayerCastSnapshot(DateTime Time, string Caster, string Spe
 /// killer's last hit on the victim ("175 punch", "2,400 Judgment"), or empty when the log did not show it.
 /// </summary>
 /// <summary>A hit on a player or pet (<see cref="IsHeal"/> false) or a heal it received, for the "last seconds" view.</summary>
-public sealed record RecentEventSnapshot(DateTime Time, string Source, string What, int Amount, bool IsHeal);
+/// <summary>
+/// A hit on a player or pet, a heal that landed on it (<see cref="IsHeal"/>), or a heal someone began casting then (<see cref="IsCast"/>,
+/// no amount; the log does not say who it was for).
+/// </summary>
+public sealed record RecentEventSnapshot(DateTime Time, string Source, string What, int Amount, bool IsHeal, bool IsCast = false);
+
+/// <summary>A turn the fight's target spent meleeing one player, in seconds from the fight's start.</summary>
+public sealed record TankSpanSnapshot(string Name, double Start, double End, int Swings);
 
 /// <summary>
 /// A player's or pet's last <see cref="CombatEncounter.RecentSeconds"/> seconds in a fight, up to <see cref="End"/>: their death when
@@ -112,7 +119,7 @@ public sealed record LastSecondsSnapshot(string Name, DateTime End, bool Died, V
 {
     public long Taken => Events.Where(e => !e.IsHeal).Sum(e => (long)e.Amount);
 
-    public long Healed => Events.Where(e => e.IsHeal).Sum(e => (long)e.Amount);
+    public long Healed => Events.Where(e => e.IsHeal && !e.IsCast).Sum(e => (long)e.Amount);
 }
 
 public sealed record DeathSnapshot(DateTime Time, string Name, string KilledBy, string KillingBlow = "");
@@ -166,6 +173,9 @@ public sealed record EncounterSnapshot(
 
     /// <summary>Each player's last seconds of hits and heals (before their death, or before the fight's end).</summary>
     public IReadOnlyList<LastSecondsSnapshot> LastSeconds { get; init; } = Array.Empty<LastSecondsSnapshot>();
+
+    /// <summary>Who the target meleed, turn by turn (the tank timeline).</summary>
+    public IReadOnlyList<TankSpanSnapshot> TankSpans { get; init; } = Array.Empty<TankSpanSnapshot>();
 
     /// <summary>Who the target hurt, most damage first (empty when nothing was recorded).</summary>
     public IReadOnlyList<DamageTakenSnapshot> TakenRows => DamageTaken ?? Array.Empty<DamageTakenSnapshot>();
@@ -246,6 +256,7 @@ public sealed record EncounterSnapshot(
         {
             Server = encounter.Server,
             LastSeconds = encounter.LastSeconds(),
+            TankSpans = encounter.TankSpans.ToArray(),
         };
     }
 
@@ -350,6 +361,7 @@ public sealed record EncounterSnapshot(
             Array.AsReadOnly(deaths), Killed: false, Array.AsReadOnly(casts), ordered[0].Timeline, null)
         {
             Server = ordered[0].Server,
+            TankSpans = ordered[0].TankSpans,
             LastSeconds = parts.SelectMany(p => p.LastSeconds).GroupBy(w => w.Name, StringComparer.Ordinal)
                 .Select(g => g.OrderByDescending(w => w.Died).ThenByDescending(w => w.End).First()).ToList(),
         };
