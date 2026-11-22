@@ -395,7 +395,8 @@ public partial class DpsTrackerService : IDpsEventSink
                         }
                         else
                         {
-                            foe.AddDamageTaken(combatEvent.Target, combatEvent.Amount, combatEvent.IsRampage, timestamp: combatEvent.Timestamp);
+                            foe.AddDamageTaken(combatEvent.Target, combatEvent.Amount, combatEvent.IsRampage, timestamp: combatEvent.Timestamp,
+                                isMelee: combatEvent.DamageKind == DamageKind.Melee);
                         }
 
                         changed = true;
@@ -742,6 +743,7 @@ public partial class DpsTrackerService : IDpsEventSink
             }
 
             string target = match.Groups["target"].Value;
+            bool overTime = match.Groups["over"].Success;
             if (target.Equals("you", StringComparison.OrdinalIgnoreCase) || target.Equals("yourself", StringComparison.OrdinalIgnoreCase))
             {
                 target = _logOwner;
@@ -755,7 +757,7 @@ public partial class DpsTrackerService : IDpsEventSink
             NoteRecent(target, new RecentEventSnapshot(_logClock, healer, match.Groups["spell"].Value, actual, true));
             foreach (CombatEncounter encounter in _active.Values)
             {
-                encounter.AddHeal(healer, match.Groups["spell"].Value, actual, possible, isCritical, _logClock);
+                encounter.AddHeal(healer, match.Groups["spell"].Value, actual, possible, isCritical, _logClock, target, overTime);
             }
 
             Publish();
@@ -764,7 +766,7 @@ public partial class DpsTrackerService : IDpsEventSink
 
     // "Leinhart healed Regnier for 328 (8415) hit points by Complete Heal."  /  "X healed you over time for 32 hit points by Spell."
     [GeneratedRegex(
-        @"^(?<healer>.+?) healed (?<target>.+?) (?:over time )?for (?<actual>\d+)(?: \((?<possible>\d+)\))? hit points? by (?<spell>.+?)\.(?: \((?<tag>.+)\))?$",
+        @"^(?<healer>.+?) healed (?<target>.+?) (?:(?<over>over time) )?for (?<actual>\d+)(?: \((?<possible>\d+)\))? hit points? by (?<spell>.+?)\.(?: \((?<tag>.+)\))?$",
         RegexOptions.CultureInvariant)]
     private static partial Regex HealRegex();
 

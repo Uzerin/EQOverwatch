@@ -70,11 +70,15 @@ public sealed class CombatEncounter : ObservableObject
     }
 
     /// <summary>Damage the fight's target dealt to <paramref name="victim"/> (a player or pet) during the fight.</summary>
-    internal void AddDamageTaken(string victim, int amount, bool isRampage = false, bool isDot = false, DateTime timestamp = default)
+    internal void AddDamageTaken(string victim, int amount, bool isRampage = false, bool isDot = false, DateTime timestamp = default, bool isMelee = false)
     {
         if (timestamp != default)
         {
             _timeline.RecordIncoming((int)(timestamp - StartTime).TotalSeconds, amount);
+            if (isMelee && !isRampage && !isDot)
+            {
+                _timeline.RecordTaken(victim, (int)(timestamp - StartTime).TotalSeconds, amount);
+            }
         }
 
         if (!_takenByName.TryGetValue(victim, out DamageTakenStats? stats))
@@ -114,6 +118,7 @@ public sealed class CombatEncounter : ObservableObject
         stats.RecordShield(amount);
         TotalDamageTaken += amount;
         _timeline.RecordIncoming((int)(timestamp - StartTime).TotalSeconds, amount);
+        _timeline.RecordTaken(victim, (int)(timestamp - StartTime).TotalSeconds, amount);
         _shieldTotal += amount;
         _shieldHits++;
         double offset = Math.Max(0.0, (timestamp - StartTime).TotalSeconds);
@@ -326,12 +331,17 @@ public sealed class CombatEncounter : ObservableObject
     /// <summary>A heal landed during the fight. <paramref name="possible"/> is what the spell could have healed.</summary>
     private readonly HashSet<string> _healSpells = new(StringComparer.OrdinalIgnoreCase);
 
-    internal void AddHeal(string healer, string spell, int actual, int possible, bool isCritical = false, DateTime timestamp = default)
+    internal void AddHeal(string healer, string spell, int actual, int possible, bool isCritical = false, DateTime timestamp = default,
+        string target = "", bool overTime = false)
     {
         _healSpells.Add(spell);
         if (timestamp != default)
         {
             _timeline.RecordHealing((int)(timestamp - StartTime).TotalSeconds, actual);
+            if (!overTime)
+            {
+                _timeline.RecordInstantHeal((int)(timestamp - StartTime).TotalSeconds, target);
+            }
         }
 
         if (!_healers.TryGetValue(healer, out HealStats? stats))

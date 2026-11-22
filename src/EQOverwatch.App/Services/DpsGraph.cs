@@ -20,7 +20,6 @@ internal static class DpsGraph
     private const string GroupColor = "#FFFFFF";
     private const string DeathColor = "#E5484D";
     private const string CastColor = "#E7C547";
-    private const string IncomingColor = "#E5845C";
     private const string HealingColor = "#5CC98A";
     private const string BossHpColor = "#B8BCC8";
     private const string BurnColor = "#33E5845C";
@@ -41,28 +40,121 @@ internal static class DpsGraph
             .Where(c => Math.Abs(plot.X + (plot.Width * Math.Clamp(c.Seconds / total, 0, 1)) - x) <= 4).ToList();
     }
 
+    /// <summary>The colors of the characters' damage-taken lines (none green or red, which mark heals and deaths).</summary>
+    private static readonly string[] TakenColors = { "#E5845C", "#6AA9F0", "#E7C547", "#C084E6", "#F08CB4" };
+
+    /// <summary>The color of the <paramref name="index"/>th damage-taken line.</summary>
+    public static string TakenColorOf(int index) => TakenColors[index % TakenColors.Length];
+
     /// <summary>
-    /// The damage the raid took per second, under the DPS graph, with the same time axis and the deaths marked.
+    /// Damage taken under the DPS graph, with the same time axis: a line per character taking damage (rampage left out), each only
+    /// while they were taking it, a dashed green line for each instant heal on the tank, and the deaths marked.
+    /// Fights saved before the per-character lines fall back to the raid's total.
     /// </summary>
     public static void DrawIncoming(DrawingContext dc, DpsTimeline timeline, Rect area, double plotHeight, Brush muted, Brush grid, double pixelsPerDip)
     {
         Rect plot = PlotRect(area, plotHeight);
-        IReadOnlyList<double> values = timeline.Incoming ?? (IReadOnlyList<double>)Array.Empty<double>();
-        IReadOnlyList<double> healing = timeline.Healing ?? (IReadOnlyList<double>)Array.Empty<double>();
-        double peak = NiceCeiling(Math.Max(values.Count == 0 ? 0 : values.Max(), healing.Count == 0 ? 0 : healing.Max()));
-        Axes(dc, plot, peak, timeline.Span, muted, grid, pixelsPerDip);
-        DrawLine(dc, healing, plot, peak, SolidOf(HealingColor), 1.8);
-        DrawLine(dc, values, plot, peak, SolidOf(IncomingColor), 2.2);
-        DrawDeaths(dc, timeline, plot, pixelsPerDip, labels: false);
-        if (healing.Count > 0)
+        if (timeline.Taken is not { Count: > 0 } taken)
         {
-            // a small key in the top right: which line is which
-            double x = plot.Right - 190;
-            dc.DrawRoundedRectangle(SolidOf(IncomingColor), null, new Rect(x, plot.Top + 6, 12, 4), 2, 2);
-            Label(dc, "Damage taken", muted, 11, x + 16, plot.Top, TextAlignment.Left, 85, pixelsPerDip);
-            dc.DrawRoundedRectangle(SolidOf(HealingColor), null, new Rect(x + 104, plot.Top + 6, 12, 4), 2, 2);
-            Label(dc, "Healing", muted, 11, x + 120, plot.Top, TextAlignment.Left, 70, pixelsPerDip);
+            IReadOnlyList<double> values = timeline.Incoming ?? (IReadOnlyList<double>)Array.Empty<double>();
+            double total = NiceCeiling(values.Count == 0 ? 0 : values.Max());
+            Axes(dc, plot, total, timeline.Span, muted, grid, pixelsPerDip);
+            DrawLine(dc, values, plot, total, SolidOf(TakenColors[0]), 2.2);
+            DrawDeaths(dc, timeline, plot, pixelsPerDip, labels: false);
+            return;
         }
+
+        double peak = NiceCeiling(taken.Max(t => PeakIn(t)));
+        Axes(dc, plot, peak, timeline.Span, muted, grid, pixelsPerDip);
+        if (timeline.TankHeals is { Count: > 0 } heals)
+        {
+            var healPen = new Pen(new SolidColorBrush(Color.FromArgb(150, 0x5C, 0xC9, 0x8A)), 1) { DashStyle = new DashStyle(new double[] { 4, 3 }, 0) };
+            healPen.Freeze();
+            foreach (double at in heals)
+            {
+                double x = MarkX(timeline, plot, at);
+                dc.DrawLine(healPen, new Point(x, plot.Top + 18), new Point(x, plot.Bottom)); // below the key
+            }
+        }
+
+        for (int i = taken.Count - 1; i >= 0; i--)
+        {
+            DrawTaken(dc, timeline, taken[i], plot, peak, SolidOf(TakenColorOf(i)));
+        }
+
+        DrawDeaths(dc, timeline, plot, pixelsPerDip, labels: false);
+
+        // the key along the top: each character in their color, then the heal marks
+        double kx = plot.X + 6;
+        for (int i = 0; i < taken.Count; i++)
+        {
+            dc.DrawRoundedRectangle(SolidOf(TakenColorOf(i)), null, new Rect(kx, plot.Top + 6, 12, 4), 2, 2);
+            double width = Math.Min(120, Measure(taken[i].Name, 11, pixelsPerDip) + 4);
+            Label(dc, taken[i].Name, muted, 11, kx + 16, plot.Top, TextAlignment.Left, width, pixelsPerDip);
+            kx += 16 + width + 12;
+        }
+
+        if (timeline.TankHeals is { Count: > 0 })
+        {
+            var keyPen = new Pen(SolidOf(HealingColor), 1.4) { DashStyle = new DashStyle(new double[] { 2, 2 }, 0) };
+            keyPen.Freeze();
+            dc.DrawLine(keyPen, new Point(kx + 5, plot.Top + 1), new Point(kx + 5, plot.Top + 14));
+            Label(dc, "Heals on tank", muted, 11, kx + 12, plot.Top, TextAlignment.Left, 90, pixelsPerDip);
+        }
+    }
+
+    private static double PeakIn(TakenSeries series)
+    {
+        double peak = 0;
+        foreach (TimelineSpan span in series.Spans)
+        {
+            for (int i = (int)(span.From / DpsTimeline.TakenWindow); i < series.Dps.Count && i * DpsTimeline.TakenWindow < span.To; i++)
+            {
+                peak = Math.Max(peak, series.Dps[i]);
+            }
+        }
+
+        return peak;
+    }
+
+    // One character's damage taken: a point in the middle of each 10-second window, over each stretch they took damage,
+    // running from the stretch's first 10-second mark to its last.
+    private static void DrawTaken(DrawingContext dc, DpsTimeline timeline, TakenSeries series, Rect plot, double peak, Brush brush)
+    {
+        if (peak <= 0)
+        {
+            return;
+        }
+
+        const int w = DpsTimeline.TakenWindow;
+        double Y(double v) => plot.Bottom - (plot.Height * Math.Clamp(v / peak, 0, 1));
+        var geometry = new StreamGeometry();
+        using (StreamGeometryContext ctx = geometry.Open())
+        {
+            foreach (TimelineSpan span in series.Spans)
+            {
+                int first = (int)(span.From / w);
+                int last = Math.Min(series.Dps.Count - 1, (int)Math.Ceiling(span.To / w) - 1);
+                if (first > last)
+                {
+                    continue;
+                }
+
+                ctx.BeginFigure(new Point(MarkX(timeline, plot, span.From), Y(series.Dps[first])), false, false);
+                for (int i = first; i <= last; i++)
+                {
+                    double mid = Math.Min(span.To, (i * w) + (w / 2.0));
+                    ctx.LineTo(new Point(MarkX(timeline, plot, mid), Y(series.Dps[i])), true, true);
+                }
+
+                ctx.LineTo(new Point(MarkX(timeline, plot, span.To), Y(series.Dps[last])), true, true);
+            }
+        }
+
+        geometry.Freeze();
+        var pen = new Pen(brush, 2) { LineJoin = PenLineJoin.Round, StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };
+        pen.Freeze();
+        dc.DrawGeometry(null, pen, geometry);
     }
 
     private static void Axes(DrawingContext dc, Rect plot, double peak, double totalSeconds, Brush muted, Brush grid, double pixelsPerDip)

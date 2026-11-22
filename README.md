@@ -64,6 +64,10 @@ settings are kept.
 
 ## Changelog
 
+### 1.0.93
+
+- Damage-taken graph: a line per character taking melee damage (rampage left out), drawn only while they take it, and a dashed green line for each instant heal on the tank.
+
 ### 1.0.92
 
 - Fight graph: the boss's estimated health (dashed), shading for burns, a healing line on the damage-taken graph, and a replay slider that shows the table at any point in the fight.

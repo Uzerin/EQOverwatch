@@ -25,6 +25,15 @@ public sealed class ValueList<T> : System.Collections.ObjectModel.ReadOnlyCollec
 /// <summary>A moment marked on the graph: a death (the name) or a spell the fight's target cast.</summary>
 public sealed record TimelineMark(double Seconds, string Label);
 
+/// <summary>A stretch of the fight, in seconds from its start.</summary>
+public sealed record TimelineSpan(double From, double To);
+
+/// <summary>
+/// A character's damage taken on the incoming graph: damage per second in each <see cref="DpsTimeline.TakenWindow"/>-second window,
+/// drawn only over <paramref name="Spans"/> (while they were taking damage, to the nearest 10-second marks).
+/// </summary>
+public sealed record TakenSeries(string Name, ValueList<double> Dps, ValueList<TimelineSpan> Spans);
+
 /// <summary>One line on the DPS-over-time graph: a player's damage per second in each time bucket.</summary>
 public sealed record TimelineSeries(string Name, ValueList<double> Dps);
 
@@ -47,6 +56,18 @@ public sealed record DpsTimeline(double BucketSeconds, ValueList<double> Group, 
 
     /// <summary>Damage the raid took per second in each bucket (the incoming graph), or null when none was recorded.</summary>
     public ValueList<double>? Incoming { get; init; }
+
+    /// <summary>The seconds each <see cref="TakenSeries"/> value covers.</summary>
+    public const int TakenWindow = 10;
+
+    /// <summary>A character's line breaks after this many seconds without taking damage.</summary>
+    public const int TakenGap = 30;
+
+    /// <summary>The (up to <see cref="MaxPlayers"/>) characters who took the most melee and damage-shield damage (not rampage), or null when none.</summary>
+    public ValueList<TakenSeries>? Taken { get; init; }
+
+    /// <summary>When an instant heal landed on whoever was taking the most damage at that moment (the tank).</summary>
+    public ValueList<double>? TankHeals { get; init; }
 
     /// <summary>Healing landed per second in each bucket (drawn with the incoming graph), or null when none was recorded.</summary>
     public ValueList<double>? Healing { get; init; }
@@ -171,6 +192,128 @@ internal sealed class TimelineRecorder
     private readonly List<long> _group = new();
     private readonly List<long> _incoming = new();
     private readonly List<long> _healing = new();
+    private readonly Dictionary<string, List<long>> _taken = new(StringComparer.Ordinal);
+    private readonly List<(int Second, string Target)> _heals = new();
+
+    /// <summary>Melee or damage-shield damage (not rampage) a character took, for their line on the incoming graph.</summary>
+    public void RecordTaken(string victim, int secondsIn, int amount)
+    {
+        if (secondsIn is >= 0 and < MaxSeconds && amount > 0)
+        {
+            if (!_taken.TryGetValue(victim, out List<long>? list))
+            {
+                list = new List<long>();
+                _taken.Add(victim, list);
+            }
+
+            Add(list, secondsIn, amount);
+        }
+    }
+
+    /// <summary>An instant heal landed on <paramref name="target"/>: marked on the graph when they were the tank at the time.</summary>
+    public void RecordInstantHeal(int secondsIn, string target)
+    {
+        if (secondsIn is >= 0 and < MaxSeconds && target.Length > 0 && _heals.Count < 20000)
+        {
+            _heals.Add((secondsIn, target));
+        }
+    }
+
+    /// <summary>
+    /// Each top damage taker's line: damage per second in 10-second windows, drawn over the stretches they took damage
+    /// (from the 10-second mark before their first hit to the one after their last, broken by gaps of 30 seconds or more).
+    /// </summary>
+    private (ValueList<TakenSeries>? Lines, ValueList<double>? Heals) BuildTaken(int total)
+    {
+        if (_taken.Count == 0)
+        {
+            return (null, null);
+        }
+
+        const int w = DpsTimeline.TakenWindow;
+        int windows = (int)Math.Ceiling(total / (double)w);
+        double[] Windows(List<long> source)
+        {
+            var values = new double[windows];
+            for (int s = 0; s < source.Count && s < total; s++)
+            {
+                values[s / w] += source[s];
+            }
+
+            for (int i = 0; i < windows; i++)
+            {
+                values[i] /= Math.Max(1, Math.Min(w, total - (i * w)));
+            }
+
+            return values;
+        }
+
+        var lines = new List<TakenSeries>();
+        foreach (KeyValuePair<string, List<long>> pair in _taken.OrderByDescending(p => p.Value.Sum()).ThenBy(p => p.Key, StringComparer.Ordinal).Take(DpsTimeline.MaxPlayers))
+        {
+            var spans = new List<TimelineSpan>();
+            int first = -1, last = -1;
+            for (int s = 0; s <= pair.Value.Count; s++)
+            {
+                bool hit = s < pair.Value.Count && s < total && pair.Value[s] > 0;
+                if (hit && first >= 0 && s - last >= DpsTimeline.TakenGap)
+                {
+                    spans.Add(Span(first, last));
+                    first = -1;
+                }
+
+                if (hit)
+                {
+                    first = first < 0 ? s : first;
+                    last = s;
+                }
+            }
+
+            if (first >= 0)
+            {
+                spans.Add(Span(first, last));
+            }
+
+            if (spans.Count > 0)
+            {
+                lines.Add(new TakenSeries(pair.Key, new ValueList<double>(Windows(pair.Value)), new ValueList<TimelineSpan>(spans)));
+            }
+        }
+
+        TimelineSpan Span(int from, int to) => new((from / w) * w, Math.Min(total, ((to / w) + 1) * w));
+
+        // The tank in each window is whoever took the most damage in it (all characters, not just the lines drawn).
+        var tank = new string?[windows];
+        var most = new long[windows];
+        foreach (KeyValuePair<string, List<long>> pair in _taken)
+        {
+            var sums = new long[windows];
+            for (int s = 0; s < pair.Value.Count && s < total; s++)
+            {
+                sums[s / w] += pair.Value[s];
+            }
+
+            for (int i = 0; i < windows; i++)
+            {
+                if (sums[i] > most[i] || (sums[i] == most[i] && sums[i] > 0 && string.CompareOrdinal(pair.Key, tank[i]) < 0))
+                {
+                    most[i] = sums[i];
+                    tank[i] = pair.Key;
+                }
+            }
+        }
+
+        string? current = null;
+        for (int i = 0; i < windows; i++)
+        {
+            current = tank[i] ?? current;
+            tank[i] = current;
+        }
+
+        double[] heals = _heals.Where(h => h.Second < total && string.Equals(tank[h.Second / w], h.Target, StringComparison.Ordinal))
+            .Select(h => (double)h.Second).ToArray();
+        return (new ValueList<TakenSeries>(lines), heals.Length == 0 ? null : new ValueList<double>(heals));
+    }
 
     /// <summary>Healing landed, for the line drawn with the incoming graph.</summary>
     public void RecordHealing(int secondsIn, int amount)
@@ -273,8 +416,11 @@ internal sealed class TimelineRecorder
             }
         }
 
+        (ValueList<TakenSeries>? taken, ValueList<double>? tankHeals) = BuildTaken(total);
         return new DpsTimeline(bucket, Cut(_group), new ValueList<TimelineSeries>(series))
         {
+            Taken = taken,
+            TankHeals = tankHeals,
             Incoming = _incoming.Count == 0 ? null : Cut(_incoming),
             Healing = _healing.Count == 0 ? null : Cut(_healing),
             Damage = new ValueList<TimelineSeries>(_byPlayer.Select(p => new TimelineSeries(p.Key, Sum(p.Value))).ToArray()),

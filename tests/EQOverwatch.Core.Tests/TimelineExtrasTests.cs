@@ -78,6 +78,47 @@ public sealed class TimelineExtrasTests
     }
 
     [Fact]
+    public void DamageTakenLinesFollowEachCharacterAndHealsFollowTheTank()
+    {
+        var start = new DateTime(2026, 11, 21, 20, 0, 0);
+        var fight = new CombatEncounter(1, "a training dummy", start);
+        for (int s = 0; s <= 120; s += 2)
+        {
+            fight.AddDamage(start.AddSeconds(s), "Gearbox", 100);
+            if (s < 60)
+            {
+                fight.AddDamageTaken("Tankard", 300, timestamp: start.AddSeconds(s), isMelee: true);
+            }
+            else
+            {
+                fight.AddDamageTaken("Shieldwall", 300, timestamp: start.AddSeconds(s), isMelee: true);
+            }
+
+            // rampage hits everybody: never its own line
+            fight.AddDamageTaken("Porter", 50, isRampage: true, timestamp: start.AddSeconds(s), isMelee: true);
+        }
+
+        // Gearbox takes damage twice, 40 s apart: two pieces, each rounded out to 10-second marks.
+        fight.AddDamageTaken("Gearbox", 80, timestamp: start.AddSeconds(23), isMelee: true);
+        fight.AddDamageTaken("Gearbox", 80, timestamp: start.AddSeconds(27), isMelee: true);
+        fight.AddDamageTaken("Gearbox", 80, timestamp: start.AddSeconds(67), isMelee: true);
+
+        fight.AddHeal("Mendwell", "Complete Heal", 9000, 9000, timestamp: start.AddSeconds(15), target: "Tankard");
+        fight.AddHeal("Mendwell", "Complete Heal", 9000, 9000, timestamp: start.AddSeconds(25), target: "Shieldwall");
+        fight.AddHeal("Mendwell", "Complete Heal", 9000, 9000, timestamp: start.AddSeconds(85), target: "Shieldwall");
+        fight.AddHeal("Mendwell", "Celestial Regen", 300, 300, timestamp: start.AddSeconds(16), target: "Tankard", overTime: true);
+
+        DpsTimeline timeline = fight.BuildTimeline()!;
+        var taken = timeline.Taken!;
+
+        Assert.DoesNotContain(taken, t => t.Name == "Porter");
+        Assert.Equal(new TimelineSpan(0, 60), taken.Single(t => t.Name == "Tankard").Spans.Single());
+        Assert.Equal(new TimelineSpan(60, 121), taken.Single(t => t.Name == "Shieldwall").Spans.Single());
+        Assert.Equal(new[] { new TimelineSpan(20, 30), new TimelineSpan(60, 70) }, taken.Single(t => t.Name == "Gearbox").Spans);
+        Assert.Equal(new[] { 15.0, 85.0 }, timeline.TankHeals!);
+    }
+
+    [Fact]
     public void MapPackRecordKnowsWhenANewerPackIsOut()
     {
         var none = new MapPackRecord();
