@@ -54,6 +54,19 @@ public sealed class MapPackRecord
 {
     public string Version { get; set; } = string.Empty;
 
+    /// <summary>The release tag the files came from ("maps-2026-11-21"); empty for records saved before it was kept.</summary>
+    public string Tag { get; set; } = string.Empty;
+
+    /// <summary>The tag of the pack installed, or empty when none was.</summary>
+    public string InstalledTag => Files.Count == 0 ? string.Empty
+        : Tag.Length > 0 ? Tag
+        : Version.Length > 0 ? MapPackInstaller.TagPrefix + Version
+        : string.Empty;
+
+    /// <summary>True when <paramref name="latestTag"/> is a different pack from the one installed (and one was installed).</summary>
+    public bool IsOutdated(string latestTag) =>
+        InstalledTag.Length > 0 && !string.Equals(InstalledTag, latestTag, StringComparison.OrdinalIgnoreCase);
+
     /// <summary>Installed file name to its SHA-256 (lower-case hex).</summary>
     public Dictionary<string, string> Files { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 

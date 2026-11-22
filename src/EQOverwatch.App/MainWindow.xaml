@@ -1318,12 +1318,30 @@
                                 <TabItem Header="Graph">
                                     <DockPanel Margin="0,6,0,0">
                                         <TextBlock DockPanel.Dock="Top" FontWeight="SemiBold" Margin="0,0,0,8" TextWrapping="Wrap"
-                                                   Text="Damage per second through the fight: the whole group (thick line) and the top five damage dealers. Red lines are deaths; yellow ticks are the boss's casts (hover for the spell)."/>
+                                                   Text="Damage per second through the fight: the whole group (thick line) and the top five damage dealers. Red lines are deaths; yellow ticks are the boss's casts (hover for the spell); shading marks burns (the group 50% or more above its average); the dashed line is the boss's estimated health, when its hit points are known."/>
                                         <DockPanel DockPanel.Dock="Bottom" Height="190" Margin="0,10,0,0">
-                                            <TextBlock DockPanel.Dock="Top" FontWeight="SemiBold" Text="Damage taken per second"/>
+                                            <TextBlock DockPanel.Dock="Top" FontWeight="SemiBold" Text="Damage taken and healing per second"/>
                                             <ctl:DpsGraphControl Timeline="{Binding EncounterTimeline}" Incoming="True"/>
                                         </DockPanel>
-                                        <ctl:DpsGraphControl Timeline="{Binding EncounterTimeline}" MinHeight="220"/>
+                                        <DockPanel DockPanel.Dock="Right" Margin="12,0,0,0">
+                                            <TextBlock DockPanel.Dock="Top" FontWeight="SemiBold" Margin="0,0,0,6" Text="{Binding ReplayTitle}"/>
+                                            <DataGrid ItemsSource="{Binding ReplayRows}" AutoGenerateColumns="False" IsReadOnly="True" HeadersVisibility="Column"
+                                                      HorizontalAlignment="Left" ToolTip="Each attacker's damage and DPS from the start of the fight to the slider's point.">
+                                                <DataGrid.Columns>
+                                                    <DataGridTextColumn Header="#" Binding="{Binding Rank}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                                    <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="Auto"/>
+                                                    <DataGridTextColumn Header="Damage" Binding="{Binding Damage}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                                    <DataGridTextColumn Header="DPS" Binding="{Binding Dps}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                                    <DataGridTextColumn Header="%" Binding="{Binding Share}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                                </DataGrid.Columns>
+                                            </DataGrid>
+                                        </DockPanel>
+                                        <DockPanel DockPanel.Dock="Bottom" Margin="52,4,12,0">
+                                            <TextBlock DockPanel.Dock="Left" VerticalAlignment="Center" Margin="0,0,10,0" Style="{StaticResource HintText}" Text="Replay"/>
+                                            <Slider Minimum="0" Maximum="{Binding ReplayMax}" Value="{Binding ReplaySeconds, Mode=TwoWay}" SmallChange="1" LargeChange="30"
+                                                    VerticalAlignment="Center" ToolTip="Drag to see the table as it stood at that point in the fight; all the way right is the whole fight."/>
+                                        </DockPanel>
+                                        <ctl:DpsGraphControl Timeline="{Binding EncounterTimeline}" CursorSeconds="{Binding ReplayCursor}" MinHeight="220"/>
                                     </DockPanel>
                                 </TabItem>
 
@@ -2830,7 +2848,7 @@
                     <DockPanel Grid.Row="0" Margin="0,0,0,10" LastChildFill="True">
                         <RadioButton DockPanel.Dock="Left" GroupName="MapsSubTabs" Style="{StaticResource MapsSubTab}" Content="Current Zone" IsChecked="{Binding IsCurrentZoneTab, Mode=TwoWay}"/>
                         <RadioButton DockPanel.Dock="Left" GroupName="MapsSubTabs" Style="{StaticResource MapsSubTab}" Content="Select Zone" IsChecked="{Binding IsSelectZoneTab, Mode=TwoWay}"/>
-                        <Button DockPanel.Dock="Right" Content="Install/Update Overwatch Maps" Command="{Binding InstallMapPackCommand}"
+                        <Button DockPanel.Dock="Right" Content="{Binding PackButtonText}" Command="{Binding InstallMapPackCommand}"
                                 ToolTip="Checks maps\Overwatch in your EverQuest folder and installs the Overwatch map pack's missing or updated files. Files you edited are only replaced if you say so, after a backup. Not available during combat."/>
                         <ProgressBar DockPanel.Dock="Right" Width="120" Height="6" Margin="12,0,10,0" VerticalAlignment="Center" Maximum="100"
                                      Value="{Binding PackProgress}" Visibility="{Binding IsInstallingPack, Converter={StaticResource MapsVisible}}"/>

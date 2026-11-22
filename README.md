@@ -64,6 +64,11 @@ settings are kept.
 
 ## Changelog
 
+### 1.0.92
+
+- Fight graph: the boss's estimated health (dashed), shading for burns, a healing line on the damage-taken graph, and a replay slider that shows the table at any point in the fight.
+- Maps: the button says "(new)" when a newer Overwatch map pack is out.
+
 ### 1.0.91
 
 - Tabs grouped: Loot (Loot Log, Drop Table, Items & Scrolls), Raid (Attendance, Mob History, Players & Pets), Progress (Experience, Session, Leveling, Spell Stats) and Logs (Chat, Log Search); Triggers sub-tabs are now Custom, Raid, Spells and AAs & Discs.

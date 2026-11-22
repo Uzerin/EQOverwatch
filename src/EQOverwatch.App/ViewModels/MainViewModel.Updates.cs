@@ -262,6 +262,8 @@ public sealed partial class MainViewModel
             return;
         }
 
+        _ = Maps.CheckPackUpdateAsync(); // a newer Overwatch map pack shows on the Maps tab's button
+
         if (!background)
         {
             UpdateStatus = "Checking for updates…";

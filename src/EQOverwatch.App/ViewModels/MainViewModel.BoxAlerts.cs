@@ -138,7 +138,9 @@ public partial class MainViewModel
 
     /// <summary>The fight with its mob's estimated regen and hit points attached, for the Discord picture.</summary>
     private EncounterSnapshot WithRegen(EncounterSnapshot encounter) =>
-        RegenFor(encounter.TargetName) is { } regen ? encounter with { RegenText = regen.Describe() } : encounter;
+        RegenFor(encounter.TargetName) is { } regen
+            ? encounter with { RegenText = regen.Describe(), Timeline = encounter.Timeline?.WithBossHp(regen.HitPoints, regen.RegenPerSecond) }
+            : encounter;
 
     /// <summary>Your characters (the watched logs) with their server and Tank box, kept for the tailing thread.</summary>
     private void RefreshOwnCharacters()

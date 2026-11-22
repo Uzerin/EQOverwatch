@@ -326,9 +326,14 @@ public sealed class CombatEncounter : ObservableObject
     /// <summary>A heal landed during the fight. <paramref name="possible"/> is what the spell could have healed.</summary>
     private readonly HashSet<string> _healSpells = new(StringComparer.OrdinalIgnoreCase);
 
-    internal void AddHeal(string healer, string spell, int actual, int possible, bool isCritical = false)
+    internal void AddHeal(string healer, string spell, int actual, int possible, bool isCritical = false, DateTime timestamp = default)
     {
         _healSpells.Add(spell);
+        if (timestamp != default)
+        {
+            _timeline.RecordHealing((int)(timestamp - StartTime).TotalSeconds, actual);
+        }
+
         if (!_healers.TryGetValue(healer, out HealStats? stats))
         {
             stats = new HealStats(healer);

@@ -755,7 +755,7 @@ public partial class DpsTrackerService : IDpsEventSink
             NoteRecent(target, new RecentEventSnapshot(_logClock, healer, match.Groups["spell"].Value, actual, true));
             foreach (CombatEncounter encounter in _active.Values)
             {
-                encounter.AddHeal(healer, match.Groups["spell"].Value, actual, possible, isCritical);
+                encounter.AddHeal(healer, match.Groups["spell"].Value, actual, possible, isCritical, _logClock);
             }
 
             Publish();

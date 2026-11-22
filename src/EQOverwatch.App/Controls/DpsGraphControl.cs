@@ -29,6 +29,16 @@ public sealed class DpsGraphControl : FrameworkElement
         set => SetValue(IncomingProperty, value);
     }
 
+    public static readonly DependencyProperty CursorSecondsProperty = DependencyProperty.Register(
+        nameof(CursorSeconds), typeof(double?), typeof(DpsGraphControl), new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
+
+    /// <summary>Where to draw the fight replay's line, in seconds into the fight (null: none).</summary>
+    public double? CursorSeconds
+    {
+        get => (double?)GetValue(CursorSecondsProperty);
+        set => SetValue(CursorSecondsProperty, value);
+    }
+
     private Rect _plot;
 
     public DpsGraphControl()
@@ -87,6 +97,6 @@ public sealed class DpsGraphControl : FrameworkElement
         double legendAndAxis = DpsGraph.TotalHeight(timeline, ActualWidth, 0, ppd);
         double plot = Math.Max(60, ActualHeight - legendAndAxis - 4);
         _plot = DpsGraph.PlotRect(area, plot);
-        DpsGraph.Draw(drawingContext, timeline, area, plot, text, muted, grid, text, ppd);
+        DpsGraph.Draw(drawingContext, timeline, area, plot, text, muted, grid, text, ppd, CursorSeconds);
     }
 }

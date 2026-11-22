@@ -963,7 +963,7 @@ public sealed partial class MainViewModel : ObservableObject
             DamageTaken.Clear();
             DamageTakenSummary = string.Empty;
             ShowLastSeconds(null);
-            EncounterTimeline = null;
+            ShowTimeline(null);
             UpdateEncounterDetails(null);
             EncounterSummary = NoEncounterText;
             return;
@@ -1001,10 +1001,7 @@ public sealed partial class MainViewModel : ObservableObject
 
         ShowLastSeconds(encounter);
         DamageTakenSummary = $"Damage taken from {encounter.TargetName}: {encounter.TotalDamageTaken:N0}" + ShieldSummaryText(encounter) + RampageSummaryText(encounter) + DotSummaryText(encounter);
-        if (!Equals(EncounterTimeline, encounter.Timeline))
-        {
-            EncounterTimeline = encounter.Timeline;
-        }
+        ShowTimeline(encounter);
 
         UpdateEncounterDetails(encounter);
 

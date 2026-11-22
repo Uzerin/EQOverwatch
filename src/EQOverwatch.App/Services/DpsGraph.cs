@@ -21,6 +21,10 @@ internal static class DpsGraph
     private const string DeathColor = "#E5484D";
     private const string CastColor = "#E7C547";
     private const string IncomingColor = "#E5845C";
+    private const string HealingColor = "#5CC98A";
+    private const string BossHpColor = "#B8BCC8";
+    private const string BurnColor = "#33E5845C";
+    private const string ReplayColor = "#9AA0FF";
 
     /// <summary>The height the incoming-damage graph needs for a plot area <paramref name="plotHeight"/> tall.</summary>
     public static double IncomingHeight(double plotHeight) => TopMargin + plotHeight + AxisHeight + 4;
@@ -44,10 +48,21 @@ internal static class DpsGraph
     {
         Rect plot = PlotRect(area, plotHeight);
         IReadOnlyList<double> values = timeline.Incoming ?? (IReadOnlyList<double>)Array.Empty<double>();
-        double peak = NiceCeiling(values.Count == 0 ? 0 : values.Max());
+        IReadOnlyList<double> healing = timeline.Healing ?? (IReadOnlyList<double>)Array.Empty<double>();
+        double peak = NiceCeiling(Math.Max(values.Count == 0 ? 0 : values.Max(), healing.Count == 0 ? 0 : healing.Max()));
         Axes(dc, plot, peak, timeline.Span, muted, grid, pixelsPerDip);
+        DrawLine(dc, healing, plot, peak, SolidOf(HealingColor), 1.8);
         DrawLine(dc, values, plot, peak, SolidOf(IncomingColor), 2.2);
         DrawDeaths(dc, timeline, plot, pixelsPerDip, labels: false);
+        if (healing.Count > 0)
+        {
+            // a small key in the top right: which line is which
+            double x = plot.Right - 190;
+            dc.DrawRoundedRectangle(SolidOf(IncomingColor), null, new Rect(x, plot.Top + 6, 12, 4), 2, 2);
+            Label(dc, "Damage taken", muted, 11, x + 16, plot.Top, TextAlignment.Left, 85, pixelsPerDip);
+            dc.DrawRoundedRectangle(SolidOf(HealingColor), null, new Rect(x + 104, plot.Top + 6, 12, 4), 2, 2);
+            Label(dc, "Healing", muted, 11, x + 120, plot.Top, TextAlignment.Left, 70, pixelsPerDip);
+        }
     }
 
     private static void Axes(DrawingContext dc, Rect plot, double peak, double totalSeconds, Brush muted, Brush grid, double pixelsPerDip)
@@ -142,12 +157,14 @@ internal static class DpsGraph
 
     public static void Draw(
         DrawingContext dc, DpsTimeline timeline, Rect area, double plotHeight, Brush text, Brush muted, Brush grid, Brush groupBrush,
-        double pixelsPerDip)
+        double pixelsPerDip, double? cursorSeconds = null)
     {
         Rect plot = PlotRect(area, plotHeight);
         double peak = NiceCeiling(timeline.Peak);
+        DrawBurns(dc, timeline, plot);
         Axes(dc, plot, peak, timeline.Span, muted, grid, pixelsPerDip);
         DrawCasts(dc, timeline, plot);
+        DrawBossHp(dc, timeline, plot);
 
         for (int p = 0; p < timeline.Players.Count; p++)
         {
@@ -156,6 +173,13 @@ internal static class DpsGraph
 
         DrawLine(dc, timeline.Group, plot, peak, groupBrush, 2.6);
         DrawDeaths(dc, timeline, plot, pixelsPerDip, labels: true);
+        if (cursorSeconds is { } cursor && cursor < timeline.Span)
+        {
+            var pen = new Pen(SolidOf(ReplayColor), 1.5);
+            pen.Freeze();
+            double x = MarkX(timeline, plot, cursor);
+            dc.DrawLine(pen, new Point(x, plot.Top), new Point(x, plot.Bottom));
+        }
 
         // legend
         double lx = area.X + LeftMargin;
@@ -171,7 +195,8 @@ internal static class DpsGraph
                 ly += LegendLine;
             }
 
-            dc.DrawRoundedRectangle(i == 0 ? groupBrush : SolidOf(ColorOf(i - 1)), null, new Rect(lx, ly + 5, 12, 6), 2, 2);
+            Brush key = entries[i].Index == BossHpIndex ? SolidOf(BossHpColor) : i == 0 ? groupBrush : SolidOf(ColorOf(i - 1));
+            dc.DrawRoundedRectangle(key, null, new Rect(lx, ly + 5, 12, entries[i].Index == BossHpIndex ? 3 : 6), 2, 2);
             Label(dc, entries[i].Name, text, 12, lx + 17, ly + 1, TextAlignment.Left, w, pixelsPerDip);
             lx += w + 14;
         }
@@ -208,6 +233,8 @@ internal static class DpsGraph
         dc.DrawGeometry(null, pen, geometry);
     }
 
+    private const int BossHpIndex = -2;
+
     private static List<(string Name, int Index)> Legend(DpsTimeline timeline)
     {
         var list = new List<(string, int)> { ("Group", -1) };
@@ -216,7 +243,51 @@ internal static class DpsGraph
             list.Add((timeline.Players[i].Name, i));
         }
 
+        if (timeline.BossHp is { Count: > 0 })
+        {
+            list.Add(("Boss HP (est.)", BossHpIndex));
+        }
+
         return list;
+    }
+
+    // Light shading behind the stretches where the group's DPS ran 50% or more above the fight's average.
+    private static void DrawBurns(DrawingContext dc, DpsTimeline timeline, Rect plot)
+    {
+        Brush shade = SolidOf(BurnColor);
+        double total = Math.Max(1, timeline.Span);
+        foreach ((int from, int to) in timeline.Burns())
+        {
+            double x1 = plot.X + (plot.Width * Math.Clamp(from * timeline.BucketSeconds / total, 0, 1));
+            double x2 = plot.X + (plot.Width * Math.Clamp((to + 1) * timeline.BucketSeconds / total, 0, 1));
+            dc.DrawRectangle(shade, null, new Rect(x1, plot.Top, Math.Max(1, x2 - x1), plot.Height));
+        }
+    }
+
+    // The boss's estimated health, dashed, from full at the top of the plot to empty at the bottom.
+    private static void DrawBossHp(DrawingContext dc, DpsTimeline timeline, Rect plot)
+    {
+        if (timeline.BossHp is not { Count: > 0 } hp)
+        {
+            return;
+        }
+
+        var geometry = new StreamGeometry();
+        double total = Math.Max(1, timeline.Span);
+        using (StreamGeometryContext ctx = geometry.Open())
+        {
+            ctx.BeginFigure(new Point(plot.X, plot.Top), false, false);
+            for (int i = 0; i < hp.Count; i++)
+            {
+                double x = plot.X + (plot.Width * Math.Clamp(Math.Min(total, (i + 1) * timeline.BucketSeconds) / total, 0, 1));
+                ctx.LineTo(new Point(x, plot.Bottom - (plot.Height * hp[i])), true, true);
+            }
+        }
+
+        geometry.Freeze();
+        var pen = new Pen(SolidOf(BossHpColor), 1.6) { DashStyle = new DashStyle(new double[] { 5, 3 }, 0), LineJoin = PenLineJoin.Round };
+        pen.Freeze();
+        dc.DrawGeometry(null, pen, geometry);
     }
 
     private static double EntryWidth(string name, double ppd) => Math.Min(190, Measure(name, 12, ppd) + 4);

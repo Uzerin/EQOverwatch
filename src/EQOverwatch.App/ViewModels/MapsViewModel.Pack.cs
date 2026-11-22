@@ -24,6 +24,42 @@ public sealed partial class MapsViewModel
     [ObservableProperty]
     private double _packProgress;
 
+    public const string PackButtonDefault = "Install/Update Overwatch Maps";
+    public const string PackButtonNew = "Update Overwatch Maps (new)";
+
+    /// <summary>The button's text: it says "(new)" when a newer pack than the one installed is published.</summary>
+    [ObservableProperty]
+    private string _packButtonText = PackButtonDefault;
+
+    /// <summary>Looks for a newer published pack than the installed one (quietly; called with the app's update check).</summary>
+    public async Task CheckPackUpdateAsync()
+    {
+        if (_dataFolder.Length == 0 || IsInstallingPack)
+        {
+            return;
+        }
+
+        try
+        {
+            MapPackRecord record = MapPackRecord.Load(Path.Combine(_dataFolder, "map-pack.json"));
+            if (record.InstalledTag.Length == 0)
+            {
+                return;
+            }
+
+            var installer = new MapPackInstaller(PackHttp.Value, AppInfo.MapPackRepository, $"{AppInfo.SettingsFolderName}/{AppInfo.Version.TrimStart('v')}");
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+            MapPackRelease? release = await installer.FindLatestAsync(timeout.Token);
+            if (release is not null && !IsInstallingPack)
+            {
+                PackButtonText = record.IsOutdated(release.Tag) ? PackButtonNew : PackButtonDefault;
+            }
+        }
+        catch (Exception ex) when (ex is HttpRequestException or IOException or TaskCanceledException or System.Text.Json.JsonException)
+        {
+        }
+    }
+
     /// <summary>What the last check or install did, or why it could not run.</summary>
     [ObservableProperty]
     private string _packStatus = string.Empty;
@@ -109,7 +145,9 @@ public sealed partial class MapsViewModel
                 record.Version = manifest.Version;
             }
 
+            record.Tag = release.Tag;
             record.Save(recordPath);
+            PackButtonText = PackButtonDefault;
             PackProgress = 100;
             PackStatus = Describe(result, release.Tag);
             Reload();
