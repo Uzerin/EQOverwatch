@@ -66,23 +66,23 @@ internal static class DpsGraph
 
         double peak = NiceCeiling(taken.Max(t => PeakIn(t)));
         Axes(dc, plot, peak, timeline.Span, muted, grid, pixelsPerDip);
-        if (timeline.TankHeals is { Count: > 0 } heals)
-        {
-            var healPen = new Pen(new SolidColorBrush(Color.FromArgb(150, 0x5C, 0xC9, 0x8A)), 1) { DashStyle = new DashStyle(new double[] { 4, 3 }, 0) };
-            healPen.Freeze();
-            foreach (double at in heals)
-            {
-                double x = MarkX(timeline, plot, at);
-                dc.DrawLine(healPen, new Point(x, plot.Top + 18), new Point(x, plot.Bottom)); // below the key
-            }
-        }
-
         for (int i = taken.Count - 1; i >= 0; i--)
         {
             DrawTaken(dc, timeline, taken[i], plot, peak, SolidOf(TakenColorOf(i)));
         }
 
         DrawDeaths(dc, timeline, plot, pixelsPerDip, labels: false);
+
+        // a small green tick at the foot of the plot for each instant heal on the tank
+        if (timeline.TankHeals is { Count: > 0 } heals)
+        {
+            Brush green = SolidOf(HealingColor);
+            foreach (double at in heals)
+            {
+                double x = MarkX(timeline, plot, at);
+                dc.DrawRectangle(green, null, new Rect(x - 0.75, plot.Bottom - 7, 1.5, 7));
+            }
+        }
 
         // the key along the top: each character in their color, then the heal marks
         double kx = plot.X + 6;
@@ -96,9 +96,7 @@ internal static class DpsGraph
 
         if (timeline.TankHeals is { Count: > 0 })
         {
-            var keyPen = new Pen(SolidOf(HealingColor), 1.4) { DashStyle = new DashStyle(new double[] { 2, 2 }, 0) };
-            keyPen.Freeze();
-            dc.DrawLine(keyPen, new Point(kx + 5, plot.Top + 1), new Point(kx + 5, plot.Top + 14));
+            dc.DrawRectangle(SolidOf(HealingColor), null, new Rect(kx + 4, plot.Top + 4, 1.5, 7));
             Label(dc, "Heals on tank", muted, 11, kx + 12, plot.Top, TextAlignment.Left, 90, pixelsPerDip);
         }
     }

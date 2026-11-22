@@ -64,6 +64,10 @@ settings are kept.
 
 ## Changelog
 
+### 1.0.94
+
+- Damage-taken graph: heals on the tank are now small green ticks along the bottom instead of full-height lines.
+
 ### 1.0.93
 
 - Damage-taken graph: a line per character taking melee damage (rampage left out), drawn only while they take it, and a dashed green line for each instant heal on the tank.
