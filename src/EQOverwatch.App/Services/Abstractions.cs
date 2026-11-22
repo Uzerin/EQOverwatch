@@ -110,6 +110,11 @@ public interface IDialogService
 
     /// <summary>Asks whether to save changes before they would be lost: Save, Don't save or Cancel.</summary>
     UnsavedChoice AskUnsavedChanges(string title, string message) => UnsavedChoice.Discard;
+
+    /// <summary>
+    /// Asks what to do with map files the player edited (keep, overwrite or merge each); null when cancelled, which keeps them all.
+    /// </summary>
+    IReadOnlyDictionary<string, EQOverwatch.Core.Maps.MapEditChoice>? ChooseEditedMaps(IReadOnlyList<string> fileNames) => null;
 }
 
 /// <summary>The answer to "save your changes first?".</summary>

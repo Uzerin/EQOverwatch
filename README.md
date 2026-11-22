@@ -64,6 +64,11 @@ settings are kept.
 
 ## Changelog
 
+### 1.0.90
+
+- Tabs: Custom Triggers, Raid Triggers, Spells and AAs & Discs are now sub-tabs of one Triggers tab, and tab rows no longer jump around when you pick a tab.
+- Maps: an Install/Update Overwatch Maps button installs the Overwatch map pack into maps\Overwatch; map files you edited are only replaced if you say so, after a backup.
+
 ### 1.0.89
 
 - Graph times: a small mark every 30 seconds (every minute past 10 minutes) and the fight's end time at the right.

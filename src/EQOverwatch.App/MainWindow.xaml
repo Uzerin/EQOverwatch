@@ -406,662 +406,668 @@
                 </Grid>
             </TabItem>
 
-            <!-- ═════════ Tab 2: Custom Triggers ═════════ -->
-            <TabItem Header="Custom Triggers">
-                <Grid Margin="6">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="280"/>
-                        <ColumnDefinition Width="14"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
+            <!-- ═════════ Tab 2: Triggers (Custom Triggers, Raid Triggers, Spells, AAs & Discs) ═════════ -->
+            <TabItem Header="Triggers">
+                <TabControl Margin="0,6,0,0" SelectedIndex="{Binding SelectedTriggersTab, Mode=TwoWay}">
 
-                    <!-- Master list -->
-                    <DockPanel Grid.Column="0">
-                        <WrapPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
-                            <Button Content="Add trigger" Command="{Binding AddRuleCommand}" Margin="0,0,8,6"/>
-                            <Button Content="Remove" Command="{Binding RemoveRuleCommand}" Style="{StaticResource SecondaryButton}" Margin="0,0,8,6"/>
-                            <Button Content="[ Share {EQO} ]" Command="{Binding ShareSelectedRuleCommand}" Style="{StaticResource SecondaryButton}" Margin="0,0,0,6"
-                                    ToolTip="Copies the selected trigger as an {EQO:...} token you can paste into raid chat."/>
-                        </WrapPanel>
-                        <ListBox ItemsSource="{Binding Rules}" SelectedItem="{Binding SelectedRule, Mode=TwoWay}">
-                            <ListBox.ItemTemplate>
-                                <DataTemplate>
-                                    <DockPanel>
-                                        <CheckBox DockPanel.Dock="Left" IsChecked="{Binding IsEnabled}" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                        <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis">
-                                            <TextBlock.Style>
-                                                <Style TargetType="TextBlock">
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding IsEnabled}" Value="False">
-                                                            <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
-                                                        </DataTrigger>
-                                                        <DataTrigger Binding="{Binding HasError}" Value="True">
-                                                            <Setter Property="Foreground" Value="{DynamicResource DebuffsBarBrush}"/>
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </TextBlock.Style>
-                                        </TextBlock>
-                                    </DockPanel>
-                                </DataTemplate>
-                            </ListBox.ItemTemplate>
-                        </ListBox>
-                    </DockPanel>
-
-                    <!-- Detail editor -->
-                            <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto" IsEnabled="{Binding HasSelectedRule}">
-                                <Grid Margin="0,0,10,0">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="140"/>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <Grid.RowDefinitions>
-                                        <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="Auto"/>
-                                    </Grid.RowDefinitions>
-                                    <Grid.Resources>
-                                        <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
-                                            <Setter Property="Margin" Value="0,3"/>
-                                        </Style>
-                                    </Grid.Resources>
-
-                                    <TextBlock Grid.Row="0" Style="{StaticResource FieldLabel}" Text="Name"/>
-                                    <TextBox Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="2"
-                                             Text="{Binding SelectedRule.Name, UpdateSourceTrigger=PropertyChanged}"/>
-
-                                    <TextBlock Grid.Row="1" Style="{StaticResource FieldLabel}" Text="Pattern"/>
-                                    <TextBox Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" FontFamily="Consolas"
-                                             Text="{Binding SelectedRule.Pattern, UpdateSourceTrigger=PropertyChanged}"/>
-
-                                    <StackPanel Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Orientation="Horizontal" Margin="0,4,0,6">
-                                        <CheckBox Content="Use regular expression" IsChecked="{Binding SelectedRule.UseRegex}" Margin="0,0,18,0"/>
-                                        <CheckBox Content="Enabled" IsChecked="{Binding SelectedRule.IsEnabled}"/>
-                                    </StackPanel>
-
-                                    <TextBlock Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="2" Style="{StaticResource ErrorText}"
-                                               Text="{Binding SelectedRule.Error}"/>
-
-                                    <TextBlock Grid.Row="4" Style="{StaticResource FieldLabel}" Text="Timer (seconds)"/>
-                                    <TextBox Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="2" Width="90" HorizontalAlignment="Left"
-                                             ToolTip="0 = no countdown bar"
-                                             Text="{Binding SelectedRule.TimerDurationSeconds, UpdateSourceTrigger=LostFocus, StringFormat=0.##}"/>
-
-                                    <TextBlock Grid.Row="5" Style="{StaticResource FieldLabel}" Text="Timer label"/>
-                                    <TextBox Grid.Row="5" Grid.Column="1" Grid.ColumnSpan="2"
-                                             Text="{Binding SelectedRule.TimerLabelTemplate, UpdateSourceTrigger=PropertyChanged}"/>
-
-                                    <TextBlock Grid.Row="6" Style="{StaticResource FieldLabel}" Text="Alert text"/>
-                                    <TextBox Grid.Row="6" Grid.Column="1" Grid.ColumnSpan="2"
-                                             ToolTip="Leave empty for no flash alert"
-                                             Text="{Binding SelectedRule.AlertTextTemplate, UpdateSourceTrigger=PropertyChanged}"/>
-
-                                    <TextBlock Grid.Row="7" Style="{StaticResource FieldLabel}" Text="Speak (TTS)"/>
-                                    <TextBox Grid.Row="7" Grid.Column="1" Grid.ColumnSpan="2"
-                                             ToolTip="Leave empty for no speech"
-                                             Text="{Binding SelectedRule.AudioText, UpdateSourceTrigger=PropertyChanged}"/>
-
-                                    <TextBlock Grid.Row="8" Style="{StaticResource FieldLabel}" Text="Sound file (.wav)"/>
-                                    <TextBox Grid.Row="8" Grid.Column="1"
-                                             Text="{Binding SelectedRule.AudioFilePath, UpdateSourceTrigger=PropertyChanged}"/>
-                                    <Button Grid.Row="8" Grid.Column="2" Content="Browse…" Margin="8,3,0,3" Style="{StaticResource SecondaryButton}"
-                                            Command="{Binding PickWavCommand}"/>
-
-                                    <TextBlock Grid.Row="9" Style="{StaticResource FieldLabel}" Text="Show in overlay"/>
-                                    <ComboBox Grid.Row="9" Grid.Column="1" Grid.ColumnSpan="2" Width="200" HorizontalAlignment="Left" Margin="0,3"
-                                              ItemsSource="{Binding CategoryOptions}" DisplayMemberPath="Display" SelectedValuePath="Value"
-                                              SelectedValue="{Binding SelectedRule.OverlayCategory}"/>
-
-                                    <TextBlock Grid.Row="10" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,4,0,8" Style="{StaticResource HintText}"
-                                               Text="Tokens: ${Character} (the character whose log matched), ${Trigger} (this trigger's name) and any regex group, e.g. ${caster}. Patterns are matched against the text after the timestamp."/>
-
-                                    <TextBlock Grid.Row="11" Style="{StaticResource FieldLabel}" Text="Test line"/>
-                                    <DockPanel Grid.Row="11" Grid.Column="1" Grid.ColumnSpan="2">
-                                        <Button DockPanel.Dock="Right" Content="Test / Fire trigger" Margin="8,3,0,3"
-                                                Command="{Binding FireSelectedRuleCommand}"/>
-                                        <TextBox Text="{Binding TestLine, UpdateSourceTrigger=PropertyChanged}"
-                                                 ToolTip="e.g. Ream begins to cast a spell. &lt;Complete Heal&gt;"/>
-                                    </DockPanel>
-
-                                    <TextBlock Grid.Row="12" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,6,0,0"
-                                               Style="{StaticResource HintText}" Text="{Binding TestResultText}"/>
-                                </Grid>
-                            </ScrollViewer>
-                </Grid>
-            </TabItem>
-
-            <!-- ═════════ Tab 3: Raid Triggers ═════════ -->
-            <TabItem Header="Raid Triggers">
-                <Grid Margin="6">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
-
-                    <!-- Builder -->
-                    <Border Grid.Row="0" Padding="12" Margin="0,0,0,10" CornerRadius="8" BorderThickness="1"
-                            BorderBrush="{DynamicResource BorderSoftBrush}" Background="{DynamicResource WindowBgBrush}">
-                        <Grid>
+                    <!-- ═════════ Tab 2: Custom Triggers ═════════ -->
+                    <TabItem Header="Custom Triggers">
+                        <Grid Margin="6">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="16"/>
+                                <ColumnDefinition Width="280"/>
+                                <ColumnDefinition Width="14"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
 
-                            <!-- Left: which boss and which spell -->
+                            <!-- Master list -->
                             <DockPanel Grid.Column="0">
-                                <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="110"/>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <Grid.RowDefinitions>
-                                        <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="Auto"/>
-                                    </Grid.RowDefinitions>
-                                    <TextBlock Grid.Row="0" Style="{StaticResource FieldLabel}" Text="Boss (mob)"/>
-                                    <ComboBox Grid.Row="0" Grid.Column="1" Margin="0,3" Style="{StaticResource SearchComboBox}" MaxDropDownHeight="300"
-                                              ToolTip="Pick a mob you have fought, or type a new name. Leave empty to match any boss."
-                                              ItemsSource="{Binding MobSuggestions}" TextSearch.TextPath="Name"
-                                              Text="{Binding RaidMobName, UpdateSourceTrigger=PropertyChanged}"
-                                              TextBoxBase.TextChanged="SearchCombo_TextChanged"
-                                              PreviewTextInput="SearchCombo_UserInput" PreviewKeyDown="SearchCombo_UserInput">
-                                        <ComboBox.ItemTemplate>
-                                            <DataTemplate>
-                                                <DockPanel LastChildFill="False">
-                                                    <TextBlock DockPanel.Dock="Right" Margin="16,0,0,0" Text="{Binding Detail}"
-                                                               Foreground="{DynamicResource TextMutedBrush}"/>
-                                                    <TextBlock Text="{Binding Name}"/>
-                                                </DockPanel>
-                                            </DataTemplate>
-                                        </ComboBox.ItemTemplate>
-                                    </ComboBox>
-                                    <Button Grid.Row="0" Grid.Column="2" Margin="8,3,0,3" Content="Recommended…" Style="{StaticResource SecondaryButton}"
-                                            Command="{Binding SuggestRaidTriggersCommand}"
-                                            ToolTip="Looks through the fights against this boss for spells cast again and again at about the same interval, and offers them as raid triggers."/>
-                                    <TextBlock Grid.Row="1" Grid.Column="1" Style="{StaticResource HintText}" FontSize="11" Margin="0,0,0,2"
-                                               Text="{Binding RaidMobHint}"/>
-                                    <TextBlock Grid.Row="2" Style="{StaticResource FieldLabel}" Text="Search spell"/>
-                                    <TextBox Grid.Row="2" Grid.Column="1" Margin="0,3"
-                                             ToolTip="Searches every spell by name or id, including instant boss AEs"
-                                             Text="{Binding RaidSpellSearchText, UpdateSourceTrigger=PropertyChanged}"/>
-                                </Grid>
-                                <Border DockPanel.Dock="Top" Margin="0,0,0,8" Padding="8" CornerRadius="6" BorderThickness="1"
-                                        BorderBrush="{DynamicResource BorderSoftBrush}" Background="{DynamicResource CardBgBrush}">
-                                    <Border.Style>
-                                        <Style TargetType="Border">
-                                            <Setter Property="Visibility" Value="Collapsed"/>
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding HasRecommendationPanel}" Value="True">
-                                                    <Setter Property="Visibility" Value="Visible"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </Border.Style>
-                                    <DockPanel>
-                                        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,4">
-                                            <Button DockPanel.Dock="Right" Content="Add all" Style="{StaticResource SecondaryButton}"
-                                                    Command="{Binding AddAllRecommendedTriggersCommand}"/>
-                                            <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" VerticalAlignment="Center"
-                                                       Text="{Binding RecommendedStatus}"/>
-                                        </DockPanel>
-                                        <ScrollViewer MaxHeight="110" VerticalScrollBarVisibility="Auto">
-                                            <ItemsControl ItemsSource="{Binding RecommendedTriggers}">
-                                                <ItemsControl.ItemTemplate>
-                                                    <DataTemplate>
-                                                        <DockPanel Margin="0,2">
-                                                            <Button DockPanel.Dock="Right" Content="{Binding ButtonText}" MinWidth="64"
-                                                                    Style="{StaticResource SecondaryButton}"
-                                                                    Command="{Binding DataContext.AddRecommendedTriggerCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                                    CommandParameter="{Binding}"/>
-                                                            <TextBlock Text="{Binding Description}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
-                                                                       ToolTip="{Binding Suggestion.MatchText}"/>
-                                                        </DockPanel>
-                                                    </DataTemplate>
-                                                </ItemsControl.ItemTemplate>
-                                            </ItemsControl>
-                                        </ScrollViewer>
-                                    </DockPanel>
-                                </Border>
-                                <TextBlock DockPanel.Dock="Top" Style="{StaticResource HintText}" Margin="0,0,0,6" Text="{Binding RaidSpellSearchStatus}"/>
-                                <ListBox Height="150" ItemsSource="{Binding RaidSpellResults}" SelectedItem="{Binding SelectedRaidSpell, Mode=TwoWay}"
-                                         DisplayMemberPath="Label"/>
+                                <WrapPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
+                                    <Button Content="Add trigger" Command="{Binding AddRuleCommand}" Margin="0,0,8,6"/>
+                                    <Button Content="Remove" Command="{Binding RemoveRuleCommand}" Style="{StaticResource SecondaryButton}" Margin="0,0,8,6"/>
+                                    <Button Content="[ Share {EQO} ]" Command="{Binding ShareSelectedRuleCommand}" Style="{StaticResource SecondaryButton}" Margin="0,0,0,6"
+                                            ToolTip="Copies the selected trigger as an {EQO:...} token you can paste into raid chat."/>
+                                </WrapPanel>
+                                <ListBox ItemsSource="{Binding Rules}" SelectedItem="{Binding SelectedRule, Mode=TwoWay}">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <DockPanel>
+                                                <CheckBox DockPanel.Dock="Left" IsChecked="{Binding IsEnabled}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsEnabled}" Value="False">
+                                                                    <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding HasError}" Value="True">
+                                                                    <Setter Property="Foreground" Value="{DynamicResource DebuffsBarBrush}"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                            </DockPanel>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
                             </DockPanel>
 
-                            <!-- Right: what to match, how often, where to show it -->
-                            <Grid Grid.Column="2">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="190"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="*"/>
-                                </Grid.RowDefinitions>
-                                <Grid.Resources>
-                                    <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
-                                        <Setter Property="Margin" Value="0,3"/>
-                                    </Style>
-                                </Grid.Resources>
+                            <!-- Detail editor -->
+                                    <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto" IsEnabled="{Binding HasSelectedRule}">
+                                        <Grid Margin="0,0,10,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="140"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                            </Grid.RowDefinitions>
+                                            <Grid.Resources>
+                                                <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+                                                    <Setter Property="Margin" Value="0,3"/>
+                                                </Style>
+                                            </Grid.Resources>
 
-                                <TextBlock Grid.Row="0" Style="{StaticResource FieldLabel}" Text="Spell name"/>
-                                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding RaidSpellName, UpdateSourceTrigger=PropertyChanged}"/>
+                                            <TextBlock Grid.Row="0" Style="{StaticResource FieldLabel}" Text="Name"/>
+                                            <TextBox Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="2"
+                                                     Text="{Binding SelectedRule.Name, UpdateSourceTrigger=PropertyChanged}"/>
 
-                                <TextBlock Grid.Row="1" Style="{StaticResource FieldLabel}" Text="Log text to match"/>
-                                <TextBox Grid.Row="1" Grid.Column="1"
-                                         ToolTip="Filled in with the casting line, for example &quot;begins casting Dragon Roar.&quot;. Case-sensitive; edit it if your log words it differently."
-                                         Text="{Binding RaidMatchText, UpdateSourceTrigger=PropertyChanged}"/>
+                                            <TextBlock Grid.Row="1" Style="{StaticResource FieldLabel}" Text="Pattern"/>
+                                            <TextBox Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" FontFamily="Consolas"
+                                                     Text="{Binding SelectedRule.Pattern, UpdateSourceTrigger=PropertyChanged}"/>
 
-                                <TextBlock Grid.Row="2" Style="{StaticResource FieldLabel}" Text="Recast (seconds)"/>
-                                <TextBox Grid.Row="2" Grid.Column="1" Width="90" HorizontalAlignment="Left"
-                                         Text="{Binding RaidRecastSeconds, UpdateSourceTrigger=LostFocus}"/>
+                                            <StackPanel Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Orientation="Horizontal" Margin="0,4,0,6">
+                                                <CheckBox Content="Use regular expression" IsChecked="{Binding SelectedRule.UseRegex}" Margin="0,0,18,0"/>
+                                                <CheckBox Content="Enabled" IsChecked="{Binding SelectedRule.IsEnabled}"/>
+                                            </StackPanel>
 
-                                <TextBlock Grid.Row="3" Style="{StaticResource FieldLabel}" Text="Show in overlay"/>
-                                <ComboBox Grid.Row="3" Grid.Column="1" Width="220" HorizontalAlignment="Left" Margin="0,3"
-                                          ItemsSource="{Binding CategoryOptions}" DisplayMemberPath="Display" SelectedValuePath="Value"
-                                          SelectedValue="{Binding RaidCategory}"/>
+                                            <TextBlock Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="2" Style="{StaticResource ErrorText}"
+                                                       Text="{Binding SelectedRule.Error}"/>
 
-                                <TextBlock Grid.Row="4" Style="{StaticResource FieldLabel}" Text="Announce on start (TTS)"/>
-                                <TextBox Grid.Row="4" Grid.Column="1"
-                                         ToolTip="Optional. Spoken the moment the trigger starts. May use ${MobName} and ${SpellName}"
-                                         Text="{Binding RaidStartTtsText, UpdateSourceTrigger=PropertyChanged}"/>
+                                            <TextBlock Grid.Row="4" Style="{StaticResource FieldLabel}" Text="Timer (seconds)"/>
+                                            <TextBox Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="2" Width="90" HorizontalAlignment="Left"
+                                                     ToolTip="0 = no countdown bar"
+                                                     Text="{Binding SelectedRule.TimerDurationSeconds, UpdateSourceTrigger=LostFocus, StringFormat=0.##}"/>
 
-                                <TextBlock Grid.Row="5" Style="{StaticResource FieldLabel}" Text="Announce at 10 s left (TTS)"/>
-                                <TextBox Grid.Row="5" Grid.Column="1"
-                                         ToolTip="Optional. Spoken when 10 seconds remain before the next cast (not used when the recast time is 10 seconds or less). May use ${MobName} and ${SpellName}"
-                                         Text="{Binding RaidWarningTtsText, UpdateSourceTrigger=PropertyChanged}"/>
+                                            <TextBlock Grid.Row="5" Style="{StaticResource FieldLabel}" Text="Timer label"/>
+                                            <TextBox Grid.Row="5" Grid.Column="1" Grid.ColumnSpan="2"
+                                                     Text="{Binding SelectedRule.TimerLabelTemplate, UpdateSourceTrigger=PropertyChanged}"/>
 
-                                <StackPanel Grid.Row="6" Grid.Column="1" Orientation="Horizontal" Margin="0,10,0,0" VerticalAlignment="Bottom">
-                                    <Button Content="{Binding RaidSaveButtonText}" Command="{Binding AddRaidTriggerCommand}" Margin="0,0,10,0"/>
-                                    <Button Content="Cancel edit" Command="{Binding CancelRaidEditCommand}" Style="{StaticResource SecondaryButton}" Margin="0,0,10,0"/>
-                                    <Button Content="[ Share {EQO} ]" Command="{Binding ShareRaidBuilderCommand}" Style="{StaticResource SecondaryButton}" Margin="0,0,14,0"
-                                            ToolTip="Copies this raid timer as an {EQO:...} token you can paste into raid chat."/>
-                                    <Button Content="Copy pack" Command="{Binding CopyRaidPackCommand}" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0"
-                                            ToolTip="Copies every saved raid timer for the boss in the Boss box (or all of them if it is empty) as {EQO:...} lines."/>
-                                    <Button Content="Import pack" Command="{Binding ImportPackFromClipboardCommand}" Style="{StaticResource SecondaryButton}" Margin="0,0,14,0"
-                                            ToolTip="Reads {EQO:...} timers from the clipboard and offers each one at the top of the window."/>
-                                    <TextBlock Text="{Binding RaidBuilderStatus}" Style="{StaticResource HintText}" VerticalAlignment="Center" MaxWidth="360"/>
-                                </StackPanel>
-                            </Grid>
+                                            <TextBlock Grid.Row="6" Style="{StaticResource FieldLabel}" Text="Alert text"/>
+                                            <TextBox Grid.Row="6" Grid.Column="1" Grid.ColumnSpan="2"
+                                                     ToolTip="Leave empty for no flash alert"
+                                                     Text="{Binding SelectedRule.AlertTextTemplate, UpdateSourceTrigger=PropertyChanged}"/>
+
+                                            <TextBlock Grid.Row="7" Style="{StaticResource FieldLabel}" Text="Speak (TTS)"/>
+                                            <TextBox Grid.Row="7" Grid.Column="1" Grid.ColumnSpan="2"
+                                                     ToolTip="Leave empty for no speech"
+                                                     Text="{Binding SelectedRule.AudioText, UpdateSourceTrigger=PropertyChanged}"/>
+
+                                            <TextBlock Grid.Row="8" Style="{StaticResource FieldLabel}" Text="Sound file (.wav)"/>
+                                            <TextBox Grid.Row="8" Grid.Column="1"
+                                                     Text="{Binding SelectedRule.AudioFilePath, UpdateSourceTrigger=PropertyChanged}"/>
+                                            <Button Grid.Row="8" Grid.Column="2" Content="Browse…" Margin="8,3,0,3" Style="{StaticResource SecondaryButton}"
+                                                    Command="{Binding PickWavCommand}"/>
+
+                                            <TextBlock Grid.Row="9" Style="{StaticResource FieldLabel}" Text="Show in overlay"/>
+                                            <ComboBox Grid.Row="9" Grid.Column="1" Grid.ColumnSpan="2" Width="200" HorizontalAlignment="Left" Margin="0,3"
+                                                      ItemsSource="{Binding CategoryOptions}" DisplayMemberPath="Display" SelectedValuePath="Value"
+                                                      SelectedValue="{Binding SelectedRule.OverlayCategory}"/>
+
+                                            <TextBlock Grid.Row="10" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,4,0,8" Style="{StaticResource HintText}"
+                                                       Text="Tokens: ${Character} (the character whose log matched), ${Trigger} (this trigger's name) and any regex group, e.g. ${caster}. Patterns are matched against the text after the timestamp."/>
+
+                                            <TextBlock Grid.Row="11" Style="{StaticResource FieldLabel}" Text="Test line"/>
+                                            <DockPanel Grid.Row="11" Grid.Column="1" Grid.ColumnSpan="2">
+                                                <Button DockPanel.Dock="Right" Content="Test / Fire trigger" Margin="8,3,0,3"
+                                                        Command="{Binding FireSelectedRuleCommand}"/>
+                                                <TextBox Text="{Binding TestLine, UpdateSourceTrigger=PropertyChanged}"
+                                                         ToolTip="e.g. Ream begins to cast a spell. &lt;Complete Heal&gt;"/>
+                                            </DockPanel>
+
+                                            <TextBlock Grid.Row="12" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,6,0,0"
+                                                       Style="{StaticResource HintText}" Text="{Binding TestResultText}"/>
+                                        </Grid>
+                                    </ScrollViewer>
                         </Grid>
-                    </Border>
+                    </TabItem>
 
-                    <!-- Saved rules -->
-                    <DataGrid Grid.Row="1" ItemsSource="{Binding RaidRules}"
-                              AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
-                              IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal" SelectionMode="Single">
-                        <DataGrid.Columns>
-                            <DataGridTemplateColumn Header="On" Width="52">
-                                <DataGridTemplateColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <CheckBox HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                  IsChecked="{Binding IsEnabled, UpdateSourceTrigger=PropertyChanged}"/>
-                                    </DataTemplate>
-                                </DataGridTemplateColumn.CellTemplate>
-                            </DataGridTemplateColumn>
-                            <DataGridTextColumn Header="Boss" Binding="{Binding MobText}" Width="140"/>
-                            <DataGridTextColumn Header="Spell" Binding="{Binding SpellName}" Width="190"/>
-                            <DataGridTextColumn Header="Log text" Binding="{Binding MatchText}" Width="*"/>
-                            <DataGridTextColumn Header="Recast (s)" Binding="{Binding RecastSeconds}" Width="84" ElementStyle="{StaticResource NumericCell}"/>
-                            <DataGridTextColumn Header="Overlay" Binding="{Binding CategoryText}" Width="110"/>
-                            <DataGridTextColumn Header="On start" Binding="{Binding StartText}" Width="130"/>
-                            <DataGridTextColumn Header="At 10 s left" Binding="{Binding WarningText}" Width="130"/>
-                            <DataGridTemplateColumn Width="300">
-                                <DataGridTemplateColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <StackPanel Orientation="Horizontal">
-                                            <Button Content="Edit" Style="{StaticResource SecondaryButton}" Margin="4,1" Padding="10,3"
-                                                    Command="{Binding DataContext.EditRaidTriggerCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                    CommandParameter="{Binding}"/>
-                                            <Button Content="[ Share {EQO} ]" Style="{StaticResource SecondaryButton}" Margin="4,1" Padding="10,3"
-                                                    Command="{Binding DataContext.ShareRaidRuleCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                    CommandParameter="{Binding}"/>
-                                            <Button Content="Remove" Style="{StaticResource SecondaryButton}" Margin="4,1" Padding="10,3"
-                                                    Command="{Binding DataContext.RemoveRaidTriggerCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                    CommandParameter="{Binding}"/>
+                    <!-- ═════════ Tab 3: Raid Triggers ═════════ -->
+                    <TabItem Header="Raid Triggers">
+                        <Grid Margin="6">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <!-- Builder -->
+                            <Border Grid.Row="0" Padding="12" Margin="0,0,0,10" CornerRadius="8" BorderThickness="1"
+                                    BorderBrush="{DynamicResource BorderSoftBrush}" Background="{DynamicResource WindowBgBrush}">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="16"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <!-- Left: which boss and which spell -->
+                                    <DockPanel Grid.Column="0">
+                                        <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="110"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                            </Grid.RowDefinitions>
+                                            <TextBlock Grid.Row="0" Style="{StaticResource FieldLabel}" Text="Boss (mob)"/>
+                                            <ComboBox Grid.Row="0" Grid.Column="1" Margin="0,3" Style="{StaticResource SearchComboBox}" MaxDropDownHeight="300"
+                                                      ToolTip="Pick a mob you have fought, or type a new name. Leave empty to match any boss."
+                                                      ItemsSource="{Binding MobSuggestions}" TextSearch.TextPath="Name"
+                                                      Text="{Binding RaidMobName, UpdateSourceTrigger=PropertyChanged}"
+                                                      TextBoxBase.TextChanged="SearchCombo_TextChanged"
+                                                      PreviewTextInput="SearchCombo_UserInput" PreviewKeyDown="SearchCombo_UserInput">
+                                                <ComboBox.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <DockPanel LastChildFill="False">
+                                                            <TextBlock DockPanel.Dock="Right" Margin="16,0,0,0" Text="{Binding Detail}"
+                                                                       Foreground="{DynamicResource TextMutedBrush}"/>
+                                                            <TextBlock Text="{Binding Name}"/>
+                                                        </DockPanel>
+                                                    </DataTemplate>
+                                                </ComboBox.ItemTemplate>
+                                            </ComboBox>
+                                            <Button Grid.Row="0" Grid.Column="2" Margin="8,3,0,3" Content="Recommended…" Style="{StaticResource SecondaryButton}"
+                                                    Command="{Binding SuggestRaidTriggersCommand}"
+                                                    ToolTip="Looks through the fights against this boss for spells cast again and again at about the same interval, and offers them as raid triggers."/>
+                                            <TextBlock Grid.Row="1" Grid.Column="1" Style="{StaticResource HintText}" FontSize="11" Margin="0,0,0,2"
+                                                       Text="{Binding RaidMobHint}"/>
+                                            <TextBlock Grid.Row="2" Style="{StaticResource FieldLabel}" Text="Search spell"/>
+                                            <TextBox Grid.Row="2" Grid.Column="1" Margin="0,3"
+                                                     ToolTip="Searches every spell by name or id, including instant boss AEs"
+                                                     Text="{Binding RaidSpellSearchText, UpdateSourceTrigger=PropertyChanged}"/>
+                                        </Grid>
+                                        <Border DockPanel.Dock="Top" Margin="0,0,0,8" Padding="8" CornerRadius="6" BorderThickness="1"
+                                                BorderBrush="{DynamicResource BorderSoftBrush}" Background="{DynamicResource CardBgBrush}">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding HasRecommendationPanel}" Value="True">
+                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                            <DockPanel>
+                                                <DockPanel DockPanel.Dock="Top" Margin="0,0,0,4">
+                                                    <Button DockPanel.Dock="Right" Content="Add all" Style="{StaticResource SecondaryButton}"
+                                                            Command="{Binding AddAllRecommendedTriggersCommand}"/>
+                                                    <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" VerticalAlignment="Center"
+                                                               Text="{Binding RecommendedStatus}"/>
+                                                </DockPanel>
+                                                <ScrollViewer MaxHeight="110" VerticalScrollBarVisibility="Auto">
+                                                    <ItemsControl ItemsSource="{Binding RecommendedTriggers}">
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <DockPanel Margin="0,2">
+                                                                    <Button DockPanel.Dock="Right" Content="{Binding ButtonText}" MinWidth="64"
+                                                                            Style="{StaticResource SecondaryButton}"
+                                                                            Command="{Binding DataContext.AddRecommendedTriggerCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                            CommandParameter="{Binding}"/>
+                                                                    <TextBlock Text="{Binding Description}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                                                               ToolTip="{Binding Suggestion.MatchText}"/>
+                                                                </DockPanel>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                </ScrollViewer>
+                                            </DockPanel>
+                                        </Border>
+                                        <TextBlock DockPanel.Dock="Top" Style="{StaticResource HintText}" Margin="0,0,0,6" Text="{Binding RaidSpellSearchStatus}"/>
+                                        <ListBox Height="150" ItemsSource="{Binding RaidSpellResults}" SelectedItem="{Binding SelectedRaidSpell, Mode=TwoWay}"
+                                                 DisplayMemberPath="Label"/>
+                                    </DockPanel>
+
+                                    <!-- Right: what to match, how often, where to show it -->
+                                    <Grid Grid.Column="2">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="190"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="*"/>
+                                        </Grid.RowDefinitions>
+                                        <Grid.Resources>
+                                            <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+                                                <Setter Property="Margin" Value="0,3"/>
+                                            </Style>
+                                        </Grid.Resources>
+
+                                        <TextBlock Grid.Row="0" Style="{StaticResource FieldLabel}" Text="Spell name"/>
+                                        <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding RaidSpellName, UpdateSourceTrigger=PropertyChanged}"/>
+
+                                        <TextBlock Grid.Row="1" Style="{StaticResource FieldLabel}" Text="Log text to match"/>
+                                        <TextBox Grid.Row="1" Grid.Column="1"
+                                                 ToolTip="Filled in with the casting line, for example &quot;begins casting Dragon Roar.&quot;. Case-sensitive; edit it if your log words it differently."
+                                                 Text="{Binding RaidMatchText, UpdateSourceTrigger=PropertyChanged}"/>
+
+                                        <TextBlock Grid.Row="2" Style="{StaticResource FieldLabel}" Text="Recast (seconds)"/>
+                                        <TextBox Grid.Row="2" Grid.Column="1" Width="90" HorizontalAlignment="Left"
+                                                 Text="{Binding RaidRecastSeconds, UpdateSourceTrigger=LostFocus}"/>
+
+                                        <TextBlock Grid.Row="3" Style="{StaticResource FieldLabel}" Text="Show in overlay"/>
+                                        <ComboBox Grid.Row="3" Grid.Column="1" Width="220" HorizontalAlignment="Left" Margin="0,3"
+                                                  ItemsSource="{Binding CategoryOptions}" DisplayMemberPath="Display" SelectedValuePath="Value"
+                                                  SelectedValue="{Binding RaidCategory}"/>
+
+                                        <TextBlock Grid.Row="4" Style="{StaticResource FieldLabel}" Text="Announce on start (TTS)"/>
+                                        <TextBox Grid.Row="4" Grid.Column="1"
+                                                 ToolTip="Optional. Spoken the moment the trigger starts. May use ${MobName} and ${SpellName}"
+                                                 Text="{Binding RaidStartTtsText, UpdateSourceTrigger=PropertyChanged}"/>
+
+                                        <TextBlock Grid.Row="5" Style="{StaticResource FieldLabel}" Text="Announce at 10 s left (TTS)"/>
+                                        <TextBox Grid.Row="5" Grid.Column="1"
+                                                 ToolTip="Optional. Spoken when 10 seconds remain before the next cast (not used when the recast time is 10 seconds or less). May use ${MobName} and ${SpellName}"
+                                                 Text="{Binding RaidWarningTtsText, UpdateSourceTrigger=PropertyChanged}"/>
+
+                                        <StackPanel Grid.Row="6" Grid.Column="1" Orientation="Horizontal" Margin="0,10,0,0" VerticalAlignment="Bottom">
+                                            <Button Content="{Binding RaidSaveButtonText}" Command="{Binding AddRaidTriggerCommand}" Margin="0,0,10,0"/>
+                                            <Button Content="Cancel edit" Command="{Binding CancelRaidEditCommand}" Style="{StaticResource SecondaryButton}" Margin="0,0,10,0"/>
+                                            <Button Content="[ Share {EQO} ]" Command="{Binding ShareRaidBuilderCommand}" Style="{StaticResource SecondaryButton}" Margin="0,0,14,0"
+                                                    ToolTip="Copies this raid timer as an {EQO:...} token you can paste into raid chat."/>
+                                            <Button Content="Copy pack" Command="{Binding CopyRaidPackCommand}" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0"
+                                                    ToolTip="Copies every saved raid timer for the boss in the Boss box (or all of them if it is empty) as {EQO:...} lines."/>
+                                            <Button Content="Import pack" Command="{Binding ImportPackFromClipboardCommand}" Style="{StaticResource SecondaryButton}" Margin="0,0,14,0"
+                                                    ToolTip="Reads {EQO:...} timers from the clipboard and offers each one at the top of the window."/>
+                                            <TextBlock Text="{Binding RaidBuilderStatus}" Style="{StaticResource HintText}" VerticalAlignment="Center" MaxWidth="360"/>
                                         </StackPanel>
-                                    </DataTemplate>
-                                </DataGridTemplateColumn.CellTemplate>
-                            </DataGridTemplateColumn>
-                        </DataGrid.Columns>
-                    </DataGrid>
-                    <StackPanel Grid.Row="2" Margin="0,8,0,0">
-                        <CheckBox Content="Learned boss timers" IsChecked="{Binding LearnedBossTimers}"
-                                  ToolTip="Counts down to each boss ability from your past kills (median time between casts and of the first cast). A boss needs 2 logged kills; your own rules above win for the same spell."/>
-                        <TextBlock Style="{StaticResource HintText}" Margin="0,4,0,0" TextWrapping="Wrap" Text="{Binding LearnedBossStatus}"/>
-                    </StackPanel>
-                </Grid>
-            </TabItem>
+                                    </Grid>
+                                </Grid>
+                            </Border>
 
-            <!-- ═════════ Tab 4: Spells ═════════ -->
-            <TabItem Header="Spells">
-                <Grid Margin="6">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                    </Grid.RowDefinitions>
-
-                    <StackPanel Grid.Row="0" Margin="0,0,0,10">
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                            <CheckBox Content="Show songs from all bards" IsChecked="{Binding ShowAllBardSongs}" VerticalAlignment="Center"
-                                      ToolTip="On: every bard's songs your logged-in characters see go to the Songs overlay. Off: only songs your own characters sing."/>
-                            <TextBlock Style="{StaticResource HintText}" Margin="8,0,0,0" VerticalAlignment="Center"
-                                       Text="(off: only songs your characters sing)"/>
-                        </StackPanel>
-                        <TextBlock Style="{StaticResource HintText}" Text="{Binding SpellsStatus}"/>
-                    </StackPanel>
-
-                    <!-- Track a buff or debuff -->
-                    <Border Grid.Row="1" Padding="12" Margin="0,0,0,12" CornerRadius="8" BorderThickness="1"
-                            BorderBrush="{DynamicResource BorderSoftBrush}" Background="{DynamicResource WindowBgBrush}">
-                        <StackPanel>
-                            <TextBlock Style="{StaticResource SectionTitle}" Text="Track a buff or debuff"/>
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="14"/>
-                                    <ColumnDefinition Width="210"/>
-                                    <ColumnDefinition Width="14"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-
-                                <StackPanel Grid.Column="0">
-                                    <TextBlock Style="{StaticResource FieldLabel}" Margin="0,0,0,4" Text="Spell (type to search)"/>
-                                    <ComboBox Style="{StaticResource SearchComboBox}" MaxDropDownHeight="320"
-                                              ItemsSource="{Binding TrackerSuggestions}"
-                                              SelectedItem="{Binding SelectedSuggestion, Mode=TwoWay}"
-                                              Text="{Binding TrackerSearchText, UpdateSourceTrigger=PropertyChanged}"
-                                              TextSearch.TextPath="Name"
-                                              TextBoxBase.TextChanged="SearchCombo_TextChanged"
-                                              PreviewTextInput="SearchCombo_UserInput" PreviewKeyDown="SearchCombo_UserInput">
-                                        <ComboBox.ItemTemplate>
+                            <!-- Saved rules -->
+                            <DataGrid Grid.Row="1" ItemsSource="{Binding RaidRules}"
+                                      AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
+                                      IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal" SelectionMode="Single">
+                                <DataGrid.Columns>
+                                    <DataGridTemplateColumn Header="On" Width="52">
+                                        <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
-                                                <DockPanel LastChildFill="False">
-                                                    <TextBlock DockPanel.Dock="Right" Margin="16,0,0,0" Text="{Binding Detail}"
-                                                               Foreground="{DynamicResource TextMutedBrush}"/>
-                                                    <TextBlock Text="{Binding Name}"/>
+                                                <CheckBox HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                          IsChecked="{Binding IsEnabled, UpdateSourceTrigger=PropertyChanged}"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTextColumn Header="Boss" Binding="{Binding MobText}" Width="140"/>
+                                    <DataGridTextColumn Header="Spell" Binding="{Binding SpellName}" Width="190"/>
+                                    <DataGridTextColumn Header="Log text" Binding="{Binding MatchText}" Width="*"/>
+                                    <DataGridTextColumn Header="Recast (s)" Binding="{Binding RecastSeconds}" Width="84" ElementStyle="{StaticResource NumericCell}"/>
+                                    <DataGridTextColumn Header="Overlay" Binding="{Binding CategoryText}" Width="110"/>
+                                    <DataGridTextColumn Header="On start" Binding="{Binding StartText}" Width="130"/>
+                                    <DataGridTextColumn Header="At 10 s left" Binding="{Binding WarningText}" Width="130"/>
+                                    <DataGridTemplateColumn Width="300">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <StackPanel Orientation="Horizontal">
+                                                    <Button Content="Edit" Style="{StaticResource SecondaryButton}" Margin="4,1" Padding="10,3"
+                                                            Command="{Binding DataContext.EditRaidTriggerCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                            CommandParameter="{Binding}"/>
+                                                    <Button Content="[ Share {EQO} ]" Style="{StaticResource SecondaryButton}" Margin="4,1" Padding="10,3"
+                                                            Command="{Binding DataContext.ShareRaidRuleCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                            CommandParameter="{Binding}"/>
+                                                    <Button Content="Remove" Style="{StaticResource SecondaryButton}" Margin="4,1" Padding="10,3"
+                                                            Command="{Binding DataContext.RemoveRaidTriggerCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                            CommandParameter="{Binding}"/>
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                            <StackPanel Grid.Row="2" Margin="0,8,0,0">
+                                <CheckBox Content="Learned boss timers" IsChecked="{Binding LearnedBossTimers}"
+                                          ToolTip="Counts down to each boss ability from your past kills (median time between casts and of the first cast). A boss needs 2 logged kills; your own rules above win for the same spell."/>
+                                <TextBlock Style="{StaticResource HintText}" Margin="0,4,0,0" TextWrapping="Wrap" Text="{Binding LearnedBossStatus}"/>
+                            </StackPanel>
+                        </Grid>
+                    </TabItem>
+
+                    <!-- ═════════ Tab 4: Spells ═════════ -->
+                    <TabItem Header="Spells">
+                        <Grid Margin="6">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+
+                            <StackPanel Grid.Row="0" Margin="0,0,0,10">
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                    <CheckBox Content="Show songs from all bards" IsChecked="{Binding ShowAllBardSongs}" VerticalAlignment="Center"
+                                              ToolTip="On: every bard's songs your logged-in characters see go to the Songs overlay. Off: only songs your own characters sing."/>
+                                    <TextBlock Style="{StaticResource HintText}" Margin="8,0,0,0" VerticalAlignment="Center"
+                                               Text="(off: only songs your characters sing)"/>
+                                </StackPanel>
+                                <TextBlock Style="{StaticResource HintText}" Text="{Binding SpellsStatus}"/>
+                            </StackPanel>
+
+                            <!-- Track a buff or debuff -->
+                            <Border Grid.Row="1" Padding="12" Margin="0,0,0,12" CornerRadius="8" BorderThickness="1"
+                                    BorderBrush="{DynamicResource BorderSoftBrush}" Background="{DynamicResource WindowBgBrush}">
+                                <StackPanel>
+                                    <TextBlock Style="{StaticResource SectionTitle}" Text="Track a buff or debuff"/>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="14"/>
+                                            <ColumnDefinition Width="210"/>
+                                            <ColumnDefinition Width="14"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Style="{StaticResource FieldLabel}" Margin="0,0,0,4" Text="Spell (type to search)"/>
+                                            <ComboBox Style="{StaticResource SearchComboBox}" MaxDropDownHeight="320"
+                                                      ItemsSource="{Binding TrackerSuggestions}"
+                                                      SelectedItem="{Binding SelectedSuggestion, Mode=TwoWay}"
+                                                      Text="{Binding TrackerSearchText, UpdateSourceTrigger=PropertyChanged}"
+                                                      TextSearch.TextPath="Name"
+                                                      TextBoxBase.TextChanged="SearchCombo_TextChanged"
+                                                      PreviewTextInput="SearchCombo_UserInput" PreviewKeyDown="SearchCombo_UserInput">
+                                                <ComboBox.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <DockPanel LastChildFill="False">
+                                                            <TextBlock DockPanel.Dock="Right" Margin="16,0,0,0" Text="{Binding Detail}"
+                                                                       Foreground="{DynamicResource TextMutedBrush}"/>
+                                                            <TextBlock Text="{Binding Name}"/>
+                                                        </DockPanel>
+                                                    </DataTemplate>
+                                                </ComboBox.ItemTemplate>
+                                            </ComboBox>
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="2">
+                                            <TextBlock Style="{StaticResource FieldLabel}" Margin="0,0,0,4" Text="Show on overlay"/>
+                                            <ComboBox ItemsSource="{Binding SpellOverlayOptions}" DisplayMemberPath="Display" SelectedValuePath="Value"
+                                                      SelectedValue="{Binding TrackerOverlay}"/>
+                                        </StackPanel>
+
+                                        <Button Grid.Column="4" Content="Add to Tracker" VerticalAlignment="Bottom"
+                                                Command="{Binding AddTrackedSpellCommand}"/>
+                                    </Grid>
+                                    <TextBlock Style="{StaticResource HintText}" Margin="0,8,0,0"
+                                               Text="Songs go to the Songs overlay on their own and don't need adding."/>
+                                    <TextBlock Style="{StaticResource HintText}" Margin="0,8,0,0" Text="{Binding TrackerPreview}"/>
+                                    <TextBlock Style="{StaticResource HintText}" Margin="0,2,0,0" Text="{Binding TrackerStatus}"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- List header: summary, filter and the activity line -->
+                            <DockPanel Grid.Row="2" Margin="0,0,0,8">
+                                <TextBox DockPanel.Dock="Right" Width="240" Margin="14,0,0,0"
+                                         ToolTip="Filters your list by spell name, landing text or overlay"
+                                         Text="{Binding TrackedFilterText, UpdateSourceTrigger=PropertyChanged}"/>
+                                <TextBlock DockPanel.Dock="Left" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,16,0"
+                                           Text="{Binding TrackedSummary}"/>
+                                <TextBlock Style="{StaticResource HintText}" VerticalAlignment="Center" Text="{Binding TrackerActivity}"/>
+                            </DockPanel>
+
+                            <!-- Tracked spells -->
+                            <DataGrid Grid.Row="3" ItemsSource="{Binding VisibleTrackedSpells}"
+                                      AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
+                                      IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal" SelectionMode="Single">
+                                <DataGrid.Columns>
+                                    <DataGridTemplateColumn Header="On" Width="52">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <CheckBox HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                          IsChecked="{Binding IsEnabled, UpdateSourceTrigger=PropertyChanged}"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTextColumn Header="Spell" Binding="{Binding Name}" Width="170" ElementStyle="{StaticResource WrapCell}"/>
+                                    <DataGridTextColumn Header="ID" Binding="{Binding SpellId}" Width="64" ElementStyle="{StaticResource NumericCell}"/>
+                                    <DataGridTextColumn Header="Duration" Binding="{Binding DurationText}" Width="80" ElementStyle="{StaticResource NumericCell}"/>
+                                    <DataGridTextColumn Header="Counters" Binding="{Binding CountersText, Mode=OneWay}" Width="110" ElementStyle="{StaticResource WrapCell}"/>
+                                    <DataGridTemplateColumn Header="Overlay" Width="160">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <ComboBox Margin="4,2" MinHeight="26"
+                                                          ItemsSource="{Binding DataContext.SpellOverlayOptions, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                          DisplayMemberPath="Display" SelectedValuePath="Value"
+                                                          SelectedValue="{Binding Overlay, UpdateSourceTrigger=PropertyChanged}"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTextColumn Header="Starts when" Binding="{Binding StartsWhen, Mode=OneWay}" Width="*" MinWidth="110" ElementStyle="{StaticResource WrapCell}"/>
+                                    <DataGridTextColumn Header="Cast on you" Binding="{Binding CastOnYou}" Width="*" MinWidth="110" ElementStyle="{StaticResource WrapCell}"/>
+                                    <DataGridTextColumn Header="Cast on other" Binding="{Binding CastOnOther}" Width="*" MinWidth="110" ElementStyle="{StaticResource WrapCell}"/>
+                                    <DataGridTextColumn Header="Fades" Binding="{Binding SpellFades}" Width="*" MinWidth="110" ElementStyle="{StaticResource WrapCell}"/>
+                                    <DataGridTemplateColumn Width="90">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <Button Content="Remove" Style="{StaticResource SecondaryButton}" Margin="4,1" Padding="10,3"
+                                                        Command="{Binding DataContext.RemoveTrackedSpellCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                        CommandParameter="{Binding}"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Grid>
+                    </TabItem>
+
+                    <!-- ═════════ Tab: AAs & Discs ═════════ -->
+                    <TabItem Header="AAs &amp; Discs">
+                        <Grid Margin="6">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Grid.Row="0" Style="{StaticResource HintText}" Margin="0,0,0,10" TextWrapping="Wrap"
+                                       Text="Each time a tracked AA or discipline is used, an &quot;active&quot; bar (how long it lasts) and a &quot;cooldown&quot; bar (until it can be used again) start for the person who used it. One person using it again only restarts their own bars. Choose per ability whether to see everyone in the raid or only the characters you are monitoring, and which overlay each bar appears in."/>
+
+                            <!-- Track an AA or discipline -->
+                            <Border Grid.Row="1" Padding="12" Margin="0,0,0,12" CornerRadius="8" BorderThickness="1"
+                                    BorderBrush="{DynamicResource BorderSoftBrush}" Background="{DynamicResource WindowBgBrush}">
+                                <StackPanel>
+                                    <TextBlock Style="{StaticResource SectionTitle}" Text="Track an AA or discipline"/>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="14"/>
+                                            <ColumnDefinition Width="80"/>
+                                            <ColumnDefinition Width="10"/>
+                                            <ColumnDefinition Width="80"/>
+                                            <ColumnDefinition Width="14"/>
+                                            <ColumnDefinition Width="190"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Style="{StaticResource FieldLabel}" Margin="0,0,0,4" Text="Ability (type to search, or type a name in full)"/>
+                                            <ComboBox Style="{StaticResource SearchComboBox}" MaxDropDownHeight="320"
+                                                      ItemsSource="{Binding AbilitySuggestions}"
+                                                      SelectedItem="{Binding SelectedAbilitySuggestion, Mode=TwoWay}"
+                                                      Text="{Binding AbilitySearchText, UpdateSourceTrigger=PropertyChanged}"
+                                                      TextSearch.TextPath="Name"
+                                                      TextBoxBase.TextChanged="SearchCombo_TextChanged"
+                                                      PreviewTextInput="SearchCombo_UserInput" PreviewKeyDown="SearchCombo_UserInput">
+                                                <ComboBox.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <DockPanel LastChildFill="False">
+                                                            <TextBlock DockPanel.Dock="Right" Margin="16,0,0,0" Text="{Binding Detail}"
+                                                                       Foreground="{DynamicResource TextMutedBrush}"/>
+                                                            <TextBlock Text="{Binding Name}"/>
+                                                        </DockPanel>
+                                                    </DataTemplate>
+                                                </ComboBox.ItemTemplate>
+                                            </ComboBox>
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="2">
+                                            <TextBlock Style="{StaticResource FieldLabel}" Margin="0,0,0,4" Text="Lasts" ToolTip="How long the ability lasts, e.g. 3:00. Blank = no active bar."/>
+                                            <TextBox Text="{Binding AbilityActiveText, UpdateSourceTrigger=PropertyChanged}"/>
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="4">
+                                            <TextBlock Style="{StaticResource FieldLabel}" Margin="0,0,0,4" Text="Cooldown" ToolTip="How long until it can be used again, e.g. 10:30. Blank = no cooldown bar."/>
+                                            <TextBox Text="{Binding AbilityCooldownText, UpdateSourceTrigger=PropertyChanged}"/>
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="6">
+                                            <TextBlock Style="{StaticResource FieldLabel}" Margin="0,0,0,4" Text="Whose use to show"/>
+                                            <ComboBox ItemsSource="{Binding ScopeOptions}" DisplayMemberPath="Display" SelectedValuePath="Value"
+                                                      SelectedValue="{Binding AbilityScope}"/>
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <WrapPanel Margin="0,10,0,0">
+                                        <StackPanel Margin="0,0,14,0" Width="190">
+                                            <TextBlock Style="{StaticResource FieldLabel}" Margin="0,0,0,4" Text="Active bar overlay"/>
+                                            <ComboBox ItemsSource="{Binding CategoryOptions}" DisplayMemberPath="Display" SelectedValuePath="Value"
+                                                      SelectedValue="{Binding AbilityActiveOverlay}"/>
+                                        </StackPanel>
+                                        <StackPanel Margin="0,0,14,0" Width="190">
+                                            <TextBlock Style="{StaticResource FieldLabel}" Margin="0,0,0,4" Text="Cooldown bar overlay"/>
+                                            <ComboBox ItemsSource="{Binding CategoryOptions}" DisplayMemberPath="Display" SelectedValuePath="Value"
+                                                      SelectedValue="{Binding AbilityCooldownOverlay}"/>
+                                        </StackPanel>
+                                        <Button Content="Add to Tracker" VerticalAlignment="Bottom" Command="{Binding AddAbilityCommand}"/>
+                                    </WrapPanel>
+                                    <TextBlock Style="{StaticResource HintText}" Margin="0,8,0,0" Text="{Binding AbilityStatus}"/>
+                                </StackPanel>
+                            </Border>
+
+                            <DockPanel Grid.Row="2" Margin="0,0,0,8">
+                                <TextBlock DockPanel.Dock="Left" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,16,0"
+                                           Text="{Binding AbilitySummary}"/>
+                                <TextBlock Style="{StaticResource HintText}" VerticalAlignment="Center" Text="{Binding AbilityActivity}"/>
+                            </DockPanel>
+
+                            <!-- Tracked abilities -->
+                            <DataGrid Grid.Row="3" ItemsSource="{Binding TrackedAbilities}"
+                                      AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
+                                      IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal" SelectionMode="Single">
+                                <DataGrid.Columns>
+                                    <DataGridTemplateColumn Header="On" Width="52">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <CheckBox HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                          IsChecked="{Binding IsEnabled, UpdateSourceTrigger=PropertyChanged}"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTextColumn Header="Ability" Binding="{Binding Name}" Width="150" ElementStyle="{StaticResource WrapCell}"/>
+                                    <DataGridTemplateColumn Header="Lasts" Width="80">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBox Margin="4,2" MinHeight="26" Text="{Binding ActiveText, UpdateSourceTrigger=LostFocus}"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTemplateColumn Header="Active overlay" Width="125">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <ComboBox Margin="4,2" MinHeight="26"
+                                                          ItemsSource="{Binding DataContext.CategoryOptions, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                          DisplayMemberPath="Display" SelectedValuePath="Value"
+                                                          SelectedValue="{Binding ActiveOverlay, UpdateSourceTrigger=PropertyChanged}"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTemplateColumn Header="Cooldown" Width="80">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBox Margin="4,2" MinHeight="26" Text="{Binding CooldownText, UpdateSourceTrigger=LostFocus}"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTemplateColumn Header="Cooldown overlay" Width="125">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <ComboBox Margin="4,2" MinHeight="26"
+                                                          ItemsSource="{Binding DataContext.CategoryOptions, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                          DisplayMemberPath="Display" SelectedValuePath="Value"
+                                                          SelectedValue="{Binding CooldownOverlay, UpdateSourceTrigger=PropertyChanged}"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTemplateColumn Header="Whose use" Width="150">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <ComboBox Margin="4,2" MinHeight="26"
+                                                          ItemsSource="{Binding DataContext.ScopeOptions, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                          DisplayMemberPath="Display" SelectedValuePath="Value"
+                                                          SelectedValue="{Binding Scope, UpdateSourceTrigger=PropertyChanged}"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTextColumn Header="Starts when" Binding="{Binding StartsWhen, Mode=OneWay}" Width="*" MinWidth="130" ElementStyle="{StaticResource WrapCell}"/>
+                                    <DataGridTextColumn Header="Fades" Binding="{Binding FadesText, Mode=OneWay}" Width="*" MinWidth="120" ElementStyle="{StaticResource WrapCell}"/>
+                                    <DataGridTemplateColumn Width="90">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <Button Content="Remove" Style="{StaticResource SecondaryButton}" Margin="4,1" Padding="10,3"
+                                                        Command="{Binding DataContext.RemoveAbilityCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                        CommandParameter="{Binding}"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                </DataGrid.Columns>
+                            </DataGrid>
+
+                            <!-- Class cooldown tracker -->
+                            <GroupBox Grid.Row="4" Header="Built-in: Divine Aura" Margin="0,10,0,0">
+                                <StackPanel Margin="4">
+                                    <CheckBox Content="Track class cooldowns (starts a bar when the ability is used)"
+                                              IsChecked="{Binding IsCooldownTrackerEnabled}" Margin="0,0,0,6"/>
+                                    <TextBlock Style="{StaticResource HintText}" Margin="0,0,0,6"
+                                               Text="The Cleric Divine Aura spell and the two Divine Aura AAs all end with &quot;A divine aura surrounds you.&quot;; the line before it tells them apart. Bars appear in the Raid Triggers overlay. Divine Aura needs this built-in tracker because its three versions share one landing message."/>
+                                    <ItemsControl ItemsSource="{Binding CooldownRules}" Focusable="False">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <DockPanel Margin="0,2">
+                                                    <TextBlock DockPanel.Dock="Left" Width="300" FontWeight="SemiBold" Text="{Binding Label}"/>
+                                                    <TextBlock DockPanel.Dock="Left" Width="70" Text="{Binding CooldownText}" Foreground="{DynamicResource TextMutedBrush}"/>
+                                                    <TextBlock Style="{StaticResource HintText}" Text="{Binding Detection}"/>
                                                 </DockPanel>
                                             </DataTemplate>
-                                        </ComboBox.ItemTemplate>
-                                    </ComboBox>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
                                 </StackPanel>
-
-                                <StackPanel Grid.Column="2">
-                                    <TextBlock Style="{StaticResource FieldLabel}" Margin="0,0,0,4" Text="Show on overlay"/>
-                                    <ComboBox ItemsSource="{Binding SpellOverlayOptions}" DisplayMemberPath="Display" SelectedValuePath="Value"
-                                              SelectedValue="{Binding TrackerOverlay}"/>
-                                </StackPanel>
-
-                                <Button Grid.Column="4" Content="Add to Tracker" VerticalAlignment="Bottom"
-                                        Command="{Binding AddTrackedSpellCommand}"/>
-                            </Grid>
-                            <TextBlock Style="{StaticResource HintText}" Margin="0,8,0,0"
-                                       Text="Songs go to the Songs overlay on their own and don't need adding."/>
-                            <TextBlock Style="{StaticResource HintText}" Margin="0,8,0,0" Text="{Binding TrackerPreview}"/>
-                            <TextBlock Style="{StaticResource HintText}" Margin="0,2,0,0" Text="{Binding TrackerStatus}"/>
-                        </StackPanel>
-                    </Border>
-
-                    <!-- List header: summary, filter and the activity line -->
-                    <DockPanel Grid.Row="2" Margin="0,0,0,8">
-                        <TextBox DockPanel.Dock="Right" Width="240" Margin="14,0,0,0"
-                                 ToolTip="Filters your list by spell name, landing text or overlay"
-                                 Text="{Binding TrackedFilterText, UpdateSourceTrigger=PropertyChanged}"/>
-                        <TextBlock DockPanel.Dock="Left" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,16,0"
-                                   Text="{Binding TrackedSummary}"/>
-                        <TextBlock Style="{StaticResource HintText}" VerticalAlignment="Center" Text="{Binding TrackerActivity}"/>
-                    </DockPanel>
-
-                    <!-- Tracked spells -->
-                    <DataGrid Grid.Row="3" ItemsSource="{Binding VisibleTrackedSpells}"
-                              AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
-                              IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal" SelectionMode="Single">
-                        <DataGrid.Columns>
-                            <DataGridTemplateColumn Header="On" Width="52">
-                                <DataGridTemplateColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <CheckBox HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                  IsChecked="{Binding IsEnabled, UpdateSourceTrigger=PropertyChanged}"/>
-                                    </DataTemplate>
-                                </DataGridTemplateColumn.CellTemplate>
-                            </DataGridTemplateColumn>
-                            <DataGridTextColumn Header="Spell" Binding="{Binding Name}" Width="170" ElementStyle="{StaticResource WrapCell}"/>
-                            <DataGridTextColumn Header="ID" Binding="{Binding SpellId}" Width="64" ElementStyle="{StaticResource NumericCell}"/>
-                            <DataGridTextColumn Header="Duration" Binding="{Binding DurationText}" Width="80" ElementStyle="{StaticResource NumericCell}"/>
-                            <DataGridTextColumn Header="Counters" Binding="{Binding CountersText, Mode=OneWay}" Width="110" ElementStyle="{StaticResource WrapCell}"/>
-                            <DataGridTemplateColumn Header="Overlay" Width="160">
-                                <DataGridTemplateColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <ComboBox Margin="4,2" MinHeight="26"
-                                                  ItemsSource="{Binding DataContext.SpellOverlayOptions, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                  DisplayMemberPath="Display" SelectedValuePath="Value"
-                                                  SelectedValue="{Binding Overlay, UpdateSourceTrigger=PropertyChanged}"/>
-                                    </DataTemplate>
-                                </DataGridTemplateColumn.CellTemplate>
-                            </DataGridTemplateColumn>
-                            <DataGridTextColumn Header="Starts when" Binding="{Binding StartsWhen, Mode=OneWay}" Width="*" MinWidth="110" ElementStyle="{StaticResource WrapCell}"/>
-                            <DataGridTextColumn Header="Cast on you" Binding="{Binding CastOnYou}" Width="*" MinWidth="110" ElementStyle="{StaticResource WrapCell}"/>
-                            <DataGridTextColumn Header="Cast on other" Binding="{Binding CastOnOther}" Width="*" MinWidth="110" ElementStyle="{StaticResource WrapCell}"/>
-                            <DataGridTextColumn Header="Fades" Binding="{Binding SpellFades}" Width="*" MinWidth="110" ElementStyle="{StaticResource WrapCell}"/>
-                            <DataGridTemplateColumn Width="90">
-                                <DataGridTemplateColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <Button Content="Remove" Style="{StaticResource SecondaryButton}" Margin="4,1" Padding="10,3"
-                                                Command="{Binding DataContext.RemoveTrackedSpellCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                CommandParameter="{Binding}"/>
-                                    </DataTemplate>
-                                </DataGridTemplateColumn.CellTemplate>
-                            </DataGridTemplateColumn>
-                        </DataGrid.Columns>
-                    </DataGrid>
-                </Grid>
-            </TabItem>
-
-            <!-- ═════════ Tab: AAs & Discs ═════════ -->
-            <TabItem Header="AAs &amp; Discs">
-                <Grid Margin="6">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
-
-                    <TextBlock Grid.Row="0" Style="{StaticResource HintText}" Margin="0,0,0,10" TextWrapping="Wrap"
-                               Text="Each time a tracked AA or discipline is used, an &quot;active&quot; bar (how long it lasts) and a &quot;cooldown&quot; bar (until it can be used again) start for the person who used it. One person using it again only restarts their own bars. Choose per ability whether to see everyone in the raid or only the characters you are monitoring, and which overlay each bar appears in."/>
-
-                    <!-- Track an AA or discipline -->
-                    <Border Grid.Row="1" Padding="12" Margin="0,0,0,12" CornerRadius="8" BorderThickness="1"
-                            BorderBrush="{DynamicResource BorderSoftBrush}" Background="{DynamicResource WindowBgBrush}">
-                        <StackPanel>
-                            <TextBlock Style="{StaticResource SectionTitle}" Text="Track an AA or discipline"/>
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="14"/>
-                                    <ColumnDefinition Width="80"/>
-                                    <ColumnDefinition Width="10"/>
-                                    <ColumnDefinition Width="80"/>
-                                    <ColumnDefinition Width="14"/>
-                                    <ColumnDefinition Width="190"/>
-                                </Grid.ColumnDefinitions>
-
-                                <StackPanel Grid.Column="0">
-                                    <TextBlock Style="{StaticResource FieldLabel}" Margin="0,0,0,4" Text="Ability (type to search, or type a name in full)"/>
-                                    <ComboBox Style="{StaticResource SearchComboBox}" MaxDropDownHeight="320"
-                                              ItemsSource="{Binding AbilitySuggestions}"
-                                              SelectedItem="{Binding SelectedAbilitySuggestion, Mode=TwoWay}"
-                                              Text="{Binding AbilitySearchText, UpdateSourceTrigger=PropertyChanged}"
-                                              TextSearch.TextPath="Name"
-                                              TextBoxBase.TextChanged="SearchCombo_TextChanged"
-                                              PreviewTextInput="SearchCombo_UserInput" PreviewKeyDown="SearchCombo_UserInput">
-                                        <ComboBox.ItemTemplate>
-                                            <DataTemplate>
-                                                <DockPanel LastChildFill="False">
-                                                    <TextBlock DockPanel.Dock="Right" Margin="16,0,0,0" Text="{Binding Detail}"
-                                                               Foreground="{DynamicResource TextMutedBrush}"/>
-                                                    <TextBlock Text="{Binding Name}"/>
-                                                </DockPanel>
-                                            </DataTemplate>
-                                        </ComboBox.ItemTemplate>
-                                    </ComboBox>
-                                </StackPanel>
-
-                                <StackPanel Grid.Column="2">
-                                    <TextBlock Style="{StaticResource FieldLabel}" Margin="0,0,0,4" Text="Lasts" ToolTip="How long the ability lasts, e.g. 3:00. Blank = no active bar."/>
-                                    <TextBox Text="{Binding AbilityActiveText, UpdateSourceTrigger=PropertyChanged}"/>
-                                </StackPanel>
-
-                                <StackPanel Grid.Column="4">
-                                    <TextBlock Style="{StaticResource FieldLabel}" Margin="0,0,0,4" Text="Cooldown" ToolTip="How long until it can be used again, e.g. 10:30. Blank = no cooldown bar."/>
-                                    <TextBox Text="{Binding AbilityCooldownText, UpdateSourceTrigger=PropertyChanged}"/>
-                                </StackPanel>
-
-                                <StackPanel Grid.Column="6">
-                                    <TextBlock Style="{StaticResource FieldLabel}" Margin="0,0,0,4" Text="Whose use to show"/>
-                                    <ComboBox ItemsSource="{Binding ScopeOptions}" DisplayMemberPath="Display" SelectedValuePath="Value"
-                                              SelectedValue="{Binding AbilityScope}"/>
-                                </StackPanel>
-                            </Grid>
-
-                            <WrapPanel Margin="0,10,0,0">
-                                <StackPanel Margin="0,0,14,0" Width="190">
-                                    <TextBlock Style="{StaticResource FieldLabel}" Margin="0,0,0,4" Text="Active bar overlay"/>
-                                    <ComboBox ItemsSource="{Binding CategoryOptions}" DisplayMemberPath="Display" SelectedValuePath="Value"
-                                              SelectedValue="{Binding AbilityActiveOverlay}"/>
-                                </StackPanel>
-                                <StackPanel Margin="0,0,14,0" Width="190">
-                                    <TextBlock Style="{StaticResource FieldLabel}" Margin="0,0,0,4" Text="Cooldown bar overlay"/>
-                                    <ComboBox ItemsSource="{Binding CategoryOptions}" DisplayMemberPath="Display" SelectedValuePath="Value"
-                                              SelectedValue="{Binding AbilityCooldownOverlay}"/>
-                                </StackPanel>
-                                <Button Content="Add to Tracker" VerticalAlignment="Bottom" Command="{Binding AddAbilityCommand}"/>
-                            </WrapPanel>
-                            <TextBlock Style="{StaticResource HintText}" Margin="0,8,0,0" Text="{Binding AbilityStatus}"/>
-                        </StackPanel>
-                    </Border>
-
-                    <DockPanel Grid.Row="2" Margin="0,0,0,8">
-                        <TextBlock DockPanel.Dock="Left" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,16,0"
-                                   Text="{Binding AbilitySummary}"/>
-                        <TextBlock Style="{StaticResource HintText}" VerticalAlignment="Center" Text="{Binding AbilityActivity}"/>
-                    </DockPanel>
-
-                    <!-- Tracked abilities -->
-                    <DataGrid Grid.Row="3" ItemsSource="{Binding TrackedAbilities}"
-                              AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
-                              IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal" SelectionMode="Single">
-                        <DataGrid.Columns>
-                            <DataGridTemplateColumn Header="On" Width="52">
-                                <DataGridTemplateColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <CheckBox HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                  IsChecked="{Binding IsEnabled, UpdateSourceTrigger=PropertyChanged}"/>
-                                    </DataTemplate>
-                                </DataGridTemplateColumn.CellTemplate>
-                            </DataGridTemplateColumn>
-                            <DataGridTextColumn Header="Ability" Binding="{Binding Name}" Width="150" ElementStyle="{StaticResource WrapCell}"/>
-                            <DataGridTemplateColumn Header="Lasts" Width="80">
-                                <DataGridTemplateColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <TextBox Margin="4,2" MinHeight="26" Text="{Binding ActiveText, UpdateSourceTrigger=LostFocus}"/>
-                                    </DataTemplate>
-                                </DataGridTemplateColumn.CellTemplate>
-                            </DataGridTemplateColumn>
-                            <DataGridTemplateColumn Header="Active overlay" Width="125">
-                                <DataGridTemplateColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <ComboBox Margin="4,2" MinHeight="26"
-                                                  ItemsSource="{Binding DataContext.CategoryOptions, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                  DisplayMemberPath="Display" SelectedValuePath="Value"
-                                                  SelectedValue="{Binding ActiveOverlay, UpdateSourceTrigger=PropertyChanged}"/>
-                                    </DataTemplate>
-                                </DataGridTemplateColumn.CellTemplate>
-                            </DataGridTemplateColumn>
-                            <DataGridTemplateColumn Header="Cooldown" Width="80">
-                                <DataGridTemplateColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <TextBox Margin="4,2" MinHeight="26" Text="{Binding CooldownText, UpdateSourceTrigger=LostFocus}"/>
-                                    </DataTemplate>
-                                </DataGridTemplateColumn.CellTemplate>
-                            </DataGridTemplateColumn>
-                            <DataGridTemplateColumn Header="Cooldown overlay" Width="125">
-                                <DataGridTemplateColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <ComboBox Margin="4,2" MinHeight="26"
-                                                  ItemsSource="{Binding DataContext.CategoryOptions, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                  DisplayMemberPath="Display" SelectedValuePath="Value"
-                                                  SelectedValue="{Binding CooldownOverlay, UpdateSourceTrigger=PropertyChanged}"/>
-                                    </DataTemplate>
-                                </DataGridTemplateColumn.CellTemplate>
-                            </DataGridTemplateColumn>
-                            <DataGridTemplateColumn Header="Whose use" Width="150">
-                                <DataGridTemplateColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <ComboBox Margin="4,2" MinHeight="26"
-                                                  ItemsSource="{Binding DataContext.ScopeOptions, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                  DisplayMemberPath="Display" SelectedValuePath="Value"
-                                                  SelectedValue="{Binding Scope, UpdateSourceTrigger=PropertyChanged}"/>
-                                    </DataTemplate>
-                                </DataGridTemplateColumn.CellTemplate>
-                            </DataGridTemplateColumn>
-                            <DataGridTextColumn Header="Starts when" Binding="{Binding StartsWhen, Mode=OneWay}" Width="*" MinWidth="130" ElementStyle="{StaticResource WrapCell}"/>
-                            <DataGridTextColumn Header="Fades" Binding="{Binding FadesText, Mode=OneWay}" Width="*" MinWidth="120" ElementStyle="{StaticResource WrapCell}"/>
-                            <DataGridTemplateColumn Width="90">
-                                <DataGridTemplateColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <Button Content="Remove" Style="{StaticResource SecondaryButton}" Margin="4,1" Padding="10,3"
-                                                Command="{Binding DataContext.RemoveAbilityCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                CommandParameter="{Binding}"/>
-                                    </DataTemplate>
-                                </DataGridTemplateColumn.CellTemplate>
-                            </DataGridTemplateColumn>
-                        </DataGrid.Columns>
-                    </DataGrid>
-
-                    <!-- Class cooldown tracker -->
-                    <GroupBox Grid.Row="4" Header="Built-in: Divine Aura" Margin="0,10,0,0">
-                        <StackPanel Margin="4">
-                            <CheckBox Content="Track class cooldowns (starts a bar when the ability is used)"
-                                      IsChecked="{Binding IsCooldownTrackerEnabled}" Margin="0,0,0,6"/>
-                            <TextBlock Style="{StaticResource HintText}" Margin="0,0,0,6"
-                                       Text="The Cleric Divine Aura spell and the two Divine Aura AAs all end with &quot;A divine aura surrounds you.&quot;; the line before it tells them apart. Bars appear in the Raid Triggers overlay. Divine Aura needs this built-in tracker because its three versions share one landing message."/>
-                            <ItemsControl ItemsSource="{Binding CooldownRules}" Focusable="False">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <DockPanel Margin="0,2">
-                                            <TextBlock DockPanel.Dock="Left" Width="300" FontWeight="SemiBold" Text="{Binding Label}"/>
-                                            <TextBlock DockPanel.Dock="Left" Width="70" Text="{Binding CooldownText}" Foreground="{DynamicResource TextMutedBrush}"/>
-                                            <TextBlock Style="{StaticResource HintText}" Text="{Binding Detection}"/>
-                                        </DockPanel>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </StackPanel>
-                    </GroupBox>
-                </Grid>
+                            </GroupBox>
+                        </Grid>
+                    </TabItem>
+                </TabControl>
             </TabItem>
 
             <!-- ═════════ Tab 5: DPS & Encounter History ═════════ -->
@@ -2736,10 +2742,16 @@
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
 
-                    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10">
-                        <RadioButton GroupName="MapsSubTabs" Style="{StaticResource MapsSubTab}" Content="Current Zone" IsChecked="{Binding IsCurrentZoneTab, Mode=TwoWay}"/>
-                        <RadioButton GroupName="MapsSubTabs" Style="{StaticResource MapsSubTab}" Content="Select Zone" IsChecked="{Binding IsSelectZoneTab, Mode=TwoWay}"/>
-                    </StackPanel>
+                    <DockPanel Grid.Row="0" Margin="0,0,0,10" LastChildFill="True">
+                        <RadioButton DockPanel.Dock="Left" GroupName="MapsSubTabs" Style="{StaticResource MapsSubTab}" Content="Current Zone" IsChecked="{Binding IsCurrentZoneTab, Mode=TwoWay}"/>
+                        <RadioButton DockPanel.Dock="Left" GroupName="MapsSubTabs" Style="{StaticResource MapsSubTab}" Content="Select Zone" IsChecked="{Binding IsSelectZoneTab, Mode=TwoWay}"/>
+                        <Button DockPanel.Dock="Right" Content="Install/Update Overwatch Maps" Command="{Binding InstallMapPackCommand}"
+                                ToolTip="Checks maps\Overwatch in your EverQuest folder and installs the Overwatch map pack's missing or updated files. Files you edited are only replaced if you say so, after a backup. Not available during combat."/>
+                        <ProgressBar DockPanel.Dock="Right" Width="120" Height="6" Margin="12,0,10,0" VerticalAlignment="Center" Maximum="100"
+                                     Value="{Binding PackProgress}" Visibility="{Binding IsInstallingPack, Converter={StaticResource MapsVisible}}"/>
+                        <TextBlock Style="{StaticResource HintText}" VerticalAlignment="Center" TextAlignment="Right" Margin="12,0,0,0"
+                                   TextTrimming="CharacterEllipsis" Text="{Binding PackStatus}" ToolTip="{Binding PackStatus}"/>
+                    </DockPanel>
 
                     <!-- Expansion, Zone and Map pack in one row (Current zone shows where the character you played last is instead of the first two) -->
                     <Grid Grid.Row="1" Margin="0,0,0,8">

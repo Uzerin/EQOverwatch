@@ -128,7 +128,7 @@ public sealed partial class MainViewModel
 public sealed partial class MainViewModel
 {
     /// <summary>The main window's Encounter DPS tab.</summary>
-    public const int EncounterDpsTab = 5;
+    public const int EncounterDpsTab = 2;
 
     [CommunityToolkit.Mvvm.Input.RelayCommand]
     private void OpenBossKill(BossKillRow? row)

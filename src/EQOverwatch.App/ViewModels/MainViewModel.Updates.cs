@@ -76,7 +76,11 @@ public sealed partial class MainViewModel
     [ObservableProperty]
     private string _updateInstallHint = string.Empty;
 
-    partial void OnIsInCombatChanged(bool value) => RefreshInstallHint();
+    partial void OnIsInCombatChanged(bool value)
+    {
+        RefreshInstallHint();
+        _maps?.RefreshPackButton();
+    }
 
     partial void OnIsInstallingUpdateChanged(bool value) => RefreshInstallHint();
 

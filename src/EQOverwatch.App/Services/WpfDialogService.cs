@@ -145,5 +145,11 @@ public sealed class WpfDialogService : IDialogService
         return dialog.ShowDialog(Owner()) == true ? dialog.FolderName : null;
     }
 
+    public IReadOnlyDictionary<string, EQOverwatch.Core.Maps.MapEditChoice>? ChooseEditedMaps(IReadOnlyList<string> fileNames)
+    {
+        var dialog = new EditedMapsWindow(fileNames) { Owner = Owner() };
+        return dialog.ShowDialog() == true ? dialog.Choices : null;
+    }
+
     private static Window? Owner() => Application.Current?.MainWindow;
 }

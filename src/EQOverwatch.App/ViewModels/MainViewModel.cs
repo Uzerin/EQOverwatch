@@ -1392,7 +1392,7 @@ public sealed partial class MainViewModel : ObservableObject
             DescribeEqFolderAtStartup(newCharacters);
 
             HistoricalDaysLimit = settings.HistoricalDaysLimit;
-            SelectedMainTab = Math.Max(0, settings.LastTabIndex);
+            (SelectedMainTab, SelectedTriggersTab) = AppSettings.MigrateTabIndex(settings.LastTabIndex, settings.TabLayout, settings.LastTriggersTab);
             SyncModeIndex = SyncModeFromText(settings.SyncMode);
             SyncCode = settings.SyncCode ?? string.Empty;
             SyncPcName = string.IsNullOrWhiteSpace(settings.SyncPcName) ? Environment.MachineName : settings.SyncPcName;
@@ -1635,6 +1635,8 @@ public sealed partial class MainViewModel : ObservableObject
         WindowPlacements = new Dictionary<string, WindowPlacementSetting>(_windowPlacements, StringComparer.OrdinalIgnoreCase),
         HistoricalDaysLimit = HistoricalDaysLimit,
         LastTabIndex = SelectedMainTab,
+        LastTriggersTab = SelectedTriggersTab,
+        TabLayout = AppSettings.CurrentTabLayout,
         OverlayProfiles = _overlayProfiles.ToList(),
         AutoSwitchOverlayProfiles = AutoSwitchOverlayProfiles,
         SyncMode = SyncModeToText(SyncModeIndex),

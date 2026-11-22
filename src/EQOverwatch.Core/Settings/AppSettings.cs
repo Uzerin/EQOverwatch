@@ -98,6 +98,35 @@ public sealed partial class AppSettings
     /// <summary>The tab that was showing when the app closed, so it opens on the same one next time.</summary>
     public int LastTabIndex { get; set; }
 
+    /// <summary>The Triggers tab's last sub-tab (Custom Triggers, Raid Triggers, Spells, AAs &amp; Discs).</summary>
+    public int LastTriggersTab { get; set; }
+
+    /// <summary>
+    /// Which tab arrangement <see cref="LastTabIndex"/> was saved with: 0 before Custom Triggers, Raid Triggers, Spells and
+    /// AAs &amp; Discs were grouped under Triggers, 1 after.
+    /// </summary>
+    public int TabLayout { get; set; }
+
+    /// <summary>The current tab arrangement; see <see cref="TabLayout"/>.</summary>
+    public const int CurrentTabLayout = 1;
+
+    /// <summary>Turns a tab index saved with an older arrangement into (main tab, Triggers sub-tab).</summary>
+    public static (int MainTab, int TriggersTab) MigrateTabIndex(int index, int layout, int triggersTab)
+    {
+        index = Math.Max(0, index);
+        if (layout >= CurrentTabLayout)
+        {
+            return (index, Math.Clamp(triggersTab, 0, 3));
+        }
+
+        return index switch
+        {
+            0 => (0, 0),
+            <= 4 => (1, index - 1),
+            _ => (index - 3, 0),
+        };
+    }
+
     /// <summary>Saved overlay layouts, each remembered for the monitor setup it was made on.</summary>
     public List<OverlayProfile> OverlayProfiles { get; set; } = new();
 

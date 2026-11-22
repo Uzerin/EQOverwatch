@@ -132,6 +132,18 @@ public sealed partial class MainViewModel
         }
     }
 
+    /// <summary>The Triggers tab's selected sub-tab; remembered between runs.</summary>
+    [ObservableProperty]
+    private int _selectedTriggersTab;
+
+    partial void OnSelectedTriggersTabChanged(int value)
+    {
+        if (!_restoring)
+        {
+            RequestSave();
+        }
+    }
+
     // ───────────────────────── selected fight: boss abilities and healing ─────────────────────────
 
     [ObservableProperty]
