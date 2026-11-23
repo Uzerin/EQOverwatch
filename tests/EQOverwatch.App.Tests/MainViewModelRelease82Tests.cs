@@ -69,6 +69,8 @@ public partial class MainViewModelTests
         Assert.Equal(new[] { "Velketor's Labyrinth|50–65|frostreaver.zone", "Plane of Fear|46–60|frostreaver.zone", "The Akheva Ruins|—|Your logs" },
             h.Vm.ResourceGroups[1].Rows.Select(r => $"{r.Zone}|{r.Levels}|{r.Source}")); // highest levels first
         Assert.Equal("Karnor's Castle|3 players", h.Vm.ResourceGroups[0].Rows.Select(r => $"{r.Zone}|{r.Source}").Single());
+        Assert.Equal(new[] { "—|AA (1)", "Loot (3)|—", "—|Unknown (1)" },
+            h.Vm.ResourcePairs.Select(p => $"{p.Left?.Title ?? "—"}|{p.Right?.Title ?? "—"}")); // rows of two: XP|AA, …, No bonus|Unknown
 
         // Past days are read from the website once and kept; a zone's breakdown covers every day.
         service.Calls.Clear();

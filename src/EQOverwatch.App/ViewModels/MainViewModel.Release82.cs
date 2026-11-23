@@ -14,7 +14,7 @@ namespace EQOverwatch.App.ViewModels;
 public sealed record ResourceZoneView(string Zone, string Levels, string Bonus, string Source, string Last30);
 
 /// <summary>One Resource Hunter table: the zones that had one bonus (or none, or nothing known) on the shown day, highest levels first.</summary>
-public sealed record ResourceGroupView(string Title, IReadOnlyList<ResourceZoneView> Rows);
+public sealed record ResourceGroupView(string Title, IReadOnlyList<ResourceZoneView> Rows, ResourceBonus Bonus = ResourceBonus.None);
 
 /// <summary>A row of the picked zone's breakdown: "Loot", "12", "8.3%".</summary>
 public sealed record ResourceShareView(string Bonus, string Days, string Percent);
@@ -222,6 +222,7 @@ public sealed partial class MainViewModel
             }
         }
 
+        RefreshTlp(nowUtc);
         if (_pipeline.ResourceHunter.Version != _resourceVersion || _resourceShownFor != SelectedLevelingServer)
         {
             ShowResourceRows(nowUtc);
@@ -434,7 +435,7 @@ public sealed partial class MainViewModel
                 if (rows.Count > 0)
                 {
                     string title = bonus == ResourceBonus.None ? "No bonus" : ResourceHunterText.Label(bonus);
-                    ResourceGroups.Add(new ResourceGroupView($"{title} ({rows.Count.ToString(culture)})", rows));
+                    ResourceGroups.Add(new ResourceGroupView($"{title} ({rows.Count.ToString(culture)})", rows, bonus));
                 }
             }
 
@@ -452,6 +453,7 @@ public sealed partial class MainViewModel
             _showingResources = false;
         }
 
+        FillResourcePairs();
         ShowResourceBreakdown(nowUtc);
         if (dataChanged)
         {
@@ -471,6 +473,7 @@ public sealed partial class MainViewModel
         (IReadOnlyList<ResourceShare> shares, string from, int days) = _pipeline.ResourceHunter.Breakdown(server, zone, nowUtc);
         CultureInfo culture = CultureInfo.CurrentCulture;
         ResourceBreakdownTitle = $"{zone}: {days.ToString(culture)} days since {from}";
+        ResourceBonusSize = BonusSizeText(server, zone);
         foreach (ResourceShare share in shares)
         {
             ResourceBreakdown.Add(new ResourceShareView(
@@ -515,6 +518,7 @@ public sealed partial class MainViewModel
     /// <summary>Marks the fights that hold one of your characters' best DPS (gold in the fight list).</summary>
     private void MarkPersonalBestRows()
     {
+        MarkChallengeRows();
         IReadOnlySet<string> bests = _personalBests.BestFights();
         foreach (EncounterRowViewModel row in Encounters)
         {

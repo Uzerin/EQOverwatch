@@ -55,6 +55,10 @@ public sealed partial class EncounterRowViewModel : ObservableObject
     [ObservableProperty]
     private bool _isPersonalBest;
 
+    /// <summary>"Challenge: Ream 50 vs The Shadows of Luclin cap 60" on challenge servers; empty otherwise.</summary>
+    [ObservableProperty]
+    private string _challengeText = string.Empty;
+
     public void Update(EncounterSnapshot snapshot)
     {
         Snapshot = snapshot;

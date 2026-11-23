@@ -182,6 +182,15 @@ public sealed partial class ResourceHunterStore
     private string NameOf(string server, string key) =>
         _file.Names.TryGetValue(server, out var names) && names.TryGetValue(key, out string? name) ? name : key;
 
+    /// <summary>A zone's bonus on a Pacific day from every source (your logs first), or null when nothing is known.</summary>
+    public ResourceBonus? BonusOnDay(string server, string day, string zone)
+    {
+        lock (_gate)
+        {
+            return BonusOn(server.ToLowerInvariant(), day, ResourceHunterText.ZoneKey(zone));
+        }
+    }
+
     // A zone's bonus on a day from every source (your logs first), or null when nothing is known. Call under the gate.
     private ResourceBonus? BonusOn(string server, string day, string key)
     {

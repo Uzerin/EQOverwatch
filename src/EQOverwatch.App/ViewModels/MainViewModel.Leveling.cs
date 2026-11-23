@@ -393,7 +393,7 @@ public sealed partial class MainViewModel
                     r.KillsPerHour.ToString("0", culture),
                     r.Players,
                     r.Hours.ToString("0.0", culture),
-                    r.Enough ? "Ranked" : "Not enough data",
+                    (r.Enough ? "Ranked" : "Not enough data") + (_levelingAdjustedZones.Contains(r.Zone) ? " · adjusted" : string.Empty),
                     r.PlatPerHour > 0 ? r.PlatPerHour.ToString("N0", culture) + "p" : "—",
                     ZoneMobLevels(r.Zone),
                     BonusTodayIn(r.Zone)));
@@ -428,9 +428,12 @@ public sealed partial class MainViewModel
     {
         IReadOnlySet<int> inferred = LevelingRanking.InferExpansions(zones, seen);
         bool byHand = _levelingExpansions.TryGetValue(server, out List<int>? chosen);
-        IReadOnlySet<int> open = byHand ? chosen!.ToHashSet() : inferred;
+        Core.Tlp.TlpServer? tlp = Core.Tlp.TlpServers.Find(server);
+        IReadOnlySet<int> open = byHand ? chosen!.ToHashSet() : tlp?.OpenExpansions(Core.Tlp.TlpServers.Today(DateTime.UtcNow)) ?? inferred;
         LevelingExpansionHint = zones.Expansions.Any()
-            ? byHand ? "Set by hand for this server." : "Found from the zones seen on this server. Tick or untick to change."
+            ? byHand ? "Set by hand for this server."
+            : tlp is not null ? "Ticked by the server's unlock dates. Tick or untick to change."
+            : "Found from the zones seen on this server. Tick or untick to change."
             : "Choose the EQ folder on the Characters tab to filter zones by expansion.";
 
         if (rebuild || LevelingExpansionChoices.Count == 0)

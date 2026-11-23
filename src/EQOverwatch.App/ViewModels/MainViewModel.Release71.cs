@@ -111,13 +111,6 @@ public sealed partial class MainViewModel
         SaveUnlessRestoring();
     }
 
-    /// <summary>"100%": the character's legacy server XP bonus, from its log; a dash when not seen.</summary>
-    private string LegacyBonusText(string character)
-    {
-        string server = Logs.FirstOrDefault(l => l.CharacterName.Equals(character, StringComparison.OrdinalIgnoreCase))?.ServerName ?? string.Empty;
-        return _pipeline.Progress.Legacy(character, server).LegacyBonus is { } bonus ? bonus.ToString(CultureInfo.CurrentCulture) + "%" : "—";
-    }
-
     /// <summary>"842", "+2,104" or "-907".</summary>
     public static string FloatingText(FloatingNumber number) =>
         number.Word ?? (number.IsHeal ? "+" : number.Panel == FloatingPanel.Taken ? "-" : string.Empty)

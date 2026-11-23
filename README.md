@@ -64,6 +64,10 @@ settings are kept.
 
 ## Changelog
 
+### 1.0.96
+
+- New TLP sub-tab with a tab per server (Frostreaver, Fangbreaker, Lethar, Vaniki, Teek & Tormax, Yelinak, Oakwynd, Mischief, Aradune, Agnarr): rules, unlock schedule, level caps, server bonuses and Vaniki's challenges. Leveling and Resource Hunter show the next unlock and the bonuses in effect; expansions tick by unlock date; XP/hour is adjusted for server rate changes; Resource Hunter tables are in two columns with zone details and bonus size on the right; the Legacy bonus column uses each character's log or its account; challenge fights are tagged.
+
 ### 1.0.95
 
 - Resource Hunter has its own sub-tab: one table per bonus plus No bonus and Unknown, highest levels first, a day picker, a Refresh button, and each zone's bonus history in percent; the full history is kept and filled in from frostreaver.zone and fangbreaker.zone, and download problems now show and retry after 5 minutes.

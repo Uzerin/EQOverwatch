@@ -300,7 +300,7 @@ public sealed partial class MainViewModel
     private List<LevelingRow> LevelingRowsFor(string server)
     {
         SharedLeveling? shared = UseSharedLeveling ? _sharedLeveling.GetValueOrDefault(server) : null;
-        return LevelingRanking.Rows(_leveling.Stretches(server), "you").Concat(shared?.Rows ?? Array.Empty<LevelingRow>()).ToList();
+        return LevelingRanking.Rows(ScaledStretches(server, _levelingAdjustedZones), "you").Concat(shared?.Rows ?? Array.Empty<LevelingRow>()).ToList();
     }
 
     /// <summary>Every mob the raid has killed (the names that are surely mobs even without "a" or "the").</summary>

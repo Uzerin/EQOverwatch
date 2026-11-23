@@ -225,6 +225,7 @@ public sealed partial class MainViewModel
                 ZoneMedianFor(r)))
             .ToList();
 
+        ShowLegacyColumn = ExperienceRows.Any(r => r.LegacyBonus != "—");
         ExperienceSession = $"Session started {start.ToLocalTime().ToString("t", CultureInfo.CurrentCulture)}";
         ExperienceSessionLength = FormatSpan(nowUtc - start);
         ExperienceKillSplit = $"{rows.Sum(r => r.PartyKills):N0} / {rows.Sum(r => r.RaidKills):N0} / {rows.Sum(r => r.SoloKills):N0}";

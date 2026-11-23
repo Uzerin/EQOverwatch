@@ -257,6 +257,7 @@ public sealed partial class ProgressStore : ITriggerLineSink
         if (LegacyBonus(text) is { } bonus)
         {
             state.LegacyBonus = bonus;
+            state.LegacyBonusAt = time;
             return true;
         }
 
@@ -765,6 +766,17 @@ public sealed partial class ProgressStore : ITriggerLineSink
         }
     }
 
+    /// <summary>When the character's log last showed its legacy bonus (UTC), or null when not known.</summary>
+    public DateTime? LegacyBonusSeen(string character, string server)
+    {
+        lock (_gate)
+        {
+            return _characters.TryGetValue(Key(character, server), out CharacterState? state) && state.LegacyBonusAt > 0
+                ? DateTimeOffset.FromUnixTimeSeconds(state.LegacyBonusAt).UtcDateTime
+                : null;
+        }
+    }
+
     /// <summary>The items the character's log said were added to the key ring, oldest first.</summary>
     public IReadOnlyList<CharacterFlag> KeyRingAdds(string character, string server) => Marks(character, server, s => s.KeyRing);
 
@@ -985,6 +997,9 @@ public sealed partial class ProgressStore : ITriggerLineSink
 
         /// <summary>The last legacy server XP bonus %, or null when never seen.</summary>
         public int? LegacyBonus { get; set; }
+
+        /// <summary>When the last legacy bonus line was seen (unix seconds; 0 when not known).</summary>
+        public long LegacyBonusAt { get; set; }
 
         /// <summary>When the character was created (as /played says it), or null.</summary>
         public DateTime? Born { get; set; }
