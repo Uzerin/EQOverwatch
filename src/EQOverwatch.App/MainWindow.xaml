@@ -2823,25 +2823,20 @@
                             <TabControl.ContentTemplate>
                                 <DataTemplate>
                                     <ScrollViewer VerticalScrollBarVisibility="Auto" PreviewMouseWheel="ScrollWholePage">
-                                        <StackPanel Margin="6">
-                                            <TextBlock Text="{Binding Name}" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                                        <StackPanel Margin="6" TextElement.Foreground="{DynamicResource TextPrimaryBrush}">
+                                            <TextBlock Text="{Binding Name}" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,6" Foreground="{DynamicResource TextPrimaryBrush}"/>
                                             <TextBlock Text="{Binding Next}" Foreground="#5CC98A" FontWeight="SemiBold" TextWrapping="Wrap"/>
                                             <TextBlock Text="{Binding Now}" Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,0,0,10"/>
                                             <ItemsControl ItemsSource="{Binding Rules}" MaxWidth="1000" HorizontalAlignment="Left">
                                                 <ItemsControl.ItemTemplate>
                                                     <DataTemplate>
-                                                        <BulletDecorator Margin="0,0,0,4">
-                                                            <BulletDecorator.Bullet>
-                                                                <TextBlock Text="•" Margin="0,0,8,0"/>
-                                                            </BulletDecorator.Bullet>
-                                                            <TextBlock Text="{Binding}" TextWrapping="Wrap"/>
-                                                        </BulletDecorator>
+<TextBlock Text="{Binding StringFormat=• {0}}" TextWrapping="Wrap" Margin="0,0,0,4" Foreground="{DynamicResource TextPrimaryBrush}"/>
                                                     </DataTemplate>
                                                 </ItemsControl.ItemTemplate>
                                             </ItemsControl>
                                             <TextBlock Text="{Binding Source}" Style="{StaticResource HintText}" Margin="0,4,0,14"/>
 
-                                            <TextBlock FontWeight="SemiBold" Text="Unlock schedule" Margin="0,0,0,4"/>
+                                            <TextBlock FontWeight="SemiBold" Text="Unlock schedule" Margin="0,0,0,4" Foreground="{DynamicResource TextPrimaryBrush}"/>
                                             <TextBlock Style="{StaticResource HintText}" Margin="0,0,0,6" TextWrapping="Wrap"
                                                        Text="A date with ? is worked out from the server's cadence; — means no post gives the day."/>
                                             <DataGrid ItemsSource="{Binding Unlocks}" HorizontalAlignment="Left" AutoGenerateColumns="False" CanUserAddRows="False"
@@ -2887,7 +2882,7 @@
                                             </DataGrid>
 
                                             <StackPanel Visibility="{Binding HasChallenges, Converter={StaticResource BoolToVisibility}}">
-                                                <TextBlock FontWeight="SemiBold" Text="Challenge achievements" Margin="0,0,0,4"/>
+                                                <TextBlock FontWeight="SemiBold" Text="Challenge achievements" Margin="0,0,0,4" Foreground="{DynamicResource TextPrimaryBrush}"/>
                                                 <DataGrid ItemsSource="{Binding Challenges}" HorizontalAlignment="Left" AutoGenerateColumns="False" CanUserAddRows="False"
                                                           IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal">
                                                     <DataGrid.Columns>
