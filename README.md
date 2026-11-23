@@ -5,6 +5,8 @@
 A free Windows companion for EverQuest. It reads your game logs and puts timers, alerts, damage meters and raid tools on screen, for
 as many characters as you play, without touching the game.
 
+**[Download the latest version](https://github.com/Uzerin/EQOverwatch/releases/latest)** · **[Join us on Discord](https://discord.gg/cDk3xTdkAW)**
+
 > EverQuest is a trademark of Daybreak Game Company. EQ Overwatch is an independent tool and is not affiliated with or endorsed by Daybreak.
 
 ## What it does
@@ -16,28 +18,28 @@ as many characters as you play, without touching the game.
 - Charm break, aggro and range alerts for your boxes, and tells read aloud.
 
 **Damage and raids**
-- Live DPS meter from all your characters' logs and fight history, with tanking, healing, deaths, spell casts and boss abilities.
+- Live DPS meter from all your characters' logs, with a fight graph, tanking, healing, deaths, spell casts and boss abilities.
 - One-click Discord picture of any fight, or automatic posts when a boss dies.
 - Mob History with kill times, mob levels and resists shared by the raid.
 - Loot, money and raid attendance tracking.
 
+**Leveling and TLP servers**
+- Leveling: the best zones for your level from your logs and other players', with XP, AA and plat per hour.
+- Resource Hunter: every zone's bonus today, its history and how big the bonus is, shared between players.
+- TLP: each server's rules, unlock dates, level caps and server bonuses, with reminders before an unlock.
+- Experience and AA per hour, Legacy bonus and challenge achievements per character.
+
 **Your characters**
-- Inventory, worn gear, spellbook and missing spells for every character and class persona, with the scrolls your other characters carry.
-- Experience and AA per hour, and experience by mob at each level.
-- Resource Hunter zone bonuses for today, shared between players.
-- Drop Table: drop rates by mob and item for each server, pooled online with other players if you like.
-- Maps: add your own labels to the in-game maps.
+- Inventory, worn gear, spellbook and missing spells for every character and class persona.
 - Skills with their caps, tradeskill success rates and faction for each character.
-- Never miss a tell: unanswered tells across all your characters, with an optional overlay.
-- Search every character's chat history.
+- Drop Table: drop rates by mob and item for each server, pooled with other players if you like.
+- Unanswered tells across all your characters, and a search of every character's chat history.
+- Maps: the Overwatch map pack and your own labels on the in-game maps.
 
 **Built for boxers**
-- Six movable overlays that only show for characters who are logged in.
+- Movable overlays that only show for characters who are logged in.
 - Sync between several PCs, backups, and saved overlay layouts.
 - Updates itself from inside the app.
-- A friendly [Discord server](https://discord.gg/cDk3xTdkAW) for news, help and ideas.
-
-Download: https://github.com/Uzerin/EQOverwatch/releases/latest · Join us on Discord: https://discord.gg/cDk3xTdkAW
 
 ## Install
 
@@ -45,154 +47,87 @@ Download: https://github.com/Uzerin/EQOverwatch/releases/latest · Join us on Di
 2. Run `EQOverwatch.exe` (nothing else to install).
 3. On **Settings**, choose your EverQuest folder.
 4. On **Characters**, tick **Enable Triggers** for the characters to monitor.
+5. Type `/log on` in game so EverQuest writes logs.
 
-Type `/log on` in game so EverQuest writes logs. Settings are saved in `%LocalAppData%\EQOverwatch`.
+Settings are saved in `%LocalAppData%\EQOverwatch`. When a new version is out, a bar at the top offers **Install update**, which
+downloads it, checks it and restarts the app; your settings are kept.
 
 **Player count:** once a day the app sends a random id and its version number, so we know how many people use it. No names and no IP
 addresses are kept. Untick **Count me in the anonymous player count** on Settings to stop it.
-
-## Updating
-
-When a new version is out, a bar at the top offers **Install update**, which downloads it, checks it and restarts the app. Your
-settings are kept.
 
 ## Tips
 
 - Run `/who all` to fill in classes and levels; target a pet and type `/pet leader` to count its damage with its owner.
 - Run `/outputfile inventory`, `spellbook` and `missingspells` in game to fill in character data.
-- Spell data comes from your own `spells_us.txt`.
 
 ## Changelog
 
 ### 1.0.98
 
-- Resource Hunter bonus sizes are shared (everyone's daily median next to yours), and Leveling has a With Bonus column on Experience bonus days.
-- Bonus alerts for zones that fit your active characters' levels; unlock reminders from 7 days before; bonuses are checked every 10 minutes for 3 hours after each daily draw.
-- Challenges tab in each Frostreaver and Vaniki character's profile; Leveling fills empty level bands from other servers; Copy picture of the Resource Hunter tables.
+- Shared Resource Hunter bonus sizes, bonus alerts, unlock reminders, Challenges tab per character and a Resource Hunter picture for Discord.
 
 ### 1.0.97
 
-- Resource Hunter: bonus size is measured per day (today's and recent days', with their average); the tab is split in the middle; data sources are no longer named.
+- Resource Hunter bonus size is measured per day.
 
 ### 1.0.96
 
-- New TLP sub-tab with a tab per server (Frostreaver, Fangbreaker, Lethar, Vaniki, Teek & Tormax, Yelinak, Oakwynd, Mischief, Aradune, Agnarr): rules, unlock schedule, level caps, server bonuses and Vaniki's challenges. Leveling and Resource Hunter show the next unlock and the bonuses in effect; expansions tick by unlock date; XP/hour is adjusted for server rate changes; Resource Hunter tables are in two columns with zone details and bonus size on the right; the Legacy bonus column uses each character's log or its account; challenge fights are tagged.
+- TLP tab with each server's rules, unlock schedule, level caps and bonuses; expansions tick by unlock date.
 
 ### 1.0.95
 
-- Resource Hunter has its own sub-tab: one table per bonus plus No bonus and Unknown, highest levels first, a day picker, a Refresh button, and each zone's bonus history in percent; the full history is kept and filled in from frostreaver.zone and fangbreaker.zone, and download problems now show and retry after 5 minutes.
+- Resource Hunter has its own tab, with tables by bonus, a day picker and each zone's bonus history.
 
 ### 1.0.94
 
-- Damage-taken graph: heals on the tank are now small green ticks along the bottom instead of full-height lines.
+- Heals on the tank are small green ticks on the damage-taken graph.
 
 ### 1.0.93
 
-- Damage-taken graph: a line per character taking melee damage (rampage left out), drawn only while they take it, and a dashed green line for each instant heal on the tank.
+- The damage-taken graph has a line per character taking melee damage.
 
 ### 1.0.92
 
-- Fight graph: the boss's estimated health (dashed), shading for burns, a healing line on the damage-taken graph, and a replay slider that shows the table at any point in the fight.
-- Maps: the button says "(new)" when a newer Overwatch map pack is out.
+- Fight graph: boss health estimate, burns and a replay slider; the Maps button shows when a newer map pack is out.
 
 ### 1.0.91
 
-- Tabs grouped: Loot (Loot Log, Drop Table, Items & Scrolls), Raid (Attendance, Mob History, Players & Pets), Progress (Experience, Session, Leveling, Spell Stats) and Logs (Chat, Log Search); Triggers sub-tabs are now Custom, Raid, Spells and AAs & Discs.
+- Tabs grouped under Loot, Raid, Progress and Logs.
 
 ### 1.0.81 to 1.0.90
 
-- Tabs that stay put (six per row), a Triggers group, and an Install/Update Overwatch Maps button that protects maps you edited.
-- Fight graph: death lines, boss cast ticks, a damage-taken graph and 30-second time marks; Damage Taken gets Last 20 Seconds and Tank Timeline.
-- Loot filed under the right server, no "You have looted" doubles, stacks and left-on-corpse items counted, one kill per drop.
-- Leveling: Resource Hunter zone bonuses, power-leveling filter, level-up and bonus XP notices.
-- Personal best DPS notices, rolls and linkdead on the Tells overlay, follow and pet buff alerts, settings copied from another edition.
+- Tabs that stay put, a Triggers group, and an Install/Update Overwatch Maps button that protects maps you edited.
+- Fight graph death lines, boss cast ticks and a damage-taken graph; Damage Taken gets Last 20 Seconds and Tank Timeline.
+- Loot filed under the right server, without doubles; stacks and left-on-corpse items counted.
+- Personal best DPS notices, rolls and linkdead on the Tells overlay, follow and pet buff alerts.
 
 ### 1.0.71 to 1.0.80
 
-- Leveling tab: best zones and path per 5-level band, AA mode, time to level, plat/hour, shared anonymously.
-- Server First (opt-in), class benchmarks and rank badges; all sharing switches in Settings.
-- Shared mob stats: estimated regen and HP, levels per zone, resists and Server Best.
-- Floating combat text overlays, Chat tab, account names and tell notifications.
-- Level history, guild column, and server boxes that follow the character you play.
+- Leveling tab: best zones per 5-level band, AA mode, time to level and plat/hour, shared anonymously.
+- Server First, class benchmarks, shared mob stats (regen, HP, levels, resists) and floating combat text.
+- Chat tab, account names, tell notifications and level history.
 
 ### 1.0.61 to 1.0.70
 
-- DPS is parsed from all active logs, and fights against several mobs at once count as one.
-- New Mob Card overlay, boss fight progress on the DPS overlay, and aggro and range alerts.
-- New Session, Spell Stats and Achievements tabs, plus Special keys on the Key Ring tab.
-- New alerts for blocked buffs, resists, failed feign death, root and mez breaks, and quiet logs.
-- Pet stats under their owner, rampage targets, and character flags.
-- Faction standings, guild ranks, raid groups, idle raiders and total played time.
-- Week view, plat per hour, next AA timer, XP by zone and recipe skill-ups.
-- Learned boss timers, and your resist rates on the Mob Card.
-- Output files are read as soon as EQ writes them, plus a redesigned Discord picture and fixes to Install update.
+- DPS from all active logs; fights against several mobs count as one.
+- Mob Card overlay, Session, Spell Stats and Achievements tabs, and alerts for resists, blocked buffs and broken mez or root.
+- Faction standings, guild ranks, raid groups, played time, week view and learned boss timers.
 
 ### 1.0.51 to 1.0.60
 
-- Class personas: skills, faction, level, spellbook, missing spells and focus effects for each persona, and switching one changes class and level everywhere.
-- One Inventory / Profile window per character, with an in-game style inventory, bank and shared bank.
-- Skills with their caps, tradeskill success rates and faction for each character.
-- Tells tab and optional Tells overlay for unanswered tells.
-- Drop Table from your logs, shareable as files or pooled online with other players.
-- New Experience, Log Search and Maps tabs.
-- Songs track themselves, charm break alarm, and debuff counters that end when cured.
-- Damage shields are their own attack type, and avoidance is broken down by type.
-- Levels, classes, pets and characters are kept per server, and windows open where you left them.
-- Color wheel for every swatch, tables that fit their contents, and Title Case tab names.
-- Fixes for a loading crash, a color swatch crash and Install update with a read-only folder.
+- Class personas with their own skills, faction, spellbook and focus effects.
+- A profile window per character with an in-game style inventory, bank and shared bank.
+- Tells tab and overlay, Drop Table, Experience, Log Search and Maps tabs.
 
 ### 1.0.41 to 1.0.50
 
-- Overlays follow who is logged in, fade out of combat, and the DPS overlay hides between fights.
-- DPS over time graph, tank avoidance and healing crits.
-- Discord picture: attack-type colors, full-width graph, hits, misses, hit rate, overheal, and columns that fit.
-- Colors window for attack types, pets and healing.
-- Install update from inside the app, and update checks while it runs.
-- Focus effects and AA duration lengthen buff and debuff bars.
-- DPS overlay shows the top 5 plus your characters.
-- Discord auto-post when a boss dies.
-- Per-boss trend, Uptime tab, and buff bars that pause in safe zones, follow logouts and survive restarts.
-- Loot search.
+- Overlays that follow who is logged in and fade out of combat; DPS graph and the Discord picture redesign.
+- Install update from inside the app, Discord auto-post when a boss dies, and buff bars that survive restarts.
 
-### 1.0.31 to 1.0.40
+### 1.0.1 to 1.0.40
 
-- Players & Pets tab with search.
-- Tells read aloud.
-- Max Hit leaves out crits; the Discord picture has two halves with deaths.
-- Boss History became Mob History, with mob levels, per-character records and kill lists.
-- Spell Casts tab.
-- Deleted output files are forgotten, and a Forget button per character.
-- Boss names ignore capital letters.
-
-### 1.0.21 to 1.0.30
-
-- Boss kills are counted, and older loot shows again.
-- One Server box for every tab.
-- Boss History tab, backup and restore, and overlay layouts.
-- Sync between several PCs.
-- Money, Deaths, Healing, Boss abilities, Loot, Attendance and Items & Scrolls tabs.
-- Recommended raid triggers and timer packs.
-- Encounter DPS shows damage taken beside damage dealt.
-- Missing spells lists scrolls from your other characters on the same server.
-
-### 1.0.11 to 1.0.20
-
-- Character data windows from `/outputfile`.
-- Raid triggers start on the cast.
-- Level and Class columns, and remembered players and pets with pet damage merged.
-- Max Crit and Crit % work.
-- The Discord picture lists every attacker.
-- New app icon.
-- Update notifications and automatic releases.
-- Build fixes.
-
-### 1.0.1 to 1.0.10
-
-- AAs & Discs tab.
-- The Primary DPS log loads at start, and live and imported fights share one list.
-- Raid triggers can be edited in place, and CH chain calls are recognised in any case.
-- Spell messages, songs and spell flags are read correctly.
-- A Spells list you build yourself, and a boss drop-down in Raid Triggers.
+- Triggers, timers, DPS, Mob History, loot, attendance, money, sync, backups and overlay layouts.
+- Character data from `/outputfile`, Players & Pets, Spell Casts and tells read aloud.
 
 ## Building from source
 
@@ -202,13 +137,10 @@ Requires the .NET 8 SDK. The app itself is Windows-only (WPF); the core library 
 dotnet test tests/EQOverwatch.Core.Tests     # any OS
 dotnet test                                  # whole solution, Windows
 dotnet run --project src/EQOverwatch.App     # Windows
-dotnet publish src/EQOverwatch.App -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o publish
 ```
 
-The solution is `EQOverwatch.sln`; the code uses the `EQOverwatch.*` namespaces and builds `EQOverwatch.exe`.
-
-- `src/EQOverwatch.Core` is the platform-neutral engine: log tailing and parsing, triggers, timers, DPS, spell database, settings, sharing.
-- `src/EQOverwatch.App` is the WPF app: view models, overlays, themes.
-- `tests/` holds the unit tests for both.
+- `src/EQOverwatch.Core`: the engine (log reading, triggers, timers, DPS, sharing).
+- `src/EQOverwatch.App`: the WPF app (view models, overlays, themes).
+- `tests/`: unit tests for both.
 
 See `RELEASING.md` for how a version is published.
