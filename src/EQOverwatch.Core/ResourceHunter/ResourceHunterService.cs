@@ -15,6 +15,9 @@ public interface IResourceHunterService
 
     /// <summary>Today's bonuses from the server's tracking website (<see cref="ResourceHunterText.WebsiteFor"/>); empty when it has none.</summary>
     Task<IReadOnlyList<ResourceZoneBonus>> WebsiteAsync(string server, string day, CancellationToken cancellation = default);
+
+    /// <summary>A past day's whole list from the server's tracking website; empty when it has none.</summary>
+    Task<IReadOnlyList<ResourceZoneBonus>> WebsiteDayAsync(string server, string day, CancellationToken cancellation = default);
 }
 
 public sealed class HttpResourceHunterService : IResourceHunterService
@@ -100,7 +103,22 @@ public sealed class HttpResourceHunterService : IResourceHunterService
             return Array.Empty<ResourceZoneBonus>();
         }
 
-        string address = $"{site}/api/servers/{Uri.EscapeDataString(server.ToLowerInvariant())}/bonuses/today";
+        return await ReadWebsiteAsync(site, $"{site}/api/servers/{Uri.EscapeDataString(server.ToLowerInvariant())}/bonuses/today", day, cancellation).ConfigureAwait(false);
+    }
+
+    public async Task<IReadOnlyList<ResourceZoneBonus>> WebsiteDayAsync(string server, string day, CancellationToken cancellation = default)
+    {
+        if (ResourceHunterText.WebsiteFor(server) is not { } site)
+        {
+            return Array.Empty<ResourceZoneBonus>();
+        }
+
+        string address = $"{site}/api/servers/{Uri.EscapeDataString(server.ToLowerInvariant())}/bonuses/history/date?date={Uri.EscapeDataString(day)}";
+        return await ReadWebsiteAsync(site, address, day, cancellation).ConfigureAwait(false);
+    }
+
+    private async Task<IReadOnlyList<ResourceZoneBonus>> ReadWebsiteAsync(string site, string address, string day, CancellationToken cancellation)
+    {
         using HttpResponseMessage response = await _http.GetAsync(address, cancellation).ConfigureAwait(false);
         if (!response.IsSuccessStatusCode)
         {
@@ -110,7 +128,10 @@ public sealed class HttpResourceHunterService : IResourceHunterService
         return ParseWebsite(await response.Content.ReadAsStringAsync(cancellation).ConfigureAwait(false), day);
     }
 
-    /// <summary>Reads the website's { ok, data: [{ name, bonus, state, bonusDate }] }: confirmed bonuses (and "none") for <paramref name="day"/>.</summary>
+    /// <summary>
+    /// Reads the website's { ok, data: [{ name, bonus, state, bonusDate, minLevel, maxLevel }] }: every zone for <paramref name="day"/> with its
+    /// level range; bonuses nobody confirmed yet come back as <see cref="ResourceBonus.Unknown"/>.
+    /// </summary>
     public static IReadOnlyList<ResourceZoneBonus> ParseWebsite(string json, string day)
     {
         var list = new List<ResourceZoneBonus>();
@@ -120,16 +141,21 @@ public sealed class HttpResourceHunterService : IResourceHunterService
             return list;
         }
 
-        foreach (JsonElement z in data.EnumerateArray())
+        static string? Text(JsonElement e, string name) => e.TryGetProperty(name, out JsonElement v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
+        static int Number(JsonElement e, string name) => e.TryGetProperty(name, out JsonElement v) && v.ValueKind == JsonValueKind.Number && v.TryGetInt32(out int n) ? n : 0;
+
+        foreach (JsonElement z in data.EnumerateArray().Where(z => z.ValueKind == JsonValueKind.Object))
         {
-            string? name = z.TryGetProperty("name", out JsonElement n) ? n.GetString() : null;
-            string? state = z.TryGetProperty("state", out JsonElement s) ? s.GetString() : null;
-            string? date = z.TryGetProperty("bonusDate", out JsonElement d) ? d.GetString() : null;
-            ResourceBonus? bonus = z.TryGetProperty("bonus", out JsonElement b) ? ResourceHunterText.FromKey(b.GetString()) : null;
-            if (!string.IsNullOrEmpty(name) && bonus is { } found && date == day && !string.Equals(state, "UNCONFIRMED", StringComparison.OrdinalIgnoreCase))
+            string? name = Text(z, "name");
+            if (string.IsNullOrEmpty(name) || Text(z, "bonusDate") != day)
             {
-                list.Add(new ResourceZoneBonus(name, found, ResourceBonusSource.Website));
+                continue;
             }
+
+            ResourceBonus bonus = string.Equals(Text(z, "state"), "UNCONFIRMED", StringComparison.OrdinalIgnoreCase)
+                ? ResourceBonus.Unknown
+                : ResourceHunterText.FromKey(Text(z, "bonus")) ?? ResourceBonus.Unknown;
+            list.Add(new ResourceZoneBonus(name, bonus, ResourceBonusSource.Website, 0, Number(z, "minLevel"), Number(z, "maxLevel")));
         }
 
         return list;

@@ -3,19 +3,29 @@ using System.Globalization;
 using System.IO;
 using System.Net.Http;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using EQOverwatch.Core.History;
 using EQOverwatch.Core.Models;
 using EQOverwatch.Core.ResourceHunter;
 
 namespace EQOverwatch.App.ViewModels;
 
-/// <summary>A zone on the Resource Hunter list: today's bonus, where that came from, and what your logs saw there in the last 30 days.</summary>
-public sealed record ResourceZoneView(string Zone, string Bonus, string Source, string Last30);
+/// <summary>A zone on a Resource Hunter table: its levels, where the day's bonus came from, and what it had in the 30 days up to that day.</summary>
+public sealed record ResourceZoneView(string Zone, string Levels, string Bonus, string Source, string Last30);
+
+/// <summary>One Resource Hunter table: the zones that had one bonus (or none, or nothing known) on the shown day, highest levels first.</summary>
+public sealed record ResourceGroupView(string Title, IReadOnlyList<ResourceZoneView> Rows);
+
+/// <summary>A row of the picked zone's breakdown: "Loot", "12", "8.3%".</summary>
+public sealed record ResourceShareView(string Bonus, string Days, string Percent);
 
 // Release 82: Resource Hunter zone bonuses (Leveling tab, Tells overlay, shared through the EQ Overwatch server) and personal best notices.
 public sealed partial class MainViewModel
 {
-    public const string ResourceFilterAll = "All";
+    public const string ResourceDayToday = "Today";
+
+    /// <summary>How soon a failed download of the bonuses is tried again.</summary>
+    public static readonly TimeSpan ResourceRetryAfter = TimeSpan.FromMinutes(5);
 
     /// <summary>How often the logs are read for bonus lines and new findings are shared.</summary>
     public static readonly TimeSpan ResourceScanEvery = TimeSpan.FromMinutes(2);
@@ -42,17 +52,62 @@ public sealed partial class MainViewModel
     [ObservableProperty]
     private bool _personalBestToast = true;
 
+    /// <summary>The day the Resource Hunter tab shows: <see cref="ResourceDayToday"/> or "2026-11-20".</summary>
     [ObservableProperty]
-    private string _selectedResourceFilter = ResourceFilterAll;
+    private string? _selectedResourceDay = ResourceDayToday;
+
+    /// <summary>"Today" and every past day anything is known for, newest first.</summary>
+    [ObservableProperty]
+    private IReadOnlyList<string> _resourceDayChoices = new[] { ResourceDayToday };
+
+    /// <summary>"Acrylia Caverns: 205 days since 2026-05-01" over the picked zone's breakdown.</summary>
+    [ObservableProperty]
+    private string _resourceBreakdownTitle = "Pick a zone to see how often it had each bonus.";
 
     [ObservableProperty]
     private string _resourceHunterStatus = string.Empty;
 
-    public ObservableCollection<ResourceZoneView> ResourceRows { get; } = new();
+    /// <summary>The shown day's tables: each bonus, then "No bonus", then "Unknown".</summary>
+    public ObservableCollection<ResourceGroupView> ResourceGroups { get; } = new();
 
-    public IReadOnlyList<string> ResourceFilters { get; } = new[] { ResourceFilterAll }
-        .Concat(new[] { ResourceBonus.Experience, ResourceBonus.Aa, ResourceBonus.Loot, ResourceBonus.Coin, ResourceBonus.RareSpawn,
-            ResourceBonus.Respawn, ResourceBonus.Skill, ResourceBonus.Faction }.Select(ResourceHunterText.Label)).ToList();
+    /// <summary>How often the picked zone had each bonus over its whole history.</summary>
+    public ObservableCollection<ResourceShareView> ResourceBreakdown { get; } = new();
+
+    private static readonly ResourceBonus[] ResourceTableOrder =
+    {
+        ResourceBonus.Experience, ResourceBonus.Aa, ResourceBonus.Loot, ResourceBonus.Coin, ResourceBonus.RareSpawn, ResourceBonus.Respawn,
+        ResourceBonus.Skill, ResourceBonus.Faction, ResourceBonus.None, ResourceBonus.Unknown,
+    };
+
+    /// <summary>The pause between past days read from a website (tests set none).</summary>
+    public TimeSpan ResourceBackfillPause { get; set; } = TimeSpan.FromSeconds(1);
+
+    /// <summary>The last reading of past days from the websites, for tests.</summary>
+    public Task ResourceBackfillTask { get; private set; } = Task.CompletedTask;
+
+    private bool _backfillBusy;
+    private DateTime _nextBackfill = DateTime.MinValue;
+    private string? _backfillProgress;
+    private string? _resourcePickedZone;
+    private ResourceZoneView? _resourcePickedRow;
+    private bool _showingResources;
+
+    /// <summary>The zone row clicked on any table (the tables only set it; clearing a table's selection keeps the pick).</summary>
+    public ResourceZoneView? ResourcePickedRow
+    {
+        get => _resourcePickedRow;
+        set
+        {
+            if (value is null || _showingResources)
+            {
+                return;
+            }
+
+            _resourcePickedRow = value;
+            _resourcePickedZone = value.Zone;
+            ShowResourceBreakdown(DateTime.UtcNow);
+        }
+    }
 
     /// <summary>The last background read and share, for tests.</summary>
     public Task ResourceHunterTask { get; private set; } = Task.CompletedTask;
@@ -65,7 +120,6 @@ public sealed partial class MainViewModel
     private readonly SemaphoreSlim _resourceGate = new(1, 1);
     private long _resourceVersion = -1;
     private string? _resourceShownFor;
-    private string _resourceShownFilter = string.Empty;
 
     partial void OnResourceHunterNoticesChanged(bool value) => SaveUnlessRestoring();
 
@@ -85,7 +139,22 @@ public sealed partial class MainViewModel
 
     partial void OnPersonalBestToastChanged(bool value) => SaveUnlessRestoring();
 
-    partial void OnSelectedResourceFilterChanged(string value) => ShowResourceRows(DateTime.UtcNow);
+    partial void OnSelectedResourceDayChanged(string? value)
+    {
+        if (!_showingResources)
+        {
+            ShowResourceRows(DateTime.UtcNow);
+        }
+    }
+
+    /// <summary>Downloads today's bonuses (and any missing past days) again now.</summary>
+    [RelayCommand]
+    private void RefreshResourceBonuses()
+    {
+        _nextResourceDownload.Clear();
+        _nextResourceScan = DateTime.MinValue;
+        _nextBackfill = DateTime.MinValue;
+    }
 
     /// <summary>The personal bests, for tests.</summary>
     public PersonalBestStore PersonalBests => _personalBests;
@@ -142,6 +211,17 @@ public sealed partial class MainViewModel
             ResourceHunterTask = RunResourceHunterAsync(logs, nowUtc);
         }
 
+        if (!_backfillBusy && nowUtc >= _nextBackfill && _resourceService is not null && UseResourceWebsites)
+        {
+            _nextBackfill = nowUtc + ResourceDownloadEvery;
+            var servers = Logs.Where(l => !string.IsNullOrEmpty(l.ServerName) && ResourceHunterText.WebsiteFor(l.ServerName) is not null)
+                .Select(l => l.ServerName.ToLowerInvariant()).Distinct().ToList();
+            if (servers.Count > 0)
+            {
+                ResourceBackfillTask = BackfillResourceHistoryAsync(servers, nowUtc);
+            }
+        }
+
         if (_pipeline.ResourceHunter.Version != _resourceVersion || _resourceShownFor != SelectedLevelingServer)
         {
             ShowResourceRows(nowUtc);
@@ -177,7 +257,7 @@ public sealed partial class MainViewModel
                             store.MarkShared(server, found);
                         }
                     }
-                    catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+                    catch (Exception ex) when (ex is not OutOfMemoryException)
                     {
                         problems.Add(ex.Message);
                     }
@@ -190,13 +270,14 @@ public sealed partial class MainViewModel
                 }
 
                 _nextResourceDownload[server] = (nowUtc + ResourceDownloadEvery, day);
+                int problemsBefore = problems.Count;
                 if (ShareResourceBonuses)
                 {
                     try
                     {
                         store.SetReported(server, ResourceBonusSource.Shared, day, await service.SharedAsync(server, day));
                     }
-                    catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException)
+                    catch (Exception ex) when (ex is not OutOfMemoryException)
                     {
                         problems.Add(ex.Message);
                     }
@@ -212,7 +293,7 @@ public sealed partial class MainViewModel
                     {
                         store.SetReported(server, ResourceBonusSource.Website, day, await service.WebsiteAsync(server, day));
                     }
-                    catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException)
+                    catch (Exception ex) when (ex is not OutOfMemoryException)
                     {
                         problems.Add(ex.Message);
                     }
@@ -220,6 +301,11 @@ public sealed partial class MainViewModel
                 else
                 {
                     store.SetReported(server, ResourceBonusSource.Website, day, Array.Empty<ResourceZoneBonus>());
+                }
+
+                if (problems.Count > problemsBefore)
+                {
+                    _nextResourceDownload[server] = (nowUtc + ResourceRetryAfter, day);
                 }
             }
 
@@ -238,46 +324,159 @@ public sealed partial class MainViewModel
 
     private string? _resourceProblem;
 
-    /// <summary>Fills the Resource Hunter list for the Leveling tab's server and the chosen bonus type.</summary>
-    public void ShowResourceRows(DateTime nowUtc)
+    /// <summary>Reads the past days each website has that are not kept yet, one at a time (also called by tests).</summary>
+    public async Task BackfillResourceHistoryAsync(IReadOnlyList<string> servers, DateTime nowUtc)
     {
-        ResourceHunterStore store = _pipeline.ResourceHunter;
-        _resourceVersion = store.Version;
-        _resourceShownFor = SelectedLevelingServer;
-        bool filterChanged = _resourceShownFilter != SelectedResourceFilter;
-        _resourceShownFilter = SelectedResourceFilter;
-        ResourceRows.Clear();
-        if (SelectedLevelingServer is not { } server)
+        if (_resourceService is not { } service)
         {
-            ResourceHunterStatus = "Pick a server above.";
             return;
         }
 
-        IReadOnlyList<ResourceZoneBonus> today = store.Today(server, nowUtc);
-        string? site = ResourceHunterText.WebsiteFor(server);
-        foreach (ResourceZoneBonus z in today.Where(z => SelectedResourceFilter == ResourceFilterAll || ResourceHunterText.Label(z.Bonus) == SelectedResourceFilter))
+        _backfillBusy = true;
+        ResourceHunterStore store = _pipeline.ResourceHunter;
+        try
         {
-            string source = z.Source switch
+            foreach (string server in servers)
             {
-                ResourceBonusSource.Logs => "Your logs",
-                ResourceBonusSource.Shared => z.Reports == 1 ? "1 player" : $"{z.Reports.ToString(CultureInfo.CurrentCulture)} players",
-                _ => site is null ? "Website" : new Uri(site).Host,
-            };
-            string last30 = string.Join(", ", store.History(server, z.Zone, nowUtc)
-                .Select(h => $"{ResourceHunterText.Label(h.Bonus)} {h.Days.ToString(CultureInfo.CurrentCulture)}"));
-            ResourceRows.Add(new ResourceZoneView(z.Zone, ResourceHunterText.Label(z.Bonus), source, last30.Length == 0 ? "—" : last30));
+                IReadOnlyList<string> missing = store.MissingDays(server, nowUtc);
+                for (int i = 0; i < missing.Count; i++)
+                {
+                    _backfillProgress = $"Reading past days from {new Uri(ResourceHunterText.WebsiteFor(server)!).Host}: {(i + 1).ToString(CultureInfo.CurrentCulture)} of {missing.Count.ToString(CultureInfo.CurrentCulture)}.";
+                    store.RecordWebsiteDay(server, missing[i], await service.WebsiteDayAsync(server, missing[i]), save: i % 20 == 19);
+                    if (ResourceBackfillPause > TimeSpan.Zero)
+                    {
+                        await Task.Delay(ResourceBackfillPause);
+                    }
+                }
+            }
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            _resourceProblem = ex.Message;
+            _nextBackfill = nowUtc + ResourceRetryAfter;
+        }
+        finally
+        {
+            store.Flush();
+            _backfillProgress = null;
+            _backfillBusy = false;
+            _resourceVersion = -1; // show the status without the progress
+        }
+    }
+
+    /// <summary>Fills the Resource Hunter tables for the server picked at the top and the chosen day.</summary>
+    public void ShowResourceRows(DateTime nowUtc)
+    {
+        ResourceHunterStore store = _pipeline.ResourceHunter;
+        bool dataChanged = _resourceVersion != store.Version || _resourceShownFor != SelectedLevelingServer;
+        _resourceVersion = store.Version;
+        _resourceShownFor = SelectedLevelingServer;
+        _showingResources = true;
+        try
+        {
+            ResourceGroups.Clear();
+            if (SelectedLevelingServer is not { } server)
+            {
+                ResourceHunterStatus = "Pick a server above.";
+                return;
+            }
+
+            string today = ResourceHunterText.Day(nowUtc);
+            IReadOnlyList<string> days = new[] { ResourceDayToday }.Concat(store.KnownDays(server).Where(d => d != today)).ToList();
+            string picked = SelectedResourceDay is { } chosen && days.Contains(chosen) ? chosen : ResourceDayToday;
+            if (!days.SequenceEqual(ResourceDayChoices))
+            {
+                ResourceDayChoices = days;
+            }
+
+            SelectedResourceDay = picked;
+            string day = picked == ResourceDayToday ? today : picked;
+
+            // A moment on that Pacific day, for the 30 days before it.
+            DateTime dayUtc = DateTime.ParseExact(day, "yyyy-MM-dd", CultureInfo.InvariantCulture).AddHours(20);
+            DateTime at = day == today ? nowUtc : DateTime.SpecifyKind(dayUtc, DateTimeKind.Utc);
+            var zones = store.OnDay(server, day).ToList();
+            string? site = ResourceHunterText.WebsiteFor(server);
+            HashSet<string> killed = KilledMobs();
+            if (site is null)
+            {
+                // Without a website, every zone your /cons saw that nobody reported is unknown.
+                var keys = zones.Select(z => ResourceHunterText.ZoneKey(z.Zone)).ToHashSet(StringComparer.Ordinal);
+                foreach (string zone in _mobLevels.All().Select(l => l.Zone).OfType<string>().Distinct(StringComparer.OrdinalIgnoreCase))
+                {
+                    if (keys.Add(ResourceHunterText.ZoneKey(zone)))
+                    {
+                        zones.Add(new ResourceZoneBonus(zone, ResourceBonus.Unknown, ResourceBonusSource.Logs));
+                    }
+                }
+            }
+
+            CultureInfo culture = CultureInfo.CurrentCulture;
+            foreach (ResourceBonus bonus in ResourceTableOrder)
+            {
+                var rows = zones.Where(z => z.Bonus == bonus)
+                    .Select(z => (Zone: z, Range: z.MaxLevel > 0 ? (z.MinLevel, z.MaxLevel) : ZoneMobRange(z.Zone, killed)))
+                    .OrderByDescending(z => z.Range?.Item2 ?? -1).ThenByDescending(z => z.Range?.Item1 ?? -1).ThenBy(z => z.Zone.Zone, StringComparer.OrdinalIgnoreCase)
+                    .Select(z =>
+                    {
+                        string source = z.Zone.Bonus == ResourceBonus.Unknown ? "—" : z.Zone.Source switch
+                        {
+                            ResourceBonusSource.Logs => "Your logs",
+                            ResourceBonusSource.Shared => z.Zone.Reports == 1 ? "1 player" : $"{z.Zone.Reports.ToString(culture)} players",
+                            _ => site is null ? "Website" : new Uri(site).Host,
+                        };
+                        string last30 = string.Join(", ", store.History(server, z.Zone.Zone, at)
+                            .Select(h => $"{ResourceHunterText.Label(h.Bonus)} {h.Days.ToString(culture)}"));
+                        string levels = z.Range is { } r ? $"{r.Item1.ToString(culture)}–{r.Item2.ToString(culture)}" : "—";
+                        return new ResourceZoneView(z.Zone.Zone, levels, ResourceHunterText.Label(bonus), source, last30.Length == 0 ? "—" : last30);
+                    })
+                    .ToList();
+                if (rows.Count > 0)
+                {
+                    string title = bonus == ResourceBonus.None ? "No bonus" : ResourceHunterText.Label(bonus);
+                    ResourceGroups.Add(new ResourceGroupView($"{title} ({rows.Count.ToString(culture)})", rows));
+                }
+            }
+
+            int withBonus = zones.Count(z => z.Bonus is not ResourceBonus.None and not ResourceBonus.Unknown);
+            string from = site is null ? "your logs and other EQ Overwatch players" : $"your logs, other EQ Overwatch players and {new Uri(site).Host}";
+            string dayText = day == today ? $"today (Pacific day {day})" : $"on {day}";
+            ResourceHunterStatus = (zones.Count == 0
+                    ? $"No Resource Hunter bonuses known {dayText} on this server yet. They show up as your characters enter zones that have one."
+                    : $"{withBonus.ToString(culture)} zones with a bonus {dayText}, from {from}.")
+                + (_backfillProgress is { } progress ? " " + progress : string.Empty)
+                + (_resourceProblem is { } problem ? $" Last problem: {problem}" : string.Empty);
+        }
+        finally
+        {
+            _showingResources = false;
         }
 
-        int withBonus = today.Count(z => z.Bonus != ResourceBonus.None);
-        string from = site is null ? "your logs and other EQ Overwatch players" : $"your logs, other EQ Overwatch players and {new Uri(site).Host}";
-        ResourceHunterStatus = today.Count == 0
-            ? "No Resource Hunter bonuses known for today on this server yet. They show up as your characters enter zones that have one."
-            : $"{withBonus.ToString(CultureInfo.CurrentCulture)} zones with a bonus today (Pacific day {ResourceHunterText.Day(nowUtc)}), from {from}."
-              + (_resourceProblem is { } problem ? $" Last problem: {problem}" : string.Empty);
-
-        if (!filterChanged)
+        ShowResourceBreakdown(nowUtc);
+        if (dataChanged)
         {
             ShowLeveling(rebuildExpansions: false); // the Bonus Today column
+        }
+    }
+
+    /// <summary>Fills the picked zone's share of each bonus over its whole history.</summary>
+    private void ShowResourceBreakdown(DateTime nowUtc)
+    {
+        ResourceBreakdown.Clear();
+        if (_resourcePickedZone is not { } zone || SelectedLevelingServer is not { } server)
+        {
+            return;
+        }
+
+        (IReadOnlyList<ResourceShare> shares, string from, int days) = _pipeline.ResourceHunter.Breakdown(server, zone, nowUtc);
+        CultureInfo culture = CultureInfo.CurrentCulture;
+        ResourceBreakdownTitle = $"{zone}: {days.ToString(culture)} days since {from}";
+        foreach (ResourceShare share in shares)
+        {
+            ResourceBreakdown.Add(new ResourceShareView(
+                share.Bonus == ResourceBonus.None ? "No bonus" : ResourceHunterText.Label(share.Bonus),
+                share.Days.ToString(culture),
+                share.Percent.ToString("0.0", culture) + "%"));
         }
     }
 

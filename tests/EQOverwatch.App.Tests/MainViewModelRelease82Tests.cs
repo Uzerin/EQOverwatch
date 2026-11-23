@@ -27,7 +27,19 @@ public partial class MainViewModelTests
         public Task<IReadOnlyList<ResourceZoneBonus>> WebsiteAsync(string server, string day, CancellationToken cancellation = default)
         {
             Calls.Add("site " + server);
-            return Task.FromResult<IReadOnlyList<ResourceZoneBonus>>(new[] { new ResourceZoneBonus("Plane of Fear", ResourceBonus.Loot, ResourceBonusSource.Website) });
+            return Task.FromResult<IReadOnlyList<ResourceZoneBonus>>(new[]
+            {
+                new ResourceZoneBonus("Plane of Fear", ResourceBonus.Loot, ResourceBonusSource.Website, 0, 46, 60),
+                new ResourceZoneBonus("Velketor's Labyrinth", ResourceBonus.Loot, ResourceBonusSource.Website, 0, 50, 65),
+                new ResourceZoneBonus("Befallen", ResourceBonus.Unknown, ResourceBonusSource.Website, 0, 5, 20),
+            });
+        }
+
+        public Task<IReadOnlyList<ResourceZoneBonus>> WebsiteDayAsync(string server, string day, CancellationToken cancellation = default)
+        {
+            Calls.Add("day " + day);
+            ResourceBonus bonus = day.EndsWith('1') ? ResourceBonus.Coin : ResourceBonus.None;
+            return Task.FromResult<IReadOnlyList<ResourceZoneBonus>>(new[] { new ResourceZoneBonus("Plane of Fear", bonus, ResourceBonusSource.Website, 0, 46, 60) });
         }
     }
 
@@ -53,10 +65,28 @@ public partial class MainViewModelTests
 
         h.Vm.SelectedLevelingServer = "frostreaver";
         h.Vm.ShowResourceRows(now);
-        Assert.Equal(new[] { "Karnor's Castle|AA|3 players", "Plane of Fear|Loot|frostreaver.zone", "The Akheva Ruins|Loot|Your logs" },
-            h.Vm.ResourceRows.Select(r => $"{r.Zone}|{r.Bonus}|{r.Source}"));
-        h.Vm.SelectedResourceFilter = "AA";
-        Assert.Equal("Karnor's Castle", Assert.Single(h.Vm.ResourceRows).Zone);
+        Assert.Equal(new[] { "AA (1)", "Loot (3)", "Unknown (1)" }, h.Vm.ResourceGroups.Select(g => g.Title));
+        Assert.Equal(new[] { "Velketor's Labyrinth|50–65|frostreaver.zone", "Plane of Fear|46–60|frostreaver.zone", "The Akheva Ruins|—|Your logs" },
+            h.Vm.ResourceGroups[1].Rows.Select(r => $"{r.Zone}|{r.Levels}|{r.Source}")); // highest levels first
+        Assert.Equal("Karnor's Castle|3 players", h.Vm.ResourceGroups[0].Rows.Select(r => $"{r.Zone}|{r.Source}").Single());
+
+        // Past days are read from the website once and kept; a zone's breakdown covers every day.
+        service.Calls.Clear();
+        h.Vm.ResourceBackfillPause = TimeSpan.Zero;
+        await h.Vm.BackfillResourceHistoryAsync(new[] { "frostreaver" }, now);
+        int pastDays = service.Calls.Count;
+        Assert.True(pastDays > 100);
+        await h.Vm.BackfillResourceHistoryAsync(new[] { "frostreaver" }, now);
+        Assert.Equal(pastDays, service.Calls.Count); // nothing read twice
+
+        h.Vm.ShowResourceRows(now);
+        Assert.Equal(pastDays + 1, h.Vm.ResourceDayChoices.Count);
+        h.Vm.ResourcePickedRow = h.Vm.ResourceGroups[1].Rows[1];
+        Assert.Equal(new[] { "No bonus", "Coin", "Loot" }, h.Vm.ResourceBreakdown.Select(r => r.Bonus));
+        Assert.Equal(pastDays + 1, h.Vm.ResourceBreakdown.Sum(r => int.Parse(r.Days, System.Globalization.CultureInfo.CurrentCulture)));
+
+        h.Vm.SelectedResourceDay = h.Vm.ResourceDayChoices[1]; // yesterday
+        Assert.Single(h.Vm.ResourceGroups);
 
         h.Vm.ResourceHunterNotices = false;
         h.Vm.UseResourceWebsites = false;

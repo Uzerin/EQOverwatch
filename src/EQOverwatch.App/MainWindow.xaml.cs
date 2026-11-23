@@ -15,6 +15,16 @@ public partial class MainWindow : Window
 {
     public static readonly TimeSpan RefreshInterval = TimeSpan.FromMilliseconds(250);
 
+    // The page's tables are full height, so the wheel scrolls the whole page even over a table.
+    private void ScrollWholePage(object sender, System.Windows.Input.MouseWheelEventArgs e)
+    {
+        if (sender is ScrollViewer page)
+        {
+            page.ScrollToVerticalOffset(page.VerticalOffset - e.Delta / 3.0);
+            e.Handled = true;
+        }
+    }
+
     private readonly MainViewModel _viewModel;
     private readonly DispatcherTimer _refreshTimer;
     private bool _userTyping;

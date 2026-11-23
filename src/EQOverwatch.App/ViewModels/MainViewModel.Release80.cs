@@ -322,14 +322,19 @@ public sealed partial class MainViewModel
         || Logs.Any(l => name.Contains(l.CharacterName, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>"45–52": the levels of mobs seen in a zone, from your /cons and everyone's.</summary>
-    private string ZoneMobLevels(string zone)
+    private string ZoneMobLevels(string zone) =>
+        ZoneMobRange(zone, KilledMobs()) is { } range
+            ? $"{range.Lowest.ToString(CultureInfo.CurrentCulture)}–{range.Highest.ToString(CultureInfo.CurrentCulture)}"
+            : "—";
+
+    /// <summary>The levels of mobs seen in a zone (your /cons and everyone's), or null when none were seen.</summary>
+    private (int Lowest, int Highest)? ZoneMobRange(string zone, HashSet<string> killed)
     {
-        HashSet<string> killed = KilledMobs();
         var mine = _mobLevels.All().Where(l => l.Zone is not null && l.Zone.Equals(zone, StringComparison.OrdinalIgnoreCase) && IsSureMob(l.Mob, killed)).ToList();
         (int Lowest, int Highest)? shared = SharedMobs()?.ZoneRange(zone);
         int lo = Math.Min(mine.Count > 0 ? mine.Min(l => l.Lowest) : int.MaxValue, shared?.Lowest ?? int.MaxValue);
         int hi = Math.Max(mine.Count > 0 ? mine.Max(l => l.Highest) : 0, shared?.Highest ?? 0);
-        return lo == int.MaxValue || hi == 0 ? "—" : $"{lo.ToString(CultureInfo.CurrentCulture)}–{hi.ToString(CultureInfo.CurrentCulture)}";
+        return lo == int.MaxValue || hi == 0 ? null : (lo, hi);
     }
 
     /// <summary>Time to the next level and to the end of the band (or to the next AA) at the zone's rate.</summary>

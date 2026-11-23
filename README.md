@@ -64,6 +64,10 @@ settings are kept.
 
 ## Changelog
 
+### 1.0.95
+
+- Resource Hunter has its own sub-tab: one table per bonus plus No bonus and Unknown, highest levels first, a day picker, a Refresh button, and each zone's bonus history in percent; the full history is kept and filled in from frostreaver.zone and fangbreaker.zone, and download problems now show and retry after 5 minutes.
+
 ### 1.0.94
 
 - Damage-taken graph: heals on the tank are now small green ticks along the bottom instead of full-height lines.

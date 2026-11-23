@@ -100,14 +100,16 @@ public sealed class ResourceHunterTests : IDisposable
     {
         const string site = """
             {"ok":true,"data":[
-              {"name":"Acrylia Caverns","bonus":"experience","state":"ACTIVE","bonusDate":"2026-11-20"},
+              {"name":"Acrylia Caverns","bonus":"experience","state":"ACTIVE","bonusDate":"2026-11-20","minLevel":40,"maxLevel":60},
               {"name":"Ak'Anon","bonus":"unconfirmed","state":"UNCONFIRMED","bonusDate":"2026-11-20"},
               {"name":"Dreadlands","bonus":"tradeskill","state":"ACTIVE","bonusDate":"2026-11-20"},
               {"name":"Cabilis","bonus":"none","state":"ACTIVE","bonusDate":"2026-11-20"},
               {"name":"Old","bonus":"loot","state":"ACTIVE","bonusDate":"2026-11-19"}]}
             """;
-        Assert.Equal(new[] { ("Acrylia Caverns", ResourceBonus.Experience), ("Dreadlands", ResourceBonus.Skill), ("Cabilis", ResourceBonus.None) },
-            HttpResourceHunterService.ParseWebsite(site, "2026-11-20").Select(z => (z.Zone, z.Bonus)));
+        var parsed = HttpResourceHunterService.ParseWebsite(site, "2026-11-20");
+        Assert.Equal(new[] { ("Acrylia Caverns", ResourceBonus.Experience), ("Ak'Anon", ResourceBonus.Unknown), ("Dreadlands", ResourceBonus.Skill), ("Cabilis", ResourceBonus.None) },
+            parsed.Select(z => (z.Zone, z.Bonus)));
+        Assert.Equal((40, 60), (parsed[0].MinLevel, parsed[0].MaxLevel));
 
         ResourceZoneBonus shared = Assert.Single(HttpResourceHunterService.ParseShared(
             """{"day":"2026-11-20","zones":[{"z":"Karnor's Castle","b":"aa","n":4},{"z":"Bad","b":"nope","n":1}]}""", "2026-11-20"));

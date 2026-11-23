@@ -2452,7 +2452,7 @@
                 </TabControl>
             </TabItem>
 
-            <!-- ═════════ Progress (Experience, Session, Leveling, Spell Stats) ═════════ -->
+            <!-- ═════════ Progress (Experience, Session, Leveling, Resource Hunter, Spell Stats) ═════════ -->
             <TabItem Header="Progress">
                 <TabControl Margin="0,6,0,0" SelectedIndex="{Binding SelectedProgressTab, Mode=TwoWay}">
 
@@ -2696,33 +2696,6 @@
                                     </DataGrid.Columns>
                                 </DataGrid>
 
-                                <TextBlock FontWeight="SemiBold" Margin="0,6,0,6" Text="Resource Hunter bonuses today"/>
-                                <ListBox ItemsSource="{Binding ResourceFilters}" SelectedItem="{Binding SelectedResourceFilter}" HorizontalAlignment="Left"
-                                         BorderThickness="0" Background="Transparent" Margin="0,0,0,6" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                                         ToolTip="Show only zones with this bonus.">
-                                    <ListBox.ItemsPanel>
-                                        <ItemsPanelTemplate>
-                                            <WrapPanel/>
-                                        </ItemsPanelTemplate>
-                                    </ListBox.ItemsPanel>
-                                    <ListBox.ItemTemplate>
-                                        <DataTemplate>
-                                            <TextBlock Text="{Binding}" Margin="6,2"/>
-                                        </DataTemplate>
-                                    </ListBox.ItemTemplate>
-                                </ListBox>
-                                <DataGrid ItemsSource="{Binding ResourceRows}" HorizontalAlignment="Left" AutoGenerateColumns="False" CanUserAddRows="False"
-                                          IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal" MaxHeight="360" Margin="0,0,0,4">
-                                    <DataGrid.Columns>
-                                        <DataGridTextColumn Header="Zone" Binding="{Binding Zone, Mode=OneWay}" Width="Auto"/>
-                                        <DataGridTextColumn Header="Bonus" Binding="{Binding Bonus, Mode=OneWay}" Width="Auto"/>
-                                        <DataGridTextColumn Header="Source" Binding="{Binding Source, Mode=OneWay}" Width="Auto"/>
-                                        <DataGridTextColumn Header="Your Last 30 Days" Binding="{Binding Last30, Mode=OneWay}" Width="Auto"/>
-                                    </DataGrid.Columns>
-                                </DataGrid>
-                                <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" MaxWidth="760" HorizontalAlignment="Left" Margin="0,0,0,12"
-                                           Text="{Binding ResourceHunterStatus}"/>
-
                                 <TextBlock FontWeight="SemiBold" Margin="0,6,0,6" Text="{Binding LevelingBestMobsTitle}"/>
                                 <DataGrid ItemsSource="{Binding LevelingBestMobs}" HorizontalAlignment="Left" AutoGenerateColumns="False" CanUserAddRows="False"
                                           IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal" Margin="0,0,0,14">
@@ -2744,6 +2717,60 @@
                                     </DataGrid.Columns>
                                 </DataGrid>
                                 <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" MaxWidth="760" HorizontalAlignment="Left" Text="{Binding LevelingStatus}"/>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </TabItem>
+
+                    <TabItem Header="Resource Hunter">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" PreviewMouseWheel="ScrollWholePage">
+                            <StackPanel Margin="6">
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                    <TextBlock Text="Server" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                    <ComboBox Width="140" ItemsSource="{Binding LevelingServers}" SelectedItem="{Binding SelectedLevelingServer}" Margin="0,0,16,0"/>
+                                    <TextBlock Text="Day" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                    <ComboBox Width="130" ItemsSource="{Binding ResourceDayChoices}" SelectedItem="{Binding SelectedResourceDay}" Margin="0,0,16,0"
+                                              ToolTip="Show the bonuses of a past day."/>
+                                    <Button Content="Refresh" Command="{Binding RefreshResourceBonusesCommand}" Padding="12,4" VerticalAlignment="Center"
+                                            ToolTip="Download today's bonuses (and any missing past days) again now."/>
+                                </StackPanel>
+                                <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" MaxWidth="760" HorizontalAlignment="Left" Margin="0,0,0,10"
+                                           Text="{Binding ResourceHunterStatus}"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <ItemsControl ItemsSource="{Binding ResourceGroups}" VerticalAlignment="Top">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <StackPanel Margin="0,0,0,12">
+                                                    <TextBlock FontWeight="SemiBold" Margin="0,0,0,4" Text="{Binding Title}"/>
+                                                    <DataGrid ItemsSource="{Binding Rows}" HorizontalAlignment="Left" AutoGenerateColumns="False" CanUserAddRows="False"
+                                                              IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal" SelectionMode="Single"
+                                                              SelectedItem="{Binding DataContext.ResourcePickedRow, RelativeSource={RelativeSource AncestorType=ScrollViewer}, Mode=OneWayToSource}">
+                                                        <DataGrid.Columns>
+                                                            <DataGridTextColumn Header="Zone" Binding="{Binding Zone, Mode=OneWay}" Width="Auto"/>
+                                                            <DataGridTextColumn Header="Levels" Binding="{Binding Levels, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                                            <DataGridTextColumn Header="Source" Binding="{Binding Source, Mode=OneWay}" Width="Auto"/>
+                                                            <DataGridTextColumn Header="Last 30 Days" Binding="{Binding Last30, Mode=OneWay}" Width="Auto"/>
+                                                        </DataGrid.Columns>
+                                                    </DataGrid>
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    <StackPanel Grid.Column="1" Margin="24,0,0,0" VerticalAlignment="Top">
+                                        <TextBlock FontWeight="SemiBold" Margin="0,0,0,4" Text="{Binding ResourceBreakdownTitle}" TextWrapping="Wrap" MaxWidth="320"/>
+                                        <DataGrid ItemsSource="{Binding ResourceBreakdown}" HorizontalAlignment="Left" AutoGenerateColumns="False" CanUserAddRows="False"
+                                                  IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal">
+                                            <DataGrid.Columns>
+                                                <DataGridTextColumn Header="Bonus" Binding="{Binding Bonus, Mode=OneWay}" Width="Auto"/>
+                                                <DataGridTextColumn Header="Days" Binding="{Binding Days, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                                <DataGridTextColumn Header="Share" Binding="{Binding Percent, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                            </DataGrid.Columns>
+                                        </DataGrid>
+                                    </StackPanel>
+                                </Grid>
                             </StackPanel>
                         </ScrollViewer>
                     </TabItem>

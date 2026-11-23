@@ -20,6 +20,9 @@ public enum ResourceBonus
     Respawn,
     Skill,
     Faction,
+
+    /// <summary>Listed by a website but not confirmed by anyone today (never stored or shared).</summary>
+    Unknown,
 }
 
 /// <summary>Where a zone's bonus for today came from: your own logs, other EQ Overwatch players, or the server's tracking website.</summary>
@@ -31,7 +34,7 @@ public enum ResourceBonusSource
 }
 
 /// <summary>A zone's bonus on one Pacific day.</summary>
-public sealed record ResourceZoneBonus(string Zone, ResourceBonus Bonus, ResourceBonusSource Source, int Reports = 0);
+public sealed record ResourceZoneBonus(string Zone, ResourceBonus Bonus, ResourceBonusSource Source, int Reports = 0, int MinLevel = 0, int MaxLevel = 0);
 
 /// <summary>The words of the Resource Hunter log lines, bonus names, zone matching and the Pacific day the bonuses change on.</summary>
 public static class ResourceHunterText
@@ -57,7 +60,7 @@ public static class ResourceHunterText
     {
         ("none", ResourceBonus.None), ("experience", ResourceBonus.Experience), ("aa", ResourceBonus.Aa), ("loot", ResourceBonus.Loot),
         ("coin", ResourceBonus.Coin), ("rare", ResourceBonus.RareSpawn), ("respawn", ResourceBonus.Respawn), ("skill", ResourceBonus.Skill),
-        ("tradeskill", ResourceBonus.Skill), ("faction", ResourceBonus.Faction),
+        ("tradeskill", ResourceBonus.Skill), ("faction", ResourceBonus.Faction), ("unknown", ResourceBonus.Unknown),
     };
 
     /// <summary>The bonus a "This land is saturated with unstable magic, ..." line hints at, or null for any other line.</summary>
@@ -92,6 +95,7 @@ public static class ResourceHunterText
         ResourceBonus.None => "No bonus",
         ResourceBonus.Aa => "AA",
         ResourceBonus.RareSpawn => "Rare Spawn",
+        ResourceBonus.Unknown => "Unknown",
         _ => bonus.ToString(),
     };
 
@@ -155,12 +159,11 @@ public sealed record ResourceFinding(string Zone, ResourceBonus Bonus, string Da
 
 /// <summary>
 /// The Resource Hunter bonuses: the ones your characters' logs show (live lines and, once, everything already in the logs), kept per
-/// server and Pacific day for 120 days, plus today's bonuses other players and the tracking websites report. Live lines raise
+/// server and Pacific day (never removed), plus today's bonuses other players and the tracking websites report. Live lines raise
 /// <see cref="Found"/> once per zone entry.
 /// </summary>
-public sealed class ResourceHunterStore : ITriggerLineSink
+public sealed partial class ResourceHunterStore : ITriggerLineSink
 {
-    public const int KeepDays = 120;
     private const int ChunkSize = 4 << 20;
 
     private sealed class Entry
@@ -177,6 +180,18 @@ public sealed class ResourceHunterStore : ITriggerLineSink
         public Dictionary<string, long> Logs { get; set; } = new(StringComparer.OrdinalIgnoreCase);
         public Dictionary<string, string> LogZones { get; set; } = new(StringComparer.OrdinalIgnoreCase);
         public List<Entry> Entries { get; set; } = new();
+
+        /// <summary>Every zone's bonus key per server, Pacific day and zone key (websites and other players; your logs are in <see cref="Entries"/>).</summary>
+        public Dictionary<string, Dictionary<string, Dictionary<string, string>>> Days { get; set; } = new();
+
+        /// <summary>The zones' names as the websites write them, per server and zone key.</summary>
+        public Dictionary<string, Dictionary<string, string>> Names { get; set; } = new();
+
+        /// <summary>The zones' level ranges [min, max], per server and zone key.</summary>
+        public Dictionary<string, Dictionary<string, int[]>> Levels { get; set; } = new();
+
+        /// <summary>The past days whose whole list was read from the website, per server.</summary>
+        public Dictionary<string, List<string>> Fetched { get; set; } = new();
     }
 
     private readonly object _gate = new();
@@ -313,8 +328,6 @@ public sealed class ResourceHunterStore : ITriggerLineSink
 
         lock (_gate)
         {
-            string oldest = ResourceHunterText.Day(nowUtc.AddDays(-KeepDays));
-            _file.Entries.RemoveAll(e => string.CompareOrdinal(e.Day, oldest) < 0);
             Save();
         }
 
@@ -418,7 +431,10 @@ public sealed class ResourceHunterStore : ITriggerLineSink
     {
         lock (_gate)
         {
-            _reported[(server.ToLowerInvariant(), source)] = (day, zones.Select(z => z with { Source = source }).ToList());
+            var list = zones.Select(z => z with { Source = source }).ToList();
+            _reported[(server.ToLowerInvariant(), source)] = (day, list);
+            Record(server, day, list);
+            Save();
         }
 
         Interlocked.Increment(ref _version);
@@ -427,58 +443,47 @@ public sealed class ResourceHunterStore : ITriggerLineSink
     /// <summary>
     /// Today's bonus for every zone anyone knows of on <paramref name="server"/>: your logs first, then other players, then the website.
     /// </summary>
-    public IReadOnlyList<ResourceZoneBonus> Today(string server, DateTime nowUtc)
-    {
-        string s = server.ToLowerInvariant();
-        string day = ResourceHunterText.Day(nowUtc);
-        var byZone = new Dictionary<string, ResourceZoneBonus>(StringComparer.Ordinal);
-        lock (_gate)
-        {
-            foreach (Entry e in _file.Entries.Where(e => e.Server == s && e.Day == day))
-            {
-                if (ResourceHunterText.FromKey(e.Bonus) is { } bonus)
-                {
-                    byZone.TryAdd(ResourceHunterText.ZoneKey(e.Zone), new ResourceZoneBonus(e.Zone, bonus, ResourceBonusSource.Logs));
-                }
-            }
-
-            foreach (ResourceBonusSource source in new[] { ResourceBonusSource.Shared, ResourceBonusSource.Website })
-            {
-                if (_reported.TryGetValue((s, source), out var list) && list.Day == day)
-                {
-                    foreach (ResourceZoneBonus z in list.Zones)
-                    {
-                        byZone.TryAdd(ResourceHunterText.ZoneKey(z.Zone), z);
-                    }
-                }
-            }
-        }
-
-        return byZone.Values.OrderBy(z => z.Bonus == ResourceBonus.None).ThenBy(z => z.Bonus).ThenBy(z => z.Zone, StringComparer.OrdinalIgnoreCase).ToList();
-    }
+    public IReadOnlyList<ResourceZoneBonus> Today(string server, DateTime nowUtc) => OnDay(server, ResourceHunterText.Day(nowUtc));
 
     /// <summary>Today's bonus for one zone, or null when nobody knows it.</summary>
     public ResourceZoneBonus? TodayIn(string server, string zone, DateTime nowUtc)
     {
         string key = ResourceHunterText.ZoneKey(zone);
-        return Today(server, nowUtc).FirstOrDefault(z => ResourceHunterText.ZoneKey(z.Zone) == key);
+        return Today(server, nowUtc).FirstOrDefault(z => z.Bonus != ResourceBonus.Unknown && ResourceHunterText.ZoneKey(z.Zone) == key);
     }
 
-    /// <summary>How often your logs saw each bonus in a zone over the last <paramref name="days"/> days, most often first.</summary>
-    public IReadOnlyList<(ResourceBonus Bonus, int Days)> History(string server, string zone, DateTime nowUtc, int days = 30)
+    /// <summary>The zones' level ranges today's website list gives (by <see cref="ResourceHunterText.ZoneKey"/>).</summary>
+    public IReadOnlyDictionary<string, (int Min, int Max)> WebsiteLevels(string server, DateTime nowUtc)
     {
-        string s = server.ToLowerInvariant();
-        string key = ResourceHunterText.ZoneKey(zone);
-        string from = ResourceHunterText.Day(nowUtc.AddDays(-days));
+        var levels = new Dictionary<string, (int Min, int Max)>(StringComparer.Ordinal);
         lock (_gate)
         {
-            return _file.Entries
-                .Where(e => e.Server == s && string.CompareOrdinal(e.Day, from) > 0 && ResourceHunterText.ZoneKey(e.Zone) == key)
-                .Select(e => ResourceHunterText.FromKey(e.Bonus))
-                .Where(b => b is not null)
+            if (_reported.TryGetValue((server.ToLowerInvariant(), ResourceBonusSource.Website), out var list) && list.Day == ResourceHunterText.Day(nowUtc))
+            {
+                foreach (ResourceZoneBonus z in list.Zones.Where(z => z.MaxLevel > 0))
+                {
+                    levels.TryAdd(ResourceHunterText.ZoneKey(z.Zone), (z.MinLevel, z.MaxLevel));
+                }
+            }
+        }
+
+        return levels;
+    }
+
+    /// <summary>How often each bonus (not "unknown") was seen in a zone over the last <paramref name="days"/> days, most often first: every source.</summary>
+    public IReadOnlyList<(ResourceBonus Bonus, int Days)> History(string server, string zone, DateTime nowUtc, int days = 30)
+    {
+        string key = ResourceHunterText.ZoneKey(zone);
+        DateTime today = DateTime.ParseExact(ResourceHunterText.Day(nowUtc), "yyyy-MM-dd", CultureInfo.InvariantCulture);
+        lock (_gate)
+        {
+            return Enumerable.Range(0, days)
+                .Select(i => BonusOn(server.ToLowerInvariant(), today.AddDays(-i).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), key))
+                .Where(b => b is not null && b != ResourceBonus.Unknown)
                 .GroupBy(b => b!.Value)
                 .Select(g => (g.Key, g.Count()))
                 .OrderByDescending(g => g.Item2)
+                .ThenBy(g => g.Key)
                 .ToList();
         }
     }
@@ -540,6 +545,10 @@ public sealed class ResourceHunterStore : ITriggerLineSink
                     Logs = new Dictionary<string, long>(saved.Logs ?? new(), StringComparer.OrdinalIgnoreCase),
                     LogZones = new Dictionary<string, string>(saved.LogZones ?? new(), StringComparer.OrdinalIgnoreCase),
                     Entries = saved.Entries ?? new(),
+                    Days = saved.Days ?? new(),
+                    Names = saved.Names ?? new(),
+                    Levels = saved.Levels ?? new(),
+                    Fetched = saved.Fetched ?? new(),
                 };
             }
         }
