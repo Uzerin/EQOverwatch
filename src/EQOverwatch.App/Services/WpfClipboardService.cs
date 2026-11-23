@@ -46,6 +46,12 @@ public sealed class WpfClipboardService : IClipboardService
         Retry(() => Clipboard.SetImage(image));
     }
 
+    public void SetResourceBonusImage(string title, IReadOnlyList<EQOverwatch.App.ViewModels.ResourcePairView> pairs, ThemePalette palette, string footer)
+    {
+        var image = ResourceBonusImageRenderer.Render(title, pairs, palette, footer);
+        Retry(() => Clipboard.SetImage(image));
+    }
+
     private static void Retry(Action write)
     {
         for (int attempt = 1; ; attempt++)

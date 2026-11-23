@@ -171,6 +171,7 @@ public sealed partial class MainViewModel
         }
 
         _pipeline.ResourceHunter.Found += OnResourceBonusFound;
+        _pipeline.ResourceHunter.Reset += OnResourceReset;
     }
 
     private void RestoreRelease82(Core.Settings.AppSettings settings)
@@ -179,6 +180,7 @@ public sealed partial class MainViewModel
         UseResourceWebsites = settings.UseResourceWebsites;
         ShareResourceBonuses = settings.ShareResourceBonuses;
         PersonalBestToast = settings.PersonalBestToast;
+        _unlockReminders = new Dictionary<string, string>(settings.UnlockReminders ?? new(), StringComparer.OrdinalIgnoreCase);
     }
 
     private void SaveRelease82(Core.Settings.AppSettings settings)
@@ -187,6 +189,7 @@ public sealed partial class MainViewModel
         settings.UseResourceWebsites = UseResourceWebsites;
         settings.ShareResourceBonuses = ShareResourceBonuses;
         settings.PersonalBestToast = PersonalBestToast;
+        settings.UnlockReminders = new Dictionary<string, string>(_unlockReminders, StringComparer.OrdinalIgnoreCase);
     }
 
     // On the tailing thread: one of your characters' logs just showed the bonus of the zone it entered.
@@ -304,9 +307,19 @@ public sealed partial class MainViewModel
                     store.SetReported(server, ResourceBonusSource.Website, day, Array.Empty<ResourceZoneBonus>());
                 }
 
+                if (ShareResourceBonuses)
+                {
+                    await ShareBonusSizesAsync(service, server, day, problems);
+                }
+
+                AnnounceBonuses(server, day);
                 if (problems.Count > problemsBefore)
                 {
                     _nextResourceDownload[server] = (nowUtc + ResourceRetryAfter, day);
+                }
+                else if (InResetBurst(nowUtc))
+                {
+                    _nextResourceDownload[server] = (nowUtc + ResourceBurstEvery, day);
                 }
             }
 
@@ -473,6 +486,7 @@ public sealed partial class MainViewModel
         CultureInfo culture = CultureInfo.CurrentCulture;
         ResourceBreakdownTitle = $"{zone}: {days.ToString(culture)} days since {from}";
         ResourceBonusSize = BonusSizeText(server, zone);
+        FetchZoneSizes(server, zone);
         foreach (ResourceShare share in shares)
         {
             ResourceBreakdown.Add(new ResourceShareView(

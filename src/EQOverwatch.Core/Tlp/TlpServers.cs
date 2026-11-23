@@ -13,8 +13,41 @@ public sealed record TlpUnlock(IReadOnlyList<int> Expansions, DateOnly? Date, in
     public string Title => Expansions.Count == 0 ? Note : string.Join(" + ", Expansions.Select(Maps.ZoneDirectory.ExpansionName));
 }
 
-/// <summary>A challenge achievement of a level-locked server: the level, the expansions, the goal and the reward.</summary>
-public sealed record TlpChallenge(int Level, string Expansions, string Goal, string Reward);
+/// <summary>A challenge achievement: beat the goal at or under the level (per character) for the reward.</summary>
+public sealed record TlpChallenge(int Level, string Expansions, string Goal, string Reward)
+{
+    /// <summary>
+    /// The names an achievement for this challenge is expected to contain: the boss after a " - ", without "(raid)" and similar notes,
+    /// each of "A or B" ("Lethar", "Queen Pyrilonis", "King Gelaqua").
+    /// </summary>
+    public IReadOnlyList<string> Keywords
+    {
+        get
+        {
+            string goal = Goal;
+            int dash = goal.IndexOf(" - ", StringComparison.Ordinal);
+            if (dash >= 0)
+            {
+                goal = goal[(dash + 3)..];
+            }
+
+            int paren = goal.IndexOf(" (", StringComparison.Ordinal);
+            if (paren > 0)
+            {
+                goal = goal[..paren];
+            }
+
+            return goal.Split(" or ", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(k => k.StartsWith("The ", StringComparison.Ordinal) ? k[4..] : k).ToList();
+        }
+    }
+
+    /// <summary>True when an achievement name looks like this challenge's.</summary>
+    public bool Matches(string achievement) =>
+        !achievement.EndsWith(" Traveler", StringComparison.OrdinalIgnoreCase) && !achievement.EndsWith(" Explorer", StringComparison.OrdinalIgnoreCase)
+        && !achievement.Contains("Quests -", StringComparison.OrdinalIgnoreCase)
+        && Keywords.Any(k => achievement.Contains(k, StringComparison.OrdinalIgnoreCase)); // zone travel and quest achievements share zone names
+}
 
 /// <summary>
 /// A TLP server's published ruleset: its rules as the official posts (and, where noted, Allakhazam) give them, its unlocks, and its base
@@ -227,7 +260,43 @@ public static class TlpServers
             "Frostreaver Rulesets FAQ (forums.everquest.com)",
             frost,
             new (DateOnly, double)[] { (D(2026, 5, 27), 100), (D(2027, 4, 29), 115), (D(2027, 8, 19), 130), (D(2027, 10, 14), 145), (D(2028, 3, 30), 160), (D(2029, 4, 26), 180), (D(2030, 3, 28), 200) },
-            Legacy: true, ResourceHunter: true, Challenges: true));
+            Legacy: true, ResourceHunter: true, Challenges: true,
+            ChallengeList: new[]
+            {
+                new TlpChallenge(40, "", "The Classic Three", "Title: The Valiant"),
+                new TlpChallenge(40, "", "Cazic-Thule", "Food clicky"),
+                new TlpChallenge(50, "", "Dragons of Kunark", "Trakraptor pet illusion"),
+                new TlpChallenge(50, "", "Lord Yelinak", "Teleport - Western Wastes"),
+                new TlpChallenge(55, "", "Emperor Ssraeshza", "Emperor Ssraeshza pet illusion"),
+                new TlpChallenge(55, "", "Solusek Ro", "Title: The Penultimate Element"),
+                new TlpChallenge(55, "", "The Curse Reborn (raid)", "Magus summoner"),
+                new TlpChallenge(55, "", "Cragbeast Queen", "Raid currency"),
+                new TlpChallenge(60, "", "Queen Pyrilonis or King Gelaqua", "Raid currency"),
+                new TlpChallenge(60, "", "Vishimtar the Fallen", "Raid currency"),
+                new TlpChallenge(60, "", "Sendaii, the Hive Queen", "Lava spider pet illusion"),
+                new TlpChallenge(60, "", "The Tolling of Dissonant Bells", "Pegasus mount"),
+                new TlpChallenge(65, "", "Beltron the Shade King", "Drink clicky"),
+                new TlpChallenge(65, "", "Mayong's Mistresses", "40-slot collection bag"),
+                new TlpChallenge(70, "", "Meldrath the Malignant", "Teleport - Fortress Mechanotus"),
+                new TlpChallenge(75, "", "The Mindblight", "Title: The Relentless"),
+                new TlpChallenge(75, "", "The Gatekeeper", "Raid currency"),
+                new TlpChallenge(80, "", "Guardian of the House", "Gigyn illusion"),
+                new TlpChallenge(85, "", "The King of the Beasts", "Removable purity augment"),
+                new TlpChallenge(90, "", "Velishan, The Deceitful", "Trinket of the Center"),
+                new TlpChallenge(90, "", "The Doomscale Horde", "Nihil mercenary"),
+                new TlpChallenge(95, "", "Praetor Vitio", "Bridle of the Tranquil Shriekpaw"),
+                new TlpChallenge(95, "", "Emollious", "Raid currency"),
+                new TlpChallenge(95, "", "Prince Selrach Di`Zok", "Teleport (FM)"),
+                new TlpChallenge(100, "", "Talendor (group mission)", "Phoenix mercenary"),
+                new TlpChallenge(100, "", "General Reparm", "Gnomework illusion"),
+                new TlpChallenge(105, "", "Restless Assault", "Raid currency"),
+                new TlpChallenge(105, "", "Zlandicar", "Shadowstep clicky"),
+                new TlpChallenge(110, "", "Shei Vinitras", "Teleport - Maiden's Eye"),
+                new TlpChallenge(110, "", "The Spirit Fades (raid)", "Fungal Warrior illusion"),
+                new TlpChallenge(115, "", "The Return of Kanghammer", "Grey squirrel mount"),
+                new TlpChallenge(115, "", "Landing", "Scalewrought mercenary"),
+                new TlpChallenge(120, "", "Waxwork Abolishion", "Pacify clicky"),
+            }));
 
         // ── Fangbreaker (Fangbreaker Rulesets FAQ) ──
         var fang = new List<TlpUnlock>

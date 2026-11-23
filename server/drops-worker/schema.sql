@@ -186,3 +186,18 @@ CREATE TABLE IF NOT EXISTS zone_bonuses (
   PRIMARY KEY (server, day, zone_key, contributor)
 );
 CREATE INDEX IF NOT EXISTS zone_bonuses_by_day ON zone_bonuses (server, day);
+
+-- Resource Hunter bonus sizes: how much one install measured a zone's bonus to add on one Pacific day (percent; kind "xp", "aa" or
+-- "coin"). Zone, day and size only; no names. Kept: a zone's sizes are its history.
+CREATE TABLE IF NOT EXISTS bonus_sizes (
+  server TEXT NOT NULL,
+  day TEXT NOT NULL,
+  zone_key TEXT NOT NULL,
+  zone TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  size REAL NOT NULL,
+  contributor TEXT NOT NULL,
+  PRIMARY KEY (server, day, zone_key, kind, contributor)
+);
+CREATE INDEX IF NOT EXISTS bonus_sizes_by_zone ON bonus_sizes (server, zone_key);
+CREATE INDEX IF NOT EXISTS bonus_sizes_by_day ON bonus_sizes (server, day);

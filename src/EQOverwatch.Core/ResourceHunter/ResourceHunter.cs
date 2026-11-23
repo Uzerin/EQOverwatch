@@ -224,6 +224,9 @@ public sealed partial class ResourceHunterStore : ITriggerLineSink
     /// <summary>Raised on the tailing thread the first time a live line shows a zone's bonus after a character enters it: character, server, zone, bonus.</summary>
     public event Action<string, string, string, ResourceBonus>? Found;
 
+    /// <summary>Raised on the tailing thread when a log shows the bonuses being drawn again (server); that day's old bonuses are forgotten first.</summary>
+    public event Action<string>? Reset;
+
     /// <summary>Where a character is (character, server) when its log has had no zone line since the app started.</summary>
     public void SetZoneProvider(Func<string, string, string?> zoneOf) => _zoneOf = zoneOf;
 
@@ -232,6 +235,13 @@ public sealed partial class ResourceHunterStore : ITriggerLineSink
 
     public void OnLine(string characterName, string serverName, ReadOnlySpan<char> message, DateTime receivedUtc)
     {
+        if (message.StartsWith(ResourceHunterText.ResetPrefix, StringComparison.Ordinal) && serverName.Length > 0)
+        {
+            ForgetDay(serverName, ResourceHunterText.Day(receivedUtc));
+            Reset?.Invoke(serverName);
+            return;
+        }
+
         string key = characterName + "|" + serverName;
         if (message.StartsWith("You have entered ", StringComparison.Ordinal))
         {

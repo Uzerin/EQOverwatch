@@ -64,6 +64,12 @@ settings are kept.
 
 ## Changelog
 
+### 1.0.98
+
+- Resource Hunter bonus sizes are shared (everyone's daily median next to yours), and Leveling has a With Bonus column on Experience bonus days.
+- Bonus alerts for zones that fit your active characters' levels; unlock reminders from 7 days before; bonuses are checked every 10 minutes for 3 hours after each daily draw.
+- Challenges tab in each Frostreaver and Vaniki character's profile; Leveling fills empty level bands from other servers; Copy picture of the Resource Hunter tables.
+
 ### 1.0.97
 
 - Resource Hunter: bonus size is measured per day (today's and recent days', with their average); the tab is split in the middle; data sources are no longer named.

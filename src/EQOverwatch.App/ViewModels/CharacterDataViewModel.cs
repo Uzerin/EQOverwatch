@@ -27,6 +27,9 @@ public sealed record TradeskillRowView(string Recipe, int Combines, int Made, in
 /// <summary>A character flag on the Flags tab: the log's words and when it came.</summary>
 public sealed record FlagRowView(string Flag, string Received);
 
+/// <summary>A row of the Challenges tab: a challenge of the character's server and how this character stands on it.</summary>
+public sealed record ChallengeRowView(int Level, string Goal, string Reward, string Status, bool IsDone);
+
 /// <param name="Standing">From the persona's faction file plus the log's changes since it, e.g. "1,250 (Ally)"; empty without a file.</param>
 public sealed record FactionRowView(string Faction, string Session, string AllTime, string Hits, string UsualHit, string ComesFrom, string Status, string Standing = "");
 
@@ -49,7 +52,8 @@ public sealed record CharacterProgressSource(
     Func<string>? Account = null,
     Action<string>? SetAccount = null,
     Func<IReadOnlyList<string>>? AccountNames = null,
-    Func<IReadOnlyList<EQOverwatch.Core.Leveling.LevelEvent>>? LevelHistory = null);
+    Func<IReadOnlyList<EQOverwatch.Core.Leveling.LevelEvent>>? LevelHistory = null,
+    Func<IReadOnlyList<ChallengeRowView>>? Challenges = null);
 
 /// <summary>
 /// One character's data window: inventory, spellbook, missing spells and key ring, read from the character's <c>/outputfile</c> files.
@@ -247,6 +251,13 @@ public sealed partial class CharacterDataViewModel : ObservableObject
 
     [ObservableProperty]
     private IReadOnlyList<FlagRowView> _flagRows = Array.Empty<FlagRowView>();
+
+    /// <summary>The server's challenge achievements and this character's standing (Frostreaver and Vaniki characters only).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasChallenges))]
+    private IReadOnlyList<ChallengeRowView> _challengeRows = Array.Empty<ChallengeRowView>();
+
+    public bool HasChallenges => ChallengeRows.Count > 0;
 
     [ObservableProperty]
     private IReadOnlyList<AchievementRowView> _achievementRows = Array.Empty<AchievementRowView>();
@@ -505,6 +516,7 @@ public sealed partial class CharacterDataViewModel : ObservableObject
             TradeskillRows = _progress.Tradeskills().Where(r => Match(r.Recipe)).ToList();
             FactionRows = _progress.Factions(PersonaName).Where(r => Match(r.Faction) || Match(r.ComesFrom)).ToList();
             FlagRows = (_progress.Flags?.Invoke() ?? Array.Empty<FlagRowView>()).Where(r => Match(r.Flag)).ToList();
+            ChallengeRows = (_progress.Challenges?.Invoke() ?? Array.Empty<ChallengeRowView>()).Where(r => Match(r.Goal) || Match(r.Reward)).ToList();
         }
 
         MissingSummary = books?.MissingUtc is null

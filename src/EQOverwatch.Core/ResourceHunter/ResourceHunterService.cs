@@ -18,7 +18,21 @@ public interface IResourceHunterService
 
     /// <summary>A past day's whole list from the server's tracking website; empty when it has none.</summary>
     Task<IReadOnlyList<ResourceZoneBonus>> WebsiteDayAsync(string server, string day, CancellationToken cancellation = default);
+
+    /// <summary>Shares bonus sizes your leveling measured. False when the server asked to wait.</summary>
+    Task<bool> UploadSizesAsync(string server, string id, string key, IReadOnlyList<ResourceSize> sizes, CancellationToken cancellation = default) =>
+        Task.FromResult(true);
+
+    /// <summary>Everyone's median bonus sizes: every zone on <paramref name="day"/>, or (with <paramref name="zone"/>) one zone on every day.</summary>
+    Task<IReadOnlyList<ResourceSize>> SizesAsync(string server, string? day, string? zone, CancellationToken cancellation = default) =>
+        Task.FromResult<IReadOnlyList<ResourceSize>>(Array.Empty<ResourceSize>());
 }
+
+/// <summary>
+/// A bonus size: how much a zone's bonus added on a Pacific day, in percent, for experience, AA or coin (<see cref="Kind"/> "xp", "aa",
+/// "coin"). <see cref="Reports"/> is how many players' measurements the median rests on (1 for your own).
+/// </summary>
+public sealed record ResourceSize(string Day, string Zone, string Kind, double Percent, int Reports = 1);
 
 public sealed class HttpResourceHunterService : IResourceHunterService
 {
@@ -57,6 +71,70 @@ public sealed class HttpResourceHunterService : IResourceHunterService
         }
 
         return true;
+    }
+
+    private Uri SizesAddress(string server, string? id = null) =>
+        new(_base, $"v1/bonus-sizes/{Uri.EscapeDataString(server.ToLowerInvariant())}" + (id is null ? string.Empty : "/" + Uri.EscapeDataString(id)));
+
+    public async Task<bool> UploadSizesAsync(string server, string id, string key, IReadOnlyList<ResourceSize> sizes, CancellationToken cancellation = default)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Put, SizesAddress(server, id));
+        request.Headers.Add("X-Install-Key", key);
+        string body = JsonSerializer.Serialize(new { sizes = sizes.Select(x => new { d = x.Day, z = x.Zone, k = x.Kind, s = Math.Round(x.Percent, 1) }) });
+        request.Content = new StringContent(body, Encoding.UTF8, "application/json");
+        using HttpResponseMessage response = await _http.SendAsync(request, cancellation).ConfigureAwait(false);
+        if (response.StatusCode == HttpStatusCode.TooManyRequests)
+        {
+            return false;
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new HttpRequestException($"The bonus service answered {(int)response.StatusCode}.", null, response.StatusCode);
+        }
+
+        return true;
+    }
+
+    public async Task<IReadOnlyList<ResourceSize>> SizesAsync(string server, string? day, string? zone, CancellationToken cancellation = default)
+    {
+        string query = zone is { Length: > 0 } ? "?zone=" + Uri.EscapeDataString(zone) : "?day=" + Uri.EscapeDataString(day ?? string.Empty);
+        using HttpResponseMessage response = await _http.GetAsync(new Uri(SizesAddress(server) + query), cancellation).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new HttpRequestException($"The bonus service answered {(int)response.StatusCode}.", null, response.StatusCode);
+        }
+
+        return ParseSizes(await response.Content.ReadAsStringAsync(cancellation).ConfigureAwait(false), day, zone);
+    }
+
+    /// <summary>Reads { day, sizes: [{ z, k, m, n }] } or { zone, sizes: [{ d, k, m, n }] }.</summary>
+    public static IReadOnlyList<ResourceSize> ParseSizes(string json, string? day, string? zone)
+    {
+        var list = new List<ResourceSize>();
+        using JsonDocument doc = JsonDocument.Parse(json);
+        if (!doc.RootElement.TryGetProperty("sizes", out JsonElement sizes) || sizes.ValueKind != JsonValueKind.Array)
+        {
+            return list;
+        }
+
+        static string? Text(JsonElement e, string name) => e.TryGetProperty(name, out JsonElement v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
+        foreach (JsonElement x in sizes.EnumerateArray().Where(x => x.ValueKind == JsonValueKind.Object))
+        {
+            string? d = Text(x, "d") ?? day;
+            string? z = Text(x, "z") ?? zone;
+            string? k = Text(x, "k");
+            if (string.IsNullOrEmpty(d) || string.IsNullOrEmpty(z) || k is not ("xp" or "aa" or "coin")
+                || !x.TryGetProperty("m", out JsonElement m) || !m.TryGetDouble(out double median))
+            {
+                continue;
+            }
+
+            int n = x.TryGetProperty("n", out JsonElement count) && count.TryGetInt32(out int c) ? c : 1;
+            list.Add(new ResourceSize(d, z, k, median, n));
+        }
+
+        return list;
     }
 
     public async Task<IReadOnlyList<ResourceZoneBonus>> SharedAsync(string server, string day, CancellationToken cancellation = default)

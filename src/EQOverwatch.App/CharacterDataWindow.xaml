@@ -381,6 +381,31 @@
                     </DataGrid>
                 </DockPanel>
             </TabItem>
+
+            <TabItem Header="Challenges" Visibility="{Binding HasChallenges, Converter={StaticResource BoolToVisibility}}">
+                <DockPanel Margin="0,6,0,0">
+                    <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource HintText}" Margin="0,6,0,0" TextWrapping="Wrap"
+                               Text="Challenges count per character: beat the goal at or under the level. Done comes from this character's achievement lines."/>
+                    <DataGrid HorizontalAlignment="Left" ItemsSource="{Binding ChallengeRows}" AutoGenerateColumns="False" CanUserAddRows="False"
+                              CanUserDeleteRows="False" IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal">
+                        <DataGrid.RowStyle>
+                            <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsDone}" Value="True">
+                                        <Setter Property="Foreground" Value="#5CC98A"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </DataGrid.RowStyle>
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Level" Binding="{Binding Level, Mode=OneWay}" Width="Auto"/>
+                            <DataGridTextColumn Header="Goal" Binding="{Binding Goal, Mode=OneWay}" Width="Auto"/>
+                            <DataGridTextColumn Header="Reward" Binding="{Binding Reward, Mode=OneWay}" Width="Auto"/>
+                            <DataGridTextColumn Header="Status" Binding="{Binding Status, Mode=OneWay}" Width="Auto"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </TabItem>
         </TabControl>
     </DockPanel>
 </Window>

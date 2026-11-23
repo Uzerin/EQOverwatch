@@ -44,3 +44,29 @@ public sealed class TlpServersTests
         Assert.Null(TlpServers.Find("agnarr")!.ExperienceOn(Today));
     }
 }
+
+public sealed class BonusSizeAndChallengeTests
+{
+    [Fact]
+    public void Shared_sizes_are_read_for_a_day_or_a_zone()
+    {
+        var day = EQOverwatch.Core.ResourceHunter.HttpResourceHunterService.ParseSizes(
+            """{"day":"2026-11-22","sizes":[{"z":"Velketor's Labyrinth","k":"xp","m":42.5,"n":6},{"z":"Bad","k":"loot","m":1,"n":1}]}""", "2026-11-22", null);
+        var one = Assert.Single(day);
+        Assert.Equal(("2026-11-22", "Velketor's Labyrinth", "xp", 42.5, 6), (one.Day, one.Zone, one.Kind, one.Percent, one.Reports));
+
+        var zone = EQOverwatch.Core.ResourceHunter.HttpResourceHunterService.ParseSizes(
+            """{"zone":"Velketor's Labyrinth","sizes":[{"d":"2026-11-12","k":"aa","m":30,"n":4}]}""", null, "Velketor's Labyrinth");
+        Assert.Equal(("2026-11-12", "Velketor's Labyrinth", "aa"), (zone[0].Day, zone[0].Zone, zone[0].Kind));
+    }
+
+    [Fact]
+    public void Challenges_match_achievements_by_their_boss()
+    {
+        Assert.Equal(new[] { "Lethar" }, new TlpChallenge(65, "", "Ashengate - Lethar", "").Keywords);
+        Assert.Equal(new[] { "Queen Pyrilonis", "King Gelaqua" }, new TlpChallenge(60, "", "Queen Pyrilonis or King Gelaqua", "").Keywords);
+        Assert.Equal(new[] { "Curse Reborn" }, new TlpChallenge(55, "", "The Curse Reborn (raid)", "").Keywords);
+        Assert.True(new TlpChallenge(40, "", "Cazic-Thule", "").Matches("Challenge: Cazic-Thule by Level 40"));
+        Assert.Equal(33, TlpServers.Find("frostreaver")!.ChallengeList!.Count);
+    }
+}

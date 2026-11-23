@@ -34,3 +34,34 @@ public partial class MainViewModelTests
         Assert.Equal("—", h.Vm.LegacyBonusText("Porter")); // no line and no account
     }
 }
+
+public partial class MainViewModelTests
+{
+    [Fact]
+    public void Challenges_show_per_character_from_its_own_achievements()
+    {
+        using var h = new Harness();
+        h.Dialogs.LogFiles = new[] { h.CreateLog("Ream"), h.CreateLog("Mendwell") };
+        h.Vm.AddLogCommand.Execute(null);
+        string server = h.Vm.Logs.First().ServerName;
+        h.Pipeline.Progress.OnLine("Ream", server, "You have completed achievement: Cazic-Thule Challenge", new DateTime(2026, 10, 12, 20, 0, 0, DateTimeKind.Utc));
+
+        var ream = h.Vm.ChallengeRowsFor("Ream", server);
+        Assert.Equal(33, ream.Count);
+        Assert.StartsWith("Done (", ream.Single(r => r.Goal == "Cazic-Thule").Status);
+        Assert.Equal("Still possible", h.Vm.ChallengeRowsFor("Mendwell", server).Single(r => r.Goal == "Cazic-Thule").Status); // per character
+    }
+
+    [Fact]
+    public void A_new_draw_forgets_the_days_bonuses()
+    {
+        using var h = new Harness();
+        DateTime now = DateTime.UtcNow;
+        h.Pipeline.ResourceHunter.OnLine("Ream", "frostreaver", "You have entered The Akheva Ruins.", now);
+        h.Pipeline.ResourceHunter.OnLine("Ream", "frostreaver", "This land is saturated with unstable magic, multiplying the loot that may be found here.", now);
+        Assert.Single(h.Pipeline.ResourceHunter.Today("frostreaver", now));
+
+        h.Pipeline.ResourceHunter.OnLine("Ream", "frostreaver", "Fonts of unstable magic are erupting and receding in response to some nameless power.", now);
+        Assert.Empty(h.Pipeline.ResourceHunter.Today("frostreaver", now));
+    }
+}

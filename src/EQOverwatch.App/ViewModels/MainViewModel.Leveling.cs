@@ -5,13 +5,14 @@ using System.Net.Http;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using EQOverwatch.Core.Leveling;
+using EQOverwatch.Core.ResourceHunter;
 using EQOverwatch.Core.Maps;
 
 namespace EQOverwatch.App.ViewModels;
 
 /// <summary>A zone on the Leveling tab.</summary>
 public sealed record LevelingZoneView(string Zone, string Expansion, string XpPerHour, string KillsPerHour, int Players, string Hours, string Data,
-    string PlatPerHour = "—", string MobLevels = "—", string BonusToday = "—");
+    string PlatPerHour = "—", string MobLevels = "—", string BonusToday = "—", string WithBonus = "—");
 
 /// <summary>A mob in the selected zone: its levels and the experience per kill your characters got near your level.</summary>
 public sealed record BestMobView(string Mob, string Levels, string XpPerKill, int Kills);
@@ -252,6 +253,8 @@ public sealed partial class MainViewModel
                     await DownloadLevelingAsync(service, server, nowUtc);
                 }
 
+                await DownloadOtherServersAsync(service, servers, nowUtc);
+
                 ReportSharing("Leveling", null);
             }
         }
@@ -384,7 +387,12 @@ public sealed partial class MainViewModel
             IReadOnlyList<ZoneRank> ranked = LevelingRanking.Rank(rows, band, mode, allowed);
             string Rate(double value) => mode == LevelingMode.Aa ? value.ToString("0.0", culture) + " AA" : value.ToString("0.0", culture) + "%";
             string? keepZone = SelectedLevelingZone?.Zone;
-            foreach (ZoneRank r in ranked.Where(r => r.Enough).Take(TopZones).Concat(ranked.Where(r => !r.Enough)).Take(TopZones))
+            // On Experience bonus days a zone's rate with today's bonus counts for the ranking.
+            double? Boosted(ZoneRank r) => mode != LevelingMode.Aa && BonusTodayIn(r.Zone) == ResourceHunterText.Label(ResourceBonus.Experience)
+                && TodayExperienceSize(server, r.Zone) is { } pct ? r.XpPerHour * (1 + (pct / 100)) : null;
+            var shown = ranked.Select(r => (Rank: r, Boost: Boosted(r)))
+                .OrderByDescending(x => x.Rank.Enough).ThenByDescending(x => x.Boost ?? x.Rank.XpPerHour).Select(x => x.Rank).ToList();
+            foreach (ZoneRank r in shown.Where(r => r.Enough).Take(TopZones).Concat(shown.Where(r => !r.Enough)).Take(TopZones))
             {
                 LevelingZoneRows.Add(new LevelingZoneView(
                     r.Zone,
@@ -396,7 +404,27 @@ public sealed partial class MainViewModel
                     (r.Enough ? "Ranked" : "Not enough data") + (_levelingAdjustedZones.Contains(r.Zone) ? " · adjusted" : string.Empty),
                     r.PlatPerHour > 0 ? r.PlatPerHour.ToString("N0", culture) + "p" : "—",
                     ZoneMobLevels(r.Zone),
-                    BonusTodayIn(r.Zone)));
+                    BonusTodayIn(r.Zone),
+                    Boosted(r) is { } boosted ? "≈ " + Rate(boosted) : "—"));
+            }
+
+            if (!ranked.Any(r => r.Enough) && mode != LevelingMode.Aa)
+            {
+                // Nothing ranked on this server for the band yet: what other servers' players found, scaled to this server's XP rate.
+                foreach (ZoneRank r in OtherServersRanking(server, band, mode, allowed).Where(r => r.Enough).Take(TopZones))
+                {
+                    LevelingZoneRows.Add(new LevelingZoneView(
+                        r.Zone,
+                        LevelingRanking.ExpansionOf(zones, r.Zone) is { } e && e > 0 ? ZoneDirectory.ExpansionName(e) : "—",
+                        Rate(r.XpPerHour),
+                        r.KillsPerHour.ToString("0", culture),
+                        r.Players,
+                        r.Hours.ToString("0.0", culture),
+                        "From other servers",
+                        r.PlatPerHour > 0 ? r.PlatPerHour.ToString("N0", culture) + "p" : "—",
+                        ZoneMobLevels(r.Zone),
+                        BonusTodayIn(r.Zone)));
+                }
             }
 
             SelectedLevelingZone = LevelingZoneRows.FirstOrDefault(z => z.Zone == keepZone) ?? LevelingZoneRows.FirstOrDefault();

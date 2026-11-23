@@ -2705,6 +2705,13 @@
                                         <DataGridTextColumn Header="Plat/hour" Binding="{Binding PlatPerHour, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                                         <DataGridTextColumn Header="Mob Levels" Binding="{Binding MobLevels, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                                         <DataGridTextColumn Header="Bonus Today" Binding="{Binding BonusToday, Mode=OneWay}" Width="Auto"/>
+                                        <DataGridTextColumn Header="With Bonus" Binding="{Binding WithBonus, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}">
+                                            <DataGridTextColumn.HeaderStyle>
+                                                <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}">
+                                                    <Setter Property="ToolTip" Value="On Experience bonus days: the XP per hour with today's bonus size (everyone's median for the zone, or the day's typical size)."/>
+                                                </Style>
+                                            </DataGridTextColumn.HeaderStyle>
+                                        </DataGridTextColumn>
                                         <DataGridTextColumn Header="Players" Binding="{Binding Players, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                                         <DataGridTextColumn Header="Hours" Binding="{Binding Hours, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                                         <DataGridTextColumn Header="Data" Binding="{Binding Data, Mode=OneWay}" Width="Auto"/>
@@ -2751,6 +2758,8 @@
                                               ToolTip="Show the bonuses of a past day."/>
                                     <Button Content="Refresh" Command="{Binding RefreshResourceBonusesCommand}" Padding="12,4" VerticalAlignment="Center"
                                             ToolTip="Download today's bonuses (and any missing past days) again now."/>
+                                    <Button Content="Copy picture" Command="{Binding CopyResourcePictureCommand}" Padding="12,4" Margin="8,0,0,0" VerticalAlignment="Center"
+                                            ToolTip="Puts a picture of the bonus tables on the clipboard, to paste into Discord."/>
                                 </StackPanel>
                                 <StackPanel Margin="0,0,0,10" Visibility="{Binding HasRuleset, Converter={StaticResource BoolToVisibility}}">
                                     <TextBlock Text="{Binding RulesetNext}" Foreground="#5CC98A" FontWeight="SemiBold" TextWrapping="Wrap"/>

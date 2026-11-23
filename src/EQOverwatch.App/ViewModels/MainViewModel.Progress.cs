@@ -337,7 +337,32 @@ public sealed partial class MainViewModel
         () => AccountOf(character, server),
         account => SetAccount(character, server, account),
         () => AccountNamesOn(server),
-        () => LevelHistoryFor(character, server));
+        () => LevelHistoryFor(character, server),
+        () => ChallengeRowsFor(character, server));
+
+    /// <summary>
+    /// The challenges of the character's server with this character's standing: done (an achievement of the character's own log names
+    /// the challenge's boss), still possible (at or under the level), or too high.
+    /// </summary>
+    public IReadOnlyList<ChallengeRowView> ChallengeRowsFor(string character, string server)
+    {
+        if (Core.Tlp.TlpServers.Find(server)?.ChallengeList is not { Count: > 0 } challenges)
+        {
+            return Array.Empty<ChallengeRowView>();
+        }
+
+        CultureInfo culture = CultureInfo.CurrentCulture;
+        IReadOnlyList<Core.Progress.CharacterFlag> done = _pipeline.Progress.AchievementsDone(character, server);
+        int level = _pipeline.Roster.GetLevel(character, server);
+        return challenges.Select(c =>
+        {
+            Core.Progress.CharacterFlag? hit = done.FirstOrDefault(a => c.Matches(a.Text));
+            string status = hit is not null ? $"Done ({hit.Utc.ToLocalTime().ToString("MMM d, yyyy", culture)})"
+                : level <= 0 || level <= c.Level ? "Still possible"
+                : "Too high";
+            return new ChallengeRowView(c.Level, c.Expansions.Length > 0 ? $"{c.Goal} ({c.Expansions})" : c.Goal, c.Reward, status, hit is not null);
+        }).ToList();
+    }
 
     /// <summary>The game's skillcaps.txt, read again when the EverQuest folder changes.</summary>
     private SkillCaps CurrentSkillCaps()

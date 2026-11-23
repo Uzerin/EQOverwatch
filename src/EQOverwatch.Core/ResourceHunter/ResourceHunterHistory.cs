@@ -71,6 +71,32 @@ public sealed partial class ResourceHunterStore
         Interlocked.Increment(ref _version);
     }
 
+    /// <summary>Forgets a day's bonuses on a server (they were drawn again): reports, kept history and your logs' findings that day.</summary>
+    public void ForgetDay(string server, string day)
+    {
+        string s = server.ToLowerInvariant();
+        lock (_gate)
+        {
+            foreach (ResourceBonusSource source in new[] { ResourceBonusSource.Shared, ResourceBonusSource.Website })
+            {
+                if (_reported.TryGetValue((s, source), out var list) && list.Day == day)
+                {
+                    _reported[(s, source)] = (day, new List<ResourceZoneBonus>());
+                }
+            }
+
+            if (_file.Days.TryGetValue(s, out var days))
+            {
+                days.Remove(day);
+            }
+
+            _file.Entries.RemoveAll(e => e.Server == s && e.Day == day);
+            Save();
+        }
+
+        Interlocked.Increment(ref _version);
+    }
+
     /// <summary>Writes the history to disk now.</summary>
     public void Flush()
     {

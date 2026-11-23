@@ -153,6 +153,11 @@ public interface IClipboardService
     void SetBossKillsImage(EQOverwatch.Core.History.BossKillReport report, ThemePalette palette, string footer)
     {
     }
+
+    /// <summary>Puts a picture of the day's Resource Hunter tables on the clipboard, in the active theme with <paramref name="footer"/> along the bottom.</summary>
+    void SetResourceBonusImage(string title, IReadOnlyList<EQOverwatch.App.ViewModels.ResourcePairView> pairs, ThemePalette palette, string footer)
+    {
+    }
 }
 
 /// <summary>The overlay windows as seen by the main view model.</summary>

@@ -359,6 +359,9 @@ public sealed partial class AppSettings
     /// <summary>"Karnor's Castle: AA bonus" on the Tells overlay when one of your characters enters a Resource Hunter bonus zone.</summary>
     public bool ResourceHunterNotices { get; set; } = true;
 
+    /// <summary>The last day an unlock reminder was shown, per server ("frostreaver" → "2026-11-22").</summary>
+    public Dictionary<string, string>? UnlockReminders { get; set; }
+
     /// <summary>Fill in Resource Hunter zones your logs have not seen from the server's tracking website (Frostreaver, Fangbreaker).</summary>
     public bool UseResourceWebsites { get; set; } = true;
 

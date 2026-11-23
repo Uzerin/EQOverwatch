@@ -22,6 +22,9 @@
 //   DELETE /v1/firsts/{server}/{id}      take your Server First fights down (X-Install-Key)
 //   PUT    /v1/bonuses/{server}/{id}     share Resource Hunter zone bonuses your logs showed: { bonuses: [{ d, z, b }] } (X-Install-Key)
 //   GET    /v1/bonuses/{server}?day=D    today's zone bonuses: { day, zones: [{ z, b, n }] } (n: installs that reported it)
+//   PUT    /v1/bonus-sizes/{server}/{id} share measured bonus sizes: { sizes: [{ d, z, k, s }] } (k: xp/aa/coin, s: percent) (X-Install-Key)
+//   GET    /v1/bonus-sizes/{server}?day=D   every zone's median size that day: { day, sizes: [{ z, k, m, n }] }
+//   GET    /v1/bonus-sizes/{server}?zone=Z  a zone's median size per day: { zone, sizes: [{ d, k, m, n }] }
 //   POST   /v1/ping                      { id, version }: counts this install as active today
 //   GET    /v1/stats                     public player counts
 //   GET    /v1/admin/stats               the same with the versions in use        (Authorization: Bearer ADMIN_KEY)
@@ -135,6 +138,16 @@ async function route(request, env) {
 
     if (parts.length === 3 && method === "GET") return bonusesDownload(request, env, server, url.searchParams.get("day") || "");
     if (parts.length === 4 && method === "PUT" && ID.test(parts[3])) return bonusesUpload(request, env, server, parts[3]);
+  }
+
+  if (parts[1] === "bonus-sizes" && parts.length >= 3) {
+    const server = parts[2].toLowerCase();
+    if (!SERVER.test(server)) {
+      return json({ error: "Bad server." }, 400);
+    }
+
+    if (parts.length === 3 && method === "GET") return sizesDownload(env, server, url.searchParams.get("day") || "", url.searchParams.get("zone") || "");
+    if (parts.length === 4 && method === "PUT" && ID.test(parts[3])) return sizesUpload(request, env, server, parts[3]);
   }
 
   if (parts[1] === "ping" && parts.length === 2 && method === "POST") {
@@ -760,6 +773,78 @@ async function bonusesDownload(request, env, server, wanted) {
   }
 
   const response = json({ day: theDay, zones: [...best.values()] }, 200, { "Cache-Control": "public, max-age=300" });
+  await cache.put(cacheKey, response.clone());
+  return response;
+}
+
+const SIZE_KINDS = new Set(["xp", "aa", "coin"]);
+
+/** Bonus sizes an install measured from its own leveling (recent days only; sizes outside -50% to +500% are dropped). */
+async function sizesUpload(request, env, server, id) {
+  const key = request.headers.get("X-Install-Key") || "";
+  if (!KEY.test(key)) {
+    return json({ error: "Missing install key." }, 401);
+  }
+
+  const install = await env.DB.prepare("SELECT key_hash, blocked FROM installs WHERE id = ?").bind(id).first();
+  if (!install) return json({ error: "Share zone bonuses first." }, 403);
+  if (!equal(install.key_hash, await sha256(key))) return json({ error: "That id belongs to another install." }, 403);
+  if (install.blocked) return json({ error: "This install's uploads are turned off." }, 403);
+  if (Number(request.headers.get("Content-Length") || "0") > 64 * 1024) {
+    return json({ error: "That is too large." }, 413);
+  }
+
+  let file;
+  try {
+    file = JSON.parse(await request.text());
+  } catch {
+    file = null;
+  }
+
+  if (!file || !Array.isArray(file.sizes) || file.sizes.length > 300) {
+    return json({ error: "That isn't a size list." }, 400);
+  }
+
+  const oldest = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Los_Angeles", year: "numeric", month: "2-digit", day: "2-digit" })
+    .format(Date.now() - 7 * 86400 * 1000);
+  const rows = file.sizes.filter((x) => x && typeof x.z === "string" && x.z.length > 0 && x.z.length <= 64 && zoneKey(x.z).length > 0
+    && SIZE_KINDS.has(x.k) && typeof x.d === "string" && DAY.test(x.d) && x.d >= oldest
+    && typeof x.s === "number" && Number.isFinite(x.s) && x.s >= -50 && x.s <= 500);
+  const put = env.DB.prepare("INSERT INTO bonus_sizes (server, day, zone_key, zone, kind, size, contributor) VALUES (?, ?, ?, ?, ?, ?, ?) " +
+    "ON CONFLICT(server, day, zone_key, kind, contributor) DO UPDATE SET size = excluded.size");
+  const statements = rows.map((x) => put.bind(server, x.d, zoneKey(x.z), x.z, x.k, Math.round(x.s * 10) / 10, id));
+  for (let i = 0; i < statements.length; i += 100) {
+    await env.DB.batch(statements.slice(i, i + 100));
+  }
+
+  return json({ ok: true, sizes: rows.length });
+}
+
+/** Median bonus sizes: every zone on one day, or one zone on every day. Kept at the edge for 5 minutes. */
+async function sizesDownload(env, server, wantedDay, wantedZone) {
+  const zone = zoneKey(wantedZone || "");
+  const theDay = DAY.test(wantedDay) ? wantedDay : "";
+  if (!zone && !theDay) return json({ error: "Give a day or a zone." }, 400);
+  const cache = caches.default;
+  const cacheKey = new Request(`https://cache.eqoverwatch/bonus-sizes/${server}/${zone ? "zone/" + zone : "day/" + theDay}`);
+  const hit = await cache.match(cacheKey);
+  if (hit) return hit;
+
+  const blocked = "SELECT id FROM installs WHERE blocked = 1";
+  const rows = (await env.DB.prepare(
+    `SELECT day, zone_key, zone, kind, size FROM bonus_sizes WHERE server = ? AND ${zone ? "zone_key = ?" : "day = ?"} AND contributor NOT IN (${blocked})`)
+    .bind(server, zone || theDay).all()).results || [];
+  const groups = new Map();
+  for (const r of rows) {
+    const k = `${r.day}|${r.zone_key}|${r.kind}`;
+    const g = groups.get(k) || { d: r.day, z: r.zone, k: r.kind, all: [] };
+    g.all.push(r.size);
+    groups.set(k, g);
+  }
+
+  const sizes = [...groups.values()].map((g) => zone ? { d: g.d, k: g.k, m: median(g.all), n: g.all.length } : { z: g.z, k: g.k, m: median(g.all), n: g.all.length });
+  const body = zone ? { zone: wantedZone, sizes } : { day: theDay, sizes };
+  const response = json(body, 200, { "Cache-Control": "public, max-age=300" });
   await cache.put(cacheKey, response.clone());
   return response;
 }
