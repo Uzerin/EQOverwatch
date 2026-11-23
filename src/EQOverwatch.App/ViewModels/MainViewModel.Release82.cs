@@ -324,7 +324,7 @@ public sealed partial class MainViewModel
 
     private string? _resourceProblem;
 
-    /// <summary>Reads the past days each website has that are not kept yet, one at a time (also called by tests).</summary>
+    /// <summary>Reads the past days each website has that are not kept yet, newest first, one at a time (also called by tests).</summary>
     public async Task BackfillResourceHistoryAsync(IReadOnlyList<string> servers, DateTime nowUtc)
     {
         if (_resourceService is not { } service)
@@ -338,7 +338,7 @@ public sealed partial class MainViewModel
         {
             foreach (string server in servers)
             {
-                IReadOnlyList<string> missing = store.MissingDays(server, nowUtc);
+                var missing = store.MissingDays(server, nowUtc).Reverse().ToList(); // newest first: the recent days matter most
                 for (int i = 0; i < missing.Count; i++)
                 {
                     _backfillProgress = $"Reading past days from {new Uri(ResourceHunterText.WebsiteFor(server)!).Host}: {(i + 1).ToString(CultureInfo.CurrentCulture)} of {missing.Count.ToString(CultureInfo.CurrentCulture)}.";
