@@ -2761,7 +2761,7 @@
                             </StackPanel>
                             <Grid Grid.Row="1">
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="3*"/>
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
                                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" PreviewMouseWheel="ScrollWholePage">
@@ -2776,8 +2776,6 @@
                                                         <DataGrid.Columns>
                                                             <DataGridTextColumn Header="Zone" Binding="{Binding Zone, Mode=OneWay}" Width="Auto"/>
                                                             <DataGridTextColumn Header="Levels" Binding="{Binding Levels, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
-                                                            <DataGridTextColumn Header="Source" Binding="{Binding Source, Mode=OneWay}" Width="Auto"/>
-                                                            <DataGridTextColumn Header="Last 30 Days" Binding="{Binding Last30, Mode=OneWay}" Width="Auto"/>
                                                         </DataGrid.Columns>
                                                     </DataGrid>
                                                 </StackPanel>

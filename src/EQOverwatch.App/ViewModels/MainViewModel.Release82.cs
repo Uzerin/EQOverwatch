@@ -426,9 +426,7 @@ public sealed partial class MainViewModel
                             ResourceBonusSource.Shared => z.Zone.Reports == 1 ? "1 player" : $"{z.Zone.Reports.ToString(culture)} players",
                             _ => site is null ? "Website" : new Uri(site).Host,
                         };
-                        // The three bonuses seen most (days without a bonus are in the zone details on the right).
                         string last30 = string.Join(", ", store.History(server, z.Zone.Zone, at)
-                            .Where(h => h.Bonus != ResourceBonus.None).Take(3)
                             .Select(h => $"{ResourceHunterText.Label(h.Bonus)} {h.Days.ToString(culture)}"));
                         string levels = z.Range is { } r ? $"{r.Item1.ToString(culture)}–{r.Item2.ToString(culture)}" : "—";
                         return new ResourceZoneView(z.Zone.Zone, levels, ResourceHunterText.Label(bonus), source, last30.Length == 0 ? "—" : last30);
