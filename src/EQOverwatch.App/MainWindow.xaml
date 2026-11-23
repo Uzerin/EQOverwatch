@@ -2761,7 +2761,7 @@
                             </StackPanel>
                             <Grid Grid.Row="1">
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="3*"/>
+                                    <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
                                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" PreviewMouseWheel="ScrollWholePage">
@@ -2834,11 +2834,11 @@
                                                     </DataTemplate>
                                                 </ItemsControl.ItemTemplate>
                                             </ItemsControl>
-                                            <TextBlock Text="{Binding Source}" Style="{StaticResource HintText}" Margin="0,4,0,14"/>
+                                            <Border Height="14"/>
 
                                             <TextBlock FontWeight="SemiBold" Text="Unlock schedule" Margin="0,0,0,4" Foreground="{DynamicResource TextPrimaryBrush}"/>
                                             <TextBlock Style="{StaticResource HintText}" Margin="0,0,0,6" TextWrapping="Wrap"
-                                                       Text="A date with ? is worked out from the server's cadence; — means no post gives the day."/>
+                                                       Text="A date with ? is worked out from the server's cadence; — means the day isn't known."/>
                                             <DataGrid ItemsSource="{Binding Unlocks}" HorizontalAlignment="Left" AutoGenerateColumns="False" CanUserAddRows="False"
                                                       IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal" Margin="0,0,0,14"
                                                       Visibility="{Binding HasBonuses, Converter={StaticResource BoolToVisibility}}">
@@ -3943,7 +3943,7 @@
                                     <CheckBox Content="Share zone bonuses" IsChecked="{Binding ShareResourceBonuses}" Margin="0,0,18,4"
                                               ToolTip="Shares the zone bonuses your logs show (zone, bonus and day only, no names) and uses what other players shared. Fetched once an hour."/>
                                     <CheckBox Content="Use the server's bonus website" IsChecked="{Binding UseResourceWebsites}" Margin="0,0,18,4"
-                                              ToolTip="Fills in zones nobody has shared from frostreaver.zone or fangbreaker.zone, once an hour. Other servers use EQ Overwatch data only."/>
+                                              ToolTip="Fills in zones nobody has shared, once an hour, on servers that have a bonus website."/>
                                 </WrapPanel>
 
                                 <TextBlock FontWeight="SemiBold" Text="Mob stats"/>

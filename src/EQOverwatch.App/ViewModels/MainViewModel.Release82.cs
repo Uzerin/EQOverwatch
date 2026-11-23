@@ -342,7 +342,7 @@ public sealed partial class MainViewModel
                 var missing = store.MissingDays(server, nowUtc).Reverse().ToList(); // newest first: the recent days matter most
                 for (int i = 0; i < missing.Count; i++)
                 {
-                    _backfillProgress = $"Reading past days from {new Uri(ResourceHunterText.WebsiteFor(server)!).Host}: {(i + 1).ToString(CultureInfo.CurrentCulture)} of {missing.Count.ToString(CultureInfo.CurrentCulture)}.";
+                    _backfillProgress = $"Reading past days: {(i + 1).ToString(CultureInfo.CurrentCulture)} of {missing.Count.ToString(CultureInfo.CurrentCulture)}.";
                     store.RecordWebsiteDay(server, missing[i], await service.WebsiteDayAsync(server, missing[i]), save: i % 20 == 19);
                     if (ResourceBackfillPause > TimeSpan.Zero)
                     {
@@ -440,11 +440,10 @@ public sealed partial class MainViewModel
             }
 
             int withBonus = zones.Count(z => z.Bonus is not ResourceBonus.None and not ResourceBonus.Unknown);
-            string from = site is null ? "your logs and other EQ Overwatch players" : $"your logs, other EQ Overwatch players and {new Uri(site).Host}";
             string dayText = day == today ? $"today (Pacific day {day})" : $"on {day}";
             ResourceHunterStatus = (zones.Count == 0
                     ? $"No Resource Hunter bonuses known {dayText} on this server yet. They show up as your characters enter zones that have one."
-                    : $"{withBonus.ToString(culture)} zones with a bonus {dayText}, from {from}.")
+                    : $"{withBonus.ToString(culture)} zones with a bonus {dayText}.")
                 + (_backfillProgress is { } progress ? " " + progress : string.Empty)
                 + (_resourceProblem is { } problem ? $" Last problem: {problem}" : string.Empty);
         }

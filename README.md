@@ -64,6 +64,10 @@ settings are kept.
 
 ## Changelog
 
+### 1.0.97
+
+- Resource Hunter: bonus size is measured per day (today's and recent days', with their average); the tab is split in the middle; data sources are no longer named.
+
 ### 1.0.96
 
 - New TLP sub-tab with a tab per server (Frostreaver, Fangbreaker, Lethar, Vaniki, Teek & Tormax, Yelinak, Oakwynd, Mischief, Aradune, Agnarr): rules, unlock schedule, level caps, server bonuses and Vaniki's challenges. Leveling and Resource Hunter show the next unlock and the bonuses in effect; expansions tick by unlock date; XP/hour is adjusted for server rate changes; Resource Hunter tables are in two columns with zone details and bonus size on the right; the Legacy bonus column uses each character's log or its account; challenge fights are tagged.

@@ -308,7 +308,7 @@ public static class TlpServers
                 "NPCs get no level-based resist bonus against player spells; crowd control (charm, mez, stun, fear and more) works on NPCs 10 levels higher.",
                 "Truebox: 1 client per computer, 3 from Prophecy of Ro, removed with The Buried Sea.",
                 "Challenge achievements with account rewards (below). Illusion: Vaniki at level 60 and a weapon ornament at each later cap.",
-                "Raid lockouts: 2.5 days after requesting an instance, 6.5 days per boss (Allakhazam).",
+                "Raid lockouts: 2.5 days after requesting an instance, 6.5 days per boss.",
                 "Mitigation of the Mighty, Challenger's Perk (no level loss), out-of-combat regen, Gloomingdeep at launch; some zones stay in their launch state until Omens of War.",
             },
             "Vaniki Server FAQ (everquest.com) and Allakhazam (unlock dates)",

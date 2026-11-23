@@ -236,36 +236,60 @@ public sealed partial class MainViewModel
             .ToList();
         CultureInfo culture = CultureInfo.CurrentCulture;
         var lines = new List<string>();
+        string today = ResourceHunterText.Day(DateTime.UtcNow);
+        string Percent(double change) => (change >= 0 ? "+" : string.Empty) + (change * 100).ToString("0", culture) + "%";
+
+        // The size changes every day: each bonus day with enough kills is measured on its own against the days without a bonus.
         void Measure(ResourceBonus bonus, string what, Func<LevelingStretch, bool> counts, Func<LevelingStretch, double> amount)
         {
-            var on = days.Where(d => d.Bonus == bonus && counts(d.Stretch)).ToList();
             var off = days.Where(d => d.Bonus == ResourceBonus.None && counts(d.Stretch)).ToList();
-            int onDays = on.Select(d => d.Day).Distinct().Count();
-            int offDays = off.Select(d => d.Day).Distinct().Count();
-            if (onDays < MinBonusDays || offDays < MinBonusDays)
+            if (off.Select(d => d.Day).Distinct().Count() < MinBonusDays || off.Sum(d => d.Stretch.Kills) == 0)
             {
                 return;
             }
 
-            double perKillOn = on.Sum(d => amount(d.Stretch)) / on.Sum(d => d.Stretch.Kills);
-            double perKillOff = off.Sum(d => amount(d.Stretch)) / off.Sum(d => d.Stretch.Kills);
-            if (perKillOff <= 0)
+            double baseline = off.Sum(d => amount(d.Stretch)) / off.Sum(d => d.Stretch.Kills);
+            if (baseline <= 0)
             {
                 return;
             }
 
-            double change = (perKillOn / perKillOff) - 1;
-            lines.Add($"{ResourceHunterText.Label(bonus)} bonus here ≈ {(change >= 0 ? "+" : string.Empty)}{(change * 100).ToString("0", culture)}% " +
-                      $"(your {what} per kill, {onDays.ToString(culture)} bonus days vs {offDays.ToString(culture)} normal days)");
+            var sizes = days.Where(d => d.Bonus == bonus && counts(d.Stretch))
+                .GroupBy(d => d.Day)
+                .Where(g => g.Sum(d => d.Stretch.Kills) >= MinBonusKills)
+                .Select(g => (Day: g.Key, Change: (g.Sum(d => amount(d.Stretch)) / g.Sum(d => d.Stretch.Kills) / baseline) - 1))
+                .OrderByDescending(x => x.Day, StringComparer.Ordinal)
+                .ToList();
+            if (sizes.Count == 0)
+            {
+                return;
+            }
+
+            string label = ResourceHunterText.Label(bonus);
+            if (sizes[0].Day == today)
+            {
+                lines.Add($"{label} bonus today ≈ {Percent(sizes[0].Change)} (your {what} per kill here vs days without a bonus)");
+            }
+
+            var past = sizes.Where(x => x.Day != today).ToList();
+            if (past.Count > 0)
+            {
+                string list = string.Join(" · ", past.Take(6).Select(x =>
+                    DateTime.ParseExact(x.Day, "yyyy-MM-dd", CultureInfo.InvariantCulture).ToString("MMM d", culture) + " " + Percent(x.Change)));
+                lines.Add($"{label} bonus on past days: {list} (average {Percent(past.Average(x => x.Change))})");
+            }
         }
 
         Measure(ResourceBonus.Experience, "XP", s => s.Xp > 0, s => s.Xp);
         Measure(ResourceBonus.Aa, "AA", s => s.Xp <= 0 && s.Aa > 0, s => s.Aa);
         Measure(ResourceBonus.Coin, "coin", s => s.Copper > 0, s => s.Copper);
         return lines.Count > 0
-            ? string.Join("\n", lines)
-            : $"Bonus size: shows once your own leveling here has {MinBonusDays.ToString(culture)} days with the bonus and {MinBonusDays.ToString(culture)} without.";
+            ? string.Join(Environment.NewLine, lines)
+            : $"Bonus size: changes every day; shows for a day once you have {MinBonusKills.ToString(culture)} kills here on it and {MinBonusDays.ToString(culture)} days here without a bonus.";
     }
+
+    /// <summary>Kills on a bonus day needed before that day's bonus size is shown.</summary>
+    public const int MinBonusKills = 20;
 
     /// <summary>Days of your own leveling needed with and without a bonus before its size is shown.</summary>
     public const int MinBonusDays = 3;
