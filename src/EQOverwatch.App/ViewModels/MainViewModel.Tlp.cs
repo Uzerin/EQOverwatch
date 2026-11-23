@@ -299,7 +299,10 @@ public sealed partial class MainViewModel
         string name = TlpServers.Find(server)?.Name ?? server;
         try
         {
-            _clipboard.SetResourceBonusImage($"Resource Hunter · {name} · {shown}", ResourcePairs.ToList(), ActivePalette, WindowTitle);
+            // Only the bonuses: the long No bonus and Unknown lists stay in the app.
+            var bonuses = ResourcePairs.Where(p => p.Left?.Bonus is not (ResourceBonus.None or ResourceBonus.Unknown) || p.Right?.Bonus is not (ResourceBonus.None or ResourceBonus.Unknown))
+                .Where(p => !(p.Left?.Bonus == ResourceBonus.None || p.Right?.Bonus == ResourceBonus.Unknown)).ToList();
+            _clipboard.SetResourceBonusImage($"Resource Hunter · {name} · {shown}", bonuses, ActivePalette, WindowTitle);
             ResourceHunterStatus = "Copied a picture of the bonus tables. Paste it into Discord.";
         }
         catch (Exception ex) when (ex is System.Runtime.InteropServices.ExternalException or InvalidOperationException)
