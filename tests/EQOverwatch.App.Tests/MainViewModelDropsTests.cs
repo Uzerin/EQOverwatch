@@ -122,6 +122,11 @@ public partial class MainViewModelTests
 
         public List<(string Id, string Version)> Pings { get; } = new();
 
+        public List<MergedServer> Servers { get; } = new();
+
+        public Task<IReadOnlyList<MergedServer>> MergedServersAsync(CancellationToken cancellation = default) =>
+            Task.FromResult<IReadOnlyList<MergedServer>>(Servers.ToList());
+
         public Task<MergedDropsDownload?> DownloadMergedAsync(string server, long have, CancellationToken cancellation = default)
         {
             Calls.Add("merged " + server);
@@ -168,6 +173,39 @@ public partial class MainViewModelTests
         }
 
         return buffer.ToArray();
+    }
+
+    [Fact]
+    public async Task Servers_with_normal_loot_pool_their_shared_drops()
+    {
+        using var h = new Harness();
+        var service = new FakeSharedDrops();
+        h.Vm.ConfigureSharedDrops(service);
+        h.Vm.ShareMyDrops = false;
+        long morning = new DateTimeOffset(DateTime.UtcNow.Date, TimeSpan.Zero).ToUnixTimeSeconds();
+        service.LastMerge = morning;
+        foreach ((string server, int players, int kills) in new[] { ("tormax", 3, 10), ("yelinak", 2, 30), ("teek", 4, 50) })
+        {
+            service.Merged[server] = (morning, players, MergedFile(kills));
+            service.Servers.Add(new MergedServer(server, players, kills));
+        }
+
+        h.Pipeline.Drops.ImportMerged("tormax", morning, 3, MergedFile(10));
+        h.Pipeline.Drops.ImportMerged("teek", morning, 4, MergedFile(50));
+        h.Vm.UseSharedDrops = false;
+        h.Vm.UseSharedDrops = true; // picks "You and all players" and syncs
+        await h.Vm.SharedDropsTask;
+        h.Vm.SelectedDropServer = "tormax";
+        Assert.Equal("40", h.Vm.DropRows.First(r => r.Name == "orc pawn").Kills); // Tormax and Yelinak; Teek's random loot stays out
+        Assert.Equal("Pooled with Yelinak · 2 more players.", h.Vm.DropPoolText);
+
+        h.Vm.SelectedDropServer = "teek";
+        Assert.Equal("50", h.Vm.DropRows.First(r => r.Name == "orc pawn").Kills);
+        Assert.Equal("Teek's loot rules differ from other servers', so its table is never pooled.", h.Vm.DropPoolText);
+
+        h.Vm.SelectedDropServer = "tormax";
+        h.Vm.PoolNormalLootDrops = false;
+        Assert.Equal("10", h.Vm.DropRows.First(r => r.Name == "orc pawn").Kills);
     }
 
     [Fact]

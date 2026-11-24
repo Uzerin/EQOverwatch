@@ -1650,6 +1650,7 @@ public sealed partial class MainViewModel : ObservableObject
         UpdateCheckHours = UpdateCheckHours,
         SkippedUpdateVersion = _skippedUpdateVersion,
         UseSharedDrops = UseSharedDrops,
+        PoolNormalLootDrops = PoolNormalLootDrops,
         ShareMyDrops = ShareMyDrops,
         UseSharedLeveling = UseSharedLeveling,
         ShareServerFirsts = ShareServerFirsts,

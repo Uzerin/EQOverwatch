@@ -1726,7 +1726,7 @@
                                     <DockPanel Grid.Column="0" Margin="0,0,12,0">
                                         <TextBlock DockPanel.Dock="Left" Style="{StaticResource FieldLabel}" Text="Server"/>
                                         <ComboBox ItemsSource="{Binding DropServers}" SelectedItem="{Binding SelectedDropServer, Mode=TwoWay}"
-                                                  ToolTip="Each server's drops are kept apart; random-loot servers never mix with others."/>
+                                                  ToolTip="Each server's drops are kept apart, except that servers with normal loot can be pooled (below the table)."/>
                                     </DockPanel>
                                     <DockPanel Grid.Column="1" Margin="0,0,12,0">
                                         <TextBlock DockPanel.Dock="Left" Style="{StaticResource FieldLabel}" Text="Zone"/>
@@ -1809,7 +1809,14 @@
                                         </DataGridTemplateColumn>
                                     </DataGrid.Columns>
                                 </DataGrid>
-                                <TextBlock Grid.Row="2" Style="{StaticResource HintText}" Margin="0,8,0,0" Text="{Binding DropStatus}"/>
+                                <StackPanel Grid.Row="2" Margin="0,8,0,0">
+                                    <StackPanel Orientation="Horizontal" Visibility="{Binding UseSharedDrops, Converter={StaticResource BoolToVisibility}}">
+                                        <CheckBox Content="Include servers with normal loot" IsChecked="{Binding PoolNormalLootDrops, Mode=TwoWay}" VerticalAlignment="Center"
+                                                  ToolTip="On a server whose loot is normal (no loot bonus, Resource Hunter, random, personal or doubled loot), add the shared drops of every other such server, Live servers included."/>
+                                        <TextBlock Style="{StaticResource HintText}" Margin="12,0,0,0" VerticalAlignment="Center" Text="{Binding DropPoolText}"/>
+                                    </StackPanel>
+                                    <TextBlock Style="{StaticResource HintText}" Margin="0,4,0,0" Text="{Binding DropStatus}"/>
+                                </StackPanel>
                             </Grid>
 
                             <!-- Sharing -->
@@ -2848,59 +2855,93 @@
                                             <TextBlock FontWeight="SemiBold" Text="Unlock schedule" Margin="0,0,0,4" Foreground="{DynamicResource TextPrimaryBrush}"/>
                                             <TextBlock Style="{StaticResource HintText}" Margin="0,0,0,6" TextWrapping="Wrap"
                                                        Text="A date with ? is worked out from the server's cadence; — means the day isn't known."/>
-                                            <DataGrid ItemsSource="{Binding Unlocks}" HorizontalAlignment="Left" AutoGenerateColumns="False" CanUserAddRows="False"
-                                                      IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal" Margin="0,0,0,14"
-                                                      Visibility="{Binding HasBonuses, Converter={StaticResource BoolToVisibility}}">
-                                                <DataGrid.RowStyle>
-                                                    <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding IsNext}" Value="True">
-                                                                <Setter Property="Foreground" Value="#5CC98A"/>
-                                                                <Setter Property="FontWeight" Value="SemiBold"/>
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </DataGrid.RowStyle>
-                                                <DataGrid.Columns>
-                                                    <DataGridTextColumn Header="Expansion" Binding="{Binding Expansion, Mode=OneWay}" Width="Auto"/>
-                                                    <DataGridTextColumn Header="Date" Binding="{Binding Date, Mode=OneWay}" Width="Auto"/>
-                                                    <DataGridTextColumn Header="Level Cap" Binding="{Binding LevelCap, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
-                                                    <DataGridTextColumn Header="Server Bonus Added" Binding="{Binding Bonus, Mode=OneWay}" Width="Auto"/>
-                                                    <DataGridTextColumn Header="Status" Binding="{Binding Status, Mode=OneWay}" Width="Auto"/>
-                                                </DataGrid.Columns>
-                                            </DataGrid>
-                                            <DataGrid ItemsSource="{Binding Unlocks}" HorizontalAlignment="Left" AutoGenerateColumns="False" CanUserAddRows="False"
-                                                      IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal" Margin="0,0,0,14"
-                                                      Visibility="{Binding NoBonuses, Converter={StaticResource BoolToVisibility}}">
-                                                <DataGrid.RowStyle>
-                                                    <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding IsNext}" Value="True">
-                                                                <Setter Property="Foreground" Value="#5CC98A"/>
-                                                                <Setter Property="FontWeight" Value="SemiBold"/>
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </DataGrid.RowStyle>
-                                                <DataGrid.Columns>
-                                                    <DataGridTextColumn Header="Expansion" Binding="{Binding Expansion, Mode=OneWay}" Width="Auto"/>
-                                                    <DataGridTextColumn Header="Date" Binding="{Binding Date, Mode=OneWay}" Width="Auto"/>
-                                                    <DataGridTextColumn Header="Level Cap" Binding="{Binding LevelCap, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
-                                                    <DataGridTextColumn Header="Status" Binding="{Binding Status, Mode=OneWay}" Width="Auto"/>
-                                                </DataGrid.Columns>
-                                            </DataGrid>
+                                            <!-- Sized to the contents and left-aligned: shared column widths instead of a DataGrid. -->
+                                            <Border HorizontalAlignment="Left" Margin="0,0,0,14" BorderThickness="0,0,0,1" BorderBrush="{DynamicResource BorderSoftBrush}">
+                                                <StackPanel Grid.IsSharedSizeScope="True">
+                                                    <Grid Margin="0,0,0,2" TextElement.Foreground="{DynamicResource TextMutedBrush}">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto" SharedSizeGroup="TlpExp"/>
+                                                            <ColumnDefinition Width="Auto" SharedSizeGroup="TlpDate"/>
+                                                            <ColumnDefinition Width="Auto" SharedSizeGroup="TlpCap"/>
+                                                            <ColumnDefinition Width="Auto" SharedSizeGroup="TlpBonus"/>
+                                                            <ColumnDefinition Width="Auto" SharedSizeGroup="TlpStatus"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Grid.Column="0" Text="Expansion" Margin="6,4,18,4"/>
+                                                        <TextBlock Grid.Column="1" Text="Date" Margin="6,4,18,4"/>
+                                                        <TextBlock Grid.Column="2" Text="Level Cap" Margin="6,4,18,4"/>
+                                                        <TextBlock Grid.Column="3" Text="Server Bonus Added" Margin="6,4,18,4" Visibility="{Binding HasBonuses, Converter={StaticResource BoolToVisibility}}"/>
+                                                        <TextBlock Grid.Column="4" Text="Status" Margin="6,4,18,4"/>
+                                                    </Grid>
+                                                    <ItemsControl ItemsSource="{Binding Unlocks}">
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <Border BorderThickness="0,1,0,0" BorderBrush="{DynamicResource BorderSoftBrush}">
+                                                                    <Grid x:Name="Row" TextElement.Foreground="{DynamicResource TextPrimaryBrush}">
+                                                                        <Grid.ColumnDefinitions>
+                                                                            <ColumnDefinition Width="Auto" SharedSizeGroup="TlpExp"/>
+                                                                            <ColumnDefinition Width="Auto" SharedSizeGroup="TlpDate"/>
+                                                                            <ColumnDefinition Width="Auto" SharedSizeGroup="TlpCap"/>
+                                                                            <ColumnDefinition Width="Auto" SharedSizeGroup="TlpBonus"/>
+                                                                            <ColumnDefinition Width="Auto" SharedSizeGroup="TlpStatus"/>
+                                                                        </Grid.ColumnDefinitions>
+                                                                        <TextBlock Grid.Column="0" Text="{Binding Expansion}" MaxWidth="400" TextWrapping="Wrap" HorizontalAlignment="Left" Margin="6,5,18,5"/>
+                                                                        <TextBlock Grid.Column="1" Text="{Binding Date}" Margin="6,5,18,5"/>
+                                                                        <TextBlock Grid.Column="2" Text="{Binding LevelCap}" Margin="6,5,18,5"/>
+                                                                        <TextBlock Grid.Column="3" Text="{Binding Bonus}" MaxWidth="450" TextWrapping="Wrap" HorizontalAlignment="Left" Margin="6,5,18,5"
+                                                                                   Visibility="{Binding DataContext.HasBonuses, RelativeSource={RelativeSource AncestorType=ItemsControl}, Converter={StaticResource BoolToVisibility}}"/>
+                                                                        <TextBlock Grid.Column="4" Text="{Binding Status}" Margin="6,5,18,5"/>
+                                                                    </Grid>
+                                                                </Border>
+                                                                <DataTemplate.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsNext}" Value="True">
+                                                                        <Setter TargetName="Row" Property="TextElement.Foreground" Value="#5CC98A"/>
+                                                                        <Setter TargetName="Row" Property="TextElement.FontWeight" Value="SemiBold"/>
+                                                                    </DataTrigger>
+                                                                </DataTemplate.Triggers>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                </StackPanel>
+                                            </Border>
 
                                             <StackPanel Visibility="{Binding HasChallenges, Converter={StaticResource BoolToVisibility}}">
                                                 <TextBlock FontWeight="SemiBold" Text="Challenge achievements" Margin="0,0,0,4" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                                <DataGrid ItemsSource="{Binding Challenges}" HorizontalAlignment="Left" AutoGenerateColumns="False" CanUserAddRows="False"
-                                                          IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal">
-                                                    <DataGrid.Columns>
-                                                        <DataGridTextColumn Header="Level" Binding="{Binding Level, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
-                                                        <DataGridTextColumn Header="Expansions" Binding="{Binding Expansions, Mode=OneWay}" Width="Auto"/>
-                                                        <DataGridTextColumn Header="Goal" Binding="{Binding Goal, Mode=OneWay}" Width="Auto"/>
-                                                        <DataGridTextColumn Header="Reward" Binding="{Binding Reward, Mode=OneWay}" Width="Auto"/>
-                                                    </DataGrid.Columns>
-                                                </DataGrid>
+                                                <Border HorizontalAlignment="Left" BorderThickness="0,0,0,1" BorderBrush="{DynamicResource BorderSoftBrush}">
+                                                    <StackPanel Grid.IsSharedSizeScope="True">
+                                                        <Grid Margin="0,0,0,2" TextElement.Foreground="{DynamicResource TextMutedBrush}">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="Auto" SharedSizeGroup="ChLevel"/>
+                                                                <ColumnDefinition Width="Auto" SharedSizeGroup="ChExp"/>
+                                                                <ColumnDefinition Width="Auto" SharedSizeGroup="ChGoal"/>
+                                                                <ColumnDefinition Width="Auto" SharedSizeGroup="ChReward"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <TextBlock Grid.Column="0" Text="Level" Margin="6,4,18,4"/>
+                                                            <TextBlock Grid.Column="1" Text="Expansions" Margin="6,4,18,4"/>
+                                                            <TextBlock Grid.Column="2" Text="Goal" Margin="6,4,18,4"/>
+                                                            <TextBlock Grid.Column="3" Text="Reward" Margin="6,4,18,4"/>
+                                                        </Grid>
+                                                        <ItemsControl ItemsSource="{Binding Challenges}">
+                                                            <ItemsControl.ItemTemplate>
+                                                                <DataTemplate>
+                                                                    <Border BorderThickness="0,1,0,0" BorderBrush="{DynamicResource BorderSoftBrush}">
+                                                                        <Grid TextElement.Foreground="{DynamicResource TextPrimaryBrush}">
+                                                                            <Grid.ColumnDefinitions>
+                                                                                <ColumnDefinition Width="Auto" SharedSizeGroup="ChLevel"/>
+                                                                                <ColumnDefinition Width="Auto" SharedSizeGroup="ChExp"/>
+                                                                                <ColumnDefinition Width="Auto" SharedSizeGroup="ChGoal"/>
+                                                                                <ColumnDefinition Width="Auto" SharedSizeGroup="ChReward"/>
+                                                                            </Grid.ColumnDefinitions>
+                                                                            <TextBlock Grid.Column="0" Text="{Binding Level}" Margin="6,5,18,5"/>
+                                                                            <TextBlock Grid.Column="1" Text="{Binding Expansions}" MaxWidth="300" TextWrapping="Wrap" HorizontalAlignment="Left" Margin="6,5,18,5"/>
+                                                                            <TextBlock Grid.Column="2" Text="{Binding Goal}" MaxWidth="400" TextWrapping="Wrap" HorizontalAlignment="Left" Margin="6,5,18,5"/>
+                                                                            <TextBlock Grid.Column="3" Text="{Binding Reward}" MaxWidth="400" TextWrapping="Wrap" HorizontalAlignment="Left" Margin="6,5,18,5"/>
+                                                                        </Grid>
+                                                                    </Border>
+                                                                </DataTemplate>
+                                                            </ItemsControl.ItemTemplate>
+                                                        </ItemsControl>
+                                                    </StackPanel>
+                                                </Border>
                                             </StackPanel>
                                         </StackPanel>
                                     </ScrollViewer>

@@ -257,6 +257,9 @@ public sealed partial class AppSettings
     /// <summary>Add the drops other players shared online to the Drop Table (on unless switched off).</summary>
     public bool UseSharedDrops { get; set; } = true;
 
+    /// <summary>On a server with normal loot, add the shared drops of the other servers with normal loot (on unless switched off).</summary>
+    public bool PoolNormalLootDrops { get; set; } = true;
+
     /// <summary>Upload this PC's drops to the online shared table (on unless switched off).</summary>
     public bool ShareMyDrops { get; set; } = true;
 

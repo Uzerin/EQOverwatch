@@ -13,6 +13,9 @@ public sealed record SharedDropsUpload(string Server, int Kills, int Drops, byte
 /// </summary>
 public sealed record MergedDropsDownload(long Updated, int Players, byte[]? Gzip, long LastMerge);
 
+/// <summary>A server that has a merged shared table: its name, how many players it pools and its kills.</summary>
+public sealed record MergedServer(string Server, int Players, long Kills);
+
 /// <summary>
 /// The online shared drop table: each install uploads its new kills and drops at most once a day, the service merges everyone's once a
 /// day, and the app downloads one merged file per server. It also takes the anonymous daily player count.
@@ -21,6 +24,10 @@ public interface ISharedDropsService
 {
     /// <summary>The merged table of a server when it is newer than <paramref name="have"/>; null when the server has none yet.</summary>
     Task<MergedDropsDownload?> DownloadMergedAsync(string server, long have, CancellationToken cancellation = default);
+
+    /// <summary>Every server that has a merged table (for pooling servers with normal loot).</summary>
+    Task<IReadOnlyList<MergedServer>> MergedServersAsync(CancellationToken cancellation = default) =>
+        Task.FromResult<IReadOnlyList<MergedServer>>(Array.Empty<MergedServer>());
 
     /// <summary>Uploads this install's new kills and drops. False when the service says it was uploaded too recently.</summary>
     Task<bool> UploadAsync(string id, string key, SharedDropsUpload upload, CancellationToken cancellation = default);
@@ -43,6 +50,43 @@ public sealed class HttpSharedDropsService : ISharedDropsService
     {
         _http = http ?? throw new ArgumentNullException(nameof(http));
         _base = new Uri(address.EndsWith('/') ? address : address + "/");
+    }
+
+    public async Task<IReadOnlyList<MergedServer>> MergedServersAsync(CancellationToken cancellation = default)
+    {
+        using HttpResponseMessage response = await _http.GetAsync(new Uri(_base, "v1/merged"), cancellation).ConfigureAwait(false);
+        await ThrowIfFailed(response, cancellation).ConfigureAwait(false);
+        return ParseMergedServers(await response.Content.ReadAsStringAsync(cancellation).ConfigureAwait(false));
+    }
+
+    /// <summary>Reads <c>{"servers":[{"s":"tormax","p":3,"k":1200}]}</c>; anything malformed is skipped.</summary>
+    public static IReadOnlyList<MergedServer> ParseMergedServers(string body)
+    {
+        var list = new List<MergedServer>();
+        try
+        {
+            using JsonDocument doc = JsonDocument.Parse(body);
+            if (!doc.RootElement.TryGetProperty("servers", out JsonElement servers) || servers.ValueKind != JsonValueKind.Array)
+            {
+                return list;
+            }
+
+            foreach (JsonElement s in servers.EnumerateArray())
+            {
+                if (s.ValueKind == JsonValueKind.Object && s.TryGetProperty("s", out JsonElement name) && name.ValueKind == JsonValueKind.String
+                    && name.GetString() is { Length: > 0 } server)
+                {
+                    int players = s.TryGetProperty("p", out JsonElement p) && p.TryGetInt32(out int pv) ? pv : 0;
+                    long kills = s.TryGetProperty("k", out JsonElement k) && k.TryGetInt64(out long kv) ? kv : 0;
+                    list.Add(new MergedServer(server.ToLowerInvariant(), players, kills));
+                }
+            }
+        }
+        catch (JsonException)
+        {
+        }
+
+        return list;
     }
 
     public async Task<MergedDropsDownload?> DownloadMergedAsync(string server, long have, CancellationToken cancellation = default)

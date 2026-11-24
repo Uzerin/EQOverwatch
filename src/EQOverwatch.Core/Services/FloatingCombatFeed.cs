@@ -52,7 +52,10 @@ public sealed partial class FloatingCombatFeed : IDpsEventSink
 {
     private const int MaxQueued = 200;
 
-    [GeneratedRegex(@"^(?<healer>.+?) healed (?<target>.+?) (?:over time )?for (?<actual>\d+)(?: \(\d+\))? hit points? by .+?\.(?: \((?<tag>.+)\))?$", RegexOptions.CultureInvariant)]
+    /// <summary>A heal from a reverse damage shield: every such spell is named "Mark of ..." (Naltron's Mark is a buff, not one).</summary>
+    public static bool IsReverseDamageShield(ReadOnlySpan<char> spell) => spell.StartsWith("Mark of ", StringComparison.OrdinalIgnoreCase);
+
+    [GeneratedRegex(@"^(?<healer>.+?) healed (?<target>.+?) (?:over time )?for (?<actual>\d+)(?: \(\d+\))? hit points? by (?<spell>.+?)\.(?: \((?<tag>.+)\))?$", RegexOptions.CultureInvariant)]
     private static partial Regex HealRegex();
 
     private readonly ConcurrentQueue<FloatingNumber> _queue = new();
@@ -187,6 +190,13 @@ public sealed partial class FloatingCombatFeed : IDpsEventSink
 
         Match match = HealRegex().Match(message.ToString());
         if (!match.Success || !int.TryParse(match.Groups["actual"].ValueSpan, NumberStyles.None, CultureInfo.InvariantCulture, out int amount) || amount <= 0)
+        {
+            return;
+        }
+
+        // Reverse damage shields (Mark of Karn, Mark of Darkness, ...) heal whoever hits the marked target: they stay in the
+        // parse but would flood the Heals window.
+        if (IsReverseDamageShield(match.Groups["spell"].ValueSpan))
         {
             return;
         }

@@ -5,9 +5,10 @@ namespace EQOverwatch.Core.Tlp;
 /// <summary>
 /// One unlock of a TLP server: the expansions (numbers as in <see cref="Maps.ZoneDirectory.ExpansionNames"/>, 1 = Classic), the day, the
 /// level cap it brings (null: unchanged or not known), the server bonuses it adds, and whether the day is only worked out from the
-/// server's cadence (<see cref="Estimated"/>; shown with "?").
+/// server's cadence (<see cref="Estimated"/>; shown with "?"). <see cref="OpenUndated"/>: known to be open, on a day nobody posted.
 /// </summary>
-public sealed record TlpUnlock(IReadOnlyList<int> Expansions, DateOnly? Date, int? LevelCap, string Bonus = "", bool Estimated = false, string Note = "")
+public sealed record TlpUnlock(IReadOnlyList<int> Expansions, DateOnly? Date, int? LevelCap, string Bonus = "", bool Estimated = false, string Note = "",
+    bool OpenUndated = false)
 {
     /// <summary>"Planes of Power + The Legacy of Ykesha", or the note alone ("Level 55") when no expansion opens.</summary>
     public string Title => Expansions.Count == 0 ? Note : string.Join(" + ", Expansions.Select(Maps.ZoneDirectory.ExpansionName));
@@ -63,8 +64,15 @@ public sealed record TlpServer(
     bool Legacy = false,
     bool ResourceHunter = false,
     bool Challenges = false,
-    IReadOnlyList<TlpChallenge>? ChallengeList = null)
+    IReadOnlyList<TlpChallenge>? ChallengeList = null,
+    bool LootChanged = false)
 {
+    /// <summary>
+    /// True when drops here are like any normal server's, so its Drop Table can be pooled with theirs: no loot bonus, no
+    /// Resource Hunter loot zones, and no random, personal or doubled loot (<see cref="LootChanged"/>).
+    /// </summary>
+    public bool PlainLoot => !LootChanged && !ResourceHunter && !Unlocks.Any(u => u.Bonus.Contains("Loot", StringComparison.OrdinalIgnoreCase));
+
     /// <summary>True when some unlock adds server bonuses (only evolving-ruleset servers do).</summary>
     public bool HasBonuses => Unlocks.Any(u => u.Bonus.Length > 0);
 
@@ -75,7 +83,7 @@ public sealed record TlpServer(
         {
             TlpUnlock u = Unlocks[i];
             bool later = Unlocks.Skip(i + 1).Any(n => n.Date is { } d && !n.Estimated && d <= today);
-            if ((u.Date is { } date && date <= today) || (u.Date is null && later))
+            if ((u.Date is { } date && date <= today) || (u.Date is null && (later || u.OpenUndated)))
             {
                 yield return u;
             }
@@ -201,8 +209,7 @@ public static class TlpServers
 
     /// <summary>The ruleset of a server ("frostreaver", any case), or null for servers without one.</summary>
     public static TlpServer? Find(string? server) =>
-        server is null ? null : All.FirstOrDefault(s => s.Key.Equals(server.Trim(), StringComparison.OrdinalIgnoreCase)
-                                                        || (s.Key == "teek" && server.Trim().Equals("tormax", StringComparison.OrdinalIgnoreCase)));
+        server is null ? null : All.FirstOrDefault(s => s.Key.Equals(server.Trim(), StringComparison.OrdinalIgnoreCase));
 
     /// <summary>The Pacific day of a moment (unlocks and the Resource Hunter day both follow Pacific time).</summary>
     public static DateOnly Today(DateTime utc) => DateOnly.ParseExact(ResourceHunter.ResourceHunterText.Day(utc), "yyyy-MM-dd", CultureInfo.InvariantCulture);
@@ -352,7 +359,7 @@ public static class TlpServers
                 "Heroic characters, Defiant and Consigned gear: about three months after launch.",
             },
             "Lethar Rulesets FAQ (forums.everquest.com)",
-            lethar, new (DateOnly, double)[] { (D(2026, 8, 27), 100) }, Legacy: true));
+            lethar, new (DateOnly, double)[] { (D(2026, 8, 27), 100) }, Legacy: true, LootChanged: true));
 
         // ── Vaniki (official Vaniki FAQ; dates from Allakhazam) ──
         var vaniki = new List<TlpUnlock>
@@ -365,6 +372,8 @@ public static class TlpServers
             U(new[] { 20, 21 }, D(2023, 9, 28), cap: 90), U(new[] { 22, 23, 24 }, D(2023, 12, 21), cap: 95), U(new[] { 25, 26 }, D(2024, 3, 14), cap: 100),
             U(new[] { 27, 28 }, D(2024, 6, 6), cap: 105), U(new[] { 29 }, D(2024, 8, 29), cap: 110),
             U(Array.Empty<int>(), D(2024, 11, 21), cap: 115, note: "Level 115"), U(Array.Empty<int>(), D(2025, 2, 13), cap: 120, note: "Level 120"),
+            // The server list shows Shattering of Ro open; no post gives the days or a cap change.
+            new TlpUnlock(new[] { 30, 31, 32, 33 }, null, null, OpenUndated: true),
         };
         servers.Add(new TlpServer(
             "vaniki", "Vaniki",
@@ -383,7 +392,7 @@ public static class TlpServers
             "Vaniki Server FAQ (everquest.com) and Allakhazam (unlock dates)",
             vaniki,
             new (DateOnly, double)[] { (D(2022, 5, 25), 50), (D(2022, 8, 3), 75), (D(2022, 10, 26), 100) },
-            Challenges: true,
+            Challenges: true, LootChanged: true,
             ChallengeList: new[]
             {
                 new TlpChallenge(40, "Gates of Discord", "Cazic-Thule", "Food clicky, unlimited charges"),
@@ -402,7 +411,7 @@ public static class TlpServers
                 new TlpChallenge(110, "Terror of Luclin", "Doomshade", "Teleport - Maiden's Eye"),
             }));
 
-        // ── Teek & Tormax ──
+        // ── Teek and Tormax: launched together on the same schedule ──
         var teek = Cadence(
             new[] { new[] { 1, 2 }, new[] { 3 }, new[] { 4 }, new[] { 5, 6 }, new[] { 7 }, new[] { 8 } }.Concat(FromOmens),
             new Dictionary<int, DateOnly>
@@ -410,14 +419,27 @@ public static class TlpServers
                 [1] = D(2024, 5, 22), [3] = D(2024, 8, 14), [4] = D(2024, 10, 9), [5] = D(2024, 12, 4), [7] = D(2025, 2, 26), [8] = D(2025, 3, 26),
                 [9] = D(2025, 5, 21), [13] = D(2025, 12, 4), [14] = D(2026, 2, 26), [15] = D(2026, 4, 23), [16] = D(2026, 7, 16), [17] = D(2026, 10, 8),
             });
+        const string teekLaunch = "Launched May 22, 2024 with Kunark; Velious 12 weeks later, then 8 weeks per expansion (12 when the level cap rises).";
+        const string teekExperience = "Experience: standard progression rate (25%, 50% with Gates of Discord, 75% with Depths of Darkhollow, 100% with The Serpent's Spine). No Legacy experience.";
+        const string teekTruebox = "Truebox: 1 client per computer, 3 from Omens of War, removed with The Buried Sea.";
         servers.Add(new TlpServer(
-            "teek", "Teek & Tormax",
+            "teek", "Teek",
             new[]
             {
-                "Launched May 22, 2024 with Kunark; Velious 12 weeks later, then 8 weeks per expansion (12 when the level cap rises).",
-                "Experience: standard progression rate (25%, 50% with Gates of Discord, 75% with Depths of Darkhollow, 100% with The Serpent's Spine). No Legacy experience.",
-                "Teek only: random loot and free trade. Tormax has no special rules.",
-                "Truebox: 1 client per computer, 3 from Omens of War, removed with The Buried Sea.",
+                teekLaunch, teekExperience,
+                "Random loot and free trade.",
+                teekTruebox,
+                "Item focus effects from Shadows of Luclin on.",
+            },
+            "Teek and Tormax are on the Horizon (forums.everquest.com)",
+            teek, Standard(D(2024, 5, 22), teek), LootChanged: true));
+        servers.Add(new TlpServer(
+            "tormax", "Tormax",
+            new[]
+            {
+                teekLaunch, teekExperience,
+                "A normal time-locked server with no special rules.",
+                teekTruebox,
                 "Item focus effects from Shadows of Luclin on.",
             },
             "Teek and Tormax are on the Horizon (forums.everquest.com)",
@@ -485,7 +507,7 @@ public static class TlpServers
                 "Free trade. Truebox. Agents of Change and pick zones.",
             },
             "Bristlebane Be Praised: Mischief is Coming (forums.everquest.com)",
-            mischief, Standard(D(2021, 5, 26), mischief)));
+            mischief, Standard(D(2021, 5, 26), mischief), LootChanged: true));
 
         // ── Aradune (Mangler and Rizlona merged into it) ──
         var aradune = Cadence(Classic(), new Dictionary<int, DateOnly>

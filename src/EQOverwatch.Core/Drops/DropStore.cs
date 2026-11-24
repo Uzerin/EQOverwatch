@@ -489,8 +489,11 @@ public sealed partial class DropStore : ITriggerLineSink
     public IReadOnlyList<DropMobRow> Table(string server, bool includeImported) =>
         Table(server, includeImported ? DropScope.Everyone : DropScope.Mine);
 
-    /// <summary>The drop table for one server, counting the kills and drops in <paramref name="scope"/>.</summary>
-    public IReadOnlyList<DropMobRow> Table(string server, DropScope scope)
+    /// <summary>
+    /// The drop table for one server, counting the kills and drops in <paramref name="scope"/>. With <see cref="DropScope.Everyone"/>, the
+    /// merged tables of <paramref name="pooled"/> (other servers whose loot works the same) are added too.
+    /// </summary>
+    public IReadOnlyList<DropMobRow> Table(string server, DropScope scope, IEnumerable<string>? pooled = null)
     {
         lock (_gate)
         {
@@ -538,14 +541,32 @@ public sealed partial class DropStore : ITriggerLineSink
                 }
             }
 
+            var mergedTables = new List<Merged>();
             if (merged is not null)
             {
-                foreach (((int zone, int mob), int count) in merged.Kills)
+                mergedTables.Add(merged);
+            }
+
+            if (scope == DropScope.Everyone && pooled is not null)
+            {
+                foreach (string other in pooled.Distinct(StringComparer.OrdinalIgnoreCase))
+                {
+                    int otherId = _names.FindServer(other);
+                    if (otherId >= 0 && otherId != serverId && _merged.TryGetValue(otherId, out Merged? o))
+                    {
+                        mergedTables.Add(o);
+                    }
+                }
+            }
+
+            foreach (Merged table in mergedTables)
+            {
+                foreach (((int zone, int mob), int count) in table.Kills)
                 {
                     kills[(zone, mob)] = kills.GetValueOrDefault((zone, mob)) + count;
                 }
 
-                foreach (((int zone, int mob, int item), int count) in merged.Drops)
+                foreach (((int zone, int mob, int item), int count) in table.Drops)
                 {
                     if (!drops.TryGetValue((zone, mob), out Dictionary<int, int>? items))
                     {

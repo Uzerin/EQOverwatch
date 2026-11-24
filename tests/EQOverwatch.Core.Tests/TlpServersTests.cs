@@ -35,7 +35,8 @@ public sealed class TlpServersTests
         Assert.Equal(new DateOnly(2027, 1, 28), next.Date); // The Darkened Sea raised the cap: 12 weeks
         Assert.Null(oak.Unlocks.Single(u => u.Expansions.Contains(5)).Date); // a past day no post gives is not guessed
 
-        Assert.Same(TlpServers.Find("teek"), TlpServers.Find("Tormax"));
+        Assert.NotSame(TlpServers.Find("teek"), TlpServers.Find("Tormax"));
+        Assert.Equal("Tormax", TlpServers.Find("tormax")!.Name);
         Assert.Equal(25, TlpServers.Find("yelinak")!.ExperienceOn(new DateOnly(2022, 6, 1)));
         Assert.Equal(100, TlpServers.Find("yelinak")!.ExperienceOn(Today));
         Assert.Equal(120, TlpServers.Find("vaniki")!.LevelCap(Today));

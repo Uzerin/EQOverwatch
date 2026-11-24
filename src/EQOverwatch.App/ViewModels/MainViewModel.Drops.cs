@@ -295,7 +295,9 @@ public sealed partial class MainViewModel
 
             if (tableToo)
             {
-                _dropTable = server is null ? Array.Empty<DropMobRow>() : store.Table(server, SelectedDropScope);
+                IReadOnlyList<string> pool = server is null || SelectedDropScope != DropScope.Everyone ? Array.Empty<string>() : PoolFor(server);
+                _dropTable = server is null ? Array.Empty<DropMobRow>() : store.Table(server, SelectedDropScope, pool);
+                DropPoolText = PoolText(server, pool);
                 List<string> zones = new[] { AllDropZones }
                     .Concat(_dropTable.Select(r => r.Zone).Where(z => z.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase)
                         .OrderBy(z => z, StringComparer.OrdinalIgnoreCase))

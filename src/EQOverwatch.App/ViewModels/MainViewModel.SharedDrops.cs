@@ -71,6 +71,7 @@ public sealed partial class MainViewModel
         CountMeIn = settings.CountMeIn;
         _allLogsLoadOffered = settings.AllLogsLoadOffered;
         UseSharedDrops = settings.UseSharedDrops;
+        PoolNormalLootDrops = settings.PoolNormalLootDrops;
         ShareMyDrops = settings.ShareMyDrops;
         UpdateDropSources();
     }
@@ -253,7 +254,8 @@ public sealed partial class MainViewModel
 
             if (UseSharedDrops)
             {
-                foreach (string server in servers)
+                await RefreshMergedServersAsync(force);
+                foreach (string server in servers.Concat(servers.SelectMany(PoolFor)).Distinct(StringComparer.OrdinalIgnoreCase).ToList())
                 {
                     DateTime now = DateTime.UtcNow;
                     if (!force && _nextMergedCheckUtc.TryGetValue(server, out DateTime next) && now < next)

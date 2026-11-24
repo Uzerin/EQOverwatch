@@ -78,6 +78,12 @@ async function route(request, env) {
     return json({ error: "Not found." }, 404);
   }
 
+  // The servers that have a merged Drop Table (names and sizes only), so the app can pool servers with the same loot rules.
+  if (parts[1] === "merged" && parts.length === 2 && method === "GET") {
+    const rows = await env.DB.prepare("SELECT server, players, kills FROM merged WHERE size > 0 ORDER BY server").all();
+    return json({ servers: (rows.results || []).map(r => ({ s: r.server, p: r.players, k: r.kills })) });
+  }
+
   if (parts[1] === "merged" && parts.length === 3 && method === "GET") {
     return downloadMerged(env, parts[2].toLowerCase(), Number(url.searchParams.get("have") || "0"));
   }
