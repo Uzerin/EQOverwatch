@@ -49,6 +49,28 @@ public partial class CompanionApp : Application
         }
     }
 
+    /// <summary>The one-time welcome window, then the usual start. Its choices are saved, so it never shows again.</summary>
+    private async Task WelcomeThenStartAsync(Window owner)
+    {
+        if (_viewModel is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var welcome = new WelcomeWindow { Owner = owner, WindowStartupLocation = WindowStartupLocation.CenterOwner };
+            welcome.ShowDialog();
+            await _viewModel.ApplyWelcomeAsync(welcome.Folder, welcome.AnonymousSharingOn, welcome.ServerFirstOn);
+        }
+        catch (Exception ex)
+        {
+            WriteCrashLog("Welcome window", ex);
+        }
+
+        await _viewModel.StartSessionAsync();
+    }
+
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
@@ -73,6 +95,7 @@ public partial class CompanionApp : Application
         // The brushes every window refers to must exist before the first window is created; MainViewModel then applies the saved theme.
         var themeManager = new ThemeManagerService();
         themeManager.Apply(ThemePresets.ObsidianSlate);
+        EQOverwatch.App.Interop.DarkWindowChrome.UseDarkTitleBars(); // windows with the standard title bar get a dark one
 
         // A restore chosen in the last run is applied here, before any setting or data file is read.
         string dataFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), AppInfo.SettingsFolderName);
@@ -87,7 +110,10 @@ public partial class CompanionApp : Application
         }
 
         _settingsService = new AppSettingsService();
+        bool firstRun = !File.Exists(_settingsService.FilePath);
         AppSettings settings = _settingsService.Load();
+        firstRun &= !_settingsService.MigratedFromLegacy;
+        firstRun |= e.Args.Contains("--welcome", StringComparer.OrdinalIgnoreCase); // shows the first-run window again
 
         _pipeline = new CompanionPipeline(TimeSpan.FromSeconds(settings.EncounterTimeoutSeconds));
         _audio = new AudioNotificationService(_pipeline.Triggers);
@@ -209,6 +235,7 @@ public partial class CompanionApp : Application
         if (!string.IsNullOrEmpty(exePath))
         {
             EQOverwatch.Core.Updates.UpdateSwapper.CleanUp(exePath); // the leftovers of the last update
+            EQOverwatch.App.Services.InstalledAppEntry.SyncVersion(exePath); // Installed apps shows the version Install update put in
         }
 
         _viewModel.ConfigureUpdateInstall(
@@ -290,8 +317,9 @@ public partial class CompanionApp : Application
             _viewModel.ReportFailedUpdate();
         }
 
-        // Catch the DPS meter up from every log and start live monitoring, so opening the app mid-fight shows the fight.
-        _ = _viewModel.StartSessionAsync();
+        // Catch the DPS meter up from every log and start live monitoring, so opening the app mid-fight shows the fight. The very first
+        // time, the welcome window picks the EverQuest folder and the sharing choices first.
+        _ = firstRun ? WelcomeThenStartAsync(main) : _viewModel.StartSessionAsync();
 
         // Layouts saved for a monitor setup: switch when Windows says the monitors changed (only if the user turned that on).
         _viewModel.OnDisplayConfigurationChanged();

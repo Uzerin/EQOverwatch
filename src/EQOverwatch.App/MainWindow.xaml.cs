@@ -53,6 +53,7 @@ public partial class MainWindow : Window
     public MainWindow(MainViewModel viewModel)
     {
         InitializeComponent();
+        Interop.DarkWindowChrome.Apply(this); // theme-colored top strip instead of the white title bar
 
         _viewModel = viewModel;
         DataContext = viewModel;

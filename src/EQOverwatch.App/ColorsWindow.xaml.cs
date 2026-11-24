@@ -12,6 +12,7 @@ public partial class ColorsWindow : Window
     public ColorsWindow(MainViewModel viewModel)
     {
         InitializeComponent();
+        Interop.DarkWindowChrome.Apply(this); // theme-colored top strip instead of the white title bar
         _viewModel = viewModel;
         DataContext = viewModel;
         Interop.WindowPlacementKeeper.Attach(

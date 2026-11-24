@@ -1,0 +1,73 @@
+<Window x:Class="EQOverwatch.App.WelcomeWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Welcome to EQ Overwatch"
+        Icon="pack://application:,,,/Assets/EQOverwatch.ico"
+        Width="720" SizeToContent="Height" ResizeMode="NoResize"
+        WindowStartupLocation="CenterScreen" ShowInTaskbar="True"
+        Background="{DynamicResource WindowBgBrush}"
+        Foreground="{DynamicResource TextPrimaryBrush}"
+        FontFamily="Segoe UI" FontSize="13">
+
+    <StackPanel Margin="28,8,28,24">
+        <DockPanel Margin="0,0,0,18">
+            <Image x:Name="Logo" DockPanel.Dock="Left" Width="48" Height="48" Margin="0,0,16,0"
+                   RenderOptions.BitmapScalingMode="HighQuality"/>
+            <StackPanel VerticalAlignment="Center">
+                <TextBlock x:Name="Heading" Text="Welcome to EQ Overwatch" FontSize="24" FontWeight="Bold"/>
+                <TextBlock Text="Two quick choices and you're set. You can change both later on Settings." Foreground="{DynamicResource TextMutedBrush}"
+                           Margin="2,2,0,0"/>
+            </StackPanel>
+        </DockPanel>
+
+        <TextBlock Text="1  Your EverQuest folder" FontSize="15" FontWeight="SemiBold" Margin="0,0,0,8"/>
+        <TextBlock x:Name="SearchStatus" Text="Looking for EverQuest on this PC…" Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,0,8"
+                   TextWrapping="Wrap"/>
+        <ItemsControl x:Name="Installs" Focusable="False">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <Border x:Name="Card" Margin="0,0,0,8" Padding="12,8" CornerRadius="8" BorderThickness="1"
+                            Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource BorderSoftBrush}">
+                        <RadioButton GroupName="EqInstall" IsChecked="{Binding IsSelected, Mode=TwoWay}" VerticalContentAlignment="Center">
+                            <StackPanel Margin="4,0,0,0">
+                                <TextBlock Text="{Binding Folder}" TextTrimming="CharacterEllipsis"/>
+                                <TextBlock Text="{Binding Description}" FontSize="12" Foreground="{DynamicResource TextMutedBrush}"/>
+                            </StackPanel>
+                        </RadioButton>
+                    </Border>
+                    <DataTemplate.Triggers>
+                        <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                            <Setter TargetName="Card" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                        </DataTrigger>
+                    </DataTemplate.Triggers>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <Button Style="{DynamicResource SecondaryButton}" Content="Browse…" HorizontalAlignment="Left" Padding="16,5" Click="Browse_Click"
+                ToolTip="Pick the folder that holds EverQuest's Logs folder."/>
+
+        <TextBlock Text="2  Sharing" FontSize="15" FontWeight="SemiBold" Margin="0,22,0,8"/>
+        <Border Padding="14,10" CornerRadius="8" BorderThickness="1" Margin="0,0,0,8"
+                Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource BorderSoftBrush}">
+            <CheckBox x:Name="AnonymousSharing" IsChecked="True">
+                <StackPanel Margin="4,0,0,0">
+                    <TextBlock Text="Enable anonymous sharing"/>
+                    <TextBlock FontSize="12" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap" MaxWidth="590" HorizontalAlignment="Left"
+                               Text="Drop tables, leveling zones, mob stats, Resource Hunter bonuses and the player count, shared with other players. No character names and no IP addresses."/>
+                </StackPanel>
+            </CheckBox>
+        </Border>
+        <Border Padding="14,10" CornerRadius="8" BorderThickness="1"
+                Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource BorderSoftBrush}">
+            <CheckBox x:Name="ServerFirst" IsChecked="False">
+                <StackPanel Margin="4,0,0,0">
+                    <TextBlock Text="Share my raid fights for Server First"/>
+                    <TextBlock FontSize="12" Foreground="#F59E0B" TextWrapping="Wrap" MaxWidth="590" HorizontalAlignment="Left"
+                               Text="Not anonymous: character names, guilds, classes and each player's damage and healing are shared for qualifying raid fights."/>
+                </StackPanel>
+            </CheckBox>
+        </Border>
+
+        <Button Content="Get started" HorizontalAlignment="Right" Padding="22,7" Margin="0,22,0,0" IsDefault="True" Click="Start_Click"/>
+    </StackPanel>
+</Window>

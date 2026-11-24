@@ -9,6 +9,7 @@ public partial class CharacterDataWindow : Window
     public CharacterDataWindow(CharacterDataViewModel viewModel)
     {
         InitializeComponent();
+        Interop.DarkWindowChrome.Apply(this); // theme-colored top strip instead of the white title bar
         ViewModel = viewModel;
         DataContext = viewModel;
     }

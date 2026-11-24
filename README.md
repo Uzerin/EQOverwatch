@@ -39,18 +39,19 @@ as many characters as you play, without touching the game.
 **Built for boxers**
 - Movable overlays that only show for characters who are logged in, plus overlays of your own; minimize or close any of them.
 - Sync between several PCs, backups, and saved overlay layouts.
-- Updates itself from inside the app.
+- An installer that needs no admin rights, and updates from inside the app.
 
 ## Install
 
-1. Download `EQOverwatch-<version>-win-x64.zip` from the [latest release](https://github.com/Uzerin/EQOverwatch/releases/latest) and unzip it anywhere.
-2. Run `EQOverwatch.exe` (nothing else to install).
-3. On **Settings**, choose your EverQuest folder.
-4. On **Characters**, tick **Enable Triggers** for the characters to monitor.
-5. Type `/log on` in game so EverQuest writes logs.
+1. Download `EQOverwatch-Setup-<version>.exe` from the [latest release](https://github.com/Uzerin/EQOverwatch/releases/latest) and run it.
+   It installs for your Windows user only, so it needs no admin rights. Prefer no installer? Unzip `EQOverwatch-<version>-win-x64.zip`
+   anywhere and run `EQOverwatch.exe` instead.
+2. The first time it opens, pick your EverQuest folder (the app lists the ones it finds) and choose what to share.
+3. On **Characters**, tick **Enable Triggers** for the characters to monitor.
+4. Type `/log on` in game so EverQuest writes logs.
 
 Settings are saved in `%LocalAppData%\EQOverwatch`. When a new version is out, a bar at the top offers **Install update**, which
-downloads it, checks it and restarts the app; your settings are kept.
+downloads it, checks it and restarts the app; your settings are kept. Uninstall from Windows' Installed apps.
 
 **Player count:** once a day the app sends a random id and its version number, so we know how many people use it. No names and no IP
 addresses are kept. Untick **Count me in the anonymous player count** on Settings to stop it.
@@ -61,6 +62,10 @@ addresses are kept. Untick **Count me in the anonymous player count** on Setting
 - Run `/outputfile inventory`, `spellbook` and `missingspells` in game to fill in character data.
 
 ## Changelog
+
+### 1.0.103
+
+- Windows installer, a welcome window that finds your EverQuest folder, and dark window tops.
 
 ### 1.0.102
 
