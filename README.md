@@ -63,6 +63,10 @@ addresses are kept. Untick **Count me in the anonymous player count** on Setting
 
 ## Changelog
 
+### 1.0.104
+
+- Thinner, blank window top with small Discord-style buttons.
+
 ### 1.0.103
 
 - Windows installer, a welcome window that finds your EverQuest folder, and dark window tops.

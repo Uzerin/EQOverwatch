@@ -1,7 +1,6 @@
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
@@ -10,13 +9,13 @@ using System.Windows.Shell;
 namespace EQOverwatch.App.Interop;
 
 /// <summary>
-/// Window tops in the app's colors. <see cref="Apply"/> replaces the white Windows title bar with a thin strip in the theme (icon, title
-/// and the minimize / maximize / close buttons inside the window, like Discord); <see cref="UseDarkTitleBars"/> gives every other window
+/// Window tops in the app's colors. <see cref="Apply"/> replaces the white Windows title bar with a thin blank strip in the theme with
+/// the minimize / maximize / close buttons inside the window, like Discord; <see cref="UseDarkTitleBars"/> gives every other window
 /// a dark title bar.
 /// </summary>
 public static class DarkWindowChrome
 {
-    public const double StripHeight = 32;
+    public const double StripHeight = 26;
 
     private const int DwmwaUseImmersiveDarkMode = 20;
     private const int DwmwaCaptionColor = 35;
@@ -58,7 +57,7 @@ public static class DarkWindowChrome
     }
 
     /// <summary>
-    /// Moves the window's content under a theme-colored strip with the window's icon, title and buttons. Call after InitializeComponent.
+    /// Moves the window's content under a thin, blank theme-colored strip with small minimize / maximize / close buttons. Call after InitializeComponent.
     /// Dragging the strip moves the window, double-clicking it maximizes, and the edges still resize and snap.
     /// </summary>
     public static void Apply(Window window, bool resizable = true)
@@ -127,20 +126,8 @@ public static class DarkWindowChrome
         buttons.Children.Add(StripButton("", "Close", true, window.Close));
         strip.Children.Add(buttons);
 
-        var title = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 0, 0) };
-        var icon = new Image { Width = 16, Height = 16, Margin = new Thickness(0, 0, 8, 0), VerticalAlignment = VerticalAlignment.Center };
-        icon.SetBinding(Image.SourceProperty, new Binding(nameof(Window.Icon)) { Source = window });
-        RenderOptions.SetBitmapScalingMode(icon, BitmapScalingMode.HighQuality);
-        var text = new TextBlock { FontSize = 12, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
-        text.SetBinding(TextBlock.TextProperty, new Binding(nameof(Window.Title)) { Source = window });
-        text.SetResourceReference(TextBlock.ForegroundProperty, "TextMutedBrush");
-        title.Children.Add(icon);
-        title.Children.Add(text);
-        strip.Children.Add(title);
-
-        // Faded title while the window is not the active one, as Windows does.
-        window.Activated += (_, _) => text.Opacity = 1;
-        window.Deactivated += (_, _) => text.Opacity = 0.6;
+        // Blank, like Discord: the window's name shows on the taskbar and in Alt+Tab, and each window says what it is in its content.
+        strip.Children.Add(new Border());
         return strip;
     }
 
@@ -148,14 +135,14 @@ public static class DarkWindowChrome
     {
         var button = new Button
         {
-            Width = 46,
+            Width = 34,
             Height = StripHeight,
             ToolTip = tip,
             Focusable = false,
-            Content = new TextBlock { Text = glyph, FontFamily = new FontFamily("Segoe MDL2 Assets"), FontSize = 10 },
+            Content = new TextBlock { Text = glyph, FontFamily = new FontFamily("Segoe MDL2 Assets"), FontSize = 9 },
             Template = StripButtonTemplate(isClose),
         };
-        button.SetResourceReference(Control.ForegroundProperty, "TextPrimaryBrush");
+        button.SetResourceReference(Control.ForegroundProperty, "TextMutedBrush"); // small grey glyphs, brighter on hover
         WindowChrome.SetIsHitTestVisibleInChrome(button, true);
         button.Click += (_, _) => click();
         return button;
@@ -181,6 +168,7 @@ public static class DarkWindowChrome
         else
         {
             hover.Setters.Add(new Setter(Border.BackgroundProperty, new DynamicResourceExtension("HoverBgBrush"), "Bd"));
+            hover.Setters.Add(new Setter(Control.ForegroundProperty, new DynamicResourceExtension("TextPrimaryBrush")));
         }
 
         template.Triggers.Add(hover);

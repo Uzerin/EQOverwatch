@@ -126,8 +126,8 @@ public sealed class Phase7SettingsTests : IDisposable
     [Fact]
     public void The_app_version_is_1_0_0()
     {
-        Assert.Equal("v1.0.103", AppInfo.Version);
-        Assert.Equal($"{Edition.Name} v1.0.103", AppInfo.Title);
+        Assert.Equal("v1.0.104", AppInfo.Version);
+        Assert.Equal($"{Edition.Name} v1.0.104", AppInfo.Title);
         Assert.Equal(Edition.Name, AppInfo.Name);
     }
 

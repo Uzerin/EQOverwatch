@@ -12,9 +12,9 @@
     <AssemblyName>EQOverwatch</AssemblyName>
     <Product>EQ Overwatch</Product>
     <ApplicationIcon>Assets\EQOverwatch.ico</ApplicationIcon>
-    <Version>1.0.103</Version>
-    <AssemblyVersion>1.0.103.0</AssemblyVersion>
-    <FileVersion>1.0.103.0</FileVersion>
+    <Version>1.0.104</Version>
+    <AssemblyVersion>1.0.104.0</AssemblyVersion>
+    <FileVersion>1.0.104.0</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>
