@@ -34,7 +34,7 @@ public sealed partial class MainViewModel
         {
             // Saved under the persona; an empty choice still overrides an older one made before personas.
             _durationProfiles[DurationKey(character, server, persona)] = profile;
-            if (profile.IsEmpty && persona.Length == 0)
+            if (profile.IsEmpty && profile.Foci is not { Count: > 0 } && persona.Length == 0)
             {
                 _durationProfiles.Remove(DurationKey(character, server, persona));
             }
@@ -53,8 +53,11 @@ public sealed partial class MainViewModel
             _durationProfiles.Clear();
             foreach (DurationProfileSetting s in saved ?? Enumerable.Empty<DurationProfileSetting>())
             {
-                var profile = new DurationProfile(s.BeneficialFocusId, s.DetrimentalFocusId, Math.Clamp(s.AaPercent, 0, 100));
-                if (!string.IsNullOrWhiteSpace(s.CharacterName) && (!profile.IsEmpty || !string.IsNullOrEmpty(s.Persona)))
+                var foci = (s.Foci ?? new Dictionary<string, int>())
+                    .Where(p => Enum.TryParse(p.Key, out FocusKind _))
+                    .ToDictionary(p => Enum.Parse<FocusKind>(p.Key), p => p.Value);
+                var profile = new DurationProfile(s.BeneficialFocusId, s.DetrimentalFocusId, 0, Foci: foci.Count > 0 ? foci : null);
+                if (!string.IsNullOrWhiteSpace(s.CharacterName) && (!profile.IsEmpty || profile.Foci is not null || !string.IsNullOrEmpty(s.Persona)))
                 {
                     _durationProfiles[DurationKey(s.CharacterName, s.ServerName ?? string.Empty, s.Persona ?? string.Empty)] = profile;
                 }
@@ -77,7 +80,7 @@ public sealed partial class MainViewModel
                         Persona = parts.Length > 2 ? parts[2] : string.Empty,
                         BeneficialFocusId = kv.Value.BeneficialFocusId,
                         DetrimentalFocusId = kv.Value.DetrimentalFocusId,
-                        AaPercent = kv.Value.AaPercent,
+                        Foci = kv.Value.Foci is { Count: > 0 } foci ? foci.ToDictionary(p => p.Key.ToString(), p => p.Value) : null,
                     };
                 })
                 .OrderBy(s => s.CharacterName, StringComparer.OrdinalIgnoreCase)
@@ -111,8 +114,16 @@ public sealed partial class MainViewModel
     }
 
     private FocusEffectsViewModel CreateFocusViewModel(string name, string server, string persona = "") =>
-        new(_pipeline.Spells.Database.DurationFoci, GetDurationProfile(name, server, persona), profile => SetDurationProfile(name, server, profile, persona),
-            DurationAaLines(name, server, persona));
+        new(_pipeline.Spells.Database, GetDurationProfile(name, server, persona), profile => SetDurationProfile(name, server, profile, persona),
+            DurationAaLines(name, server, persona), FocusLevelOf(name, server, persona), _pipeline.Progress.FocusFires(name, server));
+
+    /// <summary>The persona's level (or the character's when the persona's is not known), 0 when not known.</summary>
+    private int FocusLevelOf(string name, string server, string persona)
+    {
+        int level = _pipeline.Progress.Personas(name, server)
+            .FirstOrDefault(p => p.Persona.Equals(persona, StringComparison.OrdinalIgnoreCase) || (persona.Length == 0 && p.IsCurrent))?.Level ?? 0;
+        return level > 0 ? level : _pipeline.Roster.GetLevel(name, server);
+    }
 
     /// <summary>"Spell Casting Reinforcement 3: +30%", one line per learned ability that lengthens spells.</summary>
     private IReadOnlyList<string> DurationAaLines(string name, string server, string persona) =>

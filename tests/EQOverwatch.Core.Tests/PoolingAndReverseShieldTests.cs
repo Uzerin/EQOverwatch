@@ -120,3 +120,40 @@ public sealed class AaAndActiveTimeTests
         Assert.Equal(60, DurationCalculator.Seconds(spell with { SpellLine = 1 }, 8, profile, SpellDatabase.Empty));
     }
 }
+
+public sealed class ItemFocusTests
+{
+    [Fact]
+    public void A_focus_row_gives_its_kind_size_and_limits()
+    {
+        // Extended Range III: 1|129|15  2|134|60|5  3|311
+        var effects = SpellEffects.Parse("1|129|15|0|100|0$2|134|60|5|100|0$3|311|0|0|100|0");
+        ItemFocus range = Assert.Single(ItemFocus.FromEffects(2350, "Extended Range III", effects));
+        Assert.Equal((FocusKind.Range, 15, 60, 5, true), (range.Kind, range.Percent, range.MaxLevel, range.PercentPerLevelOver, range.ExcludesCombatSkills));
+        Assert.Equal("Extended Range III (+15% range, to level 60)", range.Label);
+        Assert.Equal(15, range.PercentAt(60));
+        Assert.Equal(11.25, range.PercentAt(65), 2);
+        Assert.Equal("+15% range on spells up to level 60; not combat abilities", range.BenefitAt(60));
+        Assert.StartsWith("+15% range on spells up to level 60; your level 65 spells get ", range.BenefitAt(65));
+
+        var both = ItemFocus.FromEffects(1, "Extended Enhancement I", SpellEffects.Parse("1|128|10|0|100|0"));
+        Assert.Equal(new[] { FocusKind.BuffDuration, FocusKind.DetrimentalDuration }, both.Select(f => f.Kind));
+    }
+
+    [Fact]
+    public void Item_focus_messages_are_counted_per_character()
+    {
+        Assert.Equal(("Meditative Blanket", "feels alive with power."), EQOverwatch.Core.Progress.ProgressStore.ItemFocusLine("Your Meditative Blanket feels alive with power."));
+        Assert.Null(EQOverwatch.Core.Progress.ProgressStore.ItemFocusLine("You feel focused."));
+        Assert.Equal(FocusKind.Healing, FocusKinds.FromItemMessage("feels alive with power."));
+        Assert.Null(FocusKinds.FromItemMessage("sparkles.")); // not confirmed on live yet
+
+        var store = new EQOverwatch.Core.Progress.ProgressStore(new DateTime(2026, 11, 1, 0, 0, 0, DateTimeKind.Utc));
+        for (int i = 0; i < 3; i++)
+        {
+            store.OnLine("Mendwell", "frostreaver", "Your Meditative Blanket feels alive with power.", new DateTime(2026, 11, 24, 20, 0, i, DateTimeKind.Utc));
+        }
+
+        Assert.Equal(("Meditative Blanket", "feels alive with power.", 3), Assert.Single(store.FocusFires("Mendwell", "frostreaver")));
+    }
+}

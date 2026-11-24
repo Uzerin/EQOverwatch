@@ -423,8 +423,11 @@ public sealed class DurationProfileSetting
 
     public int? DetrimentalFocusId { get; set; }
 
-    /// <summary>The total spell-duration percentage shown in the AA window, 0-100.</summary>
+    /// <summary>The total spell-duration percentage shown in the AA window, 0-100 (no longer used: learned AAs count by themselves).</summary>
     public int AaPercent { get; set; }
+
+    /// <summary>The other focus kinds picked (kind name to spell id): healing, damage, spell haste, mana cost, range, hate, reagent cost.</summary>
+    public Dictionary<string, int>? Foci { get; set; }
 }
 
 public sealed class WatchedLogSettings

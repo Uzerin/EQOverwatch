@@ -62,6 +62,10 @@ addresses are kept. Untick **Count me in the anonymous player count** on Setting
 
 ## Changelog
 
+### 1.0.102
+
+- Focus Effects has a focus per type (healing, damage, haste, mana, range and more) with what it gives at your level, and items seen firing one.
+
 ### 1.0.101
 
 - Focus Effects lists the learned AAs that lengthen spells; the AA percent box is gone.

@@ -136,6 +136,7 @@ public sealed class SpellDatabaseService
         var kept = new Dictionary<int, SpellInfo>();
         var definitions = new Dictionary<int, SpellDefinition>();
         var foci = new List<DurationFocus>();
+        var itemFoci = new List<ItemFocus>();
         int rowsRead = 0, skipped = 0, malformed = 0;
 
         using (var reader = new StreamReader(fullPath, Encoding.Latin1, detectEncodingFromByteOrderMarks: false, bufferSize: 1 << 16))
@@ -191,6 +192,11 @@ public sealed class SpellDatabaseService
                             {
                                 foci.Add(focus);
                             }
+
+                            if (name.Length > 0)
+                            {
+                                itemFoci.AddRange(ItemFocus.FromEffects(id, name, effects));
+                            }
                         }
                     }
                 }
@@ -240,7 +246,7 @@ public sealed class SpellDatabaseService
 
         IEnumerable<AbilityInfo> abilities = recasts.Select(r =>
             new AbilityInfo(r.Key, r.Value.Name, r.Value.Seconds, kept.TryGetValue(r.Key, out SpellInfo? lasting) ? lasting.BaseDurationSeconds : 0));
-        var database = new SpellDatabase(kept.Values, casterLevel, definitions.Values, abilities, foci);
+        var database = new SpellDatabase(kept.Values, casterLevel, definitions.Values, abilities, foci, itemFoci);
         Volatile.Write(ref _database, database);
         DatabaseChanged?.Invoke();
 

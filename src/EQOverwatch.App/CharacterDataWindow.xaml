@@ -268,19 +268,61 @@
                 </DataGrid>
             </TabItem>
             <TabItem Header="Focus Effects" DataContext="{Binding Focus}">
-                <StackPanel Margin="12,10" MaxWidth="640" HorizontalAlignment="Left">
-                    <TextBlock Text="{Binding Message}" Style="{StaticResource HintText}" Margin="0,0,0,10"/>
-                    <TextBlock Text="Buff duration focus" Margin="0,0,0,3"/>
-                    <ComboBox ItemsSource="{Binding BeneficialChoices}" SelectedItem="{Binding SelectedBeneficial, Mode=TwoWay}"
-                              DisplayMemberPath="Label" Margin="0,0,0,12"/>
-                    <TextBlock Text="Detrimental duration focus (debuffs and DoTs)" Margin="0,0,0,3"/>
-                    <ComboBox ItemsSource="{Binding DetrimentalChoices}" SelectedItem="{Binding SelectedDetrimental, Mode=TwoWay}"
-                              DisplayMemberPath="Label" Margin="0,0,0,12"/>
-                    <TextBlock Text="Duration AAs" Margin="0,0,0,3"/>
-                    <TextBlock Text="{Binding DurationAasText}" TextWrapping="Wrap" Margin="0,0,0,12"/>
-                    <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap"
-                               Text="Applies only to buffs, debuffs, DoTs and combat abilities this character casts; songs are never extended. Learned AAs are added on top of the focus by themselves: add a missing one on the AAs tab."/>
-                </StackPanel>
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="12,10" HorizontalAlignment="Left">
+                        <TextBlock Text="{Binding Message}" Style="{StaticResource HintText}" Margin="0,0,0,10"
+                                   Visibility="{Binding HasMessage, Converter={StaticResource BoolToVisibility}}"/>
+                        <Border BorderThickness="0,0,0,1" BorderBrush="{DynamicResource BorderSoftBrush}" HorizontalAlignment="Left">
+                            <StackPanel Grid.IsSharedSizeScope="True">
+                                <Grid TextElement.Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,0,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="FkType"/>
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="FkPick"/>
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="FkBenefit"/>
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="FkSeen"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="Focus type" Margin="4,4,16,4"/>
+                                    <TextBlock Grid.Column="1" Text="Your focus (type to search)" Margin="4,4,16,4"/>
+                                    <TextBlock Grid.Column="2" Text="{Binding LevelHeading}" Margin="4,4,16,4"/>
+                                    <TextBlock Grid.Column="3" Text="Seen in your log" Margin="4,4,16,4"/>
+                                </Grid>
+                                <ItemsControl ItemsSource="{Binding Rows}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border BorderThickness="0,1,0,0" BorderBrush="{DynamicResource BorderSoftBrush}">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto" SharedSizeGroup="FkType"/>
+                                                        <ColumnDefinition Width="Auto" SharedSizeGroup="FkPick"/>
+                                                        <ColumnDefinition Width="Auto" SharedSizeGroup="FkBenefit"/>
+                                                        <ColumnDefinition Width="Auto" SharedSizeGroup="FkSeen"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Grid.Column="0" Text="{Binding Title}" VerticalAlignment="Center" Margin="4,4,16,4"/>
+                                                    <ComboBox Grid.Column="1" Width="330" Margin="4,3,16,3" IsEditable="True" IsTextSearchEnabled="True"
+                                                              ItemsSource="{Binding Choices}" DisplayMemberPath="Label" SelectedItem="{Binding Selected, Mode=TwoWay}">
+                                                        <ComboBox.ItemsPanel>
+                                                            <ItemsPanelTemplate>
+                                                                <VirtualizingStackPanel/>
+                                                            </ItemsPanelTemplate>
+                                                        </ComboBox.ItemsPanel>
+                                                    </ComboBox>
+                                                    <TextBlock Grid.Column="2" Text="{Binding BenefitText}" Foreground="#5CC98A" TextWrapping="Wrap" MaxWidth="420"
+                                                               VerticalAlignment="Center" Margin="4,4,16,4"/>
+                                                    <TextBlock Grid.Column="3" Text="{Binding Seen}" Style="{StaticResource HintText}" TextWrapping="Wrap" MaxWidth="280"
+                                                               VerticalAlignment="Center" Margin="4,4,16,4"/>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+                        <TextBlock Text="Duration AAs" FontWeight="SemiBold" Margin="0,14,0,3"/>
+                        <TextBlock Text="{Binding DurationAasText}" TextWrapping="Wrap" Margin="0,0,0,12"/>
+                        <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" MaxWidth="760" HorizontalAlignment="Left"
+                                   Text="Each focus is checked against its own limits: the highest spell level it fully works on (and how much it loses per level above), beneficial or detrimental spells, and the spells it leaves out. The two duration foci and your learned AAs lengthen your timer bars; the others are for reference. Seen in your log lists items whose focus message came in this character's log."/>
+                    </StackPanel>
+                </ScrollViewer>
             </TabItem>
 
             <TabItem Header="Skills">

@@ -148,9 +148,14 @@ public sealed class SpellDatabase
         int casterLevel,
         IEnumerable<SpellDefinition>? definitions = null,
         IEnumerable<AbilityInfo>? abilities = null,
-        IEnumerable<DurationFocus>? foci = null)
+        IEnumerable<DurationFocus>? foci = null,
+        IEnumerable<ItemFocus>? itemFoci = null)
     {
         CasterLevel = casterLevel;
+        ItemFoci = (itemFoci ?? Enumerable.Empty<ItemFocus>())
+            .OrderBy(f => f.Name, StringComparer.OrdinalIgnoreCase).ThenBy(f => f.SpellId)
+            .GroupBy(f => f.Kind)
+            .ToDictionary(g => g.Key, g => (IReadOnlyList<ItemFocus>)g.ToList());
 
         var fociList = new List<DurationFocus>(foci ?? Enumerable.Empty<DurationFocus>());
         fociList.Sort(static (a, b) =>
@@ -255,6 +260,13 @@ public sealed class SpellDatabase
     public IReadOnlyList<DurationFocus> DurationFoci { get; }
 
     public DurationFocus? FindFocus(int spellId) => _fociById.GetValueOrDefault(spellId);
+
+    /// <summary>Every focus effect in the spell file, by kind, A to Z.</summary>
+    public IReadOnlyDictionary<FocusKind, IReadOnlyList<ItemFocus>> ItemFoci { get; }
+
+    /// <summary>The focus of <paramref name="kind"/> with spell id <paramref name="spellId"/>, or null.</summary>
+    public ItemFocus? FindItemFocus(FocusKind kind, int spellId) =>
+        ItemFoci.TryGetValue(kind, out IReadOnlyList<ItemFocus>? list) ? list.FirstOrDefault(f => f.SpellId == spellId) : null;
 
     public int Count => Spells.Count;
 

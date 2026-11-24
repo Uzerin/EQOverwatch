@@ -85,7 +85,7 @@ public sealed partial class ProgressStore : ITriggerLineSink
     {
         "Alchemy", "Baking", "Blacksmithing", "Brewing", "Fletching", "Jewelry Making", "Make Poison", "Pottery", "Research", "Tailoring", "Tinkering",
     };
-    private const int FileFormat = 8; // 8: alternate abilities; 3: the persona timeline; 4: character flags; 5: key ring and achievement lines; 6: /played and recent faction hits; 7: legacy bonus and birthdate (the logs are read again for them)
+    private const int FileFormat = 9; // 9: item focus messages; 8: alternate abilities; 3: the persona timeline; 4: character flags; 5: key ring and achievement lines; 6: /played and recent faction hits; 7: legacy bonus and birthdate (the logs are read again for them)
 
     private readonly object _gate = new();
     private readonly Dictionary<string, CharacterState> _characters = new(StringComparer.OrdinalIgnoreCase);
@@ -130,6 +130,7 @@ public sealed partial class ProgressStore : ITriggerLineSink
         || message.EndsWith(KeyRingSuffix, StringComparison.Ordinal)
         || message.StartsWith(AchievementPrefix, StringComparison.Ordinal)
         || WantedAa(message)
+        || ItemFocusLine(message) is not null
         || message.StartsWith(PlayedPrefix, StringComparison.Ordinal)
         || message.StartsWith(LegacyPrefix, StringComparison.Ordinal)
         || message.Contains(BirthdateMarker, StringComparison.Ordinal)
@@ -255,6 +256,14 @@ public sealed partial class ProgressStore : ITriggerLineSink
         }
 
         CharacterState state = State(states, key);
+        if (ItemFocusLine(text) is { } fired)
+        {
+            state.FocusFires ??= new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            string firedKey = fired.Item + "|" + fired.Ending;
+            state.FocusFires[firedKey] = state.FocusFires.GetValueOrDefault(firedKey) + 1;
+            return true;
+        }
+
         if (LegacyBonus(text) is { } bonus)
         {
             state.LegacyBonus = bonus;
@@ -1001,6 +1010,9 @@ public sealed partial class ProgressStore : ITriggerLineSink
 
         /// <summary>Character flags, oldest first.</summary>
         public List<FlagMark>? Flags { get; set; }
+
+        /// <summary>How often each item's focus message came ("Meditative Blanket|feels alive with power.").</summary>
+        public Dictionary<string, int>? FocusFires { get; set; }
 
         /// <summary>The last /played total in minutes, and when it was said (unix seconds; 0 when never).</summary>
         public long Played { get; set; }

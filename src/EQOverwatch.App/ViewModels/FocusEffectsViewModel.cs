@@ -6,41 +6,102 @@ namespace EQOverwatch.App.ViewModels;
 /// <summary>One entry in a focus drop-down. A null <see cref="SpellId"/> is "None".</summary>
 public sealed record FocusChoice(int? SpellId, string Label);
 
+/// <summary>One focus kind on the Focus Effects tab: the focus picked for it, what it gives at the character's level, and the items seen firing one.</summary>
+public sealed partial class FocusTypeRow : ObservableObject
+{
+    private readonly Func<int?, string> _benefit;
+    private readonly Action _changed;
+
+    public FocusTypeRow(FocusKind kind, IReadOnlyList<FocusChoice> choices, FocusChoice selected, string seen, Func<int?, string> benefit, Action changed)
+    {
+        Kind = kind;
+        Choices = choices;
+        Seen = seen;
+        _benefit = benefit;
+        _changed = changed;
+        _selected = selected;
+        _benefitText = benefit(selected.SpellId);
+    }
+
+    public FocusKind Kind { get; }
+
+    public string Title => Kind.Title();
+
+    public IReadOnlyList<FocusChoice> Choices { get; }
+
+    /// <summary>"Meditative Blanket (579×)": items whose focus of this kind fired in the character's log.</summary>
+    public string Seen { get; }
+
+    [ObservableProperty]
+    private FocusChoice _selected;
+
+    [ObservableProperty]
+    private string _benefitText;
+
+    partial void OnSelectedChanged(FocusChoice value)
+    {
+        BenefitText = _benefit(value?.SpellId);
+        _changed();
+    }
+}
+
 /// <summary>
-/// The Focus Effects tab: which spell-duration focus a character uses for buffs and for debuffs/DoTs, and the learned alternate
-/// abilities that lengthen spells (those come from the AAs tab on their own). Every change is saved at once through <c>save</c>.
+/// The Focus Effects tab: a focus per kind (buff and detrimental duration, healing, damage, spell haste, mana cost, range, hate and reagent
+/// cost), each with what it gives at the character's level, and the learned alternate abilities that lengthen spells. The two duration
+/// kinds change timer bars; the rest are for reference. Every change is saved at once through <c>save</c>.
 /// </summary>
 public sealed partial class FocusEffectsViewModel : ObservableObject
 {
     private readonly Action<DurationProfile> _save;
     private readonly bool _loading;
 
-    /// <param name="durationAas">The learned abilities that lengthen spells, as lines ("Spell Casting Reinforcement 3: +30%").</param>
-    public FocusEffectsViewModel(IReadOnlyList<DurationFocus> foci, DurationProfile profile, Action<DurationProfile> save, IReadOnlyList<string>? durationAas = null)
+    /// <param name="level">The character's level (0 when not known), for what each focus gives.</param>
+    /// <param name="fires">Items whose focus message came in the character's log, with the message ending and the count.</param>
+    public FocusEffectsViewModel(
+        SpellDatabase database, DurationProfile profile, Action<DurationProfile> save, IReadOnlyList<string>? durationAas = null, int level = 0,
+        IReadOnlyList<(string Item, string Ending, int Count)>? fires = null)
     {
-        DurationAas = durationAas ?? Array.Empty<string>();
         _save = save ?? throw new ArgumentNullException(nameof(save));
         _loading = true;
+        DurationAas = durationAas ?? Array.Empty<string>();
+        Level = level;
 
         var none = new FocusChoice(null, "None");
-        BeneficialChoices = new[] { none }
-            .Concat(foci.Where(f => f.AppliesTo != FocusAppliesTo.Detrimental).Select(f => new FocusChoice(f.SpellId, f.Label)))
-            .ToList();
-        DetrimentalChoices = new[] { none }
-            .Concat(foci.Where(f => f.AppliesTo != FocusAppliesTo.Beneficial).Select(f => new FocusChoice(f.SpellId, f.Label)))
-            .ToList();
+        var rows = new List<FocusTypeRow>();
+        foreach (FocusKind kind in FocusKinds.All)
+        {
+            IReadOnlyList<ItemFocus> foci = database.ItemFoci.TryGetValue(kind, out IReadOnlyList<ItemFocus>? list) ? list : Array.Empty<ItemFocus>();
+            var choices = new List<FocusChoice> { none };
+            choices.AddRange(foci.Select(f => new FocusChoice(f.SpellId, f.Label)));
+            int? picked = kind switch
+            {
+                FocusKind.BuffDuration => profile.BeneficialFocusId,
+                FocusKind.DetrimentalDuration => profile.DetrimentalFocusId,
+                _ => profile.Foci?.GetValueOrDefault(kind),
+            };
+            FocusChoice selected = choices.FirstOrDefault(c => c.SpellId == picked && picked is not null) ?? none;
+            string seen = string.Join(", ", (fires ?? Array.Empty<(string, string, int)>())
+                .Where(f => FocusKinds.FromItemMessage(f.Ending) == kind)
+                .Select(f => $"{f.Item} ({f.Count:N0}×)"));
+            FocusKind k = kind;
+            rows.Add(new FocusTypeRow(kind, choices, selected, seen,
+                id => id is int spellId && database.FindItemFocus(k, spellId) is { } focus ? focus.BenefitAt(level) : string.Empty,
+                Save));
+        }
 
-        _selectedBeneficial = BeneficialChoices.FirstOrDefault(c => c.SpellId == profile.BeneficialFocusId) ?? none;
-        _selectedDetrimental = DetrimentalChoices.FirstOrDefault(c => c.SpellId == profile.DetrimentalFocusId) ?? none;
-        Message = foci.Count == 0
-            ? "No duration focus spells were found. Load your spell file (Settings tab) first; the newer spells_us.txt with its spells_us_str.txt is needed for focus effects."
+        Rows = rows;
+        Message = database.ItemFoci.Count == 0
+            ? "No focus effects were found. Load your spell file (Settings tab) first; the newer spells_us.txt with its spells_us_str.txt is needed for focus effects."
             : string.Empty;
         _loading = false;
     }
 
-    public IReadOnlyList<FocusChoice> BeneficialChoices { get; }
+    public IReadOnlyList<FocusTypeRow> Rows { get; }
 
-    public IReadOnlyList<FocusChoice> DetrimentalChoices { get; }
+    public int Level { get; }
+
+    /// <summary>"At level 60", the heading of the benefit column.</summary>
+    public string LevelHeading => Level > 0 ? $"At level {Level}" : "Benefit";
 
     public string Message { get; }
 
@@ -53,18 +114,25 @@ public sealed partial class FocusEffectsViewModel : ObservableObject
         ? "None learned yet. Abilities come from the AAs tab (the logs, or ones you add there)."
         : string.Join(Environment.NewLine, DurationAas);
 
-    [ObservableProperty]
-    private FocusChoice _selectedBeneficial;
+    /// <summary>The buff duration focus (kept for callers and tests).</summary>
+    public FocusChoice SelectedBeneficial
+    {
+        get => Row(FocusKind.BuffDuration).Selected;
+        set => Row(FocusKind.BuffDuration).Selected = value;
+    }
 
-    [ObservableProperty]
-    private FocusChoice _selectedDetrimental;
+    public FocusChoice SelectedDetrimental
+    {
+        get => Row(FocusKind.DetrimentalDuration).Selected;
+        set => Row(FocusKind.DetrimentalDuration).Selected = value;
+    }
 
-    public DurationProfile Profile => new(SelectedBeneficial?.SpellId, SelectedDetrimental?.SpellId, 0);
+    public DurationProfile Profile => new(
+        SelectedBeneficial?.SpellId, SelectedDetrimental?.SpellId, 0,
+        Foci: Rows.Where(r => r.Kind is not (FocusKind.BuffDuration or FocusKind.DetrimentalDuration) && r.Selected.SpellId is not null)
+            .ToDictionary(r => r.Kind, r => r.Selected.SpellId!.Value));
 
-    partial void OnSelectedBeneficialChanged(FocusChoice value) => Save();
-
-    partial void OnSelectedDetrimentalChanged(FocusChoice value) => Save();
-
+    private FocusTypeRow Row(FocusKind kind) => Rows.First(r => r.Kind == kind);
 
     private void Save()
     {

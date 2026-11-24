@@ -65,6 +65,43 @@ public sealed partial class ProgressStore
         return true;
     }
 
+    /// <summary>"Your Meditative Blanket feels alive with power." gives the item and the message ending, or null for any other line.</summary>
+    public static (string Item, string Ending)? ItemFocusLine(string message)
+    {
+        if (!message.StartsWith("Your ", StringComparison.Ordinal) || message.Length > 120)
+        {
+            return null;
+        }
+
+        foreach (string ending in Spells.FocusKinds.ItemMessageEndings)
+        {
+            if (message.EndsWith(" " + ending, StringComparison.Ordinal))
+            {
+                string item = message[5..^(ending.Length + 1)].Trim();
+                return item.Length is > 0 and < 80 ? (item, ending) : null;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>The items whose focus fired in a character's logs, with the message and how often, most often first.</summary>
+    public IReadOnlyList<(string Item, string Ending, int Count)> FocusFires(string character, string server)
+    {
+        lock (_gate)
+        {
+            if (!_characters.TryGetValue(Key(character, server), out CharacterState? state) || state.FocusFires is null)
+            {
+                return Array.Empty<(string, string, int)>();
+            }
+
+            return state.FocusFires
+                .Select(p => (Item: p.Key[..p.Key.IndexOf('|')], Ending: p.Key[(p.Key.IndexOf('|') + 1)..], Count: p.Value))
+                .OrderByDescending(f => f.Count)
+                .ToList();
+        }
+    }
+
     private string EditKey(string character, string server, string persona) => Key(character, server) + "|" + persona;
 
     private string PersonaOrCurrent(string character, string server, string? persona) =>
