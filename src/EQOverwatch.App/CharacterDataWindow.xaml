@@ -282,7 +282,7 @@
                                         <ColumnDefinition Width="Auto" SharedSizeGroup="FkSeen"/>
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Grid.Column="0" Text="Focus type" Margin="4,4,16,4"/>
-                                    <TextBlock Grid.Column="1" Text="Your focus (type to search)" Margin="4,4,16,4"/>
+                                    <TextBlock Grid.Column="1" Text="Your focus (open and type to jump)" Margin="4,4,16,4"/>
                                     <TextBlock Grid.Column="2" Text="{Binding LevelHeading}" Margin="4,4,16,4"/>
                                     <TextBlock Grid.Column="3" Text="Seen in your log" Margin="4,4,16,4"/>
                                 </Grid>
@@ -298,7 +298,7 @@
                                                         <ColumnDefinition Width="Auto" SharedSizeGroup="FkSeen"/>
                                                     </Grid.ColumnDefinitions>
                                                     <TextBlock Grid.Column="0" Text="{Binding Title}" VerticalAlignment="Center" Margin="4,4,16,4"/>
-                                                    <ComboBox Grid.Column="1" Width="330" Margin="4,3,16,3" IsEditable="True" IsTextSearchEnabled="True"
+                                                    <ComboBox Grid.Column="1" Width="330" Margin="4,3,16,3" IsEditable="False" IsTextSearchEnabled="True" ToolTip="Open the list and type the start of a name to jump to it."
                                                               ItemsSource="{Binding Choices}" DisplayMemberPath="Label" SelectedItem="{Binding Selected, Mode=TwoWay}">
                                                         <ComboBox.ItemsPanel>
                                                             <ItemsPanelTemplate>

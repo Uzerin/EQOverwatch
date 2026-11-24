@@ -40,7 +40,13 @@ public sealed partial class FocusTypeRow : ObservableObject
 
     partial void OnSelectedChanged(FocusChoice value)
     {
-        BenefitText = _benefit(value?.SpellId);
+        if (value is null)
+        {
+            Selected = Choices[0]; // never empty: "None"
+            return;
+        }
+
+        BenefitText = _benefit(value.SpellId);
         _changed();
     }
 }
