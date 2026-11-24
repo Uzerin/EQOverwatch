@@ -62,44 +62,18 @@ addresses are kept. Untick **Count me in the anonymous player count** on Setting
 
 ## Changelog
 
-### 1.0.100
+### 1.0.101
 
-- AAs tab per character, AA duration bonuses on timers, your own overlays with minimize and close, and many smaller fixes.
+- Focus Effects lists the learned AAs that lengthen spells; the AA percent box is gone.
 
-### 1.0.99
+### 1.0.91 to 1.0.100
 
-- Teek and Tormax get their own TLP tabs, TLP tables fit their contents, reverse damage shield heals leave the Heals text, and the Drop Table pools servers with normal loot.
-
-### 1.0.98
-
-- Shared Resource Hunter bonus sizes, bonus alerts, unlock reminders, Challenges tab per character and a Resource Hunter picture for Discord.
-
-### 1.0.97
-
-- Resource Hunter bonus size is measured per day.
-
-### 1.0.96
-
-- TLP tab with each server's rules, unlock schedule, level caps and bonuses; expansions tick by unlock date.
-
-### 1.0.95
-
-- Resource Hunter has its own tab, with tables by bonus, a day picker and each zone's bonus history.
-
-### 1.0.94
-
-- Heals on the tank are small green ticks on the damage-taken graph.
-
-### 1.0.93
-
-- The damage-taken graph has a line per character taking melee damage.
-
-### 1.0.92
-
-- Fight graph: boss health estimate, burns and a replay slider; the Maps button shows when a newer map pack is out.
-
-### 1.0.91
-
+- TLP tab with each server's rules, unlock schedule and bonuses, unlock reminders and challenge achievements per character.
+- Resource Hunter tab: tables by bonus, zone history, daily bonus sizes shared between players, alerts and a Discord picture.
+- AAs tab per character, and learned AAs lengthen your timers.
+- Your own overlays, and minimize or close any overlay.
+- Drop Table pooled across servers with normal loot; Experience rates by active play time.
+- Fight graph: boss health estimate, burns, a replay slider and a damage-taken line per character with heal marks.
 - Tabs grouped under Loot, Raid, Progress and Logs.
 
 ### 1.0.81 to 1.0.90

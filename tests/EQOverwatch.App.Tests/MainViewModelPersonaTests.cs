@@ -39,13 +39,15 @@ public partial class MainViewModelTests
         Assert.Empty(window.SpellbookRows);
         Assert.Contains("/outputfile spellbook", window.SpellbookNote);
 
-        window.Focus!.AaPercent = 20; // the bard's choice
+        h.Pipeline.Progress.OnLine("Ream", server, "You have improved Spell Casting Reinforcement 2 at a cost of 4 ability points.", now); // the bard's AA
+        window.SelectedPersona = window.PersonaChoices.Single(p => p.Persona == "Cleric");
+        window.SelectedPersona = window.PersonaChoices.Single(p => p.Persona == "Bard");
+        Assert.Contains("Spell Casting Reinforcement 2: +", window.Focus!.DurationAasText);
         window.SelectedPersona = window.PersonaChoices.Single(p => p.Persona == "Cleric");
         Assert.Equal("Meditate", window.SkillRows.Single().Skill);
         Assert.Equal("Complete Heal", window.SpellbookRows.Single().Name);
         Assert.Equal(string.Empty, window.SpellbookNote);
-        Assert.Equal(0, h.Vm.GetDurationProfile("Ream", server, "Cleric").AaPercent);
-        Assert.Equal(20, h.Vm.GetDurationProfile("Ream", server, "Bard").AaPercent);
+        Assert.StartsWith("None learned yet", window.Focus!.DurationAasText); // AAs follow the persona
 
         // The inventory picture: worn gear with its socket, and the first bag open with its two slots.
         InventoryPanelViewModel panel = window.InventoryPanel;

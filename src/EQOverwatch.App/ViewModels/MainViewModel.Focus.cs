@@ -100,12 +100,7 @@ public sealed partial class MainViewModel
 
         // Learned alternate abilities lengthen spells too. An AA percent set by hand in Focus Effects replaces the percent ones.
         IReadOnlyList<AaDurationBonus> aa = AaDurations.For(_pipeline.Progress.AaRanks(log.CharacterName, log.ServerName, known ? className : null));
-        if (profile.AaPercent > 0)
-        {
-            aa = aa.Where(b => b.Percent == 0).ToList();
-        }
-
-        profile = profile with { AaBonuses = aa };
+        profile = profile with { AaPercent = 0, AaBonuses = aa }; // a percent typed in older versions is replaced by the learned AAs
         if (profile.IsEmpty)
         {
             return null;
@@ -116,7 +111,16 @@ public sealed partial class MainViewModel
     }
 
     private FocusEffectsViewModel CreateFocusViewModel(string name, string server, string persona = "") =>
-        new(_pipeline.Spells.Database.DurationFoci, GetDurationProfile(name, server, persona), profile => SetDurationProfile(name, server, profile, persona));
+        new(_pipeline.Spells.Database.DurationFoci, GetDurationProfile(name, server, persona), profile => SetDurationProfile(name, server, profile, persona),
+            DurationAaLines(name, server, persona));
+
+    /// <summary>"Spell Casting Reinforcement 3: +30%", one line per learned ability that lengthens spells.</summary>
+    private IReadOnlyList<string> DurationAaLines(string name, string server, string persona) =>
+        AaDurations.For(_pipeline.Progress.AaRanks(name, server, persona.Length > 0 ? persona : null))
+            .GroupBy(b => b.Source)
+            .Select(g => g.Key + ": " + string.Join(", ", g.Select(b => b.Seconds != 0 ? $"+{b.Seconds} s" : $"+{b.Percent}%").Distinct()))
+            .OrderBy(l => l, StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
     [RelayCommand]
     private void OpenFocusEffects(WatchedLogConfig? log)
