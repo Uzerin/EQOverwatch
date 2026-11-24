@@ -498,12 +498,13 @@ public sealed partial class BuffTrackerService : ITriggerLineSink
 
         // Focus and AA bonuses apply only to spells this monitored character cast.
         int seconds = mine ? ExtendedSeconds(spell, characterName) : spell.BaseDurationSeconds;
+        string aaText = mine ? AaBonusText(spell, characterName) : string.Empty;
         string label = Label(target, spell);
         if (!bystander)
         {
-            _timers.StartTimer(
-                TimerSourceId, TimerSourceName, target, label, seconds, now, category,
-                note: category == TimerOverlayCategory.Debuffs ? spell.CountersText : null);
+            string? note = category == TimerOverlayCategory.Debuffs ? spell.CountersText : null;
+            note = aaText.Length == 0 ? note : string.IsNullOrEmpty(note) ? aaText : note + " · " + aaText;
+            _timers.StartTimer(TimerSourceId, TimerSourceName, target, label, seconds, now, category, note: note);
             Interlocked.Increment(ref _timersStarted);
             Volatile.Write(ref _lastStarted, label);
         }
@@ -525,6 +526,13 @@ public sealed partial class BuffTrackerService : ITriggerLineSink
         return duration is null
             ? spell.BaseDurationSeconds
             : DurationCalculator.Seconds(spell, duration.ClassIndex, duration.Profile, _spells.Database);
+    }
+
+    /// <summary>"+540 s from Improved Thief's Eyes 7" when the caster's learned abilities lengthen the spell, else empty.</summary>
+    private string AaBonusText(SpellInfo spell, string caster)
+    {
+        CasterDuration? duration = Volatile.Read(ref _durationProvider)?.Invoke(caster);
+        return duration is null ? string.Empty : DurationCalculator.AaBonusText(spell, duration.ClassIndex, duration.Profile);
     }
 
     /// <summary>A pending cast from the same log decides; otherwise the longest-lasting tracked candidate (they are pre-sorted).</summary>

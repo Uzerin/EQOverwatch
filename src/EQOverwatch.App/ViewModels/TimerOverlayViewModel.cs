@@ -106,6 +106,17 @@ public sealed class TimerOverlayViewModel : ObservableObject
     /// <summary>The overlay this view model feeds, or null when it shows every category.</summary>
     public TimerOverlayCategory? Category => _category;
 
+    /// <summary>
+    /// Set for one of your own overlays: it shows the triggers routed to it (whatever their category), and the built-in overlays
+    /// leave those out.
+    /// </summary>
+    public string? CustomOverlayId { get; init; }
+
+    private static volatile IReadOnlyDictionary<Guid, string> _routes = new Dictionary<Guid, string>();
+
+    /// <summary>Which trigger definitions show in which of your own overlays (definition id to overlay id).</summary>
+    public static void SetRoutes(IReadOnlyDictionary<Guid, string> routes) => _routes = routes;
+
     /// <summary>Newest alert first.</summary>
     public ObservableCollection<AlertViewModel> Alerts { get; } = new();
 
@@ -116,9 +127,20 @@ public sealed class TimerOverlayViewModel : ObservableObject
     public void Tick()
     {
         DateTime now = _utcNow();
-        IReadOnlyList<ActiveTimerSnapshot> active = _category is { } category
-            ? _source().GetActive(now, category)
-            : _source().GetActive(now);
+        IReadOnlyDictionary<Guid, string> routes = _routes;
+        IReadOnlyList<ActiveTimerSnapshot> active;
+        if (CustomOverlayId is { } mine)
+        {
+            active = _source().GetActive(now).Where(t => routes.TryGetValue(t.TriggerId, out string? to) && to == mine).ToArray();
+        }
+        else
+        {
+            active = _category is { } category ? _source().GetActive(now, category) : _source().GetActive(now);
+            if (routes.Count > 0)
+            {
+                active = active.Where(t => !routes.ContainsKey(t.TriggerId)).ToArray();
+            }
+        }
 
         if (_isCharacterActive is { } isActive)
         {

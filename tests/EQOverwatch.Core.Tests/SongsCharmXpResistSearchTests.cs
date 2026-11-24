@@ -175,6 +175,10 @@ public sealed class SongsCharmXpResistSearchTests : IDisposable
     {
         var xp = new ExperienceTracker(T0);
         xp.SetStartingPoint("Ream", 59, 50);
+        for (int minute = 0; minute <= 60; minute++)
+        {
+            xp.OnLine("Ream", "You say, 'still here'", T0.AddMinutes(minute)); // active the whole hour: rates are per hour played
+        }
 
         xp.OnLine("Ream", "You gain party experience (with a bonus)! (5.2%)", T0.AddMinutes(10));
         xp.OnLine("Ream", "You gained raid experience (with a bonus)! (4.800%)", T0.AddMinutes(20));
@@ -189,6 +193,7 @@ public sealed class SongsCharmXpResistSearchTests : IDisposable
         Assert.Equal(10.0, ream.XpPerHour, 3);
         Assert.Equal(60.0, ream.ProgressPercent!.Value, 3);
         Assert.Equal(4.0, ream.NextLevelIn!.Value.TotalHours, 3);
+        Assert.Equal(TimeSpan.FromHours(1), ream.Played);
         Assert.Equal((3, 1, 1, 1), (ream.Kills, ream.PartyKills, ream.RaidKills, ream.SoloKills));
 
         ExperienceRow stack = rows.Single(r => r.Character == "Stackprime");

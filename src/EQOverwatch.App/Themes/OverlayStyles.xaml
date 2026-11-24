@@ -57,6 +57,34 @@
         </Style.Triggers>
     </Style>
 
+    <!-- The — and ✕ of a title strip (only visible while unlocked, as the strip is). -->
+    <Style x:Key="OverlayStripButtonStyle" TargetType="Button">
+        <Setter Property="Width" Value="20"/>
+        <Setter Property="Height" Value="18"/>
+        <Setter Property="Margin" Value="2,1,2,1"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="Foreground" Value="#E6E6EE"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Focusable" Value="False"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Back" Background="{TemplateBinding Background}" CornerRadius="3">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Back" Property="Background" Value="#55FFFFFF"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <Style x:Key="OverlayTextStyle" TargetType="TextBlock">
         <Setter Property="Foreground" Value="{DynamicResource OverlayTextBrush}"/>
         <Setter Property="FontFamily" Value="Segoe UI"/>

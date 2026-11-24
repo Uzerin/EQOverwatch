@@ -97,6 +97,15 @@ public sealed partial class MainViewModel
         // The class follows the persona that is on, and so do the focus choices.
         bool known = EqClass.TryNormalize(_pipeline.Roster.GetClass(name, log.ServerName), out string className);
         DurationProfile profile = GetDurationProfile(log.CharacterName, log.ServerName, known ? className : string.Empty);
+
+        // Learned alternate abilities lengthen spells too. An AA percent set by hand in Focus Effects replaces the percent ones.
+        IReadOnlyList<AaDurationBonus> aa = AaDurations.For(_pipeline.Progress.AaRanks(log.CharacterName, log.ServerName, known ? className : null));
+        if (profile.AaPercent > 0)
+        {
+            aa = aa.Where(b => b.Percent == 0).ToList();
+        }
+
+        profile = profile with { AaBonuses = aa };
         if (profile.IsEmpty)
         {
             return null;

@@ -14,11 +14,17 @@ public partial class TimerOverlayWindow : OverlayWindowBase
     private readonly DispatcherTimer _timer;
 
     public TimerOverlayWindow(TimerOverlayViewModel viewModel, OverlayKind kind)
+        : this(viewModel, kind.Title())
+    {
+    }
+
+    /// <summary>A timer overlay with its own name (one you made yourself).</summary>
+    public TimerOverlayWindow(TimerOverlayViewModel viewModel, string name)
     {
         InitializeComponent();
 
-        OverlayName = kind.Title();
-        Title = $"{AppInfo.Name} — {kind.Title()}";
+        OverlayName = name;
+        Title = $"{AppInfo.Name} — {name}";
 
         _viewModel = viewModel;
         DataContext = viewModel;

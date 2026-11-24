@@ -120,6 +120,8 @@ public sealed partial class MainViewModel : ObservableObject
 
         Logs.CollectionChanged += OnLogsChanged;
         _overlays.PlacementChanged += OnPlacementChanged;
+        _overlays.CloseRequested += (_, kind) => CloseOverlay(kind);
+        _overlays.CustomCloseRequested += (_, id) => CloseCustomOverlay(id);
         _pipeline.Error += ex => StatusMessage = $"Error: {ex.Message}";
         _pipeline.TailError += (log, ex) => StatusMessage = $"Cannot read {log.DisplayName}: {ex.Message}";
         _settingsService.SaveFailed += ex => StatusMessage = $"Settings could not be saved: {ex.Message}";
@@ -463,6 +465,19 @@ public sealed partial class MainViewModel : ObservableObject
                 owners[definition.Id] = rule;
             }
         }
+
+        // Triggers routed to one of your own overlays show there instead of in their category's overlay.
+        var routes = new Dictionary<Guid, string>();
+        var known = CustomOverlays.Select(o => o.Id).ToHashSet(StringComparer.Ordinal);
+        foreach ((Guid id, TriggerRuleViewModel owner) in owners)
+        {
+            if (owner.CustomOverlayId is { Length: > 0 } overlay && known.Contains(overlay))
+            {
+                routes[id] = overlay;
+            }
+        }
+
+        TimerOverlayViewModel.SetRoutes(routes);
 
         foreach (TriggerCompileError error in _pipeline.Triggers.SetTriggers(definitions))
         {
@@ -1474,6 +1489,8 @@ public sealed partial class MainViewModel : ObservableObject
                 _overlays.Apply(kind, GetOverlaySettings(settings, kind));
             }
 
+            RestoreCustomOverlays(settings.CustomOverlays);
+
             IsBuffsOverlayVisible = settings.BuffsOverlay.IsVisible;
             IsDebuffsOverlayVisible = settings.DebuffsOverlay.IsVisible;
             IsSongsOverlayVisible = settings.SongsOverlay.IsVisible;
@@ -1593,6 +1610,7 @@ public sealed partial class MainViewModel : ObservableObject
         MobCardOverlay = _overlays.Capture(OverlayKind.MobCard),
         FctDamageOverlay = _overlays.Capture(OverlayKind.FctDamage),
         FctHealsOverlay = _overlays.Capture(OverlayKind.FctHeals),
+        CustomOverlays = CustomOverlaySettings(),
         FctDamageTextSize = FctDamageTextSize,
         FctHealsTextSize = FctHealsTextSize,
         FloatingColors = FloatingColors.ToDictionary(c => c.Key, c => c.Hex),

@@ -338,7 +338,42 @@ public sealed partial class MainViewModel
         account => SetAccount(character, server, account),
         () => AccountNamesOn(server),
         () => LevelHistoryFor(character, server),
-        () => ChallengeRowsFor(character, server));
+        () => ChallengeRowsFor(character, server),
+        new AaSource(
+            persona => AaRowsFor(character, server, persona),
+            (persona, name, rank) => { _pipeline.Progress.SetAa(character, server, persona, name, rank, DateTime.UtcNow); _ = Task.Run(_pipeline.Progress.Flush); },
+            (persona, name) => { _pipeline.Progress.RemoveAa(character, server, persona, name, DateTime.UtcNow); _ = Task.Run(_pipeline.Progress.Flush); },
+            () => AaCatalogFor().Select(a => a.Name).ToList()));
+
+    private IReadOnlyList<EQOverwatch.Core.Spells.AaInfo>? _aaCatalog;
+    private string? _aaCatalogFolder;
+
+    /// <summary>The ability names and descriptions of the EverQuest folder's dbstr_us.txt, read once per folder.</summary>
+    private IReadOnlyList<EQOverwatch.Core.Spells.AaInfo> AaCatalogFor()
+    {
+        string folder = EqFolderPath ?? string.Empty;
+        if (_aaCatalog is null || _aaCatalogFolder != folder)
+        {
+            _aaCatalog = EQOverwatch.Core.Spells.AaCatalog.Load(folder);
+            _aaCatalogFolder = folder;
+        }
+
+        return _aaCatalog;
+    }
+
+    private IReadOnlyList<AaRowView> AaRowsFor(string character, string server, string persona)
+    {
+        var descriptions = AaCatalogFor().ToDictionary(a => a.Name, a => a.Description, StringComparer.OrdinalIgnoreCase);
+        return _pipeline.Progress.Aas(character, server, persona)
+            .Select(a => new AaRowView(
+                a.Name,
+                a.Rank,
+                a.Source == EQOverwatch.Core.Progress.AaProgress.Added ? "—" : a.Points.ToString(CultureInfo.CurrentCulture),
+                a.LearnedUtc is { } at ? at.ToLocalTime().ToString("MMM d, yyyy", CultureInfo.CurrentCulture) : "—",
+                a.Source,
+                descriptions.GetValueOrDefault(a.Name) ?? string.Empty))
+            .ToList();
+    }
 
     /// <summary>
     /// The challenges of the character's server with this character's standing: done (an achievement of the character's own log names

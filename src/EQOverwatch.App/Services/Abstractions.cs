@@ -185,6 +185,37 @@ public partial interface IOverlayHost
     /// <summary>Closes every window for good (application shutdown).</summary>
     void CloseAll();
 
+    /// <summary>Raised when the ✕ of a built-in overlay's title strip is clicked.</summary>
+    event EventHandler<OverlayKind>? CloseRequested
+    {
+        add { }
+        remove { }
+    }
+
+    /// <summary>Raised when the ✕ of one of your own overlays is clicked (its id).</summary>
+    event EventHandler<string>? CustomCloseRequested
+    {
+        add { }
+        remove { }
+    }
+
+    /// <summary>Creates (or renames and moves) one of your own overlays.</summary>
+    void ShowCustom(string id, string name, OverlaySettings placement)
+    {
+    }
+
+    void SetCustomVisible(string id, bool visible)
+    {
+    }
+
+    /// <summary>Closes one of your own overlays for good.</summary>
+    void RemoveCustom(string id)
+    {
+    }
+
+    /// <summary>The placement of one of your own overlays, or null when it has no window.</summary>
+    OverlaySettings? CaptureCustom(string id) => null;
+
     /// <summary>A short description of the monitor setup (positions and sizes), so a saved layout can be matched to it.</summary>
     string DisplaySignature => string.Empty;
 }

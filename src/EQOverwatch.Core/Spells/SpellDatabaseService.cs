@@ -75,6 +75,8 @@ public sealed class SpellDatabaseService
     private const int SplitBardLevel = 43;
     private const int SplitRecastMs = 10;
     private const int SplitResistType = 29;
+    private const int SplitSpellGroup = 84;
+    private const int SplitSpellLine = 163;
 
     /// <summary>Spell rows recast more slowly than this are offered on the AAs &amp; Discs tab.</summary>
     public const int MinAbilityRecastSeconds = 10;
@@ -129,7 +131,7 @@ public sealed class SpellDatabaseService
         int bardColumn = split ? SplitBardLevel : LegacyBardLevel;
         int requiredColumn = split ? SplitMaxTicks : Math.Max(LegacyMaxTicks, LegacySpellFades);
 
-        var columns = new ColumnReader(Math.Max(goodEffectColumn, bardColumn + 8));
+        var columns = new ColumnReader(Math.Max(Math.Max(goodEffectColumn, bardColumn + 8), split ? SplitSpellLine : 0));
         var recasts = new Dictionary<int, (string Name, int Seconds)>();
         var kept = new Dictionary<int, SpellInfo>();
         var definitions = new Dictionary<int, SpellDefinition>();
@@ -218,7 +220,10 @@ public sealed class SpellDatabaseService
                 }
 
                 int[]? effectIds = effects is { Count: > 0 } ? effects.Select(e => e.Spa).Distinct().ToArray() : null;
-                kept[id] = new SpellInfo(id, name, castOnYou, castOnOther, fades, castTimeMs, formula, maxTicks, seconds, category, classLevels, effectIds, SpellCounters.From(effects));
+                int group = split && columns.TryInt(SplitSpellGroup, out int g) ? g : 0;
+                int spellLine = split && columns.TryInt(SplitSpellLine, out int sl) ? sl : 0;
+                kept[id] = new SpellInfo(id, name, castOnYou, castOnOther, fades, castTimeMs, formula, maxTicks, seconds, category, classLevels, effectIds,
+                    SpellCounters.From(effects), group, spellLine);
             }
         }
 

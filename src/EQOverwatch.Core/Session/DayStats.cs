@@ -163,7 +163,7 @@ public sealed partial class DayAccumulator
         {
             string spell = message[YouBeginCasting.Length..^1]; // both prefixes are the same length
             Count(spell).Casts++;
-            _pending = _findSpell(spell) is { } info && info.CastOnOtherSuffix.Length > 0 ? info : null;
+            _pending = _findSpell(spell) is { } info && info.CastOnOtherSuffix.Length > 0 && info.Category == Models.TimerOverlayCategory.Debuffs ? info : null; // only spells a mob can resist
             _pendingUntil = time.AddMilliseconds(_pending?.CastTimeMs ?? 0) + LandingGrace;
             return;
         }

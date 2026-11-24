@@ -31,11 +31,12 @@ public sealed record DurationFocus(
 }
 
 /// <summary>One character's duration choices: the two focus spells and the AA percentage. Null ids mean None.</summary>
-public sealed record DurationProfile(int? BeneficialFocusId, int? DetrimentalFocusId, int AaPercent)
+/// <param name="AaBonuses">The duration bonuses of the character's learned alternate abilities (see <see cref="AaDurations"/>).</param>
+public sealed record DurationProfile(int? BeneficialFocusId, int? DetrimentalFocusId, int AaPercent, IReadOnlyList<AaDurationBonus>? AaBonuses = null)
 {
     public static readonly DurationProfile None = new(null, null, 0);
 
-    public bool IsEmpty => BeneficialFocusId is null && DetrimentalFocusId is null && AaPercent <= 0;
+    public bool IsEmpty => BeneficialFocusId is null && DetrimentalFocusId is null && AaPercent <= 0 && AaBonuses is not { Count: > 0 };
 }
 
 /// <summary>Reads the slot list at the end of a split-layout spell row: <c>slot|spa|base|limit|max|calc</c> joined by <c>$</c>.</summary>
@@ -153,7 +154,27 @@ public static class DurationCalculator
             }
         }
 
-        return focusPercent + Math.Clamp(profile.AaPercent, 0, 100);
+        double aaPercent = AaBonusesFor(spell, classIndex, profile).Sum(b => b.Percent);
+        return focusPercent + Math.Clamp(profile.AaPercent, 0, 100) + aaPercent;
+    }
+
+    /// <summary>The learned abilities' bonuses that work on this spell (songs get none).</summary>
+    public static IReadOnlyList<AaDurationBonus> AaBonusesFor(SpellInfo spell, int classIndex, DurationProfile? profile)
+    {
+        if (profile?.AaBonuses is not { Count: > 0 } bonuses || spell.Category == Models.TimerOverlayCategory.Songs)
+        {
+            return Array.Empty<AaDurationBonus>();
+        }
+
+        int level = LevelFor(spell, classIndex);
+        return bonuses.Where(b => b.AppliesTo(spell, level)).ToList();
+    }
+
+    /// <summary>"+540 s from Improved Thief's Eyes 7", or empty when no learned ability lengthens the spell.</summary>
+    public static string AaBonusText(SpellInfo spell, int classIndex, DurationProfile? profile)
+    {
+        IReadOnlyList<AaDurationBonus> bonuses = AaBonusesFor(spell, classIndex, profile);
+        return string.Join(", ", bonuses.Select(b => (b.Seconds != 0 ? $"+{b.Seconds} s" : $"+{b.Percent}%") + " from " + b.Source));
     }
 
     private static bool FocusApplies(DurationFocus focus, SpellInfo spell, bool detrimental)
@@ -196,13 +217,15 @@ public static class DurationCalculator
         }
 
         double percent = BonusPercent(spell, classIndex, profile, database);
-        if (percent <= 0)
+        int extra = AaBonusesFor(spell, classIndex, profile).Sum(b => b.Seconds);
+        int seconds = spell.BaseDurationSeconds;
+        if (percent > 0)
         {
-            return spell.BaseDurationSeconds;
+            int baseTicks = spell.BaseDurationSeconds / SecondsPerTick;
+            int ticks = (int)Math.Floor(baseTicks * (1 + percent / 100.0) + 1e-9);
+            seconds = Math.Max(spell.BaseDurationSeconds, ticks * SecondsPerTick);
         }
 
-        int baseTicks = spell.BaseDurationSeconds / SecondsPerTick;
-        int ticks = (int)Math.Floor(baseTicks * (1 + percent / 100.0) + 1e-9);
-        return Math.Max(spell.BaseDurationSeconds, ticks * SecondsPerTick);
+        return Math.Max(spell.BaseDurationSeconds, seconds + extra);
     }
 }

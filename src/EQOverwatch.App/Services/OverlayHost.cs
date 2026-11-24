@@ -8,6 +8,15 @@ namespace EQOverwatch.App.Services;
 public sealed partial class OverlayHost : IOverlayHost
 {
     private readonly IReadOnlyDictionary<OverlayKind, OverlayWindowBase> _windows;
+    private readonly Dictionary<string, OverlayWindowBase> _custom = new(StringComparer.Ordinal);
+    private bool _locked;
+
+    /// <summary>Makes the window of one of your own overlays (id, name); without it those overlays get no window.</summary>
+    public Func<string, string, OverlayWindowBase>? CustomFactory { get; set; }
+
+    public event EventHandler<OverlayKind>? CloseRequested;
+
+    public event EventHandler<string>? CustomCloseRequested;
 
     public OverlayHost(IReadOnlyDictionary<OverlayKind, OverlayWindowBase> windows)
     {
@@ -20,9 +29,10 @@ public sealed partial class OverlayHost : IOverlayHost
             }
         }
 
-        foreach (OverlayWindowBase window in windows.Values)
+        foreach ((OverlayKind kind, OverlayWindowBase window) in windows)
         {
             window.PlacementChanged += (_, _) => PlacementChanged?.Invoke(this, EventArgs.Empty);
+            window.CloseRequested += (_, _) => CloseRequested?.Invoke(this, kind);
         }
     }
 
@@ -32,47 +42,106 @@ public sealed partial class OverlayHost : IOverlayHost
         FormattableString.Invariant(
             $"{SystemParameters.VirtualScreenLeft:0},{SystemParameters.VirtualScreenTop:0},{SystemParameters.VirtualScreenWidth:0}x{SystemParameters.VirtualScreenHeight:0}|{SystemParameters.PrimaryScreenWidth:0}x{SystemParameters.PrimaryScreenHeight:0}");
 
-    public OverlaySettings Capture(OverlayKind kind)
+    public OverlaySettings Capture(OverlayKind kind) => CaptureWindow(Get(kind));
+
+    private static OverlaySettings CaptureWindow(OverlayWindowBase window) => new()
     {
-        OverlayWindowBase window = Get(kind);
-        return new OverlaySettings
-        {
-            Left = window.Left,
-            Top = window.Top,
-            Width = window.Width,
-            Height = window.Height,
-            IsVisible = window.IsVisible,
-            IsLocked = window.IsLocked,
-        };
-    }
+        Left = window.Left,
+        Top = window.Top,
+        Width = window.Width,
+        Height = window.FullHeight,
+        IsVisible = window.IsVisible,
+        IsLocked = window.IsLocked,
+        IsMinimized = window.IsMinimized,
+    };
 
     public void Apply(OverlayKind kind, OverlaySettings settings)
     {
-        OverlayWindowBase window = Get(kind);
-        OverlaySettings defaults = kind.Defaults();
+        ApplyWindow(Get(kind), settings, kind.Defaults());
+        SetVisible(kind, Clamped(Get(kind), settings, kind.Defaults()).IsVisible);
+    }
 
-        // SystemParameters.VirtualScreen* spans every monitor, in the same device-independent units as Window.Left/Top.
+    private static OverlaySettings Clamped(OverlayWindowBase window, OverlaySettings settings, OverlaySettings defaults)
+    {
         var screen = new ScreenRect(
             SystemParameters.VirtualScreenLeft,
             SystemParameters.VirtualScreenTop,
             SystemParameters.VirtualScreenWidth,
             SystemParameters.VirtualScreenHeight);
+        return OverlayPlacement.Clamp(settings, screen, window.MinWidth, window.MinHeight, defaults);
+    }
 
-        OverlaySettings clamped = OverlayPlacement.Clamp(settings, screen, window.MinWidth, window.MinHeight, defaults);
-
+    private static void ApplyWindow(OverlayWindowBase window, OverlaySettings settings, OverlaySettings defaults)
+    {
+        window.IsMinimized = false;
+        OverlaySettings clamped = Clamped(window, settings, defaults);
         window.WindowStartupLocation = WindowStartupLocation.Manual;
         window.Left = clamped.Left;
         window.Top = clamped.Top;
         window.Width = clamped.Width;
         window.Height = clamped.Height;
         window.IsLocked = clamped.IsLocked;
-
-        SetVisible(kind, clamped.IsVisible);
+        window.IsMinimized = settings.IsMinimized;
     }
+
+    public void ShowCustom(string id, string name, OverlaySettings placement)
+    {
+        if (CustomFactory is null)
+        {
+            return;
+        }
+
+        if (!_custom.TryGetValue(id, out OverlayWindowBase? window))
+        {
+            window = CustomFactory(id, name);
+            window.PlacementChanged += (_, _) => PlacementChanged?.Invoke(this, EventArgs.Empty);
+            window.CloseRequested += (_, _) => CustomCloseRequested?.Invoke(this, id);
+            _custom[id] = window;
+            ApplyWindow(window, placement with { IsLocked = _locked }, OverlaySettings.DefaultTimer);
+        }
+
+        window.OverlayName = name;
+        window.Title = $"{EQOverwatch.Core.AppInfo.Name} — {name}";
+        SetCustomVisible(id, placement.IsVisible);
+    }
+
+    public void SetCustomVisible(string id, bool visible)
+    {
+        if (!_custom.TryGetValue(id, out OverlayWindowBase? window))
+        {
+            return;
+        }
+
+        if (visible && !window.IsVisible)
+        {
+            window.Show();
+        }
+        else if (!visible)
+        {
+            window.Hide();
+        }
+    }
+
+    public void RemoveCustom(string id)
+    {
+        if (_custom.Remove(id, out OverlayWindowBase? window))
+        {
+            try
+            {
+                window.Close();
+            }
+            catch (InvalidOperationException)
+            {
+            }
+        }
+    }
+
+    public OverlaySettings? CaptureCustom(string id) => _custom.TryGetValue(id, out OverlayWindowBase? window) ? CaptureWindow(window) : null;
 
     public void SetLocked(bool locked)
     {
-        foreach (OverlayWindowBase window in _windows.Values)
+        _locked = locked;
+        foreach (OverlayWindowBase window in _windows.Values.Concat(_custom.Values))
         {
             window.IsLocked = locked;
         }
@@ -110,6 +179,10 @@ public sealed partial class OverlayHost : IOverlayHost
     public void CloseAll()
     {
         CloseEditionWindows();
+        foreach (string id in _custom.Keys.ToList())
+        {
+            RemoveCustom(id);
+        }
 
         foreach (OverlayWindowBase window in _windows.Values)
         {

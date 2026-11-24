@@ -73,6 +73,9 @@ public sealed record TlpServer(
     /// </summary>
     public bool PlainLoot => !LootChanged && !ResourceHunter && !Unlocks.Any(u => u.Bonus.Contains("Loot", StringComparison.OrdinalIgnoreCase));
 
+    /// <summary>The launch day: the earliest unlock day known (DateOnly.MinValue when none is).</summary>
+    public DateOnly Launch => Unlocks.Select(u => u.Date).OfType<DateOnly>().DefaultIfEmpty(DateOnly.MinValue).Min();
+
     /// <summary>True when some unlock adds server bonuses (only evolving-ruleset servers do).</summary>
     public bool HasBonuses => Unlocks.Any(u => u.Bonus.Length > 0);
 

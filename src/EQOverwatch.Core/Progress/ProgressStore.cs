@@ -85,7 +85,7 @@ public sealed partial class ProgressStore : ITriggerLineSink
     {
         "Alchemy", "Baking", "Blacksmithing", "Brewing", "Fletching", "Jewelry Making", "Make Poison", "Pottery", "Research", "Tailoring", "Tinkering",
     };
-    private const int FileFormat = 7; // 3: the persona timeline; 4: character flags; 5: key ring and achievement lines; 6: /played and recent faction hits; 7: legacy bonus and birthdate (the logs are read again for them)
+    private const int FileFormat = 8; // 8: alternate abilities; 3: the persona timeline; 4: character flags; 5: key ring and achievement lines; 6: /played and recent faction hits; 7: legacy bonus and birthdate (the logs are read again for them)
 
     private readonly object _gate = new();
     private readonly Dictionary<string, CharacterState> _characters = new(StringComparer.OrdinalIgnoreCase);
@@ -129,6 +129,7 @@ public sealed partial class ProgressStore : ITriggerLineSink
         || IsFlagLine(message)
         || message.EndsWith(KeyRingSuffix, StringComparison.Ordinal)
         || message.StartsWith(AchievementPrefix, StringComparison.Ordinal)
+        || WantedAa(message)
         || message.StartsWith(PlayedPrefix, StringComparison.Ordinal)
         || message.StartsWith(LegacyPrefix, StringComparison.Ordinal)
         || message.Contains(BirthdateMarker, StringComparison.Ordinal)
@@ -333,6 +334,11 @@ public sealed partial class ProgressStore : ITriggerLineSink
         }
 
         PersonaState persona = Active(state);
+        if (ReadAa(persona, text, time))
+        {
+            return true;
+        }
+
         if (SkillRegex().Match(text) is { Success: true } skill
             && int.TryParse(skill.Groups["value"].Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int value))
         {
@@ -877,7 +883,9 @@ public sealed partial class ProgressStore : ITriggerLineSink
             try
             {
                 // An older file (before personas) is not read: the logs are read again instead, which takes seconds.
-                if (File.Exists(path) && JsonSerializer.Deserialize<StoreFile>(File.ReadAllText(path)) is { Format: FileFormat } saved)
+                StoreFile? file = File.Exists(path) ? JsonSerializer.Deserialize<StoreFile>(File.ReadAllText(path)) : null;
+                LoadAaEdits(file?.AaEdits); // your own edits survive a new file format; the logs are read again for the rest
+                if (file is { Format: FileFormat } saved)
                 {
                     foreach (string key in saved.Scanned)
                     {
@@ -920,6 +928,7 @@ public sealed partial class ProgressStore : ITriggerLineSink
                 Format = FileFormat,
                 Scanned = _scanned.OrderBy(s => s, StringComparer.OrdinalIgnoreCase).ToList(),
                 Characters = new Dictionary<string, CharacterState>(_characters, StringComparer.OrdinalIgnoreCase),
+                AaEdits = _aaEdits.Count == 0 ? null : JsonSerializer.SerializeToElement(_aaEdits),
             });
         }
 
@@ -964,6 +973,9 @@ public sealed partial class ProgressStore : ITriggerLineSink
         public List<string> Scanned { get; set; } = new();
 
         public Dictionary<string, CharacterState> Characters { get; set; } = new();
+
+        /// <summary>Alternate abilities added or changed by hand (kept whatever <see cref="Format"/> is).</summary>
+        public JsonElement? AaEdits { get; set; }
     }
 
     public sealed class CharacterState
@@ -1034,6 +1046,9 @@ public sealed partial class ProgressStore : ITriggerLineSink
         public Dictionary<string, SkillState> Skills { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
         public Dictionary<string, FactionState> Factions { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>Alternate abilities the log showed learned, by name.</summary>
+        public Dictionary<string, AaState>? Aas { get; set; }
     }
 
     public sealed class SkillState

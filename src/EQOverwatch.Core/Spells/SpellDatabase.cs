@@ -25,7 +25,9 @@ public sealed record SpellInfo(
     TimerOverlayCategory Category = TimerOverlayCategory.Buffs,
     IReadOnlyList<int>? ClassLevels = null,
     IReadOnlyList<int>? EffectIds = null,
-    SpellCounters? Counters = null)
+    SpellCounters? Counters = null,
+    int SpellGroup = 0,
+    int SpellLine = 0)
 {
     /// <summary><see cref="CastOnOther"/> without surrounding whitespace: the text a log line ends with.</summary>
     public string CastOnOtherSuffix => CastOnOther.Trim();

@@ -44,6 +44,64 @@ public abstract class OverlayWindowBase : Window
     /// <summary>Raised when the window is moved, resized, shown/hidden or locked/unlocked (persist the new state).</summary>
     public event EventHandler? PlacementChanged;
 
+    /// <summary>Raised by the ✕ on the title strip: the owner switches this overlay off.</summary>
+    public event EventHandler? CloseRequested;
+
+    private const double MinimizedHeight = 26;
+    private double _fullHeight;
+    private double _fullMinHeight;
+    private bool _isMinimized;
+
+    /// <summary>Shrunk to its title strip. <see cref="FullHeight"/> keeps the height to restore.</summary>
+    public bool IsMinimized
+    {
+        get => _isMinimized;
+        set
+        {
+            if (value == _isMinimized)
+            {
+                return;
+            }
+
+            _isMinimized = value;
+            if (value)
+            {
+                _fullHeight = Height;
+                _fullMinHeight = MinHeight;
+                MinHeight = 0;
+                Height = MinimizedHeight;
+            }
+            else
+            {
+                MinHeight = _fullMinHeight;
+                Height = Math.Max(_fullHeight, _fullMinHeight);
+            }
+
+            if (Content is FrameworkElement root)
+            {
+                root.Tag = value ? "Minimized" : null;
+            }
+
+            RaisePlacementChanged();
+        }
+    }
+
+    /// <summary>The height to save: the full height even while minimized.</summary>
+    public double FullHeight => _isMinimized ? _fullHeight : Height;
+
+    /// <summary>Hooked to the — / + button of the title strip.</summary>
+    protected void OnMinimizeClick(object sender, RoutedEventArgs e)
+    {
+        IsMinimized = !IsMinimized;
+        if (sender is System.Windows.Controls.Button button)
+        {
+            button.Content = IsMinimized ? "+" : "—";
+        }
+    }
+
+    /// <summary>Hooked to the ✕ button of the title strip.</summary>
+    protected void OnCloseClick(object sender, RoutedEventArgs e) => CloseRequested?.Invoke(this, EventArgs.Empty);
+
     /// <summary>True = gameplay mode (click-through). False = reposition/resize mode.</summary>
     public bool IsLocked
     {

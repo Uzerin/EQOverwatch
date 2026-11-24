@@ -22,6 +22,8 @@
                     Style="{StaticResource OverlayTitleStripStyle}"
                     MouseLeftButtonDown="OnTitleStripMouseDown">
                 <DockPanel LastChildFill="True">
+                    <Button DockPanel.Dock="Right" Content="✕" Style="{StaticResource OverlayStripButtonStyle}" Click="OnCloseClick" ToolTip="Close this overlay (switch it back on in Settings)"/>
+                    <Button DockPanel.Dock="Right" Content="—" Style="{StaticResource OverlayStripButtonStyle}" Click="OnMinimizeClick" ToolTip="Minimize to the title strip"/>
                     <Button DockPanel.Dock="Right" Content="Img" Style="{StaticResource OverlayChipButtonStyle}"
                             ToolTip="Copy this fight as a picture for Discord"
                             Command="{Binding CopyImageCommand}"/>

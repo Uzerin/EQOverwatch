@@ -337,7 +337,7 @@
                             <DataGridTemplateColumn Header="CH Chain Position" Width="Auto">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
-                                        <ComboBox Margin="6,2" MinWidth="110"
+                                        <ComboBox Margin="6,2" MinWidth="110" Visibility="{Binding CanChainHeal, Converter={StaticResource BoolToVisibility}}"
                                                   ItemsSource="{Binding DataContext.ChainPositionOptions, RelativeSource={RelativeSource AncestorType=Window}}"
                                                   DisplayMemberPath="Display" SelectedValuePath="Value"
                                                   SelectedValue="{Binding ChChainPosition, UpdateSourceTrigger=PropertyChanged}"/>
@@ -526,6 +526,13 @@
                                             <ComboBox Grid.Row="9" Grid.Column="1" Grid.ColumnSpan="2" Width="200" HorizontalAlignment="Left" Margin="0,3"
                                                       ItemsSource="{Binding CategoryOptions}" DisplayMemberPath="Display" SelectedValuePath="Value"
                                                       SelectedValue="{Binding SelectedRule.OverlayCategory}"/>
+                                            <StackPanel Grid.Row="9" Grid.Column="1" Grid.ColumnSpan="2" Orientation="Horizontal" Margin="212,3,0,3"
+                                                        Visibility="{Binding HasCustomOverlays, Converter={StaticResource BoolToVisibility}}">
+                                                <TextBlock Text="or your overlay" Style="{StaticResource HintText}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                                <ComboBox Width="200" ItemsSource="{Binding CustomOverlayChoices}" DisplayMemberPath="Name" SelectedValuePath="Id"
+                                                          SelectedValue="{Binding SelectedRule.CustomOverlayId, TargetNullValue=''}"
+                                                          ToolTip="Show this trigger in one of your own overlays (Settings, Overlays) instead."/>
+                                            </StackPanel>
 
                                             <TextBlock Grid.Row="10" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,4,0,8" Style="{StaticResource HintText}"
                                                        Text="Tokens: ${Character} (the character whose log matched), ${Trigger} (this trigger's name) and any regex group, e.g. ${caster}. Patterns are matched against the text after the timestamp."/>
@@ -2495,6 +2502,7 @@
                                     <DataGridTextColumn Header="Character" Binding="{Binding Character, Mode=OneWay}" Width="Auto" MinWidth="120"/>
                                     <DataGridTextColumn Header="Level" Binding="{Binding Level, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                                     <DataGridTextColumn Header="XP this session" Binding="{Binding XpSession, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                    <DataGridTextColumn Header="Played" Binding="{Binding Played, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                                     <DataGridTextColumn Header="XP / hour" Binding="{Binding XpPerHour, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                                     <DataGridTextColumn Header="Zone Median" Binding="{Binding ZoneMedian, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}">
                                         <DataGridTextColumn.HeaderStyle>
@@ -2759,7 +2767,8 @@
                             <StackPanel>
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                                     <TextBlock Text="Server" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                    <ComboBox Width="140" ItemsSource="{Binding LevelingServers}" SelectedItem="{Binding SelectedLevelingServer}" Margin="0,0,16,0"/>
+                                    <ComboBox Width="140" ItemsSource="{Binding ResourceServers}" SelectedItem="{Binding SelectedResourceServer}" Margin="0,0,16,0"
+                                              ToolTip="Only servers with Resource Hunter in their rules."/>
                                     <TextBlock Text="Day" VerticalAlignment="Center" Margin="0,0,6,0"/>
                                     <ComboBox Width="130" ItemsSource="{Binding ResourceDayChoices}" SelectedItem="{Binding SelectedResourceDay}" Margin="0,0,16,0"
                                               ToolTip="Show the bonuses of a past day."/>
@@ -2768,9 +2777,9 @@
                                     <Button Content="Copy picture" Command="{Binding CopyResourcePictureCommand}" Padding="12,4" Margin="8,0,0,0" VerticalAlignment="Center"
                                             ToolTip="Puts a picture of the bonus tables on the clipboard, to paste into Discord."/>
                                 </StackPanel>
-                                <StackPanel Margin="0,0,0,10" Visibility="{Binding HasRuleset, Converter={StaticResource BoolToVisibility}}">
-                                    <TextBlock Text="{Binding RulesetNext}" Foreground="#5CC98A" FontWeight="SemiBold" TextWrapping="Wrap"/>
-                                    <TextBlock Text="{Binding RulesetNow}" Style="{StaticResource HintText}" TextWrapping="Wrap"/>
+                                <StackPanel Margin="0,0,0,10">
+                                    <TextBlock Text="{Binding ResourceRulesetNext}" Foreground="#5CC98A" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                                    <TextBlock Text="{Binding ResourceRulesetNow}" Style="{StaticResource HintText}" TextWrapping="Wrap"/>
                                 </StackPanel>
                                 <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" MaxWidth="760" HorizontalAlignment="Left" Margin="0,0,0,10"
                                            Text="{Binding ResourceHunterStatus}"/>
@@ -3755,7 +3764,26 @@
                                               ToolTip="When you /con a mob: its kills and times on your server, the raid's resist rates and its drops, for 10 seconds."/>
                                 </WrapPanel>
                                 <TextBlock Style="{StaticResource HintText}"
-                                           Text="With the CH Chain overlay off, Complete Heal chain bars and the late-cast alarm are shown in the Buffs overlay instead."/>
+                                           Text="With the CH Chain overlay off, Complete Heal chain bars and the late-cast alarm are shown in the Buffs overlay instead. While overlays are unlocked, — on a title strip minimizes it and ✕ switches it off."/>
+                                <TextBlock Margin="0,10,0,4" FontWeight="SemiBold" Text="Your overlays"/>
+                                <TextBlock Style="{StaticResource HintText}" Margin="0,0,0,4" TextWrapping="Wrap"
+                                           Text="Timer and text overlays of your own. Pick one in a trigger's &quot;or your overlay&quot; box to show that trigger there."/>
+                                <ListBox ItemsSource="{Binding CustomOverlays}" SelectedItem="{Binding SelectedCustomOverlay}" HorizontalAlignment="Left"
+                                         Background="Transparent" BorderThickness="0" Visibility="{Binding HasCustomOverlays, Converter={StaticResource BoolToVisibility}}">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Orientation="Horizontal" Margin="0,1">
+                                                <TextBox Width="200" Text="{Binding Name, UpdateSourceTrigger=LostFocus}" Margin="0,0,12,0"/>
+                                                <CheckBox Content="Shown" IsChecked="{Binding IsVisible}" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                                <StackPanel Orientation="Horizontal" Margin="0,2,0,6">
+                                    <Button Content="New overlay" Command="{Binding NewOverlayCommand}" Margin="0,0,8,0"/>
+                                    <Button Content="Delete selected" Style="{StaticResource SecondaryButton}" Command="{Binding DeleteOverlayCommand}"
+                                            ToolTip="Pick an overlay in the list first; its triggers go back to their usual overlay."/>
+                                </StackPanel>
                                 <TextBlock Margin="0,10,0,4" FontWeight="SemiBold" Text="Floating combat text"/>
                                 <WrapPanel>
                                     <CheckBox Content="Damage" IsChecked="{Binding IsFctDamageOverlayVisible}" VerticalAlignment="Center" Margin="0,0,6,6"

@@ -53,7 +53,7 @@ public sealed partial class WatchedLogConfig : ObservableObject
 
     /// <summary>The character's class as last seen in a /who line ("Shadow Knight"), or empty (shown as a dash).</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ClassText), nameof(IsTank))]
+    [NotifyPropertyChangedFor(nameof(ClassText), nameof(IsTank), nameof(CanChainHeal))]
     private string _className = string.Empty;
 
     private bool? _tankChoice;
@@ -127,6 +127,9 @@ public sealed partial class WatchedLogConfig : ObservableObject
     public string LevelText => Level > 0 ? Level.ToString(CultureInfo.InvariantCulture) : "—";
 
     public string ClassText => ClassName.Length > 0 ? ClassName : "—";
+
+    /// <summary>True for a cleric, or while the class is not known yet: only they get a CH Chain Position.</summary>
+    public bool CanChainHeal => ClassName.Length == 0 || ClassName.Equals("Cleric", StringComparison.OrdinalIgnoreCase);
 
     [ObservableProperty]
     private bool _isTriggerEnabled = true;

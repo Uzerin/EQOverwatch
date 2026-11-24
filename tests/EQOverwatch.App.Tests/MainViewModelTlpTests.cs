@@ -53,6 +53,18 @@ public partial class MainViewModelTests
     }
 
     [Fact]
+    public void Tlp_tabs_go_newest_first_and_resource_hunter_lists_only_its_servers()
+    {
+        Assert.Equal(new[] { "lethar", "frostreaver", "fangbreaker" }, TlpServers.All.OrderByDescending(s => s.Launch).Take(3).Select(s => s.Key));
+        using var h = new Harness();
+        Assert.Equal(new[] { "frostreaver", "fangbreaker" }, h.Vm.ResourceServers.Order().Reverse());
+        var log = new EQOverwatch.Core.Models.WatchedLogConfig("eqlog_Tankard_frostreaver.txt") { ClassName = "Paladin" };
+        Assert.False(log.CanChainHeal);
+        log.ClassName = "Cleric";
+        Assert.True(log.CanChainHeal);
+    }
+
+    [Fact]
     public void A_new_draw_forgets_the_days_bonuses()
     {
         using var h = new Harness();

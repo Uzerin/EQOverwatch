@@ -207,10 +207,9 @@ public sealed partial class MainViewModel
     private void BuildTlpTabs(DateOnly today)
     {
         string? keep = SelectedTlpTab?.Key;
-        var mine = Logs.Select(l => TlpServers.Find(l.ServerName)?.Key).OfType<string>().ToHashSet(StringComparer.Ordinal);
         CultureInfo culture = CultureInfo.CurrentCulture;
         TlpTabs.Clear();
-        foreach (TlpServer server in TlpServers.All.OrderBy(s => !mine.Contains(s.Key)))
+        foreach (TlpServer server in TlpServers.All.OrderByDescending(s => s.Launch).ThenBy(s => s.Name, StringComparer.OrdinalIgnoreCase)) // newest first
         {
             TlpUnlock? next = server.Next(today);
             var open = server.Open(today).ToHashSet();
@@ -288,7 +287,7 @@ public sealed partial class MainViewModel
     [RelayCommand]
     private void CopyResourcePicture()
     {
-        if (SelectedLevelingServer is not { } server || ResourcePairs.Count == 0)
+        if (SelectedResourceServer is not { } server || ResourcePairs.Count == 0)
         {
             ResourceHunterStatus = "Nothing to copy: no bonuses are known for this day yet.";
             return;

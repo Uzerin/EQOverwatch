@@ -86,6 +86,7 @@ public sealed partial class MainViewModel
         if (characters)
         {
             RefreshCharacterInfo();
+            RebuildCharacterTools(); // Items & Scrolls shows the new file without "Read new files"
             foreach (WeakReference<CharacterDataViewModel> reference in _openProfiles)
             {
                 if (reference.TryGetTarget(out CharacterDataViewModel? vm) && refreshed.Contains(vm.CharacterName))

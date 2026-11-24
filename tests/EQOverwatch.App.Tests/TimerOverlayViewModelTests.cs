@@ -15,6 +15,30 @@ public class TimerOverlayViewModelTests
         new(1, Array.AsReadOnly(timers));
 
     [Fact]
+    public void A_trigger_routed_to_your_own_overlay_shows_only_there()
+    {
+        Guid routed = Guid.NewGuid();
+        DateTime now = T0;
+        TriggerSnapshot snap = Snap(
+            new ActiveTimerSnapshot(1, routed, "pull", "Stackprime", TimerKind.Countdown, "Pull next camp", T0, T0.AddSeconds(60), 60),
+            Timer(2, TimerKind.Countdown, "Vox respawn", T0, 60));
+        TimerOverlayViewModel.SetRoutes(new Dictionary<Guid, string> { [routed] = "mine" });
+        try
+        {
+            var builtIn = new TimerOverlayViewModel(() => snap, () => now);
+            var mine = new TimerOverlayViewModel(() => snap, () => now) { CustomOverlayId = "mine" };
+            builtIn.Tick();
+            mine.Tick();
+            Assert.Equal(2, Assert.Single(builtIn.Bars).Id);
+            Assert.Equal(1, Assert.Single(mine.Bars).Id);
+        }
+        finally
+        {
+            TimerOverlayViewModel.SetRoutes(new Dictionary<Guid, string>());
+        }
+    }
+
+    [Fact]
     public void Text_alerts_flash_for_four_seconds_even_when_the_trigger_lasts_longer()
     {
         DateTime now = T0;

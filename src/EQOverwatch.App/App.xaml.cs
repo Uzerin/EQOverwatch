@@ -137,8 +137,14 @@ public partial class CompanionApp : Application
         var mobLevels = new EQOverwatch.Core.History.MobLevelStore();
         mobLevels.SetStoragePath(Path.Combine(appData, "moblevels.json"));
         _http = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+        var overlayHost = new OverlayHost(windows)
+        {
+            // Your own overlays: timer and text overlays that show the triggers routed to them.
+            CustomFactory = (id, name) => new TimerOverlayWindow(
+                new TimerOverlayViewModel(_pipeline.Triggers, null, isCharacterActive: _pipeline.IsBarShown) { CustomOverlayId = id }, name),
+        };
         _viewModel = new MainViewModel(
-            _pipeline, _settingsService, settings, new OverlayHost(windows), _audio, new WpfDialogService(), themeManager, new WpfClipboardService(),
+            _pipeline, _settingsService, settings, overlayHost, _audio, new WpfDialogService(), themeManager, new WpfClipboardService(),
             updateChecker: new GitHubUpdateChecker(_http),
             openUrl: url => Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }),
             characterDataPresenter: new WpfCharacterDataPresenter(),

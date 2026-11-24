@@ -733,10 +733,14 @@ public sealed partial class MainViewModel
 
     private void RebuildAttendance()
     {
-        string? attendanceServer = ToolsServerFilter;
+        // Attendance is always one server's: the picked one, or with "All servers" the server of the newest raid dump.
+        string? attendanceServer = ToolsServerFilter
+            ?? _raidRoster.Records().OrderByDescending(r => r.Taken).Select(r => r.Server).FirstOrDefault(s => !string.IsNullOrEmpty(s));
         IReadOnlyList<RaidAttendance> records = _raidRoster.Records()
             .Where(r => attendanceServer is null || r.Server.Equals(attendanceServer, StringComparison.OrdinalIgnoreCase))
             .ToList();
+        string serverName = attendanceServer is null ? string.Empty
+            : (EQOverwatch.Core.Tlp.TlpServers.Find(attendanceServer)?.Name ?? CultureInfo.InvariantCulture.TextInfo.ToTitleCase(attendanceServer)) + ": ";
         AttendanceRaidRow? selected = SelectedAttendanceRaid;
         AttendanceRaids = records
             .Select(r => new AttendanceRaidRow(r, r.Taken.ToString("ddd MMM d yyyy, HH:mm", CultureInfo.CurrentCulture), r.Server, r.Members.Count))
@@ -756,8 +760,8 @@ public sealed partial class MainViewModel
         AttendanceStatus = records.Count == 0
             ? "No raid roster dumps read yet. In the game, open the Raid window and click Dump."
             : rangeDays == 0
-                ? $"{records.Count} raid{(records.Count == 1 ? string.Empty : "s")} recorded."
-                : $"{records.Count} raid{(records.Count == 1 ? string.Empty : "s")} recorded; the totals count {counted.Count} in the last {rangeDays} days.";
+                ? $"{serverName}{records.Count} raid{(records.Count == 1 ? string.Empty : "s")} recorded."
+                : $"{serverName}{records.Count} raid{(records.Count == 1 ? string.Empty : "s")} recorded; the totals count {counted.Count} in the last {rangeDays} days.";
         RebuildRoster();
     }
 

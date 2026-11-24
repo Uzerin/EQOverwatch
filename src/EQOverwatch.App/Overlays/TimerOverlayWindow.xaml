@@ -21,9 +21,13 @@
             <Border Grid.Row="0"
                     Style="{StaticResource OverlayTitleStripStyle}"
                     MouseLeftButtonDown="OnTitleStripMouseDown">
-                <TextBlock Margin="6,0"
+                <DockPanel LastChildFill="True">
+                    <Button DockPanel.Dock="Right" Content="✕" Style="{StaticResource OverlayStripButtonStyle}" Click="OnCloseClick" ToolTip="Close this overlay (switch it back on in Settings)"/>
+                    <Button DockPanel.Dock="Right" Content="—" Style="{StaticResource OverlayStripButtonStyle}" Click="OnMinimizeClick" ToolTip="Minimize to the title strip"/>
+                    <TextBlock Margin="6,0"
                            Style="{StaticResource OverlayTextStyle}"
                            Text="{Binding OverlayName, RelativeSource={RelativeSource AncestorType={x:Type overlays:OverlayWindowBase}}}"/>
+                </DockPanel>
             </Border>
 
             <StackPanel Grid.Row="1" Margin="4" ClipToBounds="True">

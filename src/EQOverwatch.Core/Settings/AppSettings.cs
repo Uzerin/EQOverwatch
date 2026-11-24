@@ -46,6 +46,9 @@ public sealed partial class AppSettings
     /// <summary>Hex color per attack type name (see <see cref="AttackType"/>); missing types use the default.</summary>
     public Dictionary<string, string>? AttackColors { get; set; }
 
+    /// <summary>Timer and text overlays you made yourself (Settings, Overlays); triggers can show in them.</summary>
+    public List<CustomOverlaySetting> CustomOverlays { get; set; } = new();
+
     public OverlaySettings BuffsOverlay { get; set; } = OverlaySettings.ForCategory(TimerOverlayCategory.Buffs);
     public OverlaySettings DebuffsOverlay { get; set; } = OverlaySettings.ForCategory(TimerOverlayCategory.Debuffs);
     public OverlaySettings SongsOverlay { get; set; } = OverlaySettings.ForCategory(TimerOverlayCategory.Songs);
@@ -489,6 +492,16 @@ public sealed record WindowPlacementSetting
 }
 
 /// <summary>Bounds, visibility and lock state of one overlay window (device-independent units).</summary>
+/// <summary>An overlay you made: its id (kept when renamed), name and placement.</summary>
+public sealed class CustomOverlaySetting
+{
+    public string Id { get; set; } = string.Empty;
+
+    public string Name { get; set; } = string.Empty;
+
+    public OverlaySettings Placement { get; set; } = OverlaySettings.DefaultTimer;
+}
+
 public sealed record OverlaySettings
 {
     public double Left { get; init; }
@@ -497,6 +510,9 @@ public sealed record OverlaySettings
     public double Height { get; init; }
     public bool IsVisible { get; init; } = true;
     public bool IsLocked { get; init; }
+
+    /// <summary>Shrunk to its title strip (<see cref="Height"/> stays the full height).</summary>
+    public bool IsMinimized { get; init; }
 
     /// <summary>A generic default timer-overlay placement.</summary>
     public static readonly OverlaySettings DefaultTimer = new() { Left = 100, Top = 100, Width = 320, Height = 240 };
@@ -564,6 +580,9 @@ public sealed class TriggerRule
 
     /// <summary>Which timer overlay shows this rule's alert and countdown (default: Raid Triggers).</summary>
     public TimerOverlayCategory OverlayCategory { get; set; } = TimerOverlayCategory.RaidTriggers;
+
+    /// <summary>The id of one of your own overlays that shows this rule instead (null: the <see cref="OverlayCategory"/> overlay).</summary>
+    public string? CustomOverlayId { get; set; }
 
     public TriggerRule Clone() => (TriggerRule)MemberwiseClone();
 

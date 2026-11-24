@@ -15,7 +15,7 @@ namespace EQOverwatch.Core.Experience;
 public sealed record ExperienceRow(
     string Character, int Level, double XpPercent, double XpPerHour, double? ProgressPercent, TimeSpan? NextLevelIn,
     int AaGained, double AaPerHour, int Kills, int PartyKills, int RaidKills, int SoloKills, int LevelsGained, DateTime LastGainUtc,
-    TimeSpan? NextAaIn = null);
+    TimeSpan? NextAaIn = null, TimeSpan Played = default);
 
 /// <summary>
 /// Adds up the experience lines of every character's live log since the app opened (or since <see cref="Reset"/>):
@@ -43,6 +43,10 @@ public sealed partial class ExperienceTracker : ITriggerLineSink
     private readonly Dictionary<string, Stats> _stats = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, (int Level, double? Progress)> _known = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, string> _servers = new(StringComparer.OrdinalIgnoreCase); // character -> server of its log
+    private readonly Dictionary<string, (DateTime Last, double Seconds)> _active = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>A pause longer than this between two lines of a log is time away, not played (as on the Session tab).</summary>
+    public static readonly TimeSpan OfflineGap = TimeSpan.FromMinutes(5);
     private DateTime _sessionStartUtc;
     private long _version;
 
@@ -81,6 +85,7 @@ public sealed partial class ExperienceTracker : ITriggerLineSink
             }
 
             _stats.Clear();
+            _active.Clear();
             _sessionStartUtc = nowUtc;
         }
 
@@ -132,6 +137,7 @@ public sealed partial class ExperienceTracker : ITriggerLineSink
 
     public void OnLine(string characterName, ReadOnlySpan<char> message, DateTime receivedUtc)
     {
+        CountActive(characterName, receivedUtc);
         if (message.Length < 20 || !message.StartsWith("You ", StringComparison.Ordinal))
         {
             return;
@@ -236,6 +242,31 @@ public sealed partial class ExperienceTracker : ITriggerLineSink
         Interlocked.Increment(ref _version);
     }
 
+    /// <summary>Adds the time since the character's previous line, unless that pause was longer than <see cref="OfflineGap"/>.</summary>
+    private void CountActive(string character, DateTime utc)
+    {
+        if (string.IsNullOrEmpty(character))
+        {
+            return;
+        }
+
+        lock (_gate)
+        {
+            if (utc < _sessionStartUtc)
+            {
+                return;
+            }
+
+            (DateTime last, double seconds) = _active.GetValueOrDefault(character);
+            if (last != default && utc > last && utc - last <= OfflineGap)
+            {
+                seconds += (utc - last).TotalSeconds;
+            }
+
+            _active[character] = (utc > last ? utc : last, seconds);
+        }
+    }
+
     /// <summary>One row per character that gained anything this session, in name order.</summary>
     public IReadOnlyList<ExperienceRow> Rows(DateTime nowUtc, Func<string, int>? levelFallback = null) =>
         Rows(nowUtc, levelFallback is null ? null : (name, _) => levelFallback(name));
@@ -245,12 +276,14 @@ public sealed partial class ExperienceTracker : ITriggerLineSink
     {
         lock (_gate)
         {
-            double hours = Math.Max((nowUtc - _sessionStartUtc).TotalHours, 1.0 / 60);
             return _stats
                 .OrderBy(p => p.Key, StringComparer.OrdinalIgnoreCase)
                 .Select(p =>
                 {
                     Stats s = p.Value;
+                    // Rates are per hour this character was active: pauses over five minutes are left out.
+                    double played = _active.GetValueOrDefault(p.Key).Seconds;
+                    double hours = Math.Max(played / 3600, 1.0 / 60);
                     double perHour = s.Xp / hours;
                     TimeSpan? next = s.Progress is { } progress && perHour > 0.0001
                         ? TimeSpan.FromHours(Math.Max(0, 100 - progress) / perHour)
@@ -261,7 +294,8 @@ public sealed partial class ExperienceTracker : ITriggerLineSink
                         ? TimeSpan.FromHours(Math.Max(0, 1.0 / (s.Aa / hours) - (nowUtc - s.LastAaUtc).TotalHours))
                         : null;
                     return new ExperienceRow(
-                        p.Key, level, s.Xp, perHour, s.Progress, next, s.Aa, s.Aa / hours, s.Kills, s.Party, s.Raid, s.Solo, s.Levels, s.LastGainUtc, nextAa);
+                        p.Key, level, s.Xp, perHour, s.Progress, next, s.Aa, s.Aa / hours, s.Kills, s.Party, s.Raid, s.Solo, s.Levels, s.LastGainUtc, nextAa,
+                        TimeSpan.FromSeconds(played));
                 })
                 .ToList();
         }

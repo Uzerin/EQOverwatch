@@ -14,7 +14,7 @@ namespace EQOverwatch.App.ViewModels;
 /// <summary>One row of the Experience tab.</summary>
 public sealed record ExperienceRowView(
     string Character, string Level, string XpSession, string XpPerHour, string NextLevel, int AaGained, string AaPerHour, int Kills, string LastGain,
-    string NextAa = "—", string LegacyBonus = "—", string ZoneMedian = "—");
+    string NextAa = "—", string LegacyBonus = "—", string ZoneMedian = "—", string Played = "—");
 
 /// <summary>One resist type of the selected mob: landed, resisted and the resist %.</summary>
 public sealed record ResistTypeRow(string Type, int Landed, int Resisted, string Percent);
@@ -222,7 +222,8 @@ public sealed partial class MainViewModel
                 r.LastGainUtc == default ? "—" : Ago(nowUtc - r.LastGainUtc),
                 r.NextAaIn is { } nextAa ? FormatSpan(nextAa) : "—",
                 LegacyBonusText(r.Character),
-                ZoneMedianFor(r)))
+                ZoneMedianFor(r),
+                r.Played > TimeSpan.Zero ? FormatSpan(r.Played) : "—"))
             .ToList();
 
         ShowLegacyColumn = ExperienceRows.Any(r => r.LegacyBonus != "—");

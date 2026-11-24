@@ -123,6 +123,11 @@ public class Release70Tests
         Assert.Equal((1.0, 1), s.ZoneXp["Umbral Plains"]);
 
         var xp = new ExperienceTracker(T0);
+        for (int minute = 0; minute <= 40; minute++)
+        {
+            xp.OnLine("Stackprime", "You say, 'still here'", T0.AddMinutes(minute));
+        }
+
         xp.OnLine("Stackprime", "You have gained an ability point!  You now have 1 ability point.", T0.AddMinutes(30));
         ExperienceRow row = Assert.Single(xp.Rows(T0.AddMinutes(40), (Func<string, string, int>?)null));
         Assert.Equal(TimeSpan.FromMinutes(30), row.NextAaIn); // one point an hour (40 minutes, 1 point), 10 minutes since it

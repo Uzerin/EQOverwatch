@@ -27,6 +27,19 @@ public sealed record TradeskillRowView(string Recipe, int Combines, int Made, in
 /// <summary>A character flag on the Flags tab: the log's words and when it came.</summary>
 public sealed record FlagRowView(string Flag, string Received);
 
+/// <summary>A row of the AAs tab: an alternate ability, its rank, points spent, when it was learned and where the row comes from.</summary>
+public sealed record AaRowView(string Name, int Rank, string Points, string Learned, string Source, string Description)
+{
+    public bool IsYours => Source != EQOverwatch.Core.Progress.AaProgress.FromLog;
+}
+
+/// <summary>Reads and changes a persona's alternate abilities for the AAs tab.</summary>
+public sealed record AaSource(
+    Func<string, IReadOnlyList<AaRowView>> Rows,
+    Action<string, string, int> Set,
+    Action<string, string> Remove,
+    Func<IReadOnlyList<string>> Names);
+
 /// <summary>A row of the Challenges tab: a challenge of the character's server and how this character stands on it.</summary>
 public sealed record ChallengeRowView(int Level, string Goal, string Reward, string Status, bool IsDone);
 
@@ -53,7 +66,8 @@ public sealed record CharacterProgressSource(
     Action<string>? SetAccount = null,
     Func<IReadOnlyList<string>>? AccountNames = null,
     Func<IReadOnlyList<EQOverwatch.Core.Leveling.LevelEvent>>? LevelHistory = null,
-    Func<IReadOnlyList<ChallengeRowView>>? Challenges = null);
+    Func<IReadOnlyList<ChallengeRowView>>? Challenges = null,
+    AaSource? Aas = null);
 
 /// <summary>
 /// One character's data window: inventory, spellbook, missing spells and key ring, read from the character's <c>/outputfile</c> files.
@@ -258,6 +272,76 @@ public sealed partial class CharacterDataViewModel : ObservableObject
     private IReadOnlyList<ChallengeRowView> _challengeRows = Array.Empty<ChallengeRowView>();
 
     public bool HasChallenges => ChallengeRows.Count > 0;
+
+    /// <summary>The persona's alternate abilities, A to Z.</summary>
+    [ObservableProperty]
+    private IReadOnlyList<AaRowView> _aaRows = Array.Empty<AaRowView>();
+
+    [ObservableProperty]
+    private string _aaSummary = string.Empty;
+
+    [ObservableProperty]
+    private AaRowView? _selectedAa;
+
+    /// <summary>The ability being added or changed, and its rank.</summary>
+    [ObservableProperty]
+    private string _aaName = string.Empty;
+
+    [ObservableProperty]
+    private string _aaRank = "1";
+
+    [ObservableProperty]
+    private string _aaStatus = string.Empty;
+
+    private IReadOnlyList<string>? _aaNames;
+
+    /// <summary>Every ability name in the game files, for the name box.</summary>
+    public IReadOnlyList<string> AaNameChoices => _aaNames ??= _progress?.Aas?.Names() ?? Array.Empty<string>();
+
+    partial void OnSelectedAaChanged(AaRowView? value)
+    {
+        if (value is not null)
+        {
+            AaName = value.Name;
+            AaRank = value.Rank.ToString(System.Globalization.CultureInfo.CurrentCulture);
+        }
+    }
+
+    /// <summary>Adds the ability or changes its rank; the log takes over again when it shows the ability learned later.</summary>
+    [RelayCommand]
+    private void SaveAa()
+    {
+        if (_progress?.Aas is not { } aas || AaName.Trim().Length == 0)
+        {
+            AaStatus = "Type or pick an ability name first.";
+            return;
+        }
+
+        if (!int.TryParse(AaRank, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.CurrentCulture, out int rank) || rank < 1)
+        {
+            AaStatus = "The rank must be 1 or more.";
+            return;
+        }
+
+        aas.Set(PersonaName, AaName.Trim(), rank);
+        AaStatus = $"Saved {AaName.Trim()} at rank {rank}.";
+        Reload();
+    }
+
+    /// <summary>Hides the selected ability until the log shows it learned again.</summary>
+    [RelayCommand]
+    private void RemoveAa()
+    {
+        if (_progress?.Aas is not { } aas || SelectedAa is not { } row)
+        {
+            AaStatus = "Pick an ability in the list first.";
+            return;
+        }
+
+        aas.Remove(PersonaName, row.Name);
+        AaStatus = $"Removed {row.Name}.";
+        Reload();
+    }
 
     [ObservableProperty]
     private IReadOnlyList<AchievementRowView> _achievementRows = Array.Empty<AchievementRowView>();
@@ -517,6 +601,12 @@ public sealed partial class CharacterDataViewModel : ObservableObject
             FactionRows = _progress.Factions(PersonaName).Where(r => Match(r.Faction) || Match(r.ComesFrom)).ToList();
             FlagRows = (_progress.Flags?.Invoke() ?? Array.Empty<FlagRowView>()).Where(r => Match(r.Flag)).ToList();
             ChallengeRows = (_progress.Challenges?.Invoke() ?? Array.Empty<ChallengeRowView>()).Where(r => Match(r.Goal) || Match(r.Reward)).ToList();
+            IReadOnlyList<AaRowView> aas = _progress.Aas?.Rows(PersonaName) ?? Array.Empty<AaRowView>();
+            AaRows = aas.Where(r => Match(r.Name)).ToList();
+            int points = aas.Sum(r => int.TryParse(r.Points, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.CurrentCulture, out int p) ? p : 0);
+            AaSummary = aas.Count == 0
+                ? "No alternate abilities yet: they come from the log's \"You have gained the ability\" and \"You have improved\" lines, or add them here."
+                : $"{aas.Count:N0} abilities · {points:N0} points spent (from the logs)";
         }
 
         MissingSummary = books?.MissingUtc is null

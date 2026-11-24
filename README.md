@@ -13,7 +13,7 @@ as many characters as you play, without touching the game.
 
 **Timers and alerts**
 - GINA-style triggers: text, sounds, speech and timers from any log line, shareable in chat.
-- Buff, debuff and song bars for all your characters, paused in safe zones and while logged out.
+- Buff, debuff and song bars for all your characters, lengthened by your focus and learned AAs, paused in safe zones and while logged out.
 - Raid boss ability timers, CH chain bars with a late-cast alarm, and AA and discipline cooldowns.
 - Charm break, aggro and range alerts for your boxes, and tells read aloud.
 
@@ -27,7 +27,7 @@ as many characters as you play, without touching the game.
 - Leveling: the best zones for your level from your logs and other players', with XP, AA and plat per hour.
 - Resource Hunter: every zone's bonus today, its history and how big the bonus is, shared between players.
 - TLP: each server's rules, unlock dates, level caps and server bonuses, with reminders before an unlock.
-- Experience and AA per hour, Legacy bonus and challenge achievements per character.
+- Experience and AA per hour of active play, Legacy bonus, challenge achievements and learned AAs per character.
 
 **Your characters**
 - Inventory, worn gear, spellbook and missing spells for every character and class persona.
@@ -37,7 +37,7 @@ as many characters as you play, without touching the game.
 - Maps: the Overwatch map pack and your own labels on the in-game maps.
 
 **Built for boxers**
-- Movable overlays that only show for characters who are logged in.
+- Movable overlays that only show for characters who are logged in, plus overlays of your own; minimize or close any of them.
 - Sync between several PCs, backups, and saved overlay layouts.
 - Updates itself from inside the app.
 
@@ -61,6 +61,10 @@ addresses are kept. Untick **Count me in the anonymous player count** on Setting
 - Run `/outputfile inventory`, `spellbook` and `missingspells` in game to fill in character data.
 
 ## Changelog
+
+### 1.0.100
+
+- AAs tab per character, AA duration bonuses on timers, your own overlays with minimize and close, and many smaller fixes.
 
 ### 1.0.99
 

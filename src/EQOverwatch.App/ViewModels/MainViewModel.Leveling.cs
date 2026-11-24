@@ -457,18 +457,24 @@ public sealed partial class MainViewModel
         IReadOnlySet<int> inferred = LevelingRanking.InferExpansions(zones, seen);
         bool byHand = _levelingExpansions.TryGetValue(server, out List<int>? chosen);
         Core.Tlp.TlpServer? tlp = Core.Tlp.TlpServers.Find(server);
-        IReadOnlySet<int> open = byHand ? chosen!.ToHashSet() : tlp?.OpenExpansions(Core.Tlp.TlpServers.Today(DateTime.UtcNow)) ?? inferred;
+        // A TLP server offers only the expansions it has open (its unlock schedule); you can still untick some of them.
+        IReadOnlySet<int>? tlpOpen = tlp?.OpenExpansions(Core.Tlp.TlpServers.Today(DateTime.UtcNow));
+        IReadOnlySet<int> open = tlpOpen is not null
+            ? byHand ? tlpOpen.Where(n => chosen!.Contains(n) || n > chosen!.DefaultIfEmpty(0).Max()).ToHashSet() : tlpOpen // a newer unlock starts ticked
+            : byHand ? chosen!.ToHashSet() : inferred;
         LevelingExpansionHint = zones.Expansions.Any()
-            ? byHand ? "Set by hand for this server."
-            : tlp is not null ? "Ticked by the server's unlock dates. Tick or untick to change."
+            ? tlpOpen is not null ? "The expansions open on this server, from its unlock dates. Untick any to leave their zones out."
+            : byHand ? "Set by hand for this server."
             : "Found from the zones seen on this server. Tick or untick to change."
             : "Choose the EQ folder on the Characters tab to filter zones by expansion.";
 
         if (rebuild || LevelingExpansionChoices.Count == 0)
         {
-            int shown = Math.Min(ZoneDirectory.ExpansionNames.Count, Math.Max(5, Math.Max(inferred.DefaultIfEmpty(1).Max(), open.DefaultIfEmpty(1).Max()) + 3));
+            IEnumerable<int> offered = tlpOpen is not null
+                ? tlpOpen.Order()
+                : Enumerable.Range(1, Math.Min(ZoneDirectory.ExpansionNames.Count, Math.Max(5, Math.Max(inferred.DefaultIfEmpty(1).Max(), open.DefaultIfEmpty(1).Max()) + 3)));
             LevelingExpansionChoices.Clear();
-            for (int n = 1; n <= shown; n++)
+            foreach (int n in offered)
             {
                 LevelingExpansionChoices.Add(new ExpansionChoice(n, ZoneDirectory.ExpansionName(n), open.Contains(n), OnExpansionTicked));
             }

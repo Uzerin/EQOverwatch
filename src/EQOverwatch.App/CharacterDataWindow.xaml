@@ -406,6 +406,39 @@
                     </DataGrid>
                 </DockPanel>
             </TabItem>
+            <TabItem Header="AAs">
+                <DockPanel Margin="0,6,0,0">
+                    <TextBlock DockPanel.Dock="Top" FontWeight="SemiBold" Margin="0,0,0,6" Text="{Binding AaSummary}" TextWrapping="Wrap"/>
+                    <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,6">
+                        <TextBlock Text="Ability" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                        <ComboBox Width="260" IsEditable="True" IsTextSearchEnabled="True" ItemsSource="{Binding AaNameChoices}"
+                                  Text="{Binding AaName, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,12,0"
+                                  ToolTip="Type or pick a name; the list comes from the game's files."/>
+                        <TextBlock Text="Rank" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                        <TextBox Width="50" Text="{Binding AaRank, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,12,0"/>
+                        <Button Content="Add / Edit" Command="{Binding SaveAaCommand}" Margin="0,0,8,0"/>
+                        <Button Content="Remove" Command="{Binding RemoveAaCommand}" Margin="0,0,12,0"/>
+                        <TextBlock Style="{StaticResource HintText}" VerticalAlignment="Center" Text="{Binding AaStatus}"/>
+                    </WrapPanel>
+                    <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource HintText}" Margin="0,6,0,0" TextWrapping="Wrap"
+                               Text="Abilities come from the log's learned lines. Ones you add or edit stay until the log shows that ability learned again; then the log's rank replaces them. Pick a row to edit it."/>
+                    <DataGrid HorizontalAlignment="Left" ItemsSource="{Binding AaRows}" SelectedItem="{Binding SelectedAa}" AutoGenerateColumns="False" CanUserAddRows="False"
+                              CanUserDeleteRows="False" IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal" SelectionMode="Single">
+                        <DataGrid.RowStyle>
+                            <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
+                                <Setter Property="ToolTip" Value="{Binding Description}"/>
+                            </Style>
+                        </DataGrid.RowStyle>
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="AA" Binding="{Binding Name, Mode=OneWay}" Width="Auto"/>
+                            <DataGridTextColumn Header="Rank" Binding="{Binding Rank, Mode=OneWay}" Width="Auto"/>
+                            <DataGridTextColumn Header="Points" Binding="{Binding Points, Mode=OneWay}" Width="Auto"/>
+                            <DataGridTextColumn Header="Learned" Binding="{Binding Learned, Mode=OneWay}" Width="Auto"/>
+                            <DataGridTextColumn Header="Source" Binding="{Binding Source, Mode=OneWay}" Width="Auto"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </TabItem>
         </TabControl>
     </DockPanel>
 </Window>

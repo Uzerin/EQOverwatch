@@ -22,6 +22,7 @@ public sealed partial class TriggerRuleViewModel : ObservableObject
         _audioText = rule.AudioText;
         _audioFilePath = rule.AudioFilePath;
         _overlayCategory = rule.OverlayCategory;
+        _customOverlayId = rule.CustomOverlayId;
     }
 
     public Guid Id { get; }
@@ -57,6 +58,10 @@ public sealed partial class TriggerRuleViewModel : ObservableObject
     [ObservableProperty]
     private TimerOverlayCategory _overlayCategory;
 
+    /// <summary>One of your own overlays that shows this trigger instead, or null.</summary>
+    [ObservableProperty]
+    private string? _customOverlayId;
+
     /// <summary>Compile error from the engine (bad regex, empty pattern), or null. Not persisted.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasError))]
@@ -77,5 +82,6 @@ public sealed partial class TriggerRuleViewModel : ObservableObject
         AudioText = AudioText ?? string.Empty,
         AudioFilePath = AudioFilePath ?? string.Empty,
         OverlayCategory = OverlayCategory,
+        CustomOverlayId = string.IsNullOrEmpty(CustomOverlayId) ? null : CustomOverlayId,
     };
 }

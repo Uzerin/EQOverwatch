@@ -1,3 +1,4 @@
+using EQOverwatch.Core.Spells;
 using System.IO.Compression;
 using System.Text.Json;
 using EQOverwatch.Core.Drops;
@@ -74,5 +75,48 @@ public sealed class PoolingAndReverseShieldTests
         }
 
         return output.ToArray();
+    }
+}
+
+public sealed class AaAndActiveTimeTests
+{
+    private static readonly DateTime T0 = new(2026, 11, 23, 20, 0, 0, DateTimeKind.Utc);
+
+    [Fact]
+    public void Learned_abilities_come_from_the_log_and_edits_last_until_learned_again()
+    {
+        var store = new EQOverwatch.Core.Progress.ProgressStore(T0.AddDays(-1));
+        void Line(string text, int minute) => store.OnLine("Tankard", "frostreaver", text, T0.AddMinutes(minute));
+        Line("[60 Paladin] Tankard (Ogre) <Gearbox>", 0);
+        Line("You have gained the ability \"Lay on Hands\" at a cost of 0 ability points.", 1);
+        Line("You have improved Healing Adept 2 at a cost of 3 ability points.", 2);
+        Line("You have improved Healing Adept 3 at a cost of 6 ability points.", 3);
+
+        var rows = store.Aas("Tankard", "frostreaver");
+        Assert.Equal(new[] { ("Healing Adept", 3, 9), ("Lay on Hands", 1, 0) }, rows.Select(r => (r.Name, r.Rank, r.Points)));
+
+        store.SetAa("Tankard", "frostreaver", null, "Healing Adept", 5, T0.AddMinutes(4));
+        store.SetAa("Tankard", "frostreaver", null, "Mental Clarity", 2, T0.AddMinutes(4));
+        Assert.Equal(5, store.AaRanks("Tankard", "frostreaver")["Healing Adept"]);
+        Assert.Equal("Added by you", store.Aas("Tankard", "frostreaver").Single(r => r.Name == "Mental Clarity").Source);
+
+        Line("You have improved Healing Adept 4 at a cost of 6 ability points.", 5); // learned again after the edit: the log wins
+        var adept = store.Aas("Tankard", "frostreaver").Single(r => r.Name == "Healing Adept");
+        Assert.Equal((4, "Log"), (adept.Rank, adept.Source));
+    }
+
+    [Fact]
+    public void A_learned_rank_lengthens_the_spells_it_names()
+    {
+        var bonuses = AaDurations.For(new Dictionary<string, int> { ["Improved Thief's Eyes"] = 7, ["Not An AA"] = 3 });
+        AaDurationBonus eyes = Assert.Single(bonuses);
+        Assert.Equal((540, "Improved Thief's Eyes 7"), (eyes.Seconds, eyes.Source));
+
+        var spell = new SpellInfo(8001, "Thief's Eyes", "", "", "", 0, 3, 10, 60, ClassLevels: Enumerable.Repeat(255, 8).Append(65).Concat(Enumerable.Repeat(255, 7)).ToArray(),
+            SpellLine: 100090260);
+        var profile = new DurationProfile(null, null, 0, bonuses);
+        Assert.Equal(600, DurationCalculator.Seconds(spell, 8, profile, SpellDatabase.Empty));
+        Assert.Equal("+540 s from Improved Thief's Eyes 7", DurationCalculator.AaBonusText(spell, 8, profile));
+        Assert.Equal(60, DurationCalculator.Seconds(spell with { SpellLine = 1 }, 8, profile, SpellDatabase.Empty));
     }
 }

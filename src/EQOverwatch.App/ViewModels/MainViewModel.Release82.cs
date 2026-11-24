@@ -226,7 +226,9 @@ public sealed partial class MainViewModel
         }
 
         RefreshTlp(nowUtc);
-        if (_pipeline.ResourceHunter.Version != _resourceVersion || _resourceShownFor != SelectedLevelingServer)
+        SyncResourceServer();
+        ShowResourceRuleset(nowUtc);
+        if (_pipeline.ResourceHunter.Version != _resourceVersion || _resourceShownFor != SelectedResourceServer)
         {
             ShowResourceRows(nowUtc);
         }
@@ -382,14 +384,14 @@ public sealed partial class MainViewModel
     public void ShowResourceRows(DateTime nowUtc)
     {
         ResourceHunterStore store = _pipeline.ResourceHunter;
-        bool dataChanged = _resourceVersion != store.Version || _resourceShownFor != SelectedLevelingServer;
+        bool dataChanged = _resourceVersion != store.Version || _resourceShownFor != SelectedResourceServer;
         _resourceVersion = store.Version;
-        _resourceShownFor = SelectedLevelingServer;
+        _resourceShownFor = SelectedResourceServer;
         _showingResources = true;
         try
         {
             ResourceGroups.Clear();
-            if (SelectedLevelingServer is not { } server)
+            if (SelectedResourceServer is not { } server)
             {
                 ResourceHunterStatus = "Pick a server above.";
                 return;
@@ -477,7 +479,7 @@ public sealed partial class MainViewModel
     private void ShowResourceBreakdown(DateTime nowUtc)
     {
         ResourceBreakdown.Clear();
-        if (_resourcePickedZone is not { } zone || SelectedLevelingServer is not { } server)
+        if (_resourcePickedZone is not { } zone || SelectedResourceServer is not { } server)
         {
             return;
         }
@@ -498,7 +500,7 @@ public sealed partial class MainViewModel
 
     /// <summary>"Loot" when today's bonus of the zone is known on the Leveling tab's server, otherwise "—".</summary>
     private string BonusTodayIn(string zone) =>
-        SelectedLevelingServer is { } server && _pipeline.ResourceHunter.TodayIn(server, zone, DateTime.UtcNow) is { } bonus
+        SelectedResourceServer is { } server && _pipeline.ResourceHunter.TodayIn(server, zone, DateTime.UtcNow) is { } bonus
             ? ResourceHunterText.Label(bonus.Bonus)
             : "—";
 
