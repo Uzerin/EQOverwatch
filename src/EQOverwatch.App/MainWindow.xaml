@@ -2582,14 +2582,14 @@
                 <TabControl Margin="0,6,0,0" SelectedIndex="{Binding SelectedProgressTab, Mode=TwoWay}">
 
                     <TabItem Header="Experience">
-                        <Grid Margin="6">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><Grid Margin="6">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="*" MinHeight="90"/>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="2*" MinHeight="140"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
@@ -2598,7 +2598,7 @@
                                         ToolTip="Starts counting again from now."/>
                                 <TextBlock DockPanel.Dock="Left" Style="{StaticResource HintText}" VerticalAlignment="Center" Text="{Binding ExperienceSession}"/>
                             </DockPanel>
-                            <DataGrid Grid.Row="1" HorizontalAlignment="Left" ItemsSource="{Binding ExperienceRows}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
+                            <DataGrid MaxHeight="320" Grid.Row="1" HorizontalAlignment="Left" ItemsSource="{Binding ExperienceRows}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
                                       HeadersVisibility="Column" GridLinesVisibility="Horizontal">
                                 <DataGrid.Resources>
                                     <ctl:BindingProxy x:Key="ExperienceProxy" Data="{Binding}"/>
@@ -2659,7 +2659,7 @@
                                 <TextBlock DockPanel.Dock="Top" FontWeight="SemiBold" Margin="0,0,0,6" Text="XP by zone (last 7 days)"/>
                                 <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource HintText}" Margin="0,6,0,0" TextWrapping="Wrap" MaxWidth="420"
                                            Text="All your characters together; hours are time played in the zone. Best XP per hour first."/>
-                                <DataGrid HorizontalAlignment="Left" ItemsSource="{Binding ZoneXpRows}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
+                                <DataGrid MaxHeight="320" HorizontalAlignment="Left" ItemsSource="{Binding ZoneXpRows}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
                                           HeadersVisibility="Column" GridLinesVisibility="Horizontal">
                                     <DataGrid.Columns>
                                         <DataGridTextColumn Header="Zone" Binding="{Binding Zone, Mode=OneWay}" Width="Auto"/>
@@ -2670,7 +2670,7 @@
                                     </DataGrid.Columns>
                                 </DataGrid>
                             </DockPanel>
-                            <DataGrid HorizontalAlignment="Left" VerticalAlignment="Top" ItemsSource="{Binding MobExperienceRows}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
+                            <DataGrid MaxHeight="320" HorizontalAlignment="Left" VerticalAlignment="Top" ItemsSource="{Binding MobExperienceRows}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
                                       HeadersVisibility="Column" GridLinesVisibility="Horizontal">
                                 <DataGrid.Columns>
                                     <DataGridTextColumn Header="Level" Binding="{Binding Level, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
@@ -2718,7 +2718,7 @@
                                     </DataGrid.Columns>
                                 </DataGrid>
                             </StackPanel>
-                        </Grid>
+                        </Grid></ScrollViewer>
                     </TabItem>
 
                     <TabItem Header="Session">
