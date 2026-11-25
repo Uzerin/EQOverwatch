@@ -16,6 +16,21 @@ public partial class MainWindow : Window
     public static readonly TimeSpan RefreshInterval = TimeSpan.FromMilliseconds(250);
 
     // The page's tables are full height, so the wheel scrolls the whole page even over a table.
+    private void Search_Click(object sender, RoutedEventArgs e) => new SearchWindow(_viewModel) { Owner = this }.ShowDialog();
+
+    // Ctrl+F anywhere in the main window opens Search everything.
+    protected override void OnPreviewKeyDown(System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key == System.Windows.Input.Key.F && System.Windows.Input.Keyboard.Modifiers == System.Windows.Input.ModifierKeys.Control)
+        {
+            e.Handled = true;
+            new SearchWindow(_viewModel) { Owner = this }.ShowDialog();
+            return;
+        }
+
+        base.OnPreviewKeyDown(e);
+    }
+
     // Several fights picked in the Encounter DPS list show as one combined parse.
     private void EncounterList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {

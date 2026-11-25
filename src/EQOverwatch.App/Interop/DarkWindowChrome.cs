@@ -60,6 +60,37 @@ public static class DarkWindowChrome
     /// Moves the window's content under a thin, blank theme-colored strip with small minimize / maximize / close buttons. Call after InitializeComponent.
     /// Dragging the strip moves the window, double-clicking it maximizes, and the edges still resize and snap.
     /// </summary>
+    private static readonly List<(Window Window, FrameworkElement Content, double Font)> Registered = new();
+
+    /// <summary>The interface size (0.5 to 1.5) every window with this chrome is drawn at.</summary>
+    public static double Scale { get; private set; } = 1.0;
+
+    /// <summary>Compact mode: smaller text and tighter table rows.</summary>
+    public static bool Compact { get; private set; }
+
+    /// <summary>Applies the interface size and compact mode to every open window (and the ones opened later).</summary>
+    public static void SetLook(double scale, bool compact)
+    {
+        Scale = Math.Clamp(double.IsFinite(scale) ? scale : 1.0, 0.5, 1.5);
+        Compact = compact;
+        if (Application.Current?.Resources is { } resources)
+        {
+            resources["GridCellPadding"] = compact ? new Thickness(4, 2, 4, 2) : new Thickness(6, 5, 6, 5);
+            resources["GridHeaderPadding"] = compact ? new Thickness(6, 4, 6, 4) : new Thickness(8, 8, 8, 8);
+        }
+
+        foreach ((Window, FrameworkElement, double) entry in Registered.ToList())
+        {
+            ApplyLook(entry);
+        }
+    }
+
+    private static void ApplyLook((Window Window, FrameworkElement Content, double Font) entry)
+    {
+        entry.Content.LayoutTransform = Math.Abs(Scale - 1.0) < 0.001 ? Transform.Identity : new ScaleTransform(Scale, Scale);
+        entry.Window.FontSize = Compact ? Math.Round(entry.Font * 0.88, 1) : entry.Font;
+    }
+
     public static void Apply(Window window, bool resizable = true)
     {
         if (window.Content is not UIElement content)
@@ -99,6 +130,14 @@ public static class DarkWindowChrome
 
         window.StateChanged += (_, _) => FitMaximized();
         FitMaximized();
+
+        if (content is FrameworkElement element)
+        {
+            var entry = (window, element, window.FontSize);
+            Registered.Add(entry);
+            window.Closed += (_, _) => Registered.Remove(entry);
+            ApplyLook(entry);
+        }
     }
 
     private static UIElement BuildStrip(Window window, bool resizable)

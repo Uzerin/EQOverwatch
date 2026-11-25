@@ -17,6 +17,12 @@ public sealed partial class MainViewModel
     [ObservableProperty]
     private string _encounterCountText = string.Empty;
 
+    /// <summary>Part of a mob's name: only fights against matching mobs are listed.</summary>
+    [ObservableProperty]
+    private string _encounterNameFilter = string.Empty;
+
+    partial void OnEncounterNameFilterChanged(string value) => RefilterEncounters();
+
     partial void OnEncounterFromChanged(DateTime? value) => RefilterEncounters();
 
     partial void OnEncounterToChanged(DateTime? value) => RefilterEncounters();
@@ -26,16 +32,19 @@ public sealed partial class MainViewModel
     {
         _encounterFrom = null;
         _encounterTo = null;
+        _encounterNameFilter = string.Empty;
         OnPropertyChanged(nameof(EncounterFrom));
         OnPropertyChanged(nameof(EncounterTo));
+        OnPropertyChanged(nameof(EncounterNameFilter));
         RefilterEncounters();
     }
 
     /// <summary>True when the fight started inside the chosen days (log times are the PC's local time).</summary>
     private bool InEncounterDates(EncounterSnapshot encounter) =>
-        (EncounterFrom is not { } from || encounter.StartTime.Date >= from.Date)
+        (EncounterNameFilter.Trim().Length == 0 || encounter.TargetName.Contains(EncounterNameFilter.Trim(), StringComparison.OrdinalIgnoreCase))
+        && (EncounterFrom is not { } from || encounter.StartTime.Date >= from.Date)
         && (EncounterTo is not { } to || encounter.StartTime.Date <= to.Date);
 
     private void ShowEncounterCount(int shown, int all) =>
-        EncounterCountText = EncounterFrom is null && EncounterTo is null ? string.Empty : $"{shown:N0} of {all:N0} fight" + (all == 1 ? string.Empty : "s");
+        EncounterCountText = EncounterFrom is null && EncounterTo is null && EncounterNameFilter.Trim().Length == 0 ? string.Empty : $"{shown:N0} of {all:N0} fight" + (all == 1 ? string.Empty : "s");
 }

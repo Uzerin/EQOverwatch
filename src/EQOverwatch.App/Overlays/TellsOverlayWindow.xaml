@@ -24,6 +24,25 @@
                 </DockPanel>
             </Border>
             <StackPanel Grid.Row="1" Margin="4" ClipToBounds="True">
+                <!-- Open dynamic zones: a plain timer each, red under 15 minutes. -->
+                <ItemsControl ItemsSource="{Binding ZoneRows}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <DockPanel Margin="2,0,2,2" ToolTip="{Binding Members}">
+                                <TextBlock x:Name="Left" DockPanel.Dock="Right" FontWeight="SemiBold" Style="{StaticResource OverlayTextStyle}" Text="{Binding Remaining}"/>
+                                <TextBlock x:Name="Name" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" Style="{StaticResource OverlayTextStyle}">
+                                    <Run Text="DZ  "/><Run Text="{Binding Zone, Mode=OneWay}"/>
+                                </TextBlock>
+                            </DockPanel>
+                            <DataTemplate.Triggers>
+                                <DataTrigger Binding="{Binding Ending}" Value="True">
+                                    <Setter TargetName="Left" Property="Foreground" Value="#FF5A4E"/>
+                                    <Setter TargetName="Name" Property="Foreground" Value="#FF5A4E"/>
+                                </DataTrigger>
+                            </DataTemplate.Triggers>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
                 <ItemsControl ItemsSource="{Binding RecentNotices}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>

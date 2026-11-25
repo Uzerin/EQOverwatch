@@ -217,6 +217,18 @@ public sealed partial class AppSettings
     public int UpdateCheckHours { get; set; } = 4;
 
     /// <summary>Rank leveling zones with what other players shared online (on unless switched off).</summary>
+    /// <summary>How the Custom triggers list is grouped: "Auto" (expansion, then zone) or "Folders" (your own folders).</summary>
+    public string TriggerGrouping { get; set; } = "Auto";
+
+    /// <summary>Interface size in percent (50 to 150); overlays are not affected.</summary>
+    public double UiScalePercent { get; set; } = 100;
+
+    /// <summary>Smaller text and tighter table rows.</summary>
+    public bool CompactMode { get; set; }
+
+    /// <summary>Minimizing hides the window to the system tray.</summary>
+    public bool MinimizeToTray { get; set; } = true;
+
     public bool UseSharedLeveling { get; set; } = true;
 
     /// <summary>Upload this PC's leveling stretches, with no names (on unless switched off).</summary>
@@ -447,6 +459,9 @@ public sealed class WatchedLogSettings
 
     /// <summary>Complete Heal chain position (1-12), or 0 for none.</summary>
     public int ChChainPosition { get; set; }
+
+    /// <summary>Retired: hidden from the Characters list with triggers off, its data kept.</summary>
+    public bool IsRetired { get; set; }
 }
 
 /// <summary>A named layout of all six overlays, with a description of the monitor setup it was saved on.</summary>
@@ -592,6 +607,12 @@ public sealed class TriggerRule
 
     /// <summary>The id of one of your own overlays that shows this rule instead (null: the <see cref="OverlayCategory"/> overlay).</summary>
     public string? CustomOverlayId { get; set; }
+
+    /// <summary>Your own folder for this trigger ("General" when none), used when triggers are grouped by folder.</summary>
+    public string Folder { get; set; } = string.Empty;
+
+    /// <summary>The zone the trigger is for (empty for any zone), used when triggers are grouped by expansion and zone.</summary>
+    public string Zone { get; set; } = string.Empty;
 
     public TriggerRule Clone() => (TriggerRule)MemberwiseClone();
 

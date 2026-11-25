@@ -313,8 +313,30 @@ public sealed partial class MainViewModel
             SpellStatCharacter = names.Contains(keep) ? keep : AllSpellCharacters;
         }
 
+        var mobs = resists.Select(r => r.Mob).Where(m => m.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(m => m, StringComparer.OrdinalIgnoreCase).ToList();
+        mobs.Insert(0, AllResistMobs);
+        if (!mobs.SequenceEqual(ResistMobs))
+        {
+            string keep = ResistMob;
+            ResistMobs = mobs;
+            ResistMob = mobs.Contains(keep) ? keep : AllResistMobs;
+        }
+
         FilterSpellStats();
     }
+
+    public const string AllResistMobs = "All mobs";
+
+    /// <summary>The mobs in today's Resists table, with "All mobs" first.</summary>
+    [CommunityToolkit.Mvvm.ComponentModel.ObservableProperty]
+    private IReadOnlyList<string> _resistMobs = new[] { AllResistMobs };
+
+    /// <summary>The mob the Resists table shows (276).</summary>
+    [CommunityToolkit.Mvvm.ComponentModel.ObservableProperty]
+    private string _resistMob = AllResistMobs;
+
+    partial void OnResistMobChanged(string value) => FilterSpellStats();
 
     private void FilterSpellStats()
     {
@@ -328,6 +350,7 @@ public sealed partial class MainViewModel
             .ToList();
         ResistStatRows = _resistDay
             .Where(r => all || r.Character.Equals(SpellStatCharacter, StringComparison.OrdinalIgnoreCase))
+            .Where(r => ResistMob is null or AllResistMobs || r.Mob.Equals(ResistMob, StringComparison.OrdinalIgnoreCase))
             .OrderByDescending(r => r.Resisted).ThenBy(r => r.Spell, StringComparer.OrdinalIgnoreCase).ThenBy(r => r.Mob, StringComparer.OrdinalIgnoreCase)
             .Select(r => new ResistStatRowView(r.Character, r.Spell, r.Mob, r.Landed, r.Resisted, r.ResistPercent.ToString("0", culture) + "%"))
             .ToList();

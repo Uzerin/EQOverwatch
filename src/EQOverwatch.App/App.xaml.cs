@@ -27,6 +27,7 @@ public partial class CompanionApp : Application
     private CompanionPipeline? _pipeline;
     private AudioNotificationService? _audio;
     private MainViewModel? _viewModel;
+    private EQOverwatch.App.Services.TrayIconService? _trayIcon;
     private HttpClient? _http;
     private HttpClient? _updateHttp;
     private EQOverwatch.App.Services.TellToastService? _tellToasts;
@@ -131,7 +132,7 @@ public partial class CompanionApp : Application
             }
             else if (kind == OverlayKind.Tells)
             {
-                windows[kind] = new TellsOverlayWindow(new TellsOverlayViewModel(_pipeline.TellInbox, notices: _pipeline.Notices));
+                windows[kind] = new TellsOverlayWindow(new TellsOverlayViewModel(_pipeline.TellInbox, notices: _pipeline.Notices, zones: _pipeline.DynamicZones));
             }
             else if (kind == OverlayKind.MobCard)
             {
@@ -311,6 +312,7 @@ public partial class CompanionApp : Application
         }
 
         main.Show();
+        _trayIcon = new EQOverwatch.App.Services.TrayIconService(main, _viewModel); // minimize to the tray
         _viewModel.StartWithWindowsChanged += on => StartupRegistration.Set(on, Environment.ProcessPath);
 
         if (e.Args.Contains(UpdateFailedArgument, StringComparer.OrdinalIgnoreCase))
@@ -458,6 +460,7 @@ public partial class CompanionApp : Application
     {
         Microsoft.Win32.SystemEvents.DisplaySettingsChanged -= OnDisplaySettingsChanged;
         _tellToasts?.Dispose();
+        _trayIcon?.Dispose();
         _pipeline?.Guilds.Flush();
         if (_viewModel is not null)
         {

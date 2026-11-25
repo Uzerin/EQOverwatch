@@ -134,6 +134,14 @@ public sealed partial class WatchedLogConfig : ObservableObject
     [ObservableProperty]
     private bool _isTriggerEnabled = true;
 
+    /// <summary>A retired character: hidden from the Characters list (unless retired ones are shown) with its triggers off; its data is kept.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(RetireText))]
+    private bool _isRetired;
+
+    /// <summary>"Retire", or "Unretire" for a retired character.</summary>
+    public string RetireText => IsRetired ? "Unretire" : "Retire";
+
     /// <summary>Highest Complete Heal chain position a character can hold.</summary>
     public const int MaxChChainPosition = 12;
 

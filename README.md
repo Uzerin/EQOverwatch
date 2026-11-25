@@ -33,7 +33,7 @@ as many characters as you play, without touching the game.
 - Inventory, worn gear, spellbook and missing spells for every character and class persona.
 - Skills with their caps, tradeskill success rates and faction for each character.
 - Drop Table: drop rates by mob and item for each server, pooled with other players and with servers whose loot is normal.
-- Unanswered tells across all your characters, and a search of every character's chat history.
+- Unanswered tells and DZ timers across all your characters, and a search of every character's chat history.
 - Maps: the Overwatch map pack and your own labels on the in-game maps.
 
 **Built for boxers**
@@ -62,6 +62,14 @@ addresses are kept. Untick **Count me in the anonymous player count** on Setting
 - Run `/outputfile inventory`, `spellbook` and `missingspells` in game to fill in character data.
 
 ## Changelog
+
+### 1.0.110
+
+- DZ timers on the Tells overlay, turning red with 15 minutes left.
+- Ctrl+F searches characters, items, mobs and triggers; the fight list has a mob name search.
+- Trigger folders, grouped by expansion and zone or by your own folders.
+- Retire characters, minimize to the tray, compact mode and an interface size from 50% to 150%.
+- Spell Stats can show resists for one mob.
 
 ### 1.0.109
 

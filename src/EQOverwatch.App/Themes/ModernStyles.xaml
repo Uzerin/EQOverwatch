@@ -473,11 +473,15 @@
         </Setter>
     </Style>
 
+    <!-- Table spacing; compact mode (Settings) replaces these two. -->
+    <Thickness x:Key="GridHeaderPadding">8,8</Thickness>
+    <Thickness x:Key="GridCellPadding">6,5</Thickness>
+
     <Style TargetType="DataGridColumnHeader">
         <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
-        <Setter Property="Padding" Value="8,8"/>
+        <Setter Property="Padding" Value="{DynamicResource GridHeaderPadding}"/>
         <Setter Property="HorizontalContentAlignment" Value="Left"/>
         <Setter Property="Template">
             <Setter.Value>
@@ -520,7 +524,7 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="DataGridCell">
-                    <Border Background="{TemplateBinding Background}" Padding="6,5" SnapsToDevicePixels="True">
+                    <Border Background="{TemplateBinding Background}" Padding="{DynamicResource GridCellPadding}" SnapsToDevicePixels="True">
                         <ContentPresenter VerticalAlignment="Center"/>
                     </Border>
                 </ControlTemplate>

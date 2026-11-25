@@ -168,6 +168,8 @@
                               ToolTip="Filters the Characters, Loot, Attendance, Items &amp; Scrolls and Mob History tabs and the DPS tab's fights. Starts on the server of the character you played last; pick another server, or All servers."/>
                     <Button Content="Test overlays" Command="{Binding TestOverlaysCommand}" Style="{StaticResource SecondaryButton}" Margin="0,3,0,3"
                             ToolTip="Sends sample alerts, a bar for each timer overlay and a synthetic encounter."/>
+                    <Button Content="Search  Ctrl+F" Click="Search_Click" Style="{StaticResource SecondaryButton}" Margin="10,3,0,3"
+                            ToolTip="Find characters, items, mobs and fights, and triggers anywhere in the app."/>
                 </WrapPanel>
             </DockPanel>
         </Border>
@@ -245,6 +247,8 @@
                         <Button DockPanel.Dock="Left" Content="Add log file…" Command="{Binding AddLogCommand}"
                                 Style="{StaticResource SecondaryButton}" Margin="0,0,14,0"
                                 ToolTip="For a log that is not in your EverQuest Logs folder."/>
+                        <CheckBox DockPanel.Dock="Right" Content="Show retired" IsChecked="{Binding ShowRetired}" VerticalAlignment="Center"
+                                  ToolTip="List retired characters too, so you can unretire them."/>
                         <StackPanel VerticalAlignment="Center">
                             <TextBlock Style="{StaticResource HintText}" Text="{Binding EqFolderStatus}"/>
                             <TextBlock Style="{StaticResource HintText}" Text="{Binding ChainSummary}"/>
@@ -344,12 +348,18 @@
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
-                            <DataGridTemplateColumn Width="100">
+                            <DataGridTemplateColumn Width="Auto">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
-                                        <Button Content="Remove" Style="{StaticResource SecondaryButton}" Margin="4,1" Padding="10,3"
-                                                Command="{Binding DataContext.RemoveLogCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                CommandParameter="{Binding}"/>
+                                        <StackPanel Orientation="Horizontal">
+                                            <Button Content="{Binding RetireText}" Style="{StaticResource SecondaryButton}" Margin="4,1" Padding="10,3"
+                                                    Command="{Binding DataContext.RetireLogCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    CommandParameter="{Binding}"
+                                                    ToolTip="Hide this character from the list and turn its triggers off; its data is kept. Show retired brings it back."/>
+                                            <Button Content="Remove" Style="{StaticResource SecondaryButton}" Margin="4,1" Padding="10,3"
+                                                    Command="{Binding DataContext.RemoveLogCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    CommandParameter="{Binding}"/>
+                                        </StackPanel>
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
@@ -427,7 +437,42 @@
                                     <Button Content="[ Share {EQO} ]" Command="{Binding ShareSelectedRuleCommand}" Style="{StaticResource SecondaryButton}" Margin="0,0,0,6"
                                             ToolTip="Copies the selected trigger as an {EQO:...} token you can paste into raid chat."/>
                                 </WrapPanel>
-                                <ListBox ItemsSource="{Binding Rules}" SelectedItem="{Binding SelectedRule, Mode=TwoWay}">
+                                <CheckBox DockPanel.Dock="Top" Margin="0,0,0,6" Content="Group by my own folders" IsChecked="{Binding GroupTriggersByFolder}"
+                                          ToolTip="Off: grouped by expansion, then zone (from each trigger's Zone). On: grouped by each trigger's Folder."/>
+                                <ListBox ItemsSource="{Binding RulesView}" SelectedItem="{Binding SelectedRule, Mode=TwoWay}"
+                                         VirtualizingPanel.IsVirtualizingWhenGrouping="True">
+                                    <ListBox.GroupStyle>
+                                        <GroupStyle>
+                                            <GroupStyle.ContainerStyle>
+                                                <Style TargetType="GroupItem">
+                                                    <Setter Property="Template">
+                                                        <Setter.Value>
+                                                            <ControlTemplate TargetType="GroupItem">
+                                                                <Expander IsExpanded="True" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2,0,0">
+                                                                    <Expander.Header>
+                                                                        <DockPanel>
+                                                                            <Button DockPanel.Dock="Right" Content="off" Style="{StaticResource SecondaryButton}" Padding="6,0" Margin="4,0,0,0" FontSize="11"
+                                                                                    ToolTip="Turn every trigger in this group off"
+                                                                                    Command="{Binding DataContext.DisableTriggerGroupCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                                                    CommandParameter="{Binding}"/>
+                                                                            <Button DockPanel.Dock="Right" Content="on" Style="{StaticResource SecondaryButton}" Padding="6,0" Margin="8,0,0,0" FontSize="11"
+                                                                                    ToolTip="Turn every trigger in this group on"
+                                                                                    Command="{Binding DataContext.EnableTriggerGroupCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                                                    CommandParameter="{Binding}"/>
+                                                                            <TextBlock FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis">
+                                                                                <Run Text="{Binding Name, Mode=OneWay}"/><Run Text="  "/><Run Foreground="{DynamicResource TextMutedBrush}" Text="{Binding ItemCount, Mode=OneWay}"/>
+                                                                            </TextBlock>
+                                                                        </DockPanel>
+                                                                    </Expander.Header>
+                                                                    <ItemsPresenter Margin="12,0,0,0"/>
+                                                                </Expander>
+                                                            </ControlTemplate>
+                                                        </Setter.Value>
+                                                    </Setter>
+                                                </Style>
+                                            </GroupStyle.ContainerStyle>
+                                        </GroupStyle>
+                                    </ListBox.GroupStyle>
                                     <ListBox.ItemTemplate>
                                         <DataTemplate>
                                             <DockPanel>
@@ -489,10 +534,16 @@
                                             <TextBox Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" FontFamily="Consolas"
                                                      Text="{Binding SelectedRule.Pattern, UpdateSourceTrigger=PropertyChanged}"/>
 
-                                            <StackPanel Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Orientation="Horizontal" Margin="0,4,0,6">
-                                                <CheckBox Content="Use regular expression" IsChecked="{Binding SelectedRule.UseRegex}" Margin="0,0,18,0"/>
-                                                <CheckBox Content="Enabled" IsChecked="{Binding SelectedRule.IsEnabled}"/>
-                                            </StackPanel>
+                                            <WrapPanel Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Orientation="Horizontal" Margin="0,4,0,6">
+                                                <CheckBox Content="Use regular expression" IsChecked="{Binding SelectedRule.UseRegex}" Margin="0,0,18,0" VerticalAlignment="Center"/>
+                                                <CheckBox Content="Enabled" IsChecked="{Binding SelectedRule.IsEnabled}" Margin="0,0,18,0" VerticalAlignment="Center"/>
+                                                <TextBlock Text="Zone" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                                <TextBox Width="160" Text="{Binding SelectedRule.Zone, UpdateSourceTrigger=LostFocus}" Margin="0,0,18,0"
+                                                         ToolTip="The zone this trigger is for, as the game names it (&quot;Vex Thal&quot;); empty for any zone. Groups the list by expansion and zone."/>
+                                                <TextBlock Text="Folder" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                                <TextBox Width="140" Text="{Binding SelectedRule.Folder, UpdateSourceTrigger=LostFocus}"
+                                                         ToolTip="Your own folder for this trigger, used when the list is grouped by your folders. Empty is General."/>
+                                            </WrapPanel>
 
                                             <TextBlock Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="2" Style="{StaticResource ErrorText}"
                                                        Text="{Binding SelectedRule.Error}"/>
@@ -1141,8 +1192,11 @@
                                 <DatePicker SelectedDate="{Binding EncounterFrom, Mode=TwoWay}" ToolTip="Show fights that started on or after this day."/>
                                 <TextBlock Text="End" VerticalAlignment="Center" Margin="12,0,6,0"/>
                                 <DatePicker SelectedDate="{Binding EncounterTo, Mode=TwoWay}" ToolTip="Show fights that started on or before this day."/>
+                                <TextBlock Text="Mob" VerticalAlignment="Center" Margin="12,0,6,0"/>
+                                <TextBox Width="130" VerticalAlignment="Center" Text="{Binding EncounterNameFilter, UpdateSourceTrigger=PropertyChanged, Delay=250}"
+                                         ToolTip="Type part of a mob's name to list only its fights."/>
                                 <Button Style="{StaticResource SecondaryButton}" Content="Reset" Margin="10,0,0,0" Padding="12,3" Command="{Binding ResetEncounterDatesCommand}"
-                                        ToolTip="Show every fight again."/>
+                                        ToolTip="Clear the dates and the name, and show every fight again."/>
                                 <TextBlock Text="{Binding EncounterCountText}" Style="{StaticResource HintText}" VerticalAlignment="Center" Margin="10,0,0,0"/>
                             </StackPanel>
                             <DataGrid HorizontalAlignment="Left" ItemsSource="{Binding Encounters}" SelectedItem="{Binding SelectedEncounter, Mode=TwoWay}"
@@ -3000,7 +3054,11 @@
                                     <DataGridTextColumn Header="Blocked by" Binding="{Binding BlockedBy, Mode=OneWay}" Width="Auto"/>
                                 </DataGrid.Columns>
                             </DataGrid>
-                            <TextBlock Grid.Row="3" FontWeight="SemiBold" Margin="0,12,0,6" Text="Resists"/>
+                            <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,12,0,6">
+                                <TextBlock FontWeight="SemiBold" VerticalAlignment="Center" Text="Resists"/>
+                                <ComboBox Width="220" Margin="12,0,0,0" ItemsSource="{Binding ResistMobs}" SelectedItem="{Binding ResistMob}" IsTextSearchEnabled="True"
+                                          ToolTip="Show how your spells did on one mob."/>
+                            </StackPanel>
                             <DataGrid Grid.Row="4" ItemsSource="{Binding ResistStatRows}" HorizontalAlignment="Left" VerticalAlignment="Top"
                                       AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
                                       HeadersVisibility="Column" GridLinesVisibility="Horizontal">
@@ -3662,6 +3720,21 @@
             <TabItem Header="Settings">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <presentation:ResponsiveColumnsPanel Margin="6,6,14,6" MinColumnWidth="430" MaxColumns="3" ColumnGap="12">
+
+                        <GroupBox Header="Look">
+                            <StackPanel Margin="4">
+                                <DockPanel Margin="0,0,0,8">
+                                    <TextBlock DockPanel.Dock="Left" Text="Interface size" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                    <TextBlock DockPanel.Dock="Right" Text="{Binding UiScaleText}" VerticalAlignment="Center" Width="44" Margin="10,0,0,0"/>
+                                    <Slider Minimum="50" Maximum="150" SmallChange="10" LargeChange="10" TickFrequency="10" IsSnapToTickEnabled="True"
+                                            VerticalAlignment="Center" Value="{Binding UiScalePercent, Delay=300}"
+                                            ToolTip="Makes the whole app smaller or bigger. Overlays keep their own size."/>
+                                </DockPanel>
+                                <CheckBox Content="Compact mode (smaller text, tighter tables)" IsChecked="{Binding CompactMode}" Margin="0,0,0,6"/>
+                                <CheckBox Content="Minimize to the system tray" IsChecked="{Binding MinimizeToTray}"
+                                          ToolTip="Minimizing hides the window to the tray icon (double-click it to bring the window back). The ✕ still closes the app."/>
+                            </StackPanel>
+                        </GroupBox>
 
                         <GroupBox Header="EverQuest game folder">
                             <StackPanel Margin="4">

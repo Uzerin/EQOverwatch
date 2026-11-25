@@ -430,15 +430,22 @@ public sealed partial class MainViewModel : ObservableObject
     private TriggerRuleViewModel CreateRule(TriggerRule rule)
     {
         var vm = new TriggerRuleViewModel(rule);
+        SetRuleGroup(vm);
         vm.PropertyChanged += OnRulePropertyChanged;
         return vm;
     }
 
     private void OnRulePropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is nameof(TriggerRuleViewModel.Error) or nameof(TriggerRuleViewModel.HasError))
+        if (e.PropertyName is nameof(TriggerRuleViewModel.Error) or nameof(TriggerRuleViewModel.HasError)
+            or nameof(TriggerRuleViewModel.GroupTop) or nameof(TriggerRuleViewModel.GroupSub) or nameof(TriggerRuleViewModel.GroupOrder))
         {
-            return; // set by ApplyTriggers itself
+            return; // set by ApplyTriggers or the grouping itself
+        }
+
+        if (e.PropertyName is nameof(TriggerRuleViewModel.Folder) or nameof(TriggerRuleViewModel.Zone) && sender is TriggerRuleViewModel changed)
+        {
+            SetRuleGroup(changed);
         }
 
         OnRulesChanged();
@@ -1415,6 +1422,7 @@ public sealed partial class MainViewModel : ObservableObject
                 log.IsTriggerEnabled = saved.IsTriggerEnabled;
                 log.TankChoice = saved.IsTank;
                 log.ChChainPosition = saved.ChChainPosition;
+                log.IsRetired = saved.IsRetired;
             }
 
             EqFolderPath = settings.EqFolderPath ?? string.Empty;
@@ -1448,10 +1456,14 @@ public sealed partial class MainViewModel : ObservableObject
             RebuildSortedCharacters();
             SyncChainPositions();
 
+            _groupTriggersByFolder = string.Equals(settings.TriggerGrouping, "Folders", StringComparison.OrdinalIgnoreCase);
             foreach (TriggerRule rule in settings.Triggers)
             {
                 Rules.Add(CreateRule(rule));
             }
+
+            ApplyTriggerGrouping();
+            RestoreLook(settings);
 
             SelectedRule = Rules.FirstOrDefault();
             ApplyTriggers();
@@ -1606,8 +1618,13 @@ public sealed partial class MainViewModel : ObservableObject
             IsTriggerEnabled = l.IsTriggerEnabled,
             IsTank = l.TankChoice,
             ChChainPosition = l.ChChainPosition,
+            IsRetired = l.IsRetired,
         }).ToList(),
         Triggers = Rules.Select(r => r.ToRule()).ToList(),
+        TriggerGrouping = GroupTriggersByFolder ? "Folders" : "Auto",
+        UiScalePercent = Math.Round(UiScalePercent),
+        CompactMode = CompactMode,
+        MinimizeToTray = MinimizeToTray,
         EncounterTimeoutSeconds = EncounterTimeoutSeconds,
         IsAudioMuted = IsAudioMuted,
         ReadTellsAloud = ReadTellsAloud,

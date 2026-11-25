@@ -19,10 +19,10 @@ public sealed partial class MainViewModel
     /// <summary>"EQ Overwatch".</summary>
     public string AppName => AppInfo.Name;
 
-    /// <summary>"v1.0.109", read from this assembly's version.</summary>
+    /// <summary>"v1.0.110", read from this assembly's version.</summary>
     public string AppVersion { get; } = AppInfo.FormatVersion(typeof(MainViewModel).Assembly);
 
-    /// <summary>"EQ Overwatch v1.0.109": the window title, and the footer of the Discord picture.</summary>
+    /// <summary>"EQ Overwatch v1.0.110": the window title, and the footer of the Discord picture.</summary>
     public string WindowTitle => $"{AppName} {AppVersion}";
 
     // ───────────────────────── EverQuest folder ─────────────────────────
@@ -184,6 +184,7 @@ public sealed partial class MainViewModel
         RefreshAccountColumns(DateTime.UtcNow);
         List<WatchedLogConfig> ordered = Logs
             .Where(l => serverFilter is null || l.ServerName.Equals(serverFilter, StringComparison.OrdinalIgnoreCase))
+            .Where(l => ShowRetired || !l.IsRetired)
             .ToList();
         ordered.Sort((a, b) =>
         {

@@ -23,7 +23,29 @@ public sealed partial class TriggerRuleViewModel : ObservableObject
         _audioFilePath = rule.AudioFilePath;
         _overlayCategory = rule.OverlayCategory;
         _customOverlayId = rule.CustomOverlayId;
+        _folder = rule.Folder ?? string.Empty;
+        _zone = rule.Zone ?? string.Empty;
     }
+
+    /// <summary>Your own folder ("" shows as General).</summary>
+    [ObservableProperty]
+    private string _folder;
+
+    /// <summary>The zone the trigger is for ("" for any zone).</summary>
+    [ObservableProperty]
+    private string _zone;
+
+    /// <summary>The list's first grouping level: the expansion or your folder. Set by the main view model.</summary>
+    [ObservableProperty]
+    private string _groupTop = string.Empty;
+
+    /// <summary>The second level: the zone (empty when grouped by folder).</summary>
+    [ObservableProperty]
+    private string _groupSub = string.Empty;
+
+    /// <summary>Sorts the first-level groups (expansion release order; "Any zone" first).</summary>
+    [ObservableProperty]
+    private int _groupOrder;
 
     public Guid Id { get; }
 
@@ -83,5 +105,7 @@ public sealed partial class TriggerRuleViewModel : ObservableObject
         AudioFilePath = AudioFilePath ?? string.Empty,
         OverlayCategory = OverlayCategory,
         CustomOverlayId = string.IsNullOrEmpty(CustomOverlayId) ? null : CustomOverlayId,
+        Folder = (Folder ?? string.Empty).Trim(),
+        Zone = (Zone ?? string.Empty).Trim(),
     };
 }

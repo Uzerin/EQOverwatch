@@ -61,6 +61,7 @@ public sealed partial class CompanionPipeline : IAsyncDisposable
         Drops = new DropStore();
         Progress = new ProgressStore();
         TellInbox = new TellInbox();
+        DynamicZones = new EQOverwatch.Core.Progress.DynamicZoneTracker();
         ResistStore = new MobResistStore();
         Resists = new ResistTrackerService(Spells, ResistStore);
         BuffUptimeTracker uptime = Uptime;
@@ -71,7 +72,7 @@ public sealed partial class CompanionPipeline : IAsyncDisposable
 
         // Every sink sees every line of every trigger-enabled log. Historical imports use none of them.
         var triggerSinks = new CompositeTriggerSink(
-            new ITriggerLineSink[] { Triggers, Buffs, Songs, Charm, SpellAlerts, TimerPause, RaidBosses, ChChain, Cooldowns, Abilities, SharedTriggers, Roster, Loot, Tells, Experience, MobExperience, Resists, Zones, Drops, Progress, TellInbox, OutputFiles, Chat, Guilds, ResourceHunter }, RaiseError);
+            new ITriggerLineSink[] { Triggers, Buffs, Songs, Charm, SpellAlerts, TimerPause, RaidBosses, ChChain, Cooldowns, Abilities, SharedTriggers, Roster, Loot, Tells, Experience, MobExperience, Resists, Zones, Drops, Progress, TellInbox, DynamicZones, OutputFiles, Chat, Guilds, ResourceHunter }, RaiseError);
         Activity = new CharacterActivityService();
         Songs.SetOwnCharacterProbe(IsMonitoredCharacter);
         Songs.SetActivityProbe(Activity.IsActive);
@@ -181,6 +182,9 @@ public sealed partial class CompanionPipeline : IAsyncDisposable
 
     /// <summary>Short notices (rolls, linkdead players) shown on the Tells overlay for 30 seconds.</summary>
     public EQOverwatch.Core.Progress.OverlayNoticeFeed Notices { get; } = new();
+
+    /// <summary>Your characters' dynamic zones and when each closes (shown on the Tells overlay).</summary>
+    public EQOverwatch.Core.Progress.DynamicZoneTracker DynamicZones { get; }
 
     /// <summary>Resist counts per mob and resist type, yours and the raid's shares.</summary>
     public MobResistStore ResistStore { get; }

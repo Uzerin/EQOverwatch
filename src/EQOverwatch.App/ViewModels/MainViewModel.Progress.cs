@@ -89,6 +89,7 @@ public sealed partial class MainViewModel
         {
             _pipeline.Progress.SetStoragePath(Path.Combine(_dataDirectory, "progress.json"));
             _pipeline.TellInbox.SetStoragePath(Path.Combine(_dataDirectory, "tells.json"));
+            _pipeline.DynamicZones.SetStoragePath(Path.Combine(_dataDirectory, "dynamiczones.json"));
             var unread = new List<(string Path, string Character, string Server)>();
             foreach (WatchedLogConfig log in Logs)
             {
