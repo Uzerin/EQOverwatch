@@ -201,3 +201,12 @@ CREATE TABLE IF NOT EXISTS bonus_sizes (
 );
 CREATE INDEX IF NOT EXISTS bonus_sizes_by_zone ON bonus_sizes (server, zone_key);
 CREATE INDEX IF NOT EXISTS bonus_sizes_by_day ON bonus_sizes (server, day);
+
+-- The servers an install's characters played on, from its daily player count (names only), for players per server.
+CREATE TABLE IF NOT EXISTS ping_servers (
+  id TEXT NOT NULL,
+  server TEXT NOT NULL,
+  last_day TEXT NOT NULL,
+  PRIMARY KEY (id, server)
+);
+CREATE INDEX IF NOT EXISTS ping_servers_day ON ping_servers (last_day);

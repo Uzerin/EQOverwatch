@@ -36,6 +36,43 @@ public interface ISharedDropsService
 
     /// <summary>Counts this install (a random id, not a name) as using the app today, with its version.</summary>
     Task PingAsync(string id, string version, CancellationToken cancellation = default);
+
+    /// <summary>The same, with the servers its characters played on lately (server names only).</summary>
+    Task PingAsync(string id, string version, IReadOnlyList<string> servers, CancellationToken cancellation = default) =>
+        PingAsync(id, version, cancellation);
+
+    /// <summary>The public player counts, or null when they could not be read.</summary>
+    Task<PlayerStats?> StatsAsync(CancellationToken cancellation = default) => Task.FromResult<PlayerStats?>(null);
+}
+
+/// <summary>How many installs used the app today, and per server today and in the last 7 days.</summary>
+public sealed record PlayerStats(int ActiveToday, IReadOnlyDictionary<string, int> ServersToday, IReadOnlyDictionary<string, int> Servers7Days)
+{
+    public static PlayerStats Parse(string json)
+    {
+        using JsonDocument document = JsonDocument.Parse(json);
+        JsonElement root = document.RootElement;
+        static Dictionary<string, int> Servers(JsonElement root, string name)
+        {
+            var result = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            if (root.TryGetProperty(name, out JsonElement list) && list.ValueKind == JsonValueKind.Array)
+            {
+                foreach (JsonElement row in list.EnumerateArray())
+                {
+                    if (row.TryGetProperty("s", out JsonElement s) && row.TryGetProperty("n", out JsonElement n) && s.GetString() is { Length: > 0 } server)
+                    {
+                        result[server] = n.GetInt32();
+                    }
+                }
+            }
+
+            return result;
+        }
+
+        return new PlayerStats(
+            root.TryGetProperty("activeToday", out JsonElement today) ? today.GetInt32() : 0,
+            Servers(root, "serversToday"), Servers(root, "servers7Days"));
+    }
 }
 
 /// <summary>The EQ Overwatch shared drops service (a Cloudflare Worker; see server/drops-worker).</summary>
@@ -112,9 +149,18 @@ public sealed class HttpSharedDropsService : ISharedDropsService
         return new MergedDropsDownload(updated, players, bytes, lastMerge);
     }
 
-    public async Task PingAsync(string id, string version, CancellationToken cancellation = default)
+    public Task PingAsync(string id, string version, CancellationToken cancellation = default) =>
+        PingAsync(id, version, Array.Empty<string>(), cancellation);
+
+    public async Task<PlayerStats?> StatsAsync(CancellationToken cancellation = default)
     {
-        string body = JsonSerializer.Serialize(new { id, version });
+        using HttpResponseMessage response = await _http.GetAsync(new Uri(_base, "v1/stats"), cancellation).ConfigureAwait(false);
+        return response.IsSuccessStatusCode ? PlayerStats.Parse(await response.Content.ReadAsStringAsync(cancellation).ConfigureAwait(false)) : null;
+    }
+
+    public async Task PingAsync(string id, string version, IReadOnlyList<string> servers, CancellationToken cancellation = default)
+    {
+        string body = servers.Count > 0 ? JsonSerializer.Serialize(new { id, version, servers }) : JsonSerializer.Serialize(new { id, version });
         using var content = new StringContent(body, System.Text.Encoding.UTF8, "application/json");
         using HttpResponseMessage response = await _http.PostAsync(new Uri(_base, "v1/ping"), content, cancellation).ConfigureAwait(false);
         await ThrowIfFailed(response, cancellation).ConfigureAwait(false);

@@ -21,6 +21,11 @@ public sealed record TlpServerView(string Key, string Name, IReadOnlyList<string
     public bool HasChallenges => Challenges.Count > 0;
 
     public bool NoBonuses => !HasBonuses;
+
+    /// <summary>"3 EQ Overwatch players this week" (empty when none are known).</summary>
+    public string Players { get; init; } = string.Empty;
+
+    public bool HasPlayers => Players.Length > 0;
 }
 
 /// <summary>A row of the Resource Hunter tables: two bonuses side by side (either may be missing that day).</summary>
@@ -222,7 +227,7 @@ public sealed partial class MainViewModel
                 ReferenceEquals(u, next))).ToList();
             (string nextLine, string nowLine) = RulesetLines(server, today);
             TlpTabs.Add(new TlpServerView(server.Key, server.Name, server.Rules, "Source: " + server.Source, nowLine, nextLine, rows, server.HasBonuses,
-                server.ChallengeList ?? Array.Empty<TlpChallenge>()));
+                server.ChallengeList ?? Array.Empty<TlpChallenge>()) { Players = PlayersOnServerText(server) });
         }
 
         SelectedTlpTab = TlpTabs.FirstOrDefault(t => t.Key == keep)

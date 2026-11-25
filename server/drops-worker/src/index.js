@@ -27,7 +27,7 @@
 //   GET    /v1/bonus-sizes/{server}?zone=Z  a zone's median size per day: { zone, sizes: [{ d, k, m, n }] }
 //   GET    /v1/itemfocus?name=N | ?id=I  an item's focus effects { items: [{ id, name, foci: [{ s, n }] }] } (s: spell id, n: spell
 //                                        name), looked up once from the item source (ITEM_SOURCE) and remembered for everyone
-//   POST   /v1/ping                      { id, version }: counts this install as active today
+//   POST   /v1/ping                      { id, version, servers? }: counts this install as active today (and on those servers)
 //   GET    /v1/stats                     public player counts
 //   GET    /v1/admin/stats               the same with the versions in use        (Authorization: Bearer ADMIN_KEY)
 //   DELETE /v1/admin/{server}/{id}       take an install's drops down and block it (Authorization: Bearer ADMIN_KEY)
@@ -1322,6 +1322,17 @@ async function ping(request, env) {
   await env.DB.prepare(
     "INSERT INTO pings (id, version, first_day, last_day) VALUES (?, ?, ?, ?) " +
     "ON CONFLICT(id) DO UPDATE SET version = excluded.version, last_day = excluded.last_day").bind(id, version, today, today).run();
+
+  // The servers this install's characters played on lately (names only), for "players per server". At most 10.
+  const servers = Array.isArray(body?.servers)
+    ? [...new Set(body.servers.filter(s => typeof s === "string").map(s => s.toLowerCase()).filter(s => SERVER.test(s)))].slice(0, 10)
+    : [];
+  if (servers.length > 0) {
+    await env.DB.batch(servers.map(s => env.DB.prepare(
+      "INSERT INTO ping_servers (id, server, last_day) VALUES (?, ?, ?) ON CONFLICT(id, server) DO UPDATE SET last_day = excluded.last_day")
+      .bind(id, s, today)));
+  }
+
   return json({ ok: true });
 }
 
@@ -1336,6 +1347,9 @@ async function stats(env, withVersions) {
       "SUM(first_day = ?) AS new_today, SUM(first_day >= ?) AS new_week, COUNT(*) AS ever FROM pings", today, week, month, today, week),
     q("SELECT COUNT(DISTINCT id) AS n FROM uploads WHERE updated >= ?", now - (30 * 86400)),
   ]);
+  const perServer = async since => ((await env.DB.prepare(
+    "SELECT server AS s, COUNT(*) AS n FROM ping_servers WHERE last_day >= ? GROUP BY server ORDER BY n DESC, server").bind(since).all()).results || []);
+  const [serversToday, servers7Days] = await Promise.all([perServer(today), perServer(week)]);
   const result = {
     activeToday: active?.today || 0,
     active7Days: active?.week || 0,
@@ -1344,6 +1358,8 @@ async function stats(env, withVersions) {
     new7Days: active?.new_week || 0,
     everSeen: active?.ever || 0,
     sharingDrops: sharers?.n || 0,
+    serversToday,
+    servers7Days,
   };
 
   if (withVersions) {

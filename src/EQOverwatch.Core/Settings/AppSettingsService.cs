@@ -18,7 +18,11 @@ namespace EQOverwatch.Core.Settings;
 /// </summary>
 public sealed class AppSettingsService : IDisposable
 {
-    public static readonly TimeSpan DefaultSaveDelay = TimeSpan.FromMilliseconds(500);
+    /// <summary>How long changes wait before they are written; closing the app (or a crash) writes them at once.</summary>
+    public static readonly TimeSpan DefaultSaveDelay = TimeSpan.FromSeconds(60);
+
+    /// <summary>The previous good settings file, kept next to it and used when settings.json cannot be read.</summary>
+    public string BackupPath => FilePath + ".bak";
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -90,16 +94,34 @@ public sealed class AppSettingsService : IDisposable
         }
         catch (JsonException ex)
         {
-            LastLoadError = $"settings.json was unreadable and has been reset: {ex.Message}";
             try
             {
                 File.Move(FilePath, FilePath + ".corrupt", overwrite: true);
             }
             catch (Exception moveError) when (moveError is IOException or UnauthorizedAccessException)
             {
-                // keep going with defaults even if the bad file can't be set aside
+                // keep going even if the bad file can't be set aside
             }
 
+            // The last good copy, when there is one.
+            try
+            {
+                if (File.Exists(BackupPath))
+                {
+                    using FileStream backup = File.OpenRead(BackupPath);
+                    if (JsonSerializer.Deserialize<AppSettings>(backup, JsonOptions) is { } restored)
+                    {
+                        LastLoadError = $"settings.json was unreadable, so the last good copy (saved {File.GetLastWriteTime(BackupPath):MMM d HH:mm}) was restored.";
+                        return Normalize(restored);
+                    }
+                }
+            }
+            catch (Exception backupError) when (backupError is JsonException or IOException or UnauthorizedAccessException)
+            {
+                // fall through to defaults
+            }
+
+            LastLoadError = $"settings.json was unreadable and has been reset: {ex.Message}";
             return new AppSettings();
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -168,7 +190,7 @@ public sealed class AppSettingsService : IDisposable
 
             if (File.Exists(FilePath))
             {
-                File.Replace(temp, FilePath, destinationBackupFileName: null);
+                File.Replace(temp, FilePath, BackupPath); // the previous file becomes settings.json.bak
             }
             else
             {

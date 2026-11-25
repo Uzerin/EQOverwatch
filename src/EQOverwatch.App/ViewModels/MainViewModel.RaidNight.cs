@@ -167,6 +167,11 @@ public sealed partial class MainViewModel
 
     partial void OnSelectedRaidTabChanged(int value)
     {
+        if (value == GuildRaidTab)
+        {
+            RebuildGuildTab();
+        }
+
         if (!_restoring)
         {
             RequestSave();
@@ -202,7 +207,7 @@ public sealed partial class MainViewModel
     {
         SelectedTriggersTab = Math.Clamp(settings.LastTriggersTab, 0, 3);
         SelectedLootTab = Math.Clamp(settings.LastLootTab, 0, 2);
-        SelectedRaidTab = Math.Clamp(settings.LastRaidTab, 0, 2);
+        SelectedRaidTab = Math.Clamp(settings.LastRaidTab, 0, GuildRaidTab);
         SelectedProgressTab = Math.Clamp(settings.LastProgressTab, 0, 3);
         SelectedLogsTab = Math.Clamp(settings.LastLogsTab, 0, 1);
 

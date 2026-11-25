@@ -30,7 +30,7 @@ public partial class SearchWindow : Window
         }
 
         Status.Text = Query.Text.Trim().Length < 2
-            ? "Type at least two letters: characters, items, mobs and fights, triggers."
+            ? "Type at least two letters: characters, items, mobs and fights, triggers, spells, zones."
             : hits.Count == 0 ? "Nothing found." : $"{hits.Count} found. Enter or double-click to open.";
     }
 

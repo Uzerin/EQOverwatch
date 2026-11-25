@@ -43,6 +43,7 @@ public partial class CompanionApp : Application
         try
         {
             CrashLog.Write(_crashFolder, source, error, AppInfo.Version, DateTime.UtcNow);
+            _settingsService?.Flush(); // settings wait up to a minute before they are written: keep them
         }
         catch
         {
@@ -79,9 +80,9 @@ public partial class CompanionApp : Application
         // Unhandled errors go to crash.log in the settings folder, so a crash can be looked into.
         string crashFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), AppInfo.SettingsFolderName);
         _crashFolder = crashFolder;
-        DispatcherUnhandledException += (_, args) => CrashLog.Write(crashFolder, "UI thread", args.Exception, AppInfo.Version, DateTime.UtcNow);
+        DispatcherUnhandledException += (_, args) => WriteCrashLog("UI thread", args.Exception);
         AppDomain.CurrentDomain.UnhandledException += (_, args) =>
-            CrashLog.Write(crashFolder, "background thread", args.ExceptionObject as Exception, AppInfo.Version, DateTime.UtcNow);
+            WriteCrashLog("background thread", args.ExceptionObject as Exception ?? new InvalidOperationException("Unknown error"));
         TaskScheduler.UnobservedTaskException += (_, args) =>
             CrashLog.Write(crashFolder, "unobserved task", args.Exception, AppInfo.Version, DateTime.UtcNow);
 

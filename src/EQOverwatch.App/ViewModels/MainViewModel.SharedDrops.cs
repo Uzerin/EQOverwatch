@@ -108,7 +108,7 @@ public sealed partial class MainViewModel
         _playerCountBusy = true;
         try
         {
-            await _sharedDrops!.PingAsync(_playerCountId, Core.AppInfo.Version);
+            await _sharedDrops!.PingAsync(_playerCountId, Core.AppInfo.Version, RecentServers());
             _playerCountDay = today;
             RequestSave();
         }
@@ -191,6 +191,8 @@ public sealed partial class MainViewModel
     private void RefreshSharedDrops(DateTime nowUtc)
     {
         RefreshPlayerCount(nowUtc);
+        RefreshPlayerStats(nowUtc);
+        RefreshPlaytime(nowUtc);
         if (_sharedDrops is null || (!UseSharedDrops && !ShareMyDrops) || _dropsScanning || _sharedDropsBusy || nowUtc < _nextSharedDropsSyncUtc)
         {
             return;

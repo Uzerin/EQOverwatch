@@ -282,6 +282,24 @@ public sealed partial class MapsViewModel : ObservableObject
         }
     }
 
+    /// <summary>Opens a zone's map on the Select zone sub-tab (from Ctrl+F). False when the pack has no map for it.</summary>
+    public bool OpenZone(string shortName)
+    {
+        IsSelectZoneTab = true;
+        if (Expansions.Count > 0)
+        {
+            SelectedExpansion = Expansions[0]; // All
+        }
+
+        if (ZoneChoices.FirstOrDefault(z => z.ShortName.Equals(shortName, StringComparison.OrdinalIgnoreCase)) is not { } zone)
+        {
+            return false;
+        }
+
+        SelectedZone = zone;
+        return true;
+    }
+
     public MapExpansionChoice? SelectedExpansion
     {
         get => _selectedExpansion;

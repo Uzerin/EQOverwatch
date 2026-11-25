@@ -233,6 +233,12 @@ public sealed partial class MainViewModel
     [RelayCommand]
     private void CopyImageForDiscord() => CopyImage(CurrentEncounter());
 
+    /// <summary>The compact Discord picture: the title and the damage bars only (no graph, tanking or healing).</summary>
+    [RelayCommand]
+    private void CopyCompactImage() => CopyImage(CurrentEncounter() is { } fight
+        ? fight with { Timeline = null, DamageTaken = Array.Empty<DamageTakenSnapshot>(), Healing = Array.Empty<HealingSnapshot>() }
+        : null);
+
     /// <summary>Copies <paramref name="encounter"/> (also used by the DPS overlay's header buttons) for EverQuest chat.</summary>
     public void CopyChat(EncounterSnapshot? encounter)
     {

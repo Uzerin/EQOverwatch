@@ -122,14 +122,16 @@ public sealed partial class MainViewModel : ObservableObject
         _overlays.PlacementChanged += OnPlacementChanged;
         _overlays.CloseRequested += (_, kind) => CloseOverlay(kind);
         _overlays.CustomCloseRequested += (_, id) => CloseCustomOverlay(id);
-        _pipeline.Error += ex => StatusMessage = $"Error: {ex.Message}";
-        _pipeline.TailError += (log, ex) => StatusMessage = $"Cannot read {log.DisplayName}: {ex.Message}";
-        _settingsService.SaveFailed += ex => StatusMessage = $"Settings could not be saved: {ex.Message}";
+        _pipeline.Error += ex => AddProblem(StatusMessage = $"Error: {ex.Message}");
+        _pipeline.TailError += (log, ex) => AddProblem(StatusMessage = $"Cannot read {log.DisplayName}: {ex.Message}");
+        _settingsService.SaveFailed += ex => AddProblem(StatusMessage = $"Settings could not be saved: {ex.Message}");
 
         if (_settingsService.LastLoadError is { } loadError)
         {
-            StatusMessage = loadError;
+            AddProblem(StatusMessage = loadError);
         }
+
+        CheckCrashLog(settings.LastCrashSeenUtc);
 
         if (!string.IsNullOrWhiteSpace(SpellsFilePath))
         {
@@ -1464,6 +1466,8 @@ public sealed partial class MainViewModel : ObservableObject
 
             ApplyTriggerGrouping();
             RestoreLook(settings);
+            _backfillFrom = settings.BackfillFromLocal;
+            _backfillKey = settings.BackfillLogsKey ?? string.Empty;
 
             SelectedRule = Rules.FirstOrDefault();
             ApplyTriggers();
@@ -1625,6 +1629,9 @@ public sealed partial class MainViewModel : ObservableObject
         UiScalePercent = Math.Round(UiScalePercent),
         CompactMode = CompactMode,
         MinimizeToTray = MinimizeToTray,
+        LastCrashSeenUtc = _lastCrashSeenUtc,
+        BackfillFromLocal = _backfillFrom,
+        BackfillLogsKey = _backfillKey,
         EncounterTimeoutSeconds = EncounterTimeoutSeconds,
         IsAudioMuted = IsAudioMuted,
         ReadTellsAloud = ReadTellsAloud,

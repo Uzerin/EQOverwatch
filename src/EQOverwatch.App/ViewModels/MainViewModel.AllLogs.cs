@@ -93,6 +93,28 @@ public partial class MainViewModel
         AutoImportTask = LoadAllLogsAsync(days: 0);
     }
 
+    private DateTime? _backfillFrom;
+    private string _backfillKey = string.Empty;
+
+    /// <summary>Which logs and history setting a remembered start belongs to.</summary>
+    private string BackfillKey(IReadOnlyList<string> paths) =>
+        HistoricalDaysLimit.ToString(System.Globalization.CultureInfo.InvariantCulture) + "|" +
+        string.Join("|", paths.Select(p => p.ToUpperInvariant()).Order(StringComparer.Ordinal));
+
+    /// <summary>
+    /// After a read: when the meter is full, the next start only needs the logs from an hour before its oldest fight (older fights
+    /// would be dropped again anyway).
+    /// </summary>
+    private void RememberBackfillStart(string key)
+    {
+        IReadOnlyList<Core.Models.EncounterSnapshot> completed = _pipeline.LiveDps.Snapshot.Completed;
+        _backfillKey = key;
+        _backfillFrom = completed.Count >= Core.Services.LiveDpsTracker.DefaultMaxCompletedEncounters
+            ? completed.Min(e => e.StartTime).AddHours(-1)
+            : null;
+        RequestSave();
+    }
+
     /// <summary>Catches the DPS meter up from every log at start-up (the Historical Days to Load), as if the app had been open all along.</summary>
     private async Task CatchUpLiveDpsAsync(IReadOnlyList<string> paths)
     {
@@ -108,8 +130,16 @@ public partial class MainViewModel
         var progress = new Progress<double>(fraction => ImportProgress = fraction * 100.0);
         try
         {
-            HistoricalImportResult result = await _pipeline.BackfillLiveAsync(
-                paths, AppSettings.GetHistoricalStart(HistoricalDaysLimit, now), now, progress, cts.Token);
+            // The meter keeps only its newest fights: start where the oldest one kept last time began, unless the logs changed.
+            DateTime? start = AppSettings.GetHistoricalStart(HistoricalDaysLimit, now);
+            string key = BackfillKey(paths);
+            if (_backfillFrom is { } cached && _backfillKey == key && (start is null || cached > start))
+            {
+                start = cached;
+            }
+
+            HistoricalImportResult result = await _pipeline.BackfillLiveAsync(paths, start, now, progress, cts.Token);
+            RememberBackfillStart(key);
             ImportProgress = 100;
             ImportStatus = $"Loaded {result.LinesRead:N0} lines from {LogsText(result.Logs)} in {result.Elapsed.TotalSeconds:0.0}s: " +
                            $"{_pipeline.LiveDps.Snapshot.All.Count():N0} encounters.";

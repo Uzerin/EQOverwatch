@@ -168,9 +168,25 @@
                               ToolTip="Filters the Characters, Loot, Attendance, Items &amp; Scrolls and Mob History tabs and the DPS tab's fights. Starts on the server of the character you played last; pick another server, or All servers."/>
                     <Button Content="Test overlays" Command="{Binding TestOverlaysCommand}" Style="{StaticResource SecondaryButton}" Margin="0,3,0,3"
                             ToolTip="Sends sample alerts, a bar for each timer overlay and a synthetic encounter."/>
+                    <TextBlock Text="{Binding PlayersText}" Style="{StaticResource HintText}" VerticalAlignment="Center" Margin="10,0,0,0"
+                               ToolTip="EQ Overwatch players today, from the anonymous player count (each copy counts once a day)."/>
                     <Button Content="Search  Ctrl+F" Click="Search_Click" Style="{StaticResource SecondaryButton}" Margin="10,3,0,3"
                             ToolTip="Find characters, items, mobs and fights, and triggers anywhere in the app."/>
                 </WrapPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- ═════════ The app ran into an error last time ═════════ -->
+        <Border DockPanel.Dock="Top" Margin="8,8,8,0" Padding="14,8" CornerRadius="10" BorderThickness="1"
+                Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource DebuffsBarBrush}"
+                Visibility="{Binding HasCrashNotice, Converter={StaticResource BoolToVisibility}}">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <Button Content="Copy error details" Command="{Binding CopyCrashDetailsCommand}" Margin="0,0,8,0"
+                            ToolTip="Copies what went wrong, for pasting in the EQ Overwatch Discord. Nothing is sent by the app."/>
+                    <Button Content="Dismiss" Style="{StaticResource SecondaryButton}" Command="{Binding DismissCrashNoticeCommand}"/>
+                </StackPanel>
+                <TextBlock VerticalAlignment="Center" Text="{Binding CrashNotice}" TextWrapping="Wrap"/>
             </DockPanel>
         </Border>
 
@@ -1144,6 +1160,8 @@
                                     ToolTip="Copies the selected fight and its top 12 attackers as text for EverQuest chat."/>
                             <Button Content="[ Copy Image for Discord ]" Command="{Binding CopyImageForDiscordCommand}" Margin="0,0,8,0"
                                     ToolTip="Copies the selected fight as one picture with the damage dealt and the damage taken, ready to paste into Discord."/>
+                            <Button Content="[ Copy Compact Image ]" Command="{Binding CopyCompactImageCommand}" Margin="0,0,8,0" Style="{StaticResource SecondaryButton}"
+                                    ToolTip="A smaller picture with just the damage bars: no graph, tanking or healing."/>
                             <Button Content="Colors..." Command="{Binding OpenColorsCommand}" Style="{StaticResource SecondaryButton}"
                                     ToolTip="Choose the colors of each attack type, pets and healing in the Discord picture, with a preview."/>
                         </WrapPanel>
@@ -2536,6 +2554,26 @@
                             </Grid>
                         </Grid>
                     </TabItem>
+
+                    <TabItem Header="Guild">
+                        <DockPanel Margin="6">
+                            <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                                <TextBlock Text="{Binding GuildTitle}" FontSize="16" FontWeight="SemiBold"/>
+                                <TextBlock Text="{Binding GuildTabStatus}" Style="{StaticResource HintText}" TextWrapping="Wrap"/>
+                            </StackPanel>
+                            <DataGrid ItemsSource="{Binding GuildRows}" HorizontalAlignment="Left" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
+                                      HeadersVisibility="Column" GridLinesVisibility="Horizontal">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Name" Binding="{Binding Name, Mode=OneWay}" Width="Auto"/>
+                                    <DataGridTextColumn Header="Level" Binding="{Binding Level, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                    <DataGridTextColumn Header="Class" Binding="{Binding Class, Mode=OneWay}" Width="Auto"/>
+                                    <DataGridTextColumn Header="Rank" Binding="{Binding Rank, Mode=OneWay}" Width="Auto"/>
+                                    <DataGridTextColumn Header="Alt" Binding="{Binding Alt, Mode=OneWay}" Width="Auto"/>
+                                    <DataGridTextColumn Header="Last seen" Binding="{Binding LastSeen, Mode=OneWay}" SortMemberPath="LastSeenSort" Width="Auto"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </DockPanel>
+                    </TabItem>
                 </TabControl>
             </TabItem>
 
@@ -2552,6 +2590,7 @@
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="2*" MinHeight="140"/>
+                                <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
                             <DockPanel Grid.Row="0" Margin="0,0,0,8" LastChildFill="False">
@@ -2644,6 +2683,30 @@
                             </DataGrid>
                             </DockPanel>
                             <TextBlock Grid.Row="6" Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,8,0,0" Text="{Binding MobExperienceStatus}"/>
+
+                            <!-- Hours played per day over the last four weeks. -->
+                            <StackPanel Grid.Row="7" Margin="0,12,0,0">
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                    <TextBlock FontWeight="SemiBold" VerticalAlignment="Center" Text="Hours played per day, last 4 weeks"/>
+                                    <ComboBox Width="180" Margin="12,0,0,0" ItemsSource="{Binding PlaytimeCharacters}" SelectedItem="{Binding PlaytimeCharacter}"/>
+                                    <TextBlock Style="{StaticResource HintText}" VerticalAlignment="Center" Margin="12,0,0,0" Text="{Binding PlaytimeSummary}"/>
+                                </StackPanel>
+                                <ItemsControl ItemsSource="{Binding PlaytimeBars}" Height="120" HorizontalAlignment="Left">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <StackPanel Orientation="Horizontal"/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <DockPanel Width="26" Margin="1,0" ToolTip="{Binding Tip}" Background="Transparent">
+                                                <TextBlock DockPanel.Dock="Bottom" Text="{Binding Label}" FontSize="9" HorizontalAlignment="Center" Foreground="{DynamicResource TextMutedBrush}"/>
+                                                <Border VerticalAlignment="Bottom" Height="{Binding Height}" CornerRadius="2,2,0,0" Background="{DynamicResource AccentBrush}"/>
+                                            </DockPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
                         </Grid>
                     </TabItem>
 
@@ -2916,6 +2979,8 @@
                                     <ScrollViewer VerticalScrollBarVisibility="Auto" PreviewMouseWheel="ScrollWholePage">
                                         <StackPanel Margin="6" TextElement.Foreground="{DynamicResource TextPrimaryBrush}">
                                             <TextBlock Text="{Binding Name}" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,6" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                            <TextBlock Text="{Binding Players}" Style="{StaticResource HintText}" Margin="0,0,0,6"
+                                                       Visibility="{Binding HasPlayers, Converter={StaticResource BoolToVisibility}}"/>
                                             <TextBlock Text="{Binding Next}" Foreground="#5CC98A" FontWeight="SemiBold" TextWrapping="Wrap"/>
                                             <TextBlock Text="{Binding Now}" Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,0,0,10"/>
                                             <ItemsControl ItemsSource="{Binding Rules}" MaxWidth="1000" HorizontalAlignment="Left">
@@ -3721,6 +3786,23 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <presentation:ResponsiveColumnsPanel Margin="6,6,14,6" MinColumnWidth="430" MaxColumns="3" ColumnGap="12">
 
+                        <GroupBox Header="Problems lately" Visibility="{Binding HasProblems, Converter={StaticResource BoolToVisibility}}">
+                            <StackPanel Margin="4">
+                                <ItemsControl ItemsSource="{Binding Problems}" MaxHeight="160">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,0,0,3"/>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                    <Button Content="Copy" Command="{Binding CopyProblemsCommand}" Margin="0,0,8,0"
+                                            ToolTip="Copies the list, for pasting in the EQ Overwatch Discord."/>
+                                    <Button Content="Clear" Style="{StaticResource SecondaryButton}" Command="{Binding ClearProblemsCommand}"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </GroupBox>
+
                         <GroupBox Header="Look">
                             <StackPanel Margin="4">
                                 <DockPanel Margin="0,0,0,8">
@@ -4129,8 +4211,8 @@
 
                                 <TextBlock FontWeight="SemiBold" Text="Player count"/>
                                 <CheckBox Content="Count me in the anonymous player count" IsChecked="{Binding CountMeIn}" Margin="0,4,0,2"
-                                          ToolTip="Once a day the app sends a random id and its version number, so we know how many people use EQ Overwatch. No names, no IP addresses, nothing else."/>
-                                <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" Text="Sends a random id and the app version once a day. Nothing else."/>
+                                          ToolTip="Once a day the app sends a random id, its version number and the names of the servers you played on, so we know how many people use EQ Overwatch and where. No character names, no IP addresses, nothing else."/>
+                                <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" Text="Sends a random id, the app version and the servers you played on once a day. Nothing else."/>
                             </StackPanel>
                         </GroupBox>
 

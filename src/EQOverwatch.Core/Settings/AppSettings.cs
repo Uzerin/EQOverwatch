@@ -223,6 +223,18 @@ public sealed partial class AppSettings
     /// <summary>Interface size in percent (50 to 150); overlays are not affected.</summary>
     public double UiScalePercent { get; set; } = 100;
 
+    /// <summary>
+    /// Faster start: the DPS meter keeps only its newest fights, so after a full read the start time of the oldest fight it kept is
+    /// remembered and the next start reads the logs from there. Null until the first read; forgotten when the logs change.
+    /// </summary>
+    public DateTime? BackfillFromLocal { get; set; }
+
+    /// <summary>The logs (and history setting) <see cref="BackfillFromLocal"/> was worked out for.</summary>
+    public string BackfillLogsKey { get; set; } = string.Empty;
+
+    /// <summary>The newest crash.log entry already shown (so each error is reported once).</summary>
+    public DateTime? LastCrashSeenUtc { get; set; }
+
     /// <summary>Smaller text and tighter table rows.</summary>
     public bool CompactMode { get; set; }
 

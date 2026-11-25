@@ -53,8 +53,9 @@ as many characters as you play, without touching the game.
 Settings are saved in `%LocalAppData%\EQOverwatch`. When a new version is out, a bar at the top offers **Install update**, which
 downloads it, checks it and restarts the app; your settings are kept. Uninstall from Windows' Installed apps.
 
-**Player count:** once a day the app sends a random id and its version number, so we know how many people use it. No names and no IP
-addresses are kept. Untick **Count me in the anonymous player count** on Settings to stop it.
+**Player count:** once a day the app sends a random id, its version number and the names of the servers you played on, so we know
+how many people use it and on which servers (shown at the top of the app and on the TLP tab). No character names and no IP addresses
+are kept. Untick **Count me in the anonymous player count** on Settings to stop it.
 
 ## Tips
 
@@ -63,51 +64,30 @@ addresses are kept. Untick **Count me in the anonymous player count** on Setting
 
 ## Changelog
 
-### 1.0.110
+### 1.0.111
 
-- DZ timers on the Tells overlay, turning red with 15 minutes left.
-- Ctrl+F searches characters, items, mobs and triggers; the fight list has a mob name search.
-- Trigger folders, grouped by expansion and zone or by your own folders.
-- Retire characters, minimize to the tray, compact mode and an interface size from 50% to 150%.
-- Spell Stats can show resists for one mob.
+- Players today at the top of the app, and players per server on the TLP tab.
+- Guild tab, a playtime chart on Experience, and Ctrl+F finds spells and zones.
+- A compact Discord picture, a "Problems lately" list on Settings and a copy button after an error.
+- Faster start, fewer settings writes, and a damaged settings file is restored from the last good copy.
 
-### 1.0.109
+### 1.0.101 to 1.0.110
 
-- Encounter DPS can show only the fights between a start and an end date, with Reset to show them all.
+- Windows installer, welcome window, dark window tops and minimize to the tray.
+- Focus Effects filled in from your items, with a focus picker per type.
+- Encounter DPS: combined parses of picked fights, date and mob filters, new healing columns and sorts that stay put.
+- DZ timers on the Tells overlay, Ctrl+F search, trigger folders and retired characters.
+- Compact mode and interface size, releases posted to Discord.
 
-### 1.0.108
 
-- The Graph tab drops the replay slider, and the DPS graph uses its full height.
-- New releases are posted to the Discord server.
 
-### 1.0.107
 
-- Pick several fights in Encounter DPS (Ctrl or Shift) for one combined parse, timed by time in combat.
 
-### 1.0.106
 
-- Simpler Focus Effects tab (type, focus, description), and mana cost foci show their full range.
 
-### 1.0.105
 
-- Focus Effects fills in each focus from the items that fire in your log or that you wear.
-- New healing columns (HPS, total, effective, overheals, casts, biggest), and tables keep their sort when they refresh.
 
-### 1.0.104
 
-- Thinner, blank window top with small Discord-style buttons.
-
-### 1.0.103
-
-- Windows installer, a welcome window that finds your EverQuest folder, and dark window tops.
-
-### 1.0.102
-
-- Focus Effects has a focus per type (healing, damage, haste, mana, range and more) with what it gives at your level, and items seen firing one.
-
-### 1.0.101
-
-- Focus Effects lists the learned AAs that lengthen spells; the AA percent box is gone.
 
 ### 1.0.91 to 1.0.100
 
