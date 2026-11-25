@@ -144,7 +144,7 @@ public partial class MainViewModelTests
     }
 
     [Fact]
-    public void The_mob_card_shows_the_estimated_regen_and_hit_points()
+    public void The_mob_card_leaves_out_the_regen_estimate()
     {
         (Harness h, _) = BoxHarness();
         using (h)
@@ -162,7 +162,8 @@ public partial class MainViewModelTests
             h.Pipeline.LiveDps.OnNonCombatMessage("Xi Vius scowls at you, ready to attack -- looks kind of dangerous. (Lvl: 60)");
 
             MobCardInfo card = Assert.Single(cards);
-            Assert.Contains(card.Lines, l => l.StartsWith("Regen ~20/s · HP ~8", StringComparison.Ordinal) && l.Contains("(3 kills)", StringComparison.Ordinal));
+            Assert.DoesNotContain(card.Lines, l => l.StartsWith("Regen", StringComparison.Ordinal));
+            Assert.Contains(card.Lines, l => l.Contains("3 kills", StringComparison.Ordinal));
         }
     }
 

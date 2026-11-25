@@ -230,8 +230,24 @@ public partial class MainViewModel
             .Select(r => $"{r.Spell} {r.ResistPercent.ToString("0", culture)}% of {(r.Landed + r.Resisted).ToString(culture)}"));
     }
 
+    /// <summary>"Last killed Nov 24 21:05 · 12 kills": the kills of <paramref name="mob"/> in the fight list. Null when there are none.</summary>
+    internal string? LastKilledLine(string mob, CultureInfo culture)
+    {
+        EncounterSnapshot[] kills = _pipeline.LiveDps.Snapshot.Completed
+            .Concat(_pipeline.HistoricalDps.Snapshot.Completed)
+            .Where(e => e.Killed && e.TargetName.Equals(mob, StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+        if (kills.Length == 0)
+        {
+            return null;
+        }
+
+        DateTime last = kills.Max(k => k.EndTime);
+        return $"Last killed {last.ToString("MMM d HH:mm", culture)} · {kills.Length.ToString(culture)} kill{(kills.Length == 1 ? string.Empty : "s")}";
+    }
+
     /// <summary>
-    /// The mob card for <paramref name="mob"/>: its fights on <paramref name="server"/> (kills, attempts, times, best DPS), the raid's
+    /// The mob card for <paramref name="mob"/>: its fights on <paramref name="server"/> (kills, attempts, times, best DPS), when it was last killed, the raid's
     /// resist rates and its drops. Null when the app has none of these for the mob. The level range seen is the one for
     /// <paramref name="zone"/> (the zone the character is in), since one mob name can have other levels in other zones.
     /// </summary>
@@ -264,9 +280,9 @@ public partial class MainViewModel
             lines.Add(first);
         }
 
-        if (RegenFor(mob) is { } regen)
+        if (LastKilledLine(mob, culture) is { } lastKilled)
         {
-            lines.Add($"{regen.Describe()} ({regen.Kills.ToString(culture)} kills){KillTimeText(mob, regen)}");
+            lines.Add(lastKilled);
         }
 
         MobResistReport report = _pipeline.ResistStore.Report(mob, raid: true);
@@ -290,7 +306,7 @@ public partial class MainViewModel
 
         if (_pipeline.MobHits.MaxHit(mob) is > 0 and int maxHit)
         {
-            lines.Add($"Hits you for up to {maxHit.ToString("N0", culture)}");
+            lines.Add($"Max hit: {maxHit.ToString("N0", culture)}");
         }
 
         if (!string.IsNullOrEmpty(server)

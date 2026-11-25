@@ -1,11 +1,15 @@
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
+using EQOverwatch.Core.Models;
 using EQOverwatch.Core.Session;
 
 namespace EQOverwatch.App.ViewModels;
 
 /// <summary>One day's bar on the playtime chart.</summary>
 public sealed record PlaytimeBar(string Label, double Height, string Tip);
+
+/// <summary>A level a character reached, and how long after its previous level.</summary>
+public sealed record DingRow(string Character, int Level, string Reached, DateTime ReachedSort, string Gap, double GapSort);
 
 // The Experience tab's playtime chart: hours played per day over the last four weeks, for all characters or one, read from the logs'
 // timestamps (gaps over five minutes are time away). Read in the background while the Experience tab is open, at most every 10 minutes.
@@ -31,7 +35,52 @@ public sealed partial class MainViewModel
     [ObservableProperty]
     private string _playtimeSummary = string.Empty;
 
-    partial void OnPlaytimeCharacterChanged(string value) => ShowPlaytime();
+    [ObservableProperty]
+    private IReadOnlyList<DingRow> _dingRows = Array.Empty<DingRow>();
+
+    partial void OnPlaytimeCharacterChanged(string value)
+    {
+        ShowPlaytime();
+        ShowDings();
+    }
+
+    /// <summary>The levels reached by the picked character (or everyone), newest first, with the days since the level before.</summary>
+    private void ShowDings()
+    {
+        bool all = PlaytimeCharacter is null or AllPlaytimeCharacters;
+        CultureInfo culture = CultureInfo.CurrentCulture;
+        var rows = new List<DingRow>();
+        foreach (WatchedLogConfig log in Logs.ToList())
+        {
+            if (!all && !log.CharacterName.Equals(PlaytimeCharacter, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            rows.AddRange(DingRowsFor(log.CharacterName, _leveling.Levels(log.FilePath), culture));
+        }
+
+        DingRows = rows.OrderByDescending(r => r.ReachedSort).ToList();
+    }
+
+    /// <summary>Turns a character's level events (oldest first) into rows; the first level has no gap.</summary>
+    public static IReadOnlyList<DingRow> DingRowsFor(string character, IReadOnlyList<EQOverwatch.Core.Leveling.LevelEvent> levels, CultureInfo culture)
+    {
+        var rows = new List<DingRow>();
+        DateTime? previous = null;
+        foreach (EQOverwatch.Core.Leveling.LevelEvent level in levels.OrderBy(l => l.Time))
+        {
+            DateTime at = DateTimeOffset.FromUnixTimeSeconds(level.Time).LocalDateTime;
+            double gap = previous is { } before ? (at - before).TotalDays : -1;
+            string gapText = gap < 0 ? string.Empty
+                : gap < 1 ? (gap * 24).ToString("0.0", culture) + " h"
+                : gap.ToString("0.0", culture) + " days";
+            rows.Add(new DingRow(character, level.Level, at.ToString("yyyy-MM-dd HH:mm", culture), at, gapText, gap));
+            previous = at;
+        }
+
+        return rows;
+    }
 
     /// <summary>Called by the refresh tick: reads the playtime while the Experience tab is on screen.</summary>
     private void RefreshPlaytime(DateTime nowUtc)
@@ -78,6 +127,7 @@ public sealed partial class MainViewModel
                     }
 
                     ShowPlaytime();
+                    ShowDings();
                 });
             }
             finally

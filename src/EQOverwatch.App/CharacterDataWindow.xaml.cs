@@ -15,4 +15,7 @@ public partial class CharacterDataWindow : Window
     }
 
     public CharacterDataViewModel ViewModel { get; }
+
+    private void OnAddSocials(object sender, RoutedEventArgs e) =>
+        MessageBox.Show(this, ViewModel.AddOverwatchSocials(), "Overwatch Data socials", MessageBoxButton.OK, MessageBoxImage.Information);
 }

@@ -2706,6 +2706,17 @@
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
+
+                                <!-- Ding history: the levels reached, newest first. -->
+                                <TextBlock FontWeight="SemiBold" Margin="0,12,0,6" Text="Ding history"/>
+                                <DataGrid ItemsSource="{Binding DingRows}" AutoGenerateColumns="False" IsReadOnly="True" HorizontalAlignment="Left" MaxHeight="260">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Character" Binding="{Binding Character, Mode=OneWay}" Width="Auto"/>
+                                        <DataGridTextColumn Header="Level" Binding="{Binding Level, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                        <DataGridTextColumn Header="Reached" Binding="{Binding Reached, Mode=OneWay}" SortMemberPath="ReachedSort" Width="Auto"/>
+                                        <DataGridTextColumn Header="Time Since Last Level" Binding="{Binding Gap, Mode=OneWay}" SortMemberPath="GapSort" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
                             </StackPanel>
                         </Grid>
                     </TabItem>

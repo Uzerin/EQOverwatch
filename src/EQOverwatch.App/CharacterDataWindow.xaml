@@ -107,7 +107,12 @@
         </Style>
     </Window.Resources>
 
-    <DockPanel Margin="10">
+    <DockPanel Margin="10" Background="Transparent">
+        <DockPanel.ContextMenu>
+            <ContextMenu>
+                <MenuItem Header="Add Overwatch Data socials" Click="OnAddSocials"/>
+            </ContextMenu>
+        </DockPanel.ContextMenu>
 
         <!-- The account the character is on: links its shared bank with the other characters on the account. -->
         <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8" Visibility="{Binding HasAccounts, Converter={StaticResource BoolToVisibility}}">

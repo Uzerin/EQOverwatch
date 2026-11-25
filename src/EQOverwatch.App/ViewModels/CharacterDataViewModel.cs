@@ -67,7 +67,8 @@ public sealed record CharacterProgressSource(
     Func<IReadOnlyList<string>>? AccountNames = null,
     Func<IReadOnlyList<EQOverwatch.Core.Leveling.LevelEvent>>? LevelHistory = null,
     Func<IReadOnlyList<ChallengeRowView>>? Challenges = null,
-    AaSource? Aas = null);
+    AaSource? Aas = null,
+    Func<bool>? IsLoggedIn = null);
 
 /// <summary>
 /// One character's data window: inventory, spellbook, missing spells and key ring, read from the character's <c>/outputfile</c> files.
@@ -121,6 +122,41 @@ public sealed partial class CharacterDataViewModel : ObservableObject
     }
 
     public string CharacterName { get; }
+
+    /// <summary>
+    /// Adds the "Overwatch Data1" and "Overwatch Data2" socials to this character's EQ settings files and says what happened. Refused
+    /// while the character is logged in, because EQ rewrites the files when it camps.
+    /// </summary>
+    public string AddOverwatchSocials()
+    {
+        if (_progress?.IsLoggedIn?.Invoke() == true)
+        {
+            return $"Camp {CharacterName} first: EverQuest rewrites its settings when it camps, which would undo the change.";
+        }
+
+        string folder = _eqFolder() ?? string.Empty;
+        IReadOnlyList<string> files = OverwatchSocials.FilesFor(folder, CharacterName, ServerName);
+        if (files.Count == 0)
+        {
+            return $"No settings file for {CharacterName} on {ServerName} was found in the EverQuest folder.";
+        }
+
+        IReadOnlyList<SocialsResult> results = OverwatchSocials.AddTo(files);
+        var lines = results.Select(r => r.Outcome switch
+        {
+            SocialsOutcome.Added => $"{r.File}: added at {r.Slots}.",
+            SocialsOutcome.AlreadyThere => $"{r.File}: already has them.",
+            SocialsOutcome.NoRoom => $"{r.File}: fewer than two empty social slots, nothing changed.",
+            _ => $"{r.File}: could not be changed (in use?).",
+        }).ToList();
+        if (results.Any(r => r.Outcome == SocialsOutcome.Added))
+        {
+            lines.Add(string.Empty);
+            lines.Add($"In EverQuest, open Actions > Socials to find {OverwatchSocials.FirstName} and {OverwatchSocials.SecondName}.");
+        }
+
+        return string.Join(Environment.NewLine, lines);
+    }
 
     /// <summary>The Focus Effects tab's data for the chosen persona; null only in tests.</summary>
     [ObservableProperty]

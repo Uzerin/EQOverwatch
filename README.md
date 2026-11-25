@@ -60,9 +60,16 @@ are kept. Untick **Count me in the anonymous player count** on Settings to stop 
 ## Tips
 
 - Run `/who all` to fill in classes and levels; target a pet and type `/pet leader` to count its damage with its owner.
-- Run `/outputfile inventory`, `spellbook` and `missingspells` in game to fill in character data.
+- Run `/outputfile inventory`, `spellbook` and `missingspells` in game to fill in character data. Right-click a character's profile
+  window and pick **Add Overwatch Data socials** (while that character is logged out) to get two socials that run them all.
 
 ## Changelog
+
+### 1.0.112
+
+- "Add Overwatch Data socials" on the profile window's right-click menu.
+- Ding history under the playtime chart.
+- Mob Card: last killed and kill count, "Max hit", and no regen line.
 
 ### 1.0.111
 
