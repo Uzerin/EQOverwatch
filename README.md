@@ -63,6 +63,11 @@ addresses are kept. Untick **Count me in the anonymous player count** on Setting
 
 ## Changelog
 
+### 1.0.108
+
+- The Graph tab drops the replay slider, and the DPS graph uses its full height.
+- New releases are posted to the Discord server.
+
 ### 1.0.107
 
 - Pick several fights in Encounter DPS (Ctrl or Shift) for one combined parse, timed by time in combat.

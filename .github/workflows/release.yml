@@ -74,3 +74,60 @@ jobs:
           $hash = (Get-FileHash "$setup.exe" -Algorithm SHA256).Hash.ToLower()
           "$hash  $setup.exe" | Out-File -Encoding ascii "$setup.exe.sha256"
           gh release upload "${{ github.ref_name }}" "$setup.exe" "$setup.exe.sha256"
+
+      # Posts the release to the Discord channel whose webhook is in the DISCORD_RELEASE_WEBHOOK secret (skipped when there is none).
+      # The post has this version's changelog lines from README.md and the download links; the version named in FULL_CHANGELOG_TAG
+      # posts the whole changelog instead. A failure here never holds the release back.
+      - name: Discord post
+        continue-on-error: true
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WEBHOOK: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}
+          FULL_CHANGELOG_TAG: v1.0.108
+        run: |
+          if (-not $env:WEBHOOK) { Write-Host "No Discord webhook set; nothing posted."; exit 0 }
+          $tag = '${{ github.ref_name }}'
+          $version = $tag.TrimStart('v')
+          $edition = Get-Content src/EQOverwatch.Core/Edition.cs -Raw
+          $name = [regex]::Match($edition, 'const string Name = "([^"]+)"').Groups[1].Value
+
+          # The changelog: "### heading" sections between "## Changelog" and the next "## ".
+          $readme = Get-Content README.md -Raw
+          $log = [regex]::Match($readme, '(?s)## Changelog\s*(.*?)(?=\n## |\z)').Groups[1].Value
+          $sections = [regex]::Matches($log, '(?s)### ([^\r\n]+)\s*(.*?)(?=\n### |\z)') | ForEach-Object {
+            [pscustomobject]@{ Title = $_.Groups[1].Value.Trim(); Body = $_.Groups[2].Value.Trim() } }
+          $current = $sections | Where-Object { $_.Title -eq $version } | Select-Object -First 1
+          if (-not $current) { Write-Host "No changelog section for $version; nothing posted."; exit 0 }
+
+          $release = gh release view $tag --json url,assets | ConvertFrom-Json
+          $setup = $release.assets | Where-Object { $_.name -like '*-Setup-*.exe' } | Select-Object -First 1
+          $zip = $release.assets | Where-Object { $_.name -like '*-win-x64.zip' } | Select-Object -First 1
+          $links = @()
+          if ($setup) { $links += "[$($setup.name)]($($setup.url))" }
+          if ($zip) { $links += "[$($zip.name)]($($zip.url))" }
+          $main = @{
+            title = "$name $tag is out"; url = $release.url; color = 6514417
+            description = "$($current.Body)`n`nUpdate from inside the app with **Install update**, or download:`n" + ($links -join '   |   ')
+          }
+          $embeds = @($main)
+          if ($tag -eq $env:FULL_CHANGELOG_TAG) {
+            foreach ($section in $sections | Where-Object { $_.Title -ne $version }) {
+              $embeds += @{ title = $section.Title; description = $section.Body; color = 3092790 }
+            }
+          }
+
+          # Discord takes at most 10 embeds and about 6,000 characters per message: send them in as many posts as needed, in order.
+          $batch = @(); $size = 0
+          function Send($items) {
+            $body = @{ username = "$name Updates"; embeds = $items; allowed_mentions = @{ parse = @() } } | ConvertTo-Json -Depth 6
+            Invoke-RestMethod -Uri $env:WEBHOOK -Method Post -ContentType 'application/json; charset=utf-8' -Body ([Text.Encoding]::UTF8.GetBytes($body)) | Out-Null
+            Start-Sleep -Seconds 2
+          }
+          foreach ($embed in $embeds) {
+            $length = $embed.title.Length + $embed.description.Length
+            if ($batch.Count -ge 10 -or ($size + $length) -gt 5500) { Send $batch; $batch = @(); $size = 0 }
+            $batch += $embed; $size += $length
+          }
+          if ($batch.Count -gt 0) { Send $batch }
+          Write-Host "Posted $($embeds.Count) section(s) to Discord."
