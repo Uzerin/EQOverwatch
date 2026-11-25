@@ -76,7 +76,7 @@ public partial class FloatingTextOverlayWindow : OverlayWindowBase
             merged.Critical |= critical;
             merged.Last = now;
             string mergedText = $"{merged.Prefix}{merged.Total.ToString("N0", System.Globalization.CultureInfo.CurrentCulture)} x{merged.Count}";
-            merged.Stack.Children[0] = Number(mergedText, merged.Critical, look);
+            ReplaceFirst(merged.Stack, Number(mergedText, merged.Critical, look));
             merged.Stack.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
             Canvas.SetLeft(merged.Stack, LeftFor(merged.Stack.DesiredSize.Width, look.Right));
             Restack(look.Right ? _right : _left);
@@ -150,6 +150,17 @@ public partial class FloatingTextOverlayWindow : OverlayWindowBase
 
             y += height + Gap;
         }
+    }
+
+    /// <summary>Puts <paramref name="element"/> in place of the panel's first child. WPF will not put an element into a slot that still holds one, so the old one comes out first.</summary>
+    public static void ReplaceFirst(Panel panel, UIElement element)
+    {
+        if (panel.Children.Count > 0)
+        {
+            panel.Children.RemoveAt(0);
+        }
+
+        panel.Children.Insert(0, element);
     }
 
     private void Remove(List<StackPanel> lane, StackPanel item)

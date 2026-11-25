@@ -65,6 +65,10 @@ are kept. Untick **Count me in the anonymous player count** on Settings to stop 
 
 ## Changelog
 
+### 1.0.114
+
+- Fixed a crash when floating combat text merged several hits into one number.
+
 ### 1.0.113
 
 - Mob Card shows regen and HP again and counts the kills once; the kill-time estimate stays on the DPS overlay.
