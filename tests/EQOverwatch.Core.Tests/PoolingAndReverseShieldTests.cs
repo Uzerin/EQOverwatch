@@ -220,3 +220,16 @@ public sealed class ItemFocusLookupTests
         }
     }
 }
+
+public sealed class ManaRollTests
+{
+    [Fact]
+    public void A_mana_cost_focus_that_rolls_shows_its_whole_range()
+    {
+        // Reanimation Efficiency III: 1|132|1|25  2|134|60|5  3|137|71  4|311
+        ItemFocus mana = Assert.Single(ItemFocus.FromEffects(2374, "Reanimation Efficiency III",
+            SpellEffects.Parse("1|132|1|25|100|0$2|134|60|5|100|0$3|137|71|0|100|0$4|311|0|0|100|0")));
+        Assert.Equal((1, 25), (mana.Percent, mana.MaxPercent));
+        Assert.StartsWith("-1–25% mana", mana.BenefitAt(60), StringComparison.Ordinal);
+    }
+}

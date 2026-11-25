@@ -63,6 +63,10 @@ addresses are kept. Untick **Count me in the anonymous player count** on Setting
 
 ## Changelog
 
+### 1.0.106
+
+- Simpler Focus Effects tab (type, focus, description), and mana cost foci show their full range.
+
 ### 1.0.105
 
 - Focus Effects fills in each focus from the items that fire in your log or that you wear.

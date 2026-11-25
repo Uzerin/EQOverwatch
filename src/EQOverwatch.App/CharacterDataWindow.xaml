@@ -279,12 +279,10 @@
                                         <ColumnDefinition Width="Auto" SharedSizeGroup="FkType"/>
                                         <ColumnDefinition Width="Auto" SharedSizeGroup="FkPick"/>
                                         <ColumnDefinition Width="Auto" SharedSizeGroup="FkBenefit"/>
-                                        <ColumnDefinition Width="Auto" SharedSizeGroup="FkItem"/>
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0" Text="Focus type" Margin="4,4,16,4"/>
-                                    <TextBlock Grid.Column="1" Text="Your focus (open and type to jump)" Margin="4,4,16,4"/>
-                                    <TextBlock Grid.Column="2" Text="{Binding LevelHeading}" Margin="4,4,16,4"/>
-                                    <TextBlock Grid.Column="3" Text="From item" Margin="4,4,16,4"/>
+                                    <TextBlock Grid.Column="0" Text="Type" Margin="4,4,16,4"/>
+                                    <TextBlock Grid.Column="1" Text="Focus Effect" Margin="4,4,16,4"/>
+                                    <TextBlock Grid.Column="2" Text="Description" Margin="4,4,16,4"/>
                                 </Grid>
                                 <ItemsControl ItemsSource="{Binding Rows}">
                                     <ItemsControl.ItemTemplate>
@@ -295,10 +293,9 @@
                                                         <ColumnDefinition Width="Auto" SharedSizeGroup="FkType"/>
                                                         <ColumnDefinition Width="Auto" SharedSizeGroup="FkPick"/>
                                                         <ColumnDefinition Width="Auto" SharedSizeGroup="FkBenefit"/>
-                                                        <ColumnDefinition Width="Auto" SharedSizeGroup="FkItem"/>
                                                     </Grid.ColumnDefinitions>
                                                     <TextBlock Grid.Column="0" Text="{Binding Title}" VerticalAlignment="Center" Margin="4,4,16,4"/>
-                                                    <ComboBox Grid.Column="1" Width="330" Margin="4,3,16,3" IsEditable="False" IsTextSearchEnabled="True" ToolTip="Open the list and type the start of a name to jump to it."
+                                                    <ComboBox Grid.Column="1" Width="250" Margin="4,3,16,3" IsEditable="False" IsTextSearchEnabled="True" ToolTip="Open the list and type the start of a name to jump to it."
                                                               ItemsSource="{Binding Choices}" DisplayMemberPath="Label" SelectedItem="{Binding Selected, Mode=TwoWay}">
                                                         <ComboBox.ItemsPanel>
                                                             <ItemsPanelTemplate>
@@ -306,9 +303,7 @@
                                                             </ItemsPanelTemplate>
                                                         </ComboBox.ItemsPanel>
                                                     </ComboBox>
-                                                    <TextBlock Grid.Column="2" Text="{Binding BenefitText}" Foreground="#5CC98A" TextWrapping="Wrap" MaxWidth="420"
-                                                               VerticalAlignment="Center" Margin="4,4,16,4"/>
-                                                    <TextBlock Grid.Column="3" Text="{Binding FromItem}" TextWrapping="Wrap" MaxWidth="280"
+                                                    <TextBlock Grid.Column="2" Text="{Binding BenefitText}" Foreground="#5CC98A" TextWrapping="Wrap" MaxWidth="480"
                                                                VerticalAlignment="Center" Margin="4,4,16,4"/>
                                                 </Grid>
                                             </Border>

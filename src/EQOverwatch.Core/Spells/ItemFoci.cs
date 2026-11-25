@@ -157,7 +157,7 @@ public sealed record ItemFocus(
                 continue;
             }
 
-            int max = k is FocusKind.Damage or FocusKind.Healing && e.Limit > e.Base ? e.Limit : 0;
+            int max = k is FocusKind.Damage or FocusKind.Healing or FocusKind.ManaCost && e.Limit > e.Base ? e.Limit : 0; // these roll between base and limit
             list.Add(new ItemFocus(spellId, name, k, e.Base, max, maxLevel, perLevel, minLevel, applies, minTicks, noCombat, effectLimits));
 
             // A duration focus with no beneficial/detrimental limit works on both.

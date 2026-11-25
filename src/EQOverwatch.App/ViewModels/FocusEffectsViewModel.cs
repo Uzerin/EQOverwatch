@@ -80,7 +80,7 @@ public sealed partial class FocusEffectsViewModel : ObservableObject
         {
             IReadOnlyList<ItemFocus> foci = database.ItemFoci.TryGetValue(kind, out IReadOnlyList<ItemFocus>? list) ? list : Array.Empty<ItemFocus>();
             var choices = new List<FocusChoice> { none };
-            choices.AddRange(foci.Select(f => new FocusChoice(f.SpellId, f.Label)));
+            choices.AddRange(foci.Select(f => new FocusChoice(f.SpellId, f.Name))); // the name only; the Description column says what it does
             int? picked = kind switch
             {
                 FocusKind.BuffDuration => profile.BeneficialFocusId,
