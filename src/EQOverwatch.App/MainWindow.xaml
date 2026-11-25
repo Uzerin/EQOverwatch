@@ -1124,8 +1124,9 @@
                         </Grid.ColumnDefinitions>
 
                         <DataGrid Grid.Column="0" HorizontalAlignment="Left" ItemsSource="{Binding Encounters}" SelectedItem="{Binding SelectedEncounter, Mode=TwoWay}"
-                                  AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
-                                  SelectionMode="Single" HeadersVisibility="Column" GridLinesVisibility="Horizontal">
+                                  AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" SelectionChanged="EncounterList_SelectionChanged"
+                                  ToolTip="Ctrl-click or Shift-click to pick several fights and see them as one combined parse."
+                                  SelectionMode="Extended" HeadersVisibility="Column" GridLinesVisibility="Horizontal">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="Target" Binding="{Binding TargetName}" Width="Auto" MinWidth="120">
                                     <DataGridTextColumn.ElementStyle>

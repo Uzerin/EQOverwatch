@@ -16,6 +16,15 @@ public partial class MainWindow : Window
     public static readonly TimeSpan RefreshInterval = TimeSpan.FromMilliseconds(250);
 
     // The page's tables are full height, so the wheel scrolls the whole page even over a table.
+    // Several fights picked in the Encounter DPS list show as one combined parse.
+    private void EncounterList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (sender is DataGrid grid)
+        {
+            _viewModel?.SetPickedEncounters(grid.SelectedItems.OfType<EncounterRowViewModel>().ToList());
+        }
+    }
+
     private void ScrollWholePage(object sender, System.Windows.Input.MouseWheelEventArgs e)
     {
         if (sender is ScrollViewer page)

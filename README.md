@@ -18,7 +18,7 @@ as many characters as you play, without touching the game.
 - Charm break, aggro and range alerts for your boxes, and tells read aloud.
 
 **Damage and raids**
-- Live DPS meter from all your characters' logs, with a fight graph, tanking, healing, deaths, spell casts and boss abilities.
+- Live DPS meter from all your characters' logs, combined parses of fights you pick, a fight graph, tanking, healing, deaths, spell casts and boss abilities.
 - One-click Discord picture of any fight, or automatic posts when a boss dies.
 - Mob History with kill times, mob levels and resists shared by the raid.
 - Loot, money and raid attendance tracking.
@@ -62,6 +62,10 @@ addresses are kept. Untick **Count me in the anonymous player count** on Setting
 - Run `/outputfile inventory`, `spellbook` and `missingspells` in game to fill in character data.
 
 ## Changelog
+
+### 1.0.107
+
+- Pick several fights in Encounter DPS (Ctrl or Shift) for one combined parse, timed by time in combat.
 
 ### 1.0.106
 

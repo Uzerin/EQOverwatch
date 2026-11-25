@@ -107,6 +107,10 @@ public static class EncounterExport
     public static string BuildHeader(EncounterSnapshot encounter)
     {
         ArgumentNullException.ThrowIfNull(encounter);
+        if (encounter.CombinedCount > 1)
+        {
+            return CombinedFights.Header(encounter);
+        }
 
         double groupDps = encounter.TotalDamage / Math.Max(1.0, encounter.DurationSeconds);
         return $"{encounter.TargetName} - {FormatDuration(encounter.DurationSeconds)}, " +

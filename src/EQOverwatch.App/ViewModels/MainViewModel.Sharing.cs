@@ -227,11 +227,11 @@ public sealed partial class MainViewModel
 
     /// <summary>Copies the selected encounter's summary and top 12 attackers as chat text.</summary>
     [RelayCommand]
-    private void CopyTop12ForChat() => CopyChat(SelectedEncounter?.Snapshot);
+    private void CopyTop12ForChat() => CopyChat(CurrentEncounter());
 
     /// <summary>Copies the selected encounter as a dark-themed picture with the product footer.</summary>
     [RelayCommand]
-    private void CopyImageForDiscord() => CopyImage(SelectedEncounter?.Snapshot);
+    private void CopyImageForDiscord() => CopyImage(CurrentEncounter());
 
     /// <summary>Copies <paramref name="encounter"/> (also used by the DPS overlay's header buttons) for EverQuest chat.</summary>
     public void CopyChat(EncounterSnapshot? encounter)

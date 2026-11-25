@@ -196,6 +196,9 @@ public sealed record EncounterSnapshot(
     /// <summary>"Regen ~5.7/s · HP ~10.3k" for the Discord picture (empty when there is no estimate), set just before drawing.</summary>
     public string RegenText { get; init; } = string.Empty;
 
+    /// <summary>How many fights a combined parse of picked fights covers ("Combined (5)"); 0 for a single fight.</summary>
+    public int CombinedCount { get; init; }
+
     /// <summary>Like <see cref="WithClasses(Func{string, string})"/>, with each class looked up on the fight's <see cref="Server"/>.</summary>
     public EncounterSnapshot WithClassesOnServer(Func<string, string, string> classOnServer)
     {

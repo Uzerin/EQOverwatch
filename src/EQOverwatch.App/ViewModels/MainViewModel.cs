@@ -972,7 +972,8 @@ public sealed partial class MainViewModel : ObservableObject
 
     private void RefreshParticipants()
     {
-        EncounterSnapshot? encounter = SelectedEncounter?.Snapshot;
+        EncounterSnapshot? encounter = CurrentEncounter();
+        bool combined = encounter?.CombinedCount > 1;
         if (encounter is null)
         {
             Participants.Clear();
@@ -995,7 +996,7 @@ public sealed partial class MainViewModel : ObservableObject
             }
 
             Participants[i].Update(i + 1, ranked[i], topDealt);
-            Participants[i].Benchmark = BenchmarkBadge(encounter, ranked[i]);
+            Participants[i].Benchmark = combined ? string.Empty : BenchmarkBadge(encounter, ranked[i]);
         }
 
         IReadOnlyList<DamageTakenSnapshot> taken = encounter.TakenRows;
@@ -1016,7 +1017,7 @@ public sealed partial class MainViewModel : ObservableObject
         }
 
         ShowLastSeconds(encounter);
-        DamageTakenSummary = $"Damage taken from {encounter.TargetName}: {encounter.TotalDamageTaken:N0}" + ShieldSummaryText(encounter) + RampageSummaryText(encounter) + DotSummaryText(encounter);
+        DamageTakenSummary = (combined ? $"Damage taken: {encounter.TotalDamageTaken:N0}" : $"Damage taken from {encounter.TargetName}: {encounter.TotalDamageTaken:N0}") + ShieldSummaryText(encounter) + RampageSummaryText(encounter) + DotSummaryText(encounter);
         ShowTimeline(encounter);
 
         UpdateEncounterDetails(encounter);
@@ -1024,6 +1025,12 @@ public sealed partial class MainViewModel : ObservableObject
         while (Participants.Count > ranked.Count)
         {
             Participants.RemoveAt(Participants.Count - 1);
+        }
+
+        if (combined)
+        {
+            EncounterSummary = CombinedFights.Header(encounter);
+            return;
         }
 
         double groupDps = encounter.TotalDamage / Math.Max(1.0, encounter.DurationSeconds);

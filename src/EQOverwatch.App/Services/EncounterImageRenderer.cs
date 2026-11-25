@@ -163,8 +163,9 @@ public static class EncounterImageRenderer
             dc.DrawRoundedRectangle(accent, null, new Rect(10, 10, 6, height - 20), 3, 3);
 
             // header, across all three columns
-            Draw(dc, encounter.TargetName, Bold, 22, text, Padding + 6, 20, width - (2 * Padding) - 6, TextAlignment.Left);
-            Draw(dc, SummaryLine(encounter), Regular, 13, muted, Padding + 6, 52, width - (2 * Padding) - 6, TextAlignment.Left);
+            bool combined = encounter.CombinedCount > 1;
+            Draw(dc, combined ? EQOverwatch.Core.Models.CombinedFights.Header(encounter) : encounter.TargetName, Bold, 22, text, Padding + 6, 20, width - (2 * Padding) - 6, TextAlignment.Left);
+            Draw(dc, combined ? string.Empty : SummaryLine(encounter), Regular, 13, muted, Padding + 6, 52, width - (2 * Padding) - 6, TextAlignment.Left);
             if (encounter.RegenText.Length > 0)
             {
                 Draw(dc, encounter.RegenText, Regular, 13, Solid(RegenColor), Padding + 6, 52 + RegenLineHeight, width - (2 * Padding) - 6, TextAlignment.Left);

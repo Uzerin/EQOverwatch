@@ -181,6 +181,98 @@ public sealed record DpsTimeline(double BucketSeconds, ValueList<double> Group, 
 
     /// <summary>The highest value on any line (what the vertical axis must reach).</summary>
     public double Peak => Math.Max(Group.Count == 0 ? 0.0 : Group.Max(), Players.Count == 0 ? 0.0 : Players.Max(p => p.Dps.Count == 0 ? 0.0 : p.Dps.Max()));
+
+    /// <summary>
+    /// Fights drawn back to back, the time between them left out: the group's line, the top dealers' lines across all of them, damage
+    /// taken and healing, and the death and cast marks. Null when none of the fights has a graph.
+    /// </summary>
+    public static DpsTimeline? Concat(IReadOnlyList<DpsTimeline?> parts)
+    {
+        List<DpsTimeline> present = parts.Where(p => p is { Count: > 0 }).Select(p => p!).ToList();
+        if (present.Count == 0)
+        {
+            return null;
+        }
+
+        static double[] PerSecond(IReadOnlyList<double>? values, double bucket, int seconds)
+        {
+            var rates = new double[seconds];
+            if (values is { Count: > 0 })
+            {
+                for (int s = 0; s < seconds; s++)
+                {
+                    rates[s] = values[Math.Min(values.Count - 1, (int)(s / Math.Max(1.0, bucket)))];
+                }
+            }
+
+            return rates;
+        }
+
+        int[] lengths = present.Select(p => Math.Max(1, (int)Math.Ceiling(p.Span))).ToArray();
+        int total = lengths.Sum();
+        var group = new List<double>(total);
+        var incoming = new List<double>(total);
+        var healing = new List<double>(total);
+        var players = new Dictionary<string, double[]>(StringComparer.Ordinal);
+        var deaths = new List<TimelineMark>();
+        var casts = new List<TimelineMark>();
+        int offset = 0;
+        for (int i = 0; i < present.Count; i++)
+        {
+            DpsTimeline part = present[i];
+            group.AddRange(PerSecond(part.Group, part.BucketSeconds, lengths[i]));
+            incoming.AddRange(PerSecond(part.Incoming, part.BucketSeconds, lengths[i]));
+            healing.AddRange(PerSecond(part.Healing, part.BucketSeconds, lengths[i]));
+            foreach (TimelineSeries series in part.Players)
+            {
+                if (!players.TryGetValue(series.Name, out double[]? line))
+                {
+                    players[series.Name] = line = new double[total];
+                }
+
+                PerSecond(series.Dps, part.BucketSeconds, lengths[i]).CopyTo(line, offset);
+            }
+
+            deaths.AddRange((part.Deaths ?? new ValueList<TimelineMark>(Array.Empty<TimelineMark>())).Select(m => m with { Seconds = m.Seconds + offset }));
+            casts.AddRange((part.Casts ?? new ValueList<TimelineMark>(Array.Empty<TimelineMark>())).Select(m => m with { Seconds = m.Seconds + offset }));
+            offset += lengths[i];
+        }
+
+        int bucket = Math.Max(2, (int)Math.Ceiling(total / 60.0));
+        ValueList<double> Rebucket(IReadOnlyList<double> rates)
+        {
+            int count = (int)Math.Ceiling(total / (double)bucket);
+            var values = new double[count];
+            for (int b = 0; b < count; b++)
+            {
+                int from = b * bucket;
+                int to = Math.Min(total, from + bucket);
+                double sum = 0;
+                for (int s = from; s < to; s++)
+                {
+                    sum += rates[s];
+                }
+
+                values[b] = to > from ? sum / (to - from) : 0;
+            }
+
+            return new ValueList<double>(values);
+        }
+
+        TimelineSeries[] top = players
+            .OrderByDescending(p => p.Value.Sum()).ThenBy(p => p.Key, StringComparer.Ordinal)
+            .Take(MaxPlayers)
+            .Select(p => new TimelineSeries(p.Key, Rebucket(p.Value)))
+            .ToArray();
+        return new DpsTimeline(bucket, Rebucket(group), new ValueList<TimelineSeries>(top))
+        {
+            DurationSeconds = total,
+            Incoming = present.Any(p => p.Incoming is not null) ? Rebucket(incoming) : null,
+            Healing = present.Any(p => p.Healing is not null) ? Rebucket(healing) : null,
+            Deaths = new ValueList<TimelineMark>(deaths),
+            Casts = new ValueList<TimelineMark>(casts),
+        };
+    }
 }
 
 /// <summary>Accumulates damage per second of the fight, then cuts it into a <see cref="DpsTimeline"/>.</summary>
