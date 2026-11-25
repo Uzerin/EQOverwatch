@@ -230,8 +230,8 @@ public partial class MainViewModel
             .Select(r => $"{r.Spell} {r.ResistPercent.ToString("0", culture)}% of {(r.Landed + r.Resisted).ToString(culture)}"));
     }
 
-    /// <summary>"Last killed Nov 24 21:05 · 12 kills": the kills of <paramref name="mob"/> in the fight list. Null when there are none.</summary>
-    internal string? LastKilledLine(string mob, CultureInfo culture)
+    /// <summary>"Last killed Nov 24 21:05 · 12 kills" (the count only when <paramref name="withCount"/>): the kills of <paramref name="mob"/> in the fight list. Null when there are none.</summary>
+    internal string? LastKilledLine(string mob, CultureInfo culture, bool withCount = true)
     {
         EncounterSnapshot[] kills = _pipeline.LiveDps.Snapshot.Completed
             .Concat(_pipeline.HistoricalDps.Snapshot.Completed)
@@ -243,7 +243,8 @@ public partial class MainViewModel
         }
 
         DateTime last = kills.Max(k => k.EndTime);
-        return $"Last killed {last.ToString("MMM d HH:mm", culture)} · {kills.Length.ToString(culture)} kill{(kills.Length == 1 ? string.Empty : "s")}";
+        string text = $"Last killed {last.ToString("MMM d HH:mm", culture)}";
+        return withCount ? text + $" · {kills.Length.ToString(culture)} kill{(kills.Length == 1 ? string.Empty : "s")}" : text;
     }
 
     /// <summary>
@@ -280,7 +281,12 @@ public partial class MainViewModel
             lines.Add(first);
         }
 
-        if (LastKilledLine(mob, culture) is { } lastKilled)
+        if (RegenFor(mob) is { } regen) // no kill-time estimate here: that is on the DPS overlay during the fight
+        {
+            lines.Add(regen.Describe());
+        }
+
+        if (LastKilledLine(mob, culture, withCount: fights.Length == 0) is { } lastKilled) // the boss line already counts the kills
         {
             lines.Add(lastKilled);
         }

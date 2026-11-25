@@ -144,7 +144,7 @@ public partial class MainViewModelTests
     }
 
     [Fact]
-    public void The_mob_card_leaves_out_the_regen_estimate()
+    public void The_mob_card_shows_regen_and_hp_without_a_kill_time()
     {
         (Harness h, _) = BoxHarness();
         using (h)
@@ -162,8 +162,11 @@ public partial class MainViewModelTests
             h.Pipeline.LiveDps.OnNonCombatMessage("Xi Vius scowls at you, ready to attack -- looks kind of dangerous. (Lvl: 60)");
 
             MobCardInfo card = Assert.Single(cards);
-            Assert.DoesNotContain(card.Lines, l => l.StartsWith("Regen", StringComparison.Ordinal));
-            Assert.Contains(card.Lines, l => l.Contains("3 kills", StringComparison.Ordinal));
+            string regen = Assert.Single(card.Lines, l => l.StartsWith("Regen", StringComparison.Ordinal));
+            Assert.Contains("HP ~", regen, StringComparison.Ordinal);
+            Assert.DoesNotContain("kills", regen, StringComparison.Ordinal);
+            Assert.Single(card.Lines, l => l.Contains("3 kills", StringComparison.Ordinal)); // only the boss line counts the kills
+            Assert.DoesNotContain(card.Lines, l => l.Contains("to kill", StringComparison.Ordinal) || l.Contains("out-heals", StringComparison.Ordinal));
         }
     }
 

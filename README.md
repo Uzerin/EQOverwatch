@@ -65,11 +65,16 @@ are kept. Untick **Count me in the anonymous player count** on Settings to stop 
 
 ## Changelog
 
+### 1.0.113
+
+- Mob Card shows regen and HP again and counts the kills once; the kill-time estimate stays on the DPS overlay.
+- The Experience tab scrolls.
+
 ### 1.0.112
 
 - "Add Overwatch Data socials" on the profile window's right-click menu.
 - Ding history under the playtime chart.
-- Mob Card: last killed and kill count, "Max hit", and no regen line.
+- Mob Card: last killed and kill count, and "Max hit".
 
 ### 1.0.111
 
