@@ -95,9 +95,9 @@ public sealed partial class MainViewModel
             return;
         }
 
-        if (seenUtc is null && fresh.Count == entries.Count && fresh[^1].Utc < DateTime.UtcNow.AddDays(-7))
+        if (seenUtc is null)
         {
-            _lastCrashSeenUtc = fresh[^1].Utc; // old errors from before this was added: not worth a bar
+            _lastCrashSeenUtc = fresh[^1].Utc; // errors from before this was added: marked as seen, no bar
             return;
         }
 
