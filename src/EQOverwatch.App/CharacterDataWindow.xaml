@@ -279,12 +279,12 @@
                                         <ColumnDefinition Width="Auto" SharedSizeGroup="FkType"/>
                                         <ColumnDefinition Width="Auto" SharedSizeGroup="FkPick"/>
                                         <ColumnDefinition Width="Auto" SharedSizeGroup="FkBenefit"/>
-                                        <ColumnDefinition Width="Auto" SharedSizeGroup="FkSeen"/>
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="FkItem"/>
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Grid.Column="0" Text="Focus type" Margin="4,4,16,4"/>
                                     <TextBlock Grid.Column="1" Text="Your focus (open and type to jump)" Margin="4,4,16,4"/>
                                     <TextBlock Grid.Column="2" Text="{Binding LevelHeading}" Margin="4,4,16,4"/>
-                                    <TextBlock Grid.Column="3" Text="Seen in your log" Margin="4,4,16,4"/>
+                                    <TextBlock Grid.Column="3" Text="From item" Margin="4,4,16,4"/>
                                 </Grid>
                                 <ItemsControl ItemsSource="{Binding Rows}">
                                     <ItemsControl.ItemTemplate>
@@ -295,7 +295,7 @@
                                                         <ColumnDefinition Width="Auto" SharedSizeGroup="FkType"/>
                                                         <ColumnDefinition Width="Auto" SharedSizeGroup="FkPick"/>
                                                         <ColumnDefinition Width="Auto" SharedSizeGroup="FkBenefit"/>
-                                                        <ColumnDefinition Width="Auto" SharedSizeGroup="FkSeen"/>
+                                                        <ColumnDefinition Width="Auto" SharedSizeGroup="FkItem"/>
                                                     </Grid.ColumnDefinitions>
                                                     <TextBlock Grid.Column="0" Text="{Binding Title}" VerticalAlignment="Center" Margin="4,4,16,4"/>
                                                     <ComboBox Grid.Column="1" Width="330" Margin="4,3,16,3" IsEditable="False" IsTextSearchEnabled="True" ToolTip="Open the list and type the start of a name to jump to it."
@@ -308,7 +308,7 @@
                                                     </ComboBox>
                                                     <TextBlock Grid.Column="2" Text="{Binding BenefitText}" Foreground="#5CC98A" TextWrapping="Wrap" MaxWidth="420"
                                                                VerticalAlignment="Center" Margin="4,4,16,4"/>
-                                                    <TextBlock Grid.Column="3" Text="{Binding Seen}" Style="{StaticResource HintText}" TextWrapping="Wrap" MaxWidth="280"
+                                                    <TextBlock Grid.Column="3" Text="{Binding FromItem}" TextWrapping="Wrap" MaxWidth="280"
                                                                VerticalAlignment="Center" Margin="4,4,16,4"/>
                                                 </Grid>
                                             </Border>
@@ -320,7 +320,7 @@
                         <TextBlock Text="Duration AAs" FontWeight="SemiBold" Margin="0,14,0,3"/>
                         <TextBlock Text="{Binding DurationAasText}" TextWrapping="Wrap" Margin="0,0,0,12"/>
                         <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" MaxWidth="760" HorizontalAlignment="Left"
-                                   Text="Each focus is checked against its own limits: the highest spell level it fully works on (and how much it loses per level above), beneficial or detrimental spells, and the spells it leaves out. The two duration foci and your learned AAs lengthen your timer bars; the others are for reference. Seen in your log lists items whose focus message came in this character's log."/>
+                                   Text="Each focus is checked against its own limits: the highest spell level it fully works on (and how much it loses per level above), beneficial or detrimental spells, and the spells it leaves out. The two duration foci and your learned AAs lengthen your timer bars; the others are for reference. A focus is set for you when an item carrying it fires in this character's log or is worn in its inventory file (/outputfile inventory); a focus you pick by hand stays until another item is identified."/>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>

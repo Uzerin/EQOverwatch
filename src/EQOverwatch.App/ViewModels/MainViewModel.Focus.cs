@@ -34,7 +34,7 @@ public sealed partial class MainViewModel
         {
             // Saved under the persona; an empty choice still overrides an older one made before personas.
             _durationProfiles[DurationKey(character, server, persona)] = profile;
-            if (profile.IsEmpty && profile.Foci is not { Count: > 0 } && persona.Length == 0)
+            if (profile.IsEmpty && profile.Foci is not { Count: > 0 } && profile.AppliedItems is not { Count: > 0 } && persona.Length == 0)
             {
                 _durationProfiles.Remove(DurationKey(character, server, persona));
             }
@@ -56,8 +56,12 @@ public sealed partial class MainViewModel
                 var foci = (s.Foci ?? new Dictionary<string, int>())
                     .Where(p => Enum.TryParse(p.Key, out FocusKind _))
                     .ToDictionary(p => Enum.Parse<FocusKind>(p.Key), p => p.Value);
-                var profile = new DurationProfile(s.BeneficialFocusId, s.DetrimentalFocusId, 0, Foci: foci.Count > 0 ? foci : null);
-                if (!string.IsNullOrWhiteSpace(s.CharacterName) && (!profile.IsEmpty || profile.Foci is not null || !string.IsNullOrEmpty(s.Persona)))
+                var fromItems = (s.FromItems ?? new Dictionary<string, string>())
+                    .Where(p => Enum.TryParse(p.Key, out FocusKind _))
+                    .ToDictionary(p => Enum.Parse<FocusKind>(p.Key), p => p.Value);
+                var profile = new DurationProfile(s.BeneficialFocusId, s.DetrimentalFocusId, 0, Foci: foci.Count > 0 ? foci : null,
+                    FromItems: fromItems.Count > 0 ? fromItems : null, AppliedItems: s.AppliedItems is { Count: > 0 } applied ? applied : null);
+                if (!string.IsNullOrWhiteSpace(s.CharacterName) && (!profile.IsEmpty || profile.Foci is not null || profile.AppliedItems is not null || !string.IsNullOrEmpty(s.Persona)))
                 {
                     _durationProfiles[DurationKey(s.CharacterName, s.ServerName ?? string.Empty, s.Persona ?? string.Empty)] = profile;
                 }
@@ -81,6 +85,8 @@ public sealed partial class MainViewModel
                         BeneficialFocusId = kv.Value.BeneficialFocusId,
                         DetrimentalFocusId = kv.Value.DetrimentalFocusId,
                         Foci = kv.Value.Foci is { Count: > 0 } foci ? foci.ToDictionary(p => p.Key.ToString(), p => p.Value) : null,
+                        FromItems = kv.Value.FromItems is { Count: > 0 } items ? items.ToDictionary(p => p.Key.ToString(), p => p.Value) : null,
+                        AppliedItems = kv.Value.AppliedItems is { Count: > 0 } applied ? applied.OrderBy(a => a, StringComparer.Ordinal).ToList() : null,
                     };
                 })
                 .OrderBy(s => s.CharacterName, StringComparer.OrdinalIgnoreCase)
@@ -115,7 +121,7 @@ public sealed partial class MainViewModel
 
     private FocusEffectsViewModel CreateFocusViewModel(string name, string server, string persona = "") =>
         new(_pipeline.Spells.Database, GetDurationProfile(name, server, persona), profile => SetDurationProfile(name, server, profile, persona),
-            DurationAaLines(name, server, persona), FocusLevelOf(name, server, persona), _pipeline.Progress.FocusFires(name, server));
+            DurationAaLines(name, server, persona), FocusLevelOf(name, server, persona));
 
     /// <summary>The persona's level (or the character's when the persona's is not known), 0 when not known.</summary>
     private int FocusLevelOf(string name, string server, string persona)

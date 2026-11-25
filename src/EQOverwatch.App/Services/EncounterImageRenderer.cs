@@ -87,15 +87,16 @@ public static class EncounterImageRenderer
             }).ToList());
 
         Table? healTable = healing.Count == 0 ? null : new Table(
-            new[] { "#", "Name", "Healed", "% of total", "HPS", "Overheal %", "Crit %", "Max Heal" },
+            new[] { "#", "Name", "HPS", "Total", "Effective Heals", "Overheals", "Casts", "Biggest" },
             new[] { false, false, true, true, true, true, true, true }, flexColumn: 1,
             healing.Select((h, i) => new[]
             {
-                (i + 1).ToString(CultureInfo.InvariantCulture), h.Name, h.Effective.ToString("N0", CultureInfo.InvariantCulture),
-                (healTotal > 0 ? 100.0 * h.Effective / healTotal : 0).ToString("0.0", CultureInfo.InvariantCulture) + "%",
+                (i + 1).ToString(CultureInfo.InvariantCulture), h.Name,
                 Math.Round(h.Hps).ToString("N0", CultureInfo.InvariantCulture),
-                h.OverhealPercent.ToString("0.0", CultureInfo.InvariantCulture) + "%",
-                h.CritHeals > 0 ? h.CritHealPercent.ToString("0.0", CultureInfo.InvariantCulture) + "%" : "-",
+                (h.Effective + h.Overheal).ToString("N0", CultureInfo.InvariantCulture),
+                h.Effective.ToString("N0", CultureInfo.InvariantCulture),
+                h.Overheal.ToString("N0", CultureInfo.InvariantCulture) + " (" + h.OverhealPercent.ToString("0.0", CultureInfo.InvariantCulture) + "%)",
+                h.Heals.ToString("N0", CultureInfo.InvariantCulture),
                 h.MaxHeal.ToString("N0", CultureInfo.InvariantCulture),
             }).ToList());
 

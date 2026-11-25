@@ -823,6 +823,7 @@ public sealed partial class MainViewModel : ObservableObject
         _pipeline.TimerPause.Tick(DateTime.UtcNow);
         RefreshRaidNight();
         RefreshReleaseFeatures();
+        TickItemFoci(DateTime.UtcNow);
         ApplyOverlayFade();
         _ = TickUpdateCheck(DateTime.UtcNow);
 

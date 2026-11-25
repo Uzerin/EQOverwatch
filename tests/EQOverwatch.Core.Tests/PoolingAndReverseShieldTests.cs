@@ -157,3 +157,66 @@ public sealed class ItemFocusTests
         Assert.Equal(("Meditative Blanket", "feels alive with power.", 3), Assert.Single(store.FocusFires("Mendwell", "frostreaver")));
     }
 }
+
+public sealed class ItemFocusLookupTests
+{
+    private static SpellDatabase Database() => new(Array.Empty<SpellInfo>(), 60, itemFoci:
+        ItemFocus.FromEffects(2350, "Extended Range III", SpellEffects.Parse("1|129|15|0|100|0$2|134|60|5|100|0$3|311|0|0|100|0"))
+            .Concat(ItemFocus.FromEffects(2349, "Extended Range II", SpellEffects.Parse("1|129|10|0|100|0$2|134|60|5|100|0")))
+            .Concat(ItemFocus.FromEffects(2346, "Improved Healing II", SpellEffects.Parse("1|125|1|0|100|0$2|134|60|5|100|0"))));
+
+    [Fact]
+    public void The_server_answer_is_read_into_items_and_their_foci()
+    {
+        IReadOnlyList<LookedUpItem> items = HttpItemFocusLookup.Parse(
+            "{\"items\":[{\"id\":1631,\"name\":\"Meditative Blanket\",\"foci\":[{\"s\":2346,\"n\":\"Improved Healing II\"}]}]}");
+
+        LookedUpItem blanket = Assert.Single(items);
+        Assert.Equal((1631, "Meditative Blanket"), (blanket.Id, blanket.Name));
+        Assert.Equal(new ItemFocusRef(2346, "Improved Healing II"), Assert.Single(blanket.Foci));
+        Assert.Empty(HttpItemFocusLookup.Parse("{\"items\":[]}"));
+    }
+
+    [Fact]
+    public void Each_kind_gets_the_biggest_focus_any_item_carries()
+    {
+        var items = new[]
+        {
+            new LookedUpItem(1, "Weak Ring", new[] { new ItemFocusRef(2349, "Extended Range II") }),
+            new LookedUpItem(1618, "Supple Scale Armband", new[] { new ItemFocusRef(2350, "Extended Range III") }),
+            new LookedUpItem(1631, "Meditative Blanket", new[] { new ItemFocusRef(2346, "Improved Healing II"), new ItemFocusRef(99999, "Not A Focus") }),
+        };
+
+        IReadOnlyDictionary<FocusKind, (int SpellId, string Item)> best = ItemFocusAssigner.Best(Database(), items, 60);
+
+        Assert.Equal((2350, "Supple Scale Armband"), best[FocusKind.Range]);
+        Assert.Equal((2346, "Meditative Blanket"), best[FocusKind.Healing]);
+        Assert.Equal(2, best.Count);
+    }
+
+    [Fact]
+    public void Looked_up_items_are_remembered_in_a_file()
+    {
+        string path = Path.Combine(Path.GetTempPath(), "eqo-items-" + Guid.NewGuid().ToString("N") + ".json");
+        try
+        {
+            var cache = new ItemFocusCache();
+            cache.Load(path);
+            cache.Set("Meditative Blanket", 0, new[] { new LookedUpItem(1631, "Meditative Blanket", new[] { new ItemFocusRef(2346, "Improved Healing II") }) });
+            cache.Set("Nothing", 0, Array.Empty<LookedUpItem>());
+            cache.Save();
+
+            var again = new ItemFocusCache();
+            again.Load(path);
+            Assert.True(again.TryGet("meditative blanket", 0, out IReadOnlyList<LookedUpItem> found));
+            Assert.Equal(2346, Assert.Single(Assert.Single(found).Foci).SpellId);
+            Assert.True(again.TryGet("Nothing", 0, out IReadOnlyList<LookedUpItem> none));
+            Assert.Empty(none);
+            Assert.False(again.TryGet("Something Else", 0, out _));
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+}

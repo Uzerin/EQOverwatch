@@ -21,7 +21,12 @@ public sealed record BossAbilityDisplayRow(string Spell, int Casts, string Every
 /// <summary>One healer of the selected fight.</summary>
 public sealed record UptimeDisplayRow(string Spell, string Target, string Up, string Percent);
 
-public sealed record HealingDisplayRow(int Rank, string Name, long Effective, double Hps, double OverhealPercent, int Heals, int MaxHeal, string TopSpell);
+public sealed record HealingDisplayRow(int Rank, string Name, double Hps, long Total, long Effective, long Overheal, double OverhealPercent, int Casts, int MaxHeal)
+{
+    /// <summary>"296,818 (21.2%)": the overheal and its share of everything healed.</summary>
+    public string OverhealText => Overheal.ToString("N0", System.Globalization.CultureInfo.CurrentCulture) + " (" +
+                                  OverhealPercent.ToString("0.0", System.Globalization.CultureInfo.CurrentCulture) + "%)";
+}
 
 /// <summary>One death of the selected fight, with how far into the fight it happened.</summary>
 public sealed record DeathDisplayRow(string When, string Name, string KilledBy, string KillingBlow = "");
@@ -283,7 +288,7 @@ public sealed partial class MainViewModel
 
         IReadOnlyList<HealingSnapshot> healers = encounter.HealingRows;
         HealingDisplayRow[] healing = healers
-            .Select((h, i) => new HealingDisplayRow(i + 1, h.Name, h.Effective, h.Hps, h.OverhealPercent, h.Heals, h.MaxHeal, h.TopSpell))
+            .Select((h, i) => new HealingDisplayRow(i + 1, h.Name, h.Hps, h.Effective + h.Overheal, h.Effective, h.Overheal, h.OverhealPercent, h.Heals, h.MaxHeal))
             .ToArray();
         if (!healing.SequenceEqual(HealingRows))
         {

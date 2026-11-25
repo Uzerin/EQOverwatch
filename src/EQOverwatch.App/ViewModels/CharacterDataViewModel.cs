@@ -147,6 +147,15 @@ public sealed partial class CharacterDataViewModel : ObservableObject
         Rebuild();
     }
 
+    /// <summary>Shows the Focus Effects tab again after the app set a focus from an identified item.</summary>
+    public void RefreshFocus()
+    {
+        if (_progress?.FocusFor is { } focusFor && SelectedPersona is { } persona)
+        {
+            Focus = focusFor(persona.Persona);
+        }
+    }
+
     /// <summary>Fills the Persona drop-down, keeping the choice (or picking the current persona).</summary>
     private void LoadPersonas()
     {

@@ -13,7 +13,7 @@ as many characters as you play, without touching the game.
 
 **Timers and alerts**
 - GINA-style triggers: text, sounds, speech and timers from any log line, shareable in chat.
-- Buff, debuff and song bars for all your characters, lengthened by your focus and learned AAs, paused in safe zones and while logged out.
+- Buff, debuff and song bars for all your characters, lengthened by your focus items and learned AAs, paused in safe zones and while logged out.
 - Raid boss ability timers, CH chain bars with a late-cast alarm, and AA and discipline cooldowns.
 - Charm break, aggro and range alerts for your boxes, and tells read aloud.
 
@@ -62,6 +62,11 @@ addresses are kept. Untick **Count me in the anonymous player count** on Setting
 - Run `/outputfile inventory`, `spellbook` and `missingspells` in game to fill in character data.
 
 ## Changelog
+
+### 1.0.105
+
+- Focus Effects fills in each focus from the items that fire in your log or that you wear.
+- New healing columns (HPS, total, effective, overheals, casts, biggest), and tables keep their sort when they refresh.
 
 ### 1.0.104
 

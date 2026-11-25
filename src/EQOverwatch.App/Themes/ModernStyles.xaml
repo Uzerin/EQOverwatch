@@ -1,6 +1,7 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-                    xmlns:controls="clr-namespace:EQOverwatch.App.Controls">
+                    xmlns:controls="clr-namespace:EQOverwatch.App.Controls"
+                    xmlns:presentation="clr-namespace:EQOverwatch.App.Presentation">
 
     <!--
         Modern dark control templates. Every color is a {DynamicResource} brush that ThemeManagerService replaces at runtime
@@ -542,6 +543,8 @@
     </Style>
 
     <Style TargetType="DataGrid">
+        <!-- A table keeps the column you sorted by when its rows are refreshed. -->
+        <Setter Property="presentation:SortKeeper.Keep" Value="True"/>
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         <Setter Property="BorderThickness" Value="0"/>

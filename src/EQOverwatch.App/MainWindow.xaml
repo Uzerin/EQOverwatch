@@ -1400,17 +1400,18 @@
                                             <DataGrid.Columns>
                                                 <DataGridTextColumn Header="#" Binding="{Binding Rank, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                                                 <DataGridTextColumn Header="Name" Binding="{Binding Name, Mode=OneWay}" Width="Auto"/>
-                                                <DataGridTextColumn Header="Healed" Binding="{Binding Effective, StringFormat=N0, Mode=OneWay}" Width="Auto"
-                                                                    ElementStyle="{StaticResource NumericCell}"/>
                                                 <DataGridTextColumn Header="HPS" Binding="{Binding Hps, StringFormat=N1, Mode=OneWay}" Width="Auto"
                                                                     ElementStyle="{StaticResource NumericCell}"/>
-                                                <DataGridTextColumn Header="Overheal %" Binding="{Binding OverhealPercent, StringFormat={}{0:0.0}%, Mode=OneWay}" Width="Auto"
+                                                <DataGridTextColumn Header="Total" Binding="{Binding Total, StringFormat=N0, Mode=OneWay}" Width="Auto"
                                                                     ElementStyle="{StaticResource NumericCell}"/>
-                                                <DataGridTextColumn Header="Heals" Binding="{Binding Heals, StringFormat=N0, Mode=OneWay}" Width="Auto"
+                                                <DataGridTextColumn Header="Effective Heals" Binding="{Binding Effective, StringFormat=N0, Mode=OneWay}" Width="Auto"
+                                                                    ElementStyle="{StaticResource NumericCell}"/>
+                                                <DataGridTextColumn Header="Overheals" Binding="{Binding OverhealText, Mode=OneWay}" SortMemberPath="Overheal" Width="Auto"
+                                                                    ElementStyle="{StaticResource NumericCell}"/>
+                                                <DataGridTextColumn Header="Casts" Binding="{Binding Casts, StringFormat=N0, Mode=OneWay}" Width="Auto"
                                                                     ElementStyle="{StaticResource NumericCell}"/>
                                                 <DataGridTextColumn Header="Biggest" Binding="{Binding MaxHeal, StringFormat=N0, Mode=OneWay}" Width="Auto"
                                                                     ElementStyle="{StaticResource NumericCell}"/>
-                                                <DataGridTextColumn Header="Main spell" Binding="{Binding TopSpell, Mode=OneWay}" Width="Auto"/>
                                             </DataGrid.Columns>
                                         </DataGrid>
                                     </DockPanel>

@@ -428,6 +428,12 @@ public sealed class DurationProfileSetting
 
     /// <summary>The other focus kinds picked (kind name to spell id): healing, damage, spell haste, mana cost, range, hate, reagent cost.</summary>
     public Dictionary<string, int>? Foci { get; set; }
+
+    /// <summary>The item each focus kind was taken from (kind name to item name), for foci the app set from an identified item.</summary>
+    public Dictionary<string, string>? FromItems { get; set; }
+
+    /// <summary>"Item|Kind" pairs already applied once; a focus picked by hand afterwards stays until another item is identified.</summary>
+    public List<string>? AppliedItems { get; set; }
 }
 
 public sealed class WatchedLogSettings

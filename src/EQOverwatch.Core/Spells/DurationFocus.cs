@@ -34,7 +34,8 @@ public sealed record DurationFocus(
 /// <param name="AaBonuses">The duration bonuses of the character's learned alternate abilities (see <see cref="AaDurations"/>).</param>
 /// <param name="Foci">The other focus kinds picked on the Focus Effects tab (healing, range and so on), for reference only.</param>
 public sealed record DurationProfile(int? BeneficialFocusId, int? DetrimentalFocusId, int AaPercent, IReadOnlyList<AaDurationBonus>? AaBonuses = null,
-    IReadOnlyDictionary<FocusKind, int>? Foci = null)
+    IReadOnlyDictionary<FocusKind, int>? Foci = null, IReadOnlyDictionary<FocusKind, string>? FromItems = null,
+    IReadOnlyCollection<string>? AppliedItems = null)
 {
     public static readonly DurationProfile None = new(null, null, 0);
 

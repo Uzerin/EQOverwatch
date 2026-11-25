@@ -25,6 +25,8 @@
 //   PUT    /v1/bonus-sizes/{server}/{id} share measured bonus sizes: { sizes: [{ d, z, k, s }] } (k: xp/aa/coin, s: percent) (X-Install-Key)
 //   GET    /v1/bonus-sizes/{server}?day=D   every zone's median size that day: { day, sizes: [{ z, k, m, n }] }
 //   GET    /v1/bonus-sizes/{server}?zone=Z  a zone's median size per day: { zone, sizes: [{ d, k, m, n }] }
+//   GET    /v1/itemfocus?name=N | ?id=I  an item's focus effects { items: [{ id, name, foci: [{ s, n }] }] } (s: spell id, n: spell
+//                                        name), looked up once from the item source (ITEM_SOURCE) and remembered for everyone
 //   POST   /v1/ping                      { id, version }: counts this install as active today
 //   GET    /v1/stats                     public player counts
 //   GET    /v1/admin/stats               the same with the versions in use        (Authorization: Bearer ADMIN_KEY)
@@ -86,6 +88,10 @@ async function route(request, env) {
 
   if (parts[1] === "merged" && parts.length === 3 && method === "GET") {
     return downloadMerged(env, parts[2].toLowerCase(), Number(url.searchParams.get("have") || "0"));
+  }
+
+  if (parts[1] === "itemfocus" && parts.length === 2 && method === "GET") {
+    return itemFocus(env, url.searchParams.get("name") || "", url.searchParams.get("id") || "");
   }
 
   if (parts[1] === "drops" && (parts.length === 3 || (parts.length === 4 && method === "GET"))) {
@@ -1220,6 +1226,75 @@ class Names {
 }
 
 // ───────────────────────── player count ─────────────────────────
+
+// ───────────────────────── item focus lookup ─────────────────────────
+
+const ITEM_NAME = /^[A-Za-z0-9 '`,.:()\-]{2,80}$/;
+const ITEM_ID = /^[0-9]{1,8}$/;
+const ITEM_FOUND_TTL = 60 * 86400;
+const ITEM_MISSING_TTL = 7 * 86400;
+
+/** An item's focus effects, from the cache or, the first time anyone asks, from the item source's item page or name search. */
+async function itemFocus(env, name, id) {
+  name = name.trim();
+  if (!(id ? ITEM_ID.test(id) : ITEM_NAME.test(name))) {
+    return json({ error: "Bad item name or id." }, 400);
+  }
+
+  if (!env.ITEM_SOURCE) {
+    return json({ error: "Item lookup is not set up." }, 503);
+  }
+
+  const key = "itemfocus:" + (id ? "id:" + id : "name:" + name.toLowerCase());
+  const cached = await env.FILES.get(key);
+  if (cached) {
+    return new Response(cached, { headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=86400" } });
+  }
+
+  const path = id ? "/items/" + id : "/items?name=" + encodeURIComponent(name);
+  let html;
+  try {
+    const response = await fetch(env.ITEM_SOURCE + path, { headers: { "User-Agent": "EQOverwatch item focus lookup" } });
+    html = await response.text(); // an item page answers 404 even when it shows the item
+  } catch {
+    return json({ error: "The item source could not be reached." }, 502);
+  }
+
+  let items = parseItems(html);
+  if (!id) {
+    items = items.filter(i => i.name.toLowerCase() === name.toLowerCase());
+  }
+
+  const body = JSON.stringify({ items: items.slice(0, 10) });
+  await env.FILES.put(key, body, { expirationTtl: items.length > 0 ? ITEM_FOUND_TTL : ITEM_MISSING_TTL });
+  return new Response(body, { headers: { "Content-Type": "application/json" } });
+}
+
+/** Every item block of an item page: id, name and each "Focus Effect" spell. */
+function parseItems(html) {
+  const items = [];
+  const blocks = html.split(/<div id="item\d+" class="item/).slice(1);
+  for (const block of blocks) {
+    const id = Number((/data-id="(\d+)"/.exec(block) || [])[1] || 0);
+    const name = decodeHtml(((/<span class="itemname">([^<]*)<\/span>/.exec(block)) || [])[1] || "");
+    if (!id || !name) continue;
+    const foci = [];
+    const focus = /<label>Focus Effect:<\/label>\s*<a href="\/spells\?name=(\d+)">([^<]*)<\/a>/g;
+    let m;
+    while ((m = focus.exec(block)) !== null) {
+      foci.push({ s: Number(m[1]), n: decodeHtml(m[2]) });
+    }
+
+    items.push({ id, name, foci });
+  }
+
+  return items;
+}
+
+function decodeHtml(text) {
+  return text.replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+    .replace(/&mdash;/g, "-").trim();
+}
 
 async function ping(request, env) {
   let body;

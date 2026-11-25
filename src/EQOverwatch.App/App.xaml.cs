@@ -273,6 +273,7 @@ public partial class CompanionApp : Application
         _viewModel.ConfigureServerFirsts(new EQOverwatch.Core.Firsts.HttpServerFirstService(_sharedDropsHttp));
         _viewModel.ConfigureMobStats(new EQOverwatch.Core.History.HttpMobStatsService(_sharedDropsHttp));
         _viewModel.ConfigureResourceHunter(new EQOverwatch.Core.ResourceHunter.HttpResourceHunterService(_sharedDropsHttp));
+        _viewModel.ConfigureItemFocusLookup(new EQOverwatch.Core.Spells.HttpItemFocusLookup(_sharedDropsHttp), Path.Combine(appData, "itemfoci.json"));
         _viewModel.NoticeRequested += notice => _tellToasts?.Show(notice.Title, notice.Text);
         _viewModel.LiveNoticeRequested += (notice, onlyWhenAway) => Dispatcher.BeginInvoke(() =>
         {
