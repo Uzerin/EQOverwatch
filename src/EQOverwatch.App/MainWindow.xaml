@@ -1123,40 +1123,63 @@
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
 
-                        <DataGrid Grid.Column="0" HorizontalAlignment="Left" ItemsSource="{Binding Encounters}" SelectedItem="{Binding SelectedEncounter, Mode=TwoWay}"
-                                  AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" SelectionChanged="EncounterList_SelectionChanged"
-                                  ToolTip="Ctrl-click or Shift-click to pick several fights and see them as one combined parse."
-                                  SelectionMode="Extended" HeadersVisibility="Column" GridLinesVisibility="Horizontal">
-                            <DataGrid.Columns>
-                                <DataGridTextColumn Header="Target" Binding="{Binding TargetName}" Width="Auto" MinWidth="120">
-                                    <DataGridTextColumn.ElementStyle>
-                                        <Style TargetType="TextBlock">
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsPersonalBest}" Value="True">
-                                                    <Setter Property="Foreground" Value="#E8C66A"/>
-                                                    <Setter Property="FontWeight" Value="SemiBold"/>
-                                                    <Setter Property="ToolTip" Value="One of your characters' best DPS, overall or against this mob."/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </DataGridTextColumn.ElementStyle>
-                                </DataGridTextColumn>
-                                <DataGridTextColumn Header="Start" Binding="{Binding StartText}" SortMemberPath="StartTime" Width="Auto"/>
-                                <DataGridTextColumn Header="Length" Binding="{Binding DurationText}" SortMemberPath="DurationSeconds" Width="Auto"
-                                                    ElementStyle="{StaticResource NumericCell}"/>
-                                <DataGridTextColumn Header="Damage" Binding="{Binding TotalDamage, StringFormat=N0}" Width="Auto"
-                                                    ElementStyle="{StaticResource NumericCell}"/>
-                                <DataGridTextColumn Header="Group DPS" Binding="{Binding GroupDps, StringFormat=N0}" Width="Auto"
-                                                    ElementStyle="{StaticResource NumericCell}"/>
-                                <DataGridTextColumn Header="Challenge" Binding="{Binding ChallengeText}" Width="Auto">
-                                    <DataGridTextColumn.ElementStyle>
-                                        <Style TargetType="TextBlock">
-                                            <Setter Property="Foreground" Value="#5CC98A"/>
-                                        </Style>
-                                    </DataGridTextColumn.ElementStyle>
-                                </DataGridTextColumn>
-                            </DataGrid.Columns>
-                        </DataGrid>
+                        <!-- Fight list, with a date filter above it. -->
+                        <DockPanel Grid.Column="0">
+                            <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
+                                <StackPanel.Resources>
+                                    <Style TargetType="DatePickerTextBox" BasedOn="{StaticResource {x:Type TextBox}}"/>
+                                    <Style TargetType="DatePicker">
+                                        <Setter Property="Width" Value="130"/>
+                                        <Setter Property="VerticalAlignment" Value="Center"/>
+                                        <Setter Property="Background" Value="{DynamicResource InputBgBrush}"/>
+                                        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+                                        <Setter Property="BorderBrush" Value="{DynamicResource BorderSoftBrush}"/>
+                                        <Setter Property="SelectedDateFormat" Value="Short"/>
+                                    </Style>
+                                </StackPanel.Resources>
+                                <TextBlock Text="Start" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                <DatePicker SelectedDate="{Binding EncounterFrom, Mode=TwoWay}" ToolTip="Show fights that started on or after this day."/>
+                                <TextBlock Text="End" VerticalAlignment="Center" Margin="12,0,6,0"/>
+                                <DatePicker SelectedDate="{Binding EncounterTo, Mode=TwoWay}" ToolTip="Show fights that started on or before this day."/>
+                                <Button Style="{StaticResource SecondaryButton}" Content="Reset" Margin="10,0,0,0" Padding="12,3" Command="{Binding ResetEncounterDatesCommand}"
+                                        ToolTip="Show every fight again."/>
+                                <TextBlock Text="{Binding EncounterCountText}" Style="{StaticResource HintText}" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                            </StackPanel>
+                            <DataGrid HorizontalAlignment="Left" ItemsSource="{Binding Encounters}" SelectedItem="{Binding SelectedEncounter, Mode=TwoWay}"
+                                      AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" SelectionChanged="EncounterList_SelectionChanged"
+                                      ToolTip="Ctrl-click or Shift-click to pick several fights and see them as one combined parse."
+                                      SelectionMode="Extended" HeadersVisibility="Column" GridLinesVisibility="Horizontal">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Target" Binding="{Binding TargetName}" Width="Auto" MinWidth="120">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsPersonalBest}" Value="True">
+                                                        <Setter Property="Foreground" Value="#E8C66A"/>
+                                                        <Setter Property="FontWeight" Value="SemiBold"/>
+                                                        <Setter Property="ToolTip" Value="One of your characters' best DPS, overall or against this mob."/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Header="Start" Binding="{Binding StartText}" SortMemberPath="StartTime" Width="Auto"/>
+                                    <DataGridTextColumn Header="Length" Binding="{Binding DurationText}" SortMemberPath="DurationSeconds" Width="Auto"
+                                                        ElementStyle="{StaticResource NumericCell}"/>
+                                    <DataGridTextColumn Header="Damage" Binding="{Binding TotalDamage, StringFormat=N0}" Width="Auto"
+                                                        ElementStyle="{StaticResource NumericCell}"/>
+                                    <DataGridTextColumn Header="Group DPS" Binding="{Binding GroupDps, StringFormat=N0}" Width="Auto"
+                                                        ElementStyle="{StaticResource NumericCell}"/>
+                                    <DataGridTextColumn Header="Challenge" Binding="{Binding ChallengeText}" Width="Auto">
+                                        <DataGridTextColumn.ElementStyle>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="#5CC98A"/>
+                                            </Style>
+                                        </DataGridTextColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </DockPanel>
 
                         <!-- Right half: damage dealt on top, damage taken below. -->
                         <Grid Grid.Column="2">

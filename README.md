@@ -63,6 +63,10 @@ addresses are kept. Untick **Count me in the anonymous player count** on Setting
 
 ## Changelog
 
+### 1.0.109
+
+- Encounter DPS can show only the fights between a start and an end date, with Reset to show them all.
+
 ### 1.0.108
 
 - The Graph tab drops the replay slider, and the DPS graph uses its full height.

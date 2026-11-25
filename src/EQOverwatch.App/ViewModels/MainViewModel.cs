@@ -864,11 +864,16 @@ public sealed partial class MainViewModel : ObservableObject
     {
         var entries = new List<EncounterEntry>(live.Active.Count + live.Completed.Count + imported.Active.Count + imported.Completed.Count);
         string? server = ToolsServerFilter;
+        int all = 0;
         foreach (EncounterSnapshot encounter in live.All)
         {
             if (OnShownServer(encounter, server))
             {
-                entries.Add(new EncounterEntry(encounter, Imported: false));
+                all++;
+                if (InEncounterDates(encounter))
+                {
+                    entries.Add(new EncounterEntry(encounter, Imported: false));
+                }
             }
         }
 
@@ -886,7 +891,11 @@ public sealed partial class MainViewModel : ObservableObject
 
             if (OnShownServer(encounter, server))
             {
-                entries.Add(new EncounterEntry(encounter, Imported: true));
+                all++;
+                if (InEncounterDates(encounter))
+                {
+                    entries.Add(new EncounterEntry(encounter, Imported: true));
+                }
             }
         }
 
@@ -895,6 +904,7 @@ public sealed partial class MainViewModel : ObservableObject
             .ThenBy(e => e.Imported)
             .ThenByDescending(e => e.Snapshot.Id)
             .ToArray();
+        ShowEncounterCount(ordered.Length, all);
 
         if (rebuild || Math.Abs(ordered.Length - Encounters.Count) > EncounterRebuildThreshold)
         {
