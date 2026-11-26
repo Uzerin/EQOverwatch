@@ -48,11 +48,25 @@ public static class EqInstallFinder
         }
     }
 
-    /// <summary>Folders up to <paramref name="depth"/> levels under a drive root (system folders skipped). Unreadable folders are passed over.</summary>
-    public static IEnumerable<string> FoldersUnder(string root, int depth = 2)
+    /// <summary>Words in a folder name that make it worth looking deeper than <see cref="FoldersUnder"/>'s first two levels.</summary>
+    private static readonly string[] GameFolderWords = { "game", "daybreak", "sony", "everquest", "steam", "eq" };
+
+    /// <summary>True for a folder name that may lead to a game install ("Games", "Daybreak Game Company", "EQ", "SteamLibrary").</summary>
+    public static bool IsGameFolderName(string name) =>
+        GameFolderWords.Any(word => word == "eq"
+            ? name.Equals("eq", StringComparison.OrdinalIgnoreCase) || name.StartsWith("eq ", StringComparison.OrdinalIgnoreCase)
+              || name.StartsWith("eq_", StringComparison.OrdinalIgnoreCase) || name.StartsWith("eq-", StringComparison.OrdinalIgnoreCase)
+            : name.Contains(word, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// Folders up to <paramref name="depth"/> levels under a drive root (system folders skipped), then on down to
+    /// <paramref name="deepDepth"/> levels through folders whose names look like games (<see cref="IsGameFolderName"/>), so
+    /// "D:\Games\Daybreak\EverQuest" is found too. Unreadable folders are passed over.
+    /// </summary>
+    public static IEnumerable<string> FoldersUnder(string root, int depth = 2, int deepDepth = 4)
     {
         var level = new List<string> { root };
-        for (int i = 0; i < depth; i++)
+        for (int i = 0; i < Math.Max(depth, deepDepth); i++)
         {
             var next = new List<string>();
             foreach (string folder in level)
@@ -69,7 +83,13 @@ public static class EqInstallFinder
 
                 foreach (string child in children)
                 {
-                    if (i == 0 && SkippedRootFolders.Contains(Path.GetFileName(child)))
+                    string name = Path.GetFileName(child);
+                    if (i == 0 && SkippedRootFolders.Contains(name))
+                    {
+                        continue;
+                    }
+
+                    if (i >= depth && !IsGameFolderName(name))
                     {
                         continue;
                     }
@@ -80,6 +100,25 @@ public static class EqInstallFinder
             }
 
             level = next;
+        }
+    }
+
+    /// <summary>
+    /// The EverQuest folder of each Steam library listed in Steam's <c>libraryfolders.vdf</c> text (lines like
+    /// <c>"path"		"D:\SteamLibrary"</c>).
+    /// </summary>
+    public static IEnumerable<string> SteamLibraryFolders(string? libraryFoldersVdf)
+    {
+        if (string.IsNullOrEmpty(libraryFoldersVdf))
+        {
+            yield break;
+        }
+
+        foreach (System.Text.RegularExpressions.Match match in System.Text.RegularExpressions.Regex.Matches(
+                     libraryFoldersVdf, @"""path""\s+""(?<path>[^""]+)""",System.Text.RegularExpressions.RegexOptions.CultureInvariant))
+        {
+            string library = match.Groups["path"].Value.Replace("\\\\", "\\", StringComparison.Ordinal);
+            yield return Path.Combine(library, "steamapps", "common", "EverQuest");
         }
     }
 

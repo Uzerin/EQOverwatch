@@ -4,7 +4,8 @@
         Title="Welcome to EQ Overwatch"
         Icon="pack://application:,,,/Assets/EQOverwatch.ico"
         Width="720" SizeToContent="Height" ResizeMode="NoResize"
-        WindowStartupLocation="CenterScreen" ShowInTaskbar="True"
+        WindowStartupLocation="CenterScreen" ShowInTaskbar="True" Topmost="True"
+        MouseLeftButtonDown="Window_MouseLeftButtonDown" KeyDown="Window_KeyDown"
         Background="{DynamicResource WindowBgBrush}"
         Foreground="{DynamicResource TextPrimaryBrush}"
         FontFamily="Segoe UI" FontSize="13">
@@ -15,7 +16,7 @@
                    RenderOptions.BitmapScalingMode="HighQuality"/>
             <StackPanel VerticalAlignment="Center">
                 <TextBlock x:Name="Heading" Text="Welcome to EQ Overwatch" FontSize="24" FontWeight="Bold"/>
-                <TextBlock Text="Two quick choices and you're set. You can change both later on Settings." Foreground="{DynamicResource TextMutedBrush}"
+                <TextBlock Text="Three quick choices and you're set. You can change them later on Settings." Foreground="{DynamicResource TextMutedBrush}"
                            Margin="2,2,0,0"/>
             </StackPanel>
         </DockPanel>
@@ -66,6 +67,25 @@
                                Text="Not anonymous: character names, guilds, classes and each player's damage and healing are shared for qualifying raid fights."/>
                 </StackPanel>
             </CheckBox>
+        </Border>
+
+        <TextBlock Text="3  Overlays" FontSize="15" FontWeight="SemiBold" Margin="0,22,0,8"/>
+        <TextBlock Text="Pick the overlays to show. They open after you click Get started, unlocked so you can drag them into place."
+                   Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,0,8" TextWrapping="Wrap"/>
+        <Border Padding="14,10" CornerRadius="8" BorderThickness="1"
+                Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource BorderSoftBrush}">
+            <ItemsControl x:Name="OverlayChoices" Focusable="False">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <UniformGrid Columns="4"/>
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <CheckBox Content="{Binding Title}" IsChecked="{Binding IsSelected, Mode=TwoWay}" Margin="0,3,12,3"/>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
         </Border>
 
         <Button Content="Get started" HorizontalAlignment="Right" Padding="22,7" Margin="0,22,0,0" IsDefault="True" Click="Start_Click"/>

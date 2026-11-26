@@ -61,9 +61,9 @@ public partial class CompanionApp : Application
 
         try
         {
-            var welcome = new WelcomeWindow { Owner = owner, WindowStartupLocation = WindowStartupLocation.CenterOwner };
+            var welcome = new WelcomeWindow(MainViewModel.WelcomeOverlayDefaults) { Owner = owner, WindowStartupLocation = WindowStartupLocation.CenterOwner };
             welcome.ShowDialog();
-            await _viewModel.ApplyWelcomeAsync(welcome.Folder, welcome.AnonymousSharingOn, welcome.ServerFirstOn);
+            await _viewModel.ApplyWelcomeAsync(welcome.Folder, welcome.AnonymousSharingOn, welcome.ServerFirstOn, welcome.Overlays);
         }
         catch (Exception ex)
         {
@@ -116,6 +116,10 @@ public partial class CompanionApp : Application
         AppSettings settings = _settingsService.Load();
         firstRun &= !_settingsService.MigratedFromLegacy;
         firstRun |= e.Args.Contains("--welcome", StringComparer.OrdinalIgnoreCase); // shows the first-run window again
+        if (firstRun)
+        {
+            MainViewModel.HideOverlaysForWelcome(settings); // the first-run window picks which overlays open
+        }
 
         _pipeline = new CompanionPipeline(TimeSpan.FromSeconds(settings.EncounterTimeoutSeconds));
         _audio = new AudioNotificationService(_pipeline.Triggers);

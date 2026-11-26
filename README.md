@@ -66,6 +66,10 @@ are kept. Untick **Count me in the anonymous player count** on Settings to stop 
 
 ## Changelog
 
+### 1.0.123
+
+- First run: overlays no longer cover the welcome window. It picks which overlays to show, stays on top, can be dragged, and finds EverQuest in more places (including a running game).
+
 ### 1.0.122
 
 - The Discord picture is 16:9, and its DPS, Healing and Tanking tables each show the top 25.

@@ -114,20 +114,23 @@ public sealed partial class MainViewModel
     }
 
     /// <summary>The ✕ of a built-in overlay switches it off, the same as unticking it in Settings.</summary>
-    private void CloseOverlay(OverlayKind kind)
+    private void CloseOverlay(OverlayKind kind) => SetOverlayVisible(kind, false);
+
+    /// <summary>Switches a built-in overlay on or off, the same as its tick box in Settings.</summary>
+    public void SetOverlayVisible(OverlayKind kind, bool visible)
     {
         switch (kind)
         {
-            case OverlayKind.Buffs: IsBuffsOverlayVisible = false; break;
-            case OverlayKind.Debuffs: IsDebuffsOverlayVisible = false; break;
-            case OverlayKind.Songs: IsSongsOverlayVisible = false; break;
-            case OverlayKind.RaidTriggers: IsRaidTriggersOverlayVisible = false; break;
-            case OverlayKind.ChChain: IsChChainOverlayVisible = false; break;
-            case OverlayKind.Dps: IsDpsOverlayVisible = false; break;
-            case OverlayKind.Tells: IsTellsOverlayVisible = false; break;
-            case OverlayKind.MobCard: IsMobCardOverlayVisible = false; break;
-            case OverlayKind.FctDamage: IsFctDamageOverlayVisible = false; break;
-            case OverlayKind.FctHeals: IsFctHealsOverlayVisible = false; break;
+            case OverlayKind.Buffs: IsBuffsOverlayVisible = visible; break;
+            case OverlayKind.Debuffs: IsDebuffsOverlayVisible = visible; break;
+            case OverlayKind.Songs: IsSongsOverlayVisible = visible; break;
+            case OverlayKind.RaidTriggers: IsRaidTriggersOverlayVisible = visible; break;
+            case OverlayKind.ChChain: IsChChainOverlayVisible = visible; break;
+            case OverlayKind.Dps: IsDpsOverlayVisible = visible; break;
+            case OverlayKind.Tells: IsTellsOverlayVisible = visible; break;
+            case OverlayKind.MobCard: IsMobCardOverlayVisible = visible; break;
+            case OverlayKind.FctDamage: IsFctDamageOverlayVisible = visible; break;
+            case OverlayKind.FctHeals: IsFctHealsOverlayVisible = visible; break;
         }
     }
 
