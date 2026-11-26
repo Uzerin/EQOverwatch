@@ -88,6 +88,7 @@ public sealed partial class MainViewModel : ObservableObject
         _openUrl = openUrl;
         _pipeline = pipeline ?? throw new ArgumentNullException(nameof(pipeline));
         _pipeline.Buffs.SetDurationProvider(CasterDurationFor);
+        _pipeline.LiveDps.KeepAlways = IsRaidBoss; // raid boss fights stay in the list beyond the newest 500 others
         _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
         _overlays = overlays ?? throw new ArgumentNullException(nameof(overlays));
         _audio = audio ?? throw new ArgumentNullException(nameof(audio));
@@ -1490,6 +1491,7 @@ public sealed partial class MainViewModel : ObservableObject
             RestoreLook(settings);
             _backfillFrom = settings.BackfillFromLocal;
             _backfillKey = settings.BackfillLogsKey ?? string.Empty;
+            _encounterListRebuilt = settings.EncounterListRebuilt;
 
             SelectedRule = Rules.FirstOrDefault();
             ApplyTriggers();
@@ -1656,6 +1658,7 @@ public sealed partial class MainViewModel : ObservableObject
         LastCrashSeenUtc = _lastCrashSeenUtc,
         BackfillFromLocal = _backfillFrom,
         BackfillLogsKey = _backfillKey,
+        EncounterListRebuilt = _encounterListRebuilt,
         EncounterTimeoutSeconds = EncounterTimeoutSeconds,
         IsAudioMuted = IsAudioMuted,
         ReadTellsAloud = ReadTellsAloud,

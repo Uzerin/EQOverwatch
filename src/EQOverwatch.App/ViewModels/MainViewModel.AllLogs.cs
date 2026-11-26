@@ -95,6 +95,14 @@ public partial class MainViewModel
 
     private DateTime? _backfillFrom;
     private string _backfillKey = string.Empty;
+    private bool _encounterListRebuilt;
+
+    /// <summary>A minute either side of every recorded fight against a raid boss, read before the recent logs at start-up.</summary>
+    private IReadOnlyList<(DateTime Start, DateTime End)> RaidBossWindows() =>
+        _bossHistory.Fights()
+            .Where(f => IsRaidBoss(f.Boss))
+            .Select(f => (f.Start.AddMinutes(-1), f.Start.AddSeconds(Math.Max(0, f.Seconds)).AddMinutes(1)))
+            .ToList();
 
     /// <summary>Which logs and history setting a remembered start belongs to.</summary>
     private string BackfillKey(IReadOnlyList<string> paths) =>
@@ -107,7 +115,8 @@ public partial class MainViewModel
     /// </summary>
     private void RememberBackfillStart(string key)
     {
-        IReadOnlyList<Core.Models.EncounterSnapshot> completed = _pipeline.LiveDps.Snapshot.Completed;
+        // Raid boss fights are kept apart (read from their own windows), so only the other fights decide where the next read starts.
+        List<Core.Models.EncounterSnapshot> completed = _pipeline.LiveDps.Snapshot.Completed.Where(e => !IsRaidBoss(e.TargetName)).ToList();
         _backfillKey = key;
         _backfillFrom = completed.Count >= Core.Services.LiveDpsTracker.DefaultMaxCompletedEncounters
             ? completed.Min(e => e.StartTime).AddHours(-1)
@@ -133,12 +142,27 @@ public partial class MainViewModel
             // The meter keeps only its newest fights: start where the oldest one kept last time began, unless the logs changed.
             DateTime? start = AppSettings.GetHistoricalStart(HistoricalDaysLimit, now);
             string key = BackfillKey(paths);
-            if (_backfillFrom is { } cached && _backfillKey == key && (start is null || cached > start))
+            bool rebuild = !_encounterListRebuilt;
+            if (rebuild)
+            {
+                ImportStatus = $"Rebuilding the encounter list from {LogsText(paths.Count)} (once, so every raid boss fight is kept)…";
+            }
+            else if (_backfillFrom is { } cached && _backfillKey == key && (start is null || cached > start))
             {
                 start = cached;
             }
 
-            HistoricalImportResult result = await _pipeline.BackfillLiveAsync(paths, start, now, progress, cts.Token);
+            // Older raid boss fights: only the minutes around each recorded fight are read again.
+            DateTime? historyStart = AppSettings.GetHistoricalStart(HistoricalDaysLimit, now);
+            IReadOnlyList<(DateTime Start, DateTime End)> windows = RaidBossWindows()
+                .Where(w => historyStart is null || w.End >= historyStart) // still within Historical Days to Load
+                .ToList();
+            HistoricalImportResult result = await _pipeline.BackfillLiveAsync(paths, start, now, progress, cts.Token, windows);
+            if (rebuild)
+            {
+                _encounterListRebuilt = true;
+            }
+
             RememberBackfillStart(key);
             ImportProgress = 100;
             ImportStatus = $"Loaded {result.LinesRead:N0} lines from {LogsText(result.Logs)} in {result.Elapsed.TotalSeconds:0.0}s: " +

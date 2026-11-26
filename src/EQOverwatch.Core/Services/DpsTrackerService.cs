@@ -90,6 +90,9 @@ public partial class DpsTrackerService : IDpsEventSink
     private readonly PlayerRoster? _roster;
     private readonly Dictionary<string, CombatEncounter> _active = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<EncounterSnapshot> _completed = new();
+
+    /// <summary>Targets whose fights are always kept (the raid bosses); they do not count toward the completed-encounter limit.</summary>
+    public Func<string, bool>? KeepAlways { get; set; }
     private readonly HashSet<string> _seedPlayers = new(StringComparer.Ordinal);
     private readonly HashSet<string> _confirmedPlayers = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _confirmedNpcs = new(StringComparer.OrdinalIgnoreCase);
@@ -1206,9 +1209,22 @@ public partial class DpsTrackerService : IDpsEventSink
     {
         encounter.Close(endTime);
         _completed.Add(EncounterSnapshot.From(encounter));
-        while (_completed.Count > _options.MaxCompletedEncounters)
+        if (_completed.Count > _options.MaxCompletedEncounters)
         {
-            _completed.RemoveAt(0);
+            // Fights KeepAlways names (the raid bosses) are kept and do not count toward the limit; the oldest other fights go.
+            Func<string, bool>? keep = KeepAlways;
+            int others = keep is null ? _completed.Count : _completed.Count(e => !keep(e.TargetName));
+            for (int i = 0; i < _completed.Count && others > _options.MaxCompletedEncounters;)
+            {
+                if (keep is not null && keep(_completed[i].TargetName))
+                {
+                    i++;
+                    continue;
+                }
+
+                _completed.RemoveAt(i);
+                others--;
+            }
         }
 
         _completedDirty = true;

@@ -232,6 +232,9 @@ public sealed partial class AppSettings
     /// <summary>The logs (and history setting) <see cref="BackfillFromLocal"/> was worked out for.</summary>
     public string BackfillLogsKey { get; set; } = string.Empty;
 
+    /// <summary>True once the encounter list was rebuilt from every log (done once, so every raid boss fight is in it).</summary>
+    public bool EncounterListRebuilt { get; set; }
+
     /// <summary>The newest crash.log entry already shown (so each error is reported once).</summary>
     public DateTime? LastCrashSeenUtc { get; set; }
 

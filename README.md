@@ -66,6 +66,11 @@ are kept. Untick **Count me in the anonymous player count** on Settings to stop 
 
 ## Changelog
 
+### 1.0.119
+
+- Every raid boss fight stays in the encounter list, plus the newest 500 other fights; the first start reads all logs once to rebuild it.
+- Buff bars show only the character, buff and time left.
+
 ### 1.0.118
 
 - Raid triggers are grouped by expansion and zone, with on/off for each group.

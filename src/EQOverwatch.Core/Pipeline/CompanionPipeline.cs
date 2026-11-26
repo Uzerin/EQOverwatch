@@ -289,13 +289,17 @@ public sealed partial class CompanionPipeline : IAsyncDisposable
         CancellationToken cancellationToken = default) =>
         BackfillLiveAsync(new[] { filePath }, startTime, nowLocal, progress, cancellationToken);
 
-    /// <summary>The catch-up from every character's log at once, in time order (see the one-log overload).</summary>
+    /// <summary>
+    /// The catch-up from every character's log at once, in time order (see the one-log overload). <paramref name="earlierWindows"/>
+    /// (log clock) are read first: the minutes around older raid boss fights, so they stay in the meter without reading whole logs.
+    /// </summary>
     public async Task<HistoricalImportResult> BackfillLiveAsync(
         IReadOnlyList<string> filePaths,
         DateTime? startTime,
         DateTime nowLocal,
         IProgress<double>? progress = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        IReadOnlyList<(DateTime Start, DateTime End)>? earlierWindows = null)
     {
         if (!_importGate.Wait(0, CancellationToken.None))
         {
@@ -310,8 +314,16 @@ public sealed partial class CompanionPipeline : IAsyncDisposable
             try
             {
                 var importer = new HistoricalLogImporter(LiveDps, RaiseError);
+                long windowLines = 0;
+                foreach ((DateTime from, DateTime to) in MergeWindows(earlierWindows, startTime))
+                {
+                    HistoricalImportResult part = await importer.ImportAsync(filePaths, from, to, null, cancellationToken).ConfigureAwait(false);
+                    windowLines += part.LinesRead;
+                }
+
                 HistoricalImportResult result =
                     await importer.ImportAsync(filePaths, startTime, null, progress, cancellationToken).ConfigureAwait(false);
+                result = result with { LinesRead = result.LinesRead + windowLines };
                 LiveDps.OnLogClock(nowLocal); // closes fights that ended long ago; a fight in progress stays open
                 return result;
             }
@@ -325,6 +337,31 @@ public sealed partial class CompanionPipeline : IAsyncDisposable
             _isImporting = false;
             _importGate.Release();
         }
+    }
+
+    /// <summary>The windows that start before <paramref name="before"/>, oldest first, overlaps joined; none when the whole history is read (null).</summary>
+    internal static IReadOnlyList<(DateTime Start, DateTime End)> MergeWindows(IReadOnlyList<(DateTime Start, DateTime End)>? windows, DateTime? before)
+    {
+        var merged = new List<(DateTime Start, DateTime End)>();
+        if (windows is null || before is not DateTime limit)
+        {
+            return merged; // a read of the whole history already has every fight
+        }
+
+        foreach ((DateTime start, DateTime end) in windows.Where(w => w.Start < limit && w.End >= w.Start).OrderBy(w => w.Start))
+        {
+            DateTime to = end < limit ? end : limit;
+            if (merged.Count > 0 && start <= merged[^1].End)
+            {
+                merged[^1] = (merged[^1].Start, to > merged[^1].End ? to : merged[^1].End);
+            }
+            else
+            {
+                merged.Add((start, to));
+            }
+        }
+
+        return merged;
     }
 
     public async ValueTask DisposeAsync()
