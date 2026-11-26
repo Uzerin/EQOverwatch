@@ -117,6 +117,7 @@ public sealed partial class MainViewModel : ObservableObject
         RefreshCharacterInfo();
         InitializeRaidNight();
         _raidRoster.ScanAll(EqFolderPath); // raid roster dumps written while the app was closed
+        LearnDumpedPlayers();
         RebuildAttendance();
 
         Logs.CollectionChanged += OnLogsChanged;

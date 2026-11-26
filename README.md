@@ -66,6 +66,11 @@ are kept. Untick **Count me in the anonymous player count** on Settings to stop 
 
 ## Changelog
 
+### 1.0.117
+
+- Loot lists linked from the loot window ("Item | Item | Item") are read from raid chat.
+- Class and level from guild and raid roster dumps fill the Class column and overlay labels.
+
 ### 1.0.116
 
 - Settings split into General, Overlays, Alerts and Sharing; Default Caster Level removed (your highest character's level is used).

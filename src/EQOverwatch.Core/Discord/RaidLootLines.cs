@@ -35,6 +35,9 @@ public static partial class RaidLootLines
     [GeneratedRegex(@"\s*/{1,2}\s*", RegexOptions.CultureInvariant)]
     private static partial Regex ItemSeparator();
 
+    [GeneratedRegex(@"\s+\|\s+", RegexOptions.CultureInvariant)]
+    private static partial Regex PipeSeparator();
+
     public static bool TryRaidSay(ReadOnlySpan<char> message, out RaidSay say)
     {
         say = null!;
@@ -123,18 +126,28 @@ public static partial class RaidLootLines
         || message.SequenceEqual("You have left the raid.");
 
     /// <summary>
-    /// The items of a loot list linked to raid chat ("Great Shadow Platemail // Thorny Chain Helm x2 // ..."), or none when the line is
-    /// not one. A list needs at least two items split by "//" (a lone "/" also splits once a "//" was seen).
+    /// The items of a loot list linked to raid chat ("Great Shadow Platemail // Thorny Chain Helm x2 // ..." or the loot window's
+    /// "Undead Shissar Scales | Shabby Rough Spell Scroll"), or none when the line is not one. A list needs at least two items split by
+    /// "//" (a lone "/" also splits once a "//" was seen) or by " | ". A " | " line with "=" or "@" is a DPS parse, not loot.
     /// </summary>
     public static IReadOnlyList<(string Item, int Count)> LootList(string text)
     {
-        if (!text.Contains("//", StringComparison.Ordinal))
+        string[] parts;
+        if (text.Contains("//", StringComparison.Ordinal))
+        {
+            parts = ItemSeparator().Split(text);
+        }
+        else if (text.Contains(" | ", StringComparison.Ordinal) && text.IndexOfAny(new[] { '=', '@' }) < 0)
+        {
+            parts = PipeSeparator().Split(text);
+        }
+        else
         {
             return Array.Empty<(string, int)>();
         }
 
         var items = new List<(string, int)>();
-        foreach (string part in ItemSeparator().Split(text))
+        foreach (string part in parts)
         {
             if (part.Trim().Length == 0)
             {

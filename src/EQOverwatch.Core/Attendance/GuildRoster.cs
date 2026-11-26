@@ -80,6 +80,50 @@ public static partial class GuildRoster
     }
 }
 
+/// <summary>Puts the class and level from guild and raid roster dumps into the player roster, so the Class column and labels know them.</summary>
+public static class DumpRosterImport
+{
+    /// <summary>Learns the newest raid dump of each server, then the newest guild dump of each server. Returns how many entries changed.</summary>
+    public static int Learn(EQOverwatch.Core.Roster.PlayerRoster roster, string? eqFolder, IEnumerable<RaidAttendance> raids)
+    {
+        int changed = 0;
+        foreach (RaidAttendance raid in raids.Where(r => r.Server.Length > 0).GroupBy(r => r.Server, StringComparer.OrdinalIgnoreCase)
+                     .Select(g => g.OrderByDescending(r => r.Taken).First()))
+        {
+            changed += roster.LearnFromDump(raid.Members.Select(m => (m.Name, m.Class, m.Level)), raid.Server);
+        }
+
+        foreach (string server in GuildServers(eqFolder))
+        {
+            if (GuildRoster.ReadNewest(eqFolder, server) is { } guild)
+            {
+                changed += roster.LearnFromDump(guild.Members.Select(m => (m.Name, m.Class, m.Level)), server);
+            }
+        }
+
+        return changed;
+    }
+
+    private static IEnumerable<string> GuildServers(string? eqFolder)
+    {
+        if (string.IsNullOrWhiteSpace(eqFolder) || !Directory.Exists(eqFolder))
+        {
+            return Array.Empty<string>();
+        }
+
+        try
+        {
+            return Directory.EnumerateFiles(eqFolder, "*_*-*-*.txt")
+                .Select(f => GuildRoster.TryParseFileName(f, out _, out string server, out _) ? server : string.Empty)
+                .Where(s => s.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return Array.Empty<string>();
+        }
+    }
+}
+
 /// <summary>One raid group: its number, members (name and class) and whether it has a healer (cleric, druid or shaman).</summary>
 public sealed record RaidGroup(int Group, IReadOnlyList<RaidMember> Members, bool HasHealer);
 

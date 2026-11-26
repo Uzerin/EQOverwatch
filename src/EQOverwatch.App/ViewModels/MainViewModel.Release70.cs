@@ -99,8 +99,13 @@ public sealed partial class MainViewModel
         if (raids)
         {
             RefreshAttendanceCommand.Execute(null);
+            LearnDumpedPlayers();
         }
     }
+
+    /// <summary>Class and level from the newest guild and raid roster dumps go into the player roster (Class column, overlay labels).</summary>
+    private void LearnDumpedPlayers() =>
+        DumpRosterImport.Learn(_pipeline.Roster, EQOverwatch.Core.Discovery.EqDirectoryScanner.Normalize(EqFolderPath), _raidRoster.Records());
 
     // ─────────────────────────── learned boss timers ───────────────────────────
 

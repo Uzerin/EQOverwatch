@@ -173,6 +173,38 @@ public sealed class PlayerRoster : ITriggerLineSink
         return changed;
     }
 
+    /// <summary>
+    /// Remembers the players of a guild or raid roster dump on <paramref name="server"/>. A dump can be older than a /who, so a level
+    /// already seen higher is kept. One <see cref="Changed"/> for the batch. Returns how many entries changed.
+    /// </summary>
+    public int LearnFromDump(IEnumerable<(string Name, string Class, int Level)> players, string? server)
+    {
+        int changed = 0;
+        lock (_gate)
+        {
+            foreach ((string name, string className, int level) in players)
+            {
+                int keep = level;
+                if (_players.TryGetValue(new RosterKey(Clean(server), name?.Trim() ?? string.Empty), out PlayerInfo existing) && existing.Level > level)
+                {
+                    keep = existing.Level;
+                }
+
+                if (LearnPlayerLocked(name, className, keep, server))
+                {
+                    changed++;
+                }
+            }
+        }
+
+        if (changed > 0)
+        {
+            Changed?.Invoke();
+        }
+
+        return changed;
+    }
+
     /// <summary>Links a pet to its owner, who becomes a verified player on the same server. Returns true when something changed.</summary>
     public bool LearnPet(string pet, string owner, string? server = null)
     {
