@@ -38,6 +38,9 @@ public sealed class CombatEncounter : ObservableObject
 
     /// <summary>The server of the log that started the fight (empty when unknown); classes and pets are looked up there.</summary>
     public string Server { get; set; } = string.Empty;
+
+    /// <summary>The zone the log that started the fight was in ("" when its log had not entered a zone yet).</summary>
+    public string Zone { get; set; } = string.Empty;
     public DateTime StartTime { get; }
     public DateTime EndTime { get; private set; }
     public bool IsActive { get; private set; } = true;

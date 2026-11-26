@@ -210,3 +210,24 @@ CREATE TABLE IF NOT EXISTS ping_servers (
   PRIMARY KEY (id, server)
 );
 CREATE INDEX IF NOT EXISTS ping_servers_day ON ping_servers (last_day);
+
+-- Discord webhooks behind raid keys ("OWK-..." kills, "OWL-..." loot, "OWU-..." unlooted). Only the owner install can change one; raiders
+-- send posts to the key and never see the address.
+CREATE TABLE IF NOT EXISTS hooks (
+  key TEXT PRIMARY KEY,
+  kind TEXT NOT NULL,
+  owner TEXT NOT NULL,
+  url TEXT NOT NULL,
+  created INTEGER NOT NULL
+);
+
+-- What each key already posted (so many raiders sending the same kill or item post it once), kept a week.
+CREATE TABLE IF NOT EXISTS hook_posts (
+  key TEXT NOT NULL,
+  type TEXT NOT NULL,
+  subject TEXT NOT NULL COLLATE NOCASE,
+  t INTEGER NOT NULL,
+  posted INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS hook_posts_by_key ON hook_posts (key, type, subject, t);
+CREATE INDEX IF NOT EXISTS hook_posts_by_time ON hook_posts (posted);

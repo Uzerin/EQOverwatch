@@ -59,10 +59,29 @@ public sealed partial class EncounterRowViewModel : ObservableObject
     [ObservableProperty]
     private string _challengeText = string.Empty;
 
+    /// <summary>The zone the fight was in (empty when its log had not entered a zone yet).</summary>
+    [ObservableProperty]
+    private string _zone = string.Empty;
+
+    /// <summary>When the fight ended, "Nov 18 18:39".</summary>
+    [ObservableProperty]
+    private string _killTimeText = string.Empty;
+
+    /// <summary>When the fight ended, for sorting the Kill Time column.</summary>
+    [ObservableProperty]
+    private DateTime _killTime;
+
+    /// <summary>True when the player ticked this mob as a raid boss (every fight of the mob shows the same tick).</summary>
+    [ObservableProperty]
+    private bool _isRaidBoss;
+
     public void Update(EncounterSnapshot snapshot)
     {
         Snapshot = snapshot;
         TargetName = snapshot.TargetName;
+        Zone = snapshot.Zone;
+        KillTime = snapshot.EndTime;
+        KillTimeText = snapshot.EndTime.ToString("MMM d HH:mm", CultureInfo.CurrentCulture);
         StartTime = snapshot.StartTime;
         StartText = snapshot.StartTime.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
         DurationSeconds = snapshot.DurationSeconds;

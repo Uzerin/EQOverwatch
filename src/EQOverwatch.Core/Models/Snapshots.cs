@@ -193,6 +193,9 @@ public sealed record EncounterSnapshot(
     /// <summary>The server of the log that recorded the fight (empty when unknown).</summary>
     public string Server { get; init; } = string.Empty;
 
+    /// <summary>The zone the fight was in (empty when unknown).</summary>
+    public string Zone { get; init; } = string.Empty;
+
     /// <summary>"Regen ~5.7/s · HP ~10.3k" for the Discord picture (empty when there is no estimate), set just before drawing.</summary>
     public string RegenText { get; init; } = string.Empty;
 
@@ -258,6 +261,7 @@ public sealed record EncounterSnapshot(
             Array.AsReadOnly(encounter.PlayerCasts.ToArray()), encounter.BuildTimeline(), encounter.ShieldSummary())
         {
             Server = encounter.Server,
+            Zone = encounter.Zone,
             LastSeconds = encounter.LastSeconds(),
             TankSpans = encounter.TankSpans.ToArray(),
         };
@@ -364,6 +368,7 @@ public sealed record EncounterSnapshot(
             Array.AsReadOnly(deaths), Killed: false, Array.AsReadOnly(casts), ordered[0].Timeline, null)
         {
             Server = ordered[0].Server,
+            Zone = ordered[0].Zone,
             TankSpans = ordered[0].TankSpans,
             LastSeconds = parts.SelectMany(p => p.LastSeconds).GroupBy(w => w.Name, StringComparer.Ordinal)
                 .Select(g => g.OrderByDescending(w => w.Died).ThenByDescending(w => w.End).First()).ToList(),

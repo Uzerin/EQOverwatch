@@ -307,9 +307,10 @@ public partial class DpsTrackerService : IDpsEventSink
     public void OnCombatEvent(in CombatEvent combatEvent)
     {
         (string Player, string Mob)? attacked = null;
+        EncounterSnapshot? killed = null;
         try
         {
-            OnCombatEventLocked(in combatEvent, ref attacked);
+            OnCombatEventLocked(in combatEvent, ref attacked, ref killed);
         }
         finally
         {
@@ -317,10 +318,15 @@ public partial class DpsTrackerService : IDpsEventSink
             {
                 PlayerAttacked?.Invoke(a.Player, a.Mob);
             }
+
+            if (killed is not null)
+            {
+                EncounterKilled?.Invoke(killed);
+            }
         }
     }
 
-    private void OnCombatEventLocked(in CombatEvent combatEvent, ref (string Player, string Mob)? attacked)
+    private void OnCombatEventLocked(in CombatEvent combatEvent, ref (string Player, string Mob)? attacked, ref EncounterSnapshot? killed)
     {
         lock (_gate)
         {
@@ -434,6 +440,11 @@ public partial class DpsTrackerService : IDpsEventSink
                     {
                         dead.Killed = true;
                         CloseEncounter(dead, combatEvent.Timestamp);
+                        if (_batchDepth == 0)
+                        {
+                            killed = _completed[^1]; // live lines only: a history import never sends a kill out
+                        }
+
                         changed = true;
                     }
                     else if (Classify(combatEvent.Target) != NameKind.Npc)
@@ -464,6 +475,12 @@ public partial class DpsTrackerService : IDpsEventSink
     /// </summary>
     public Action<string, int, string?>? MobLevelSeen { get; set; }
 
+    /// <summary>Called with the boss's name for every server kill announcement, while a log is tailed, imported or caught up.</summary>
+    public Action<string>? RaidBossAnnounced { get; set; }
+
+    /// <summary>Called (outside the lock) with each fight that ended in a kill, as soon as its death line is read.</summary>
+    public Action<EncounterSnapshot>? EncounterKilled { get; set; }
+
     /// <summary>Lets the roster learn from /who and /pet leader lines, including while a log is imported or caught up.</summary>
     public void OnNonCombatMessage(ReadOnlySpan<char> message)
     {
@@ -485,6 +502,12 @@ public partial class DpsTrackerService : IDpsEventSink
                     _ownerZones[_logOwner] = entered;
                 }
             }
+        }
+
+        // "Lord Inquisitor Seru has been defeated by a group of hardy adventurers! ..." names a raid boss (seen live and in old logs).
+        if (RaidBossAnnounced is not null && EQOverwatch.Core.Discord.RaidBossAnnouncementParser.TryParse(message, out string announced))
+        {
+            RaidBossAnnounced(announced);
         }
 
         // /consider lines that show a level ("... (Lvl: 62)") feed the shared mob level ranges.
@@ -1047,7 +1070,11 @@ public partial class DpsTrackerService : IDpsEventSink
     {
         if (!_active.TryGetValue(target, out CombatEncounter? encounter))
         {
-            encounter = new CombatEncounter(_nextId++, LowerArticle(target), timestamp) { Server = _server };
+            encounter = new CombatEncounter(_nextId++, LowerArticle(target), timestamp)
+            {
+                Server = _server,
+                Zone = _ownerZones.TryGetValue(_logOwner, out string? zone) ? zone : string.Empty,
+            };
             _active.Add(target, encounter);
 
             foreach (PlayerCastSnapshot early in _recentPlayerCasts.Where(c => timestamp - c.Time <= PlayerCastLead))

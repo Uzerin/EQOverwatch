@@ -1162,6 +1162,8 @@
                                     ToolTip="Copies the selected fight as one picture with the damage dealt and the damage taken, ready to paste into Discord."/>
                             <Button Content="[ Copy Compact Image ]" Command="{Binding CopyCompactImageCommand}" Margin="0,0,8,0" Style="{StaticResource SecondaryButton}"
                                     ToolTip="A smaller picture with just the damage bars: no graph, tanking or healing."/>
+                            <Button Content="[ Send to Discord ]" Command="{Binding SendKillToDiscordCommand}" Margin="0,0,8,0" Style="{StaticResource SecondaryButton}"
+                                    ToolTip="Sends the selected fight's Discord picture to the raid boss kills keys said in raid chat."/>
                             <Button Content="Colors..." Command="{Binding OpenColorsCommand}" Style="{StaticResource SecondaryButton}"
                                     ToolTip="Choose the colors of each attack type, pets and healing in the Discord picture, with a preview."/>
                         </WrapPanel>
@@ -1222,7 +1224,15 @@
                                       ToolTip="Ctrl-click or Shift-click to pick several fights and see them as one combined parse."
                                       SelectionMode="Extended" HeadersVisibility="Column" GridLinesVisibility="Horizontal">
                                 <DataGrid.Columns>
-                                    <DataGridTextColumn Header="Target" Binding="{Binding TargetName}" Width="Auto" MinWidth="120">
+                                    <DataGridTemplateColumn Header="Raid Boss" SortMemberPath="IsRaidBoss" Width="Auto">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <CheckBox IsChecked="{Binding IsRaidBoss, Mode=OneWay}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                          Click="RaidBoss_Click" ToolTip="Tick to mark this mob as a raid boss. Every fight of the mob shows the same tick."/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTextColumn Header="Name" Binding="{Binding TargetName}" Width="Auto" MinWidth="120">
                                         <DataGridTextColumn.ElementStyle>
                                             <Style TargetType="TextBlock">
                                                 <Style.Triggers>
@@ -1235,20 +1245,8 @@
                                             </Style>
                                         </DataGridTextColumn.ElementStyle>
                                     </DataGridTextColumn>
-                                    <DataGridTextColumn Header="Start" Binding="{Binding StartText}" SortMemberPath="StartTime" Width="Auto"/>
-                                    <DataGridTextColumn Header="Length" Binding="{Binding DurationText}" SortMemberPath="DurationSeconds" Width="Auto"
-                                                        ElementStyle="{StaticResource NumericCell}"/>
-                                    <DataGridTextColumn Header="Damage" Binding="{Binding TotalDamage, StringFormat=N0}" Width="Auto"
-                                                        ElementStyle="{StaticResource NumericCell}"/>
-                                    <DataGridTextColumn Header="Group DPS" Binding="{Binding GroupDps, StringFormat=N0}" Width="Auto"
-                                                        ElementStyle="{StaticResource NumericCell}"/>
-                                    <DataGridTextColumn Header="Challenge" Binding="{Binding ChallengeText}" Width="Auto">
-                                        <DataGridTextColumn.ElementStyle>
-                                            <Style TargetType="TextBlock">
-                                                <Setter Property="Foreground" Value="#5CC98A"/>
-                                            </Style>
-                                        </DataGridTextColumn.ElementStyle>
-                                    </DataGridTextColumn>
+                                    <DataGridTextColumn Header="Zone" Binding="{Binding Zone}" Width="Auto"/>
+                                    <DataGridTextColumn Header="Kill Time" Binding="{Binding KillTimeText}" SortMemberPath="KillTime" Width="Auto"/>
                                 </DataGrid.Columns>
                             </DataGrid>
                         </DockPanel>
@@ -1618,6 +1616,10 @@
                                 <Button Content="Copy" Margin="0,0,8,6" Style="{StaticResource SecondaryButton}" Command="{Binding CopyLootCommand}"
                                         ToolTip="Copies the list you are looking at as text for Discord."/>
                                 <Button Content="Clear" Margin="0,0,8,6" Style="{StaticResource SecondaryButton}" Command="{Binding ClearLootCommand}"/>
+                                <Button Content="Send loot list" Margin="0,0,8,6" Style="{StaticResource SecondaryButton}" Command="{Binding SendLootListToDiscordCommand}"
+                                        ToolTip="Sends the last loot list linked to raid chat to the posted loot keys said in raid chat."/>
+                                <Button Content="Send unlooted" Margin="0,0,8,6" Style="{StaticResource SecondaryButton}" Command="{Binding SendUnlootedToDiscordCommand}"
+                                        ToolTip="Sends what the last raid boss's corpse still has (not looted yet) to the unlooted items keys said in raid chat."/>
                             </WrapPanel>
                             <TextBlock Grid.Row="1" Style="{StaticResource HintText}" Margin="0,0,0,8" Text="{Binding LootStatus}"/>
 
@@ -4027,6 +4029,68 @@
                                           ToolTip="Says when your root or mez wears off or breaks."/>
                                 <CheckBox Content="Log went quiet" Margin="0,0,0,6" IsChecked="{Binding QuietLogAlert}"
                                           ToolTip="Says when a character's log has had no lines for 2 minutes during a fight (a disconnect or crash)."/>
+                            </StackPanel>
+                        </GroupBox>
+
+                        <GroupBox Header="Discord">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap"
+                                           Text="Share automatically sends to every key said in raid chat since your character joined the raid, from logs the app watches live: a kill as soon as the boss dies, loot within 15 minutes of the kill. When it's off, use the Send to Discord buttons on Encounter DPS and Loot."/>
+                                <TextBlock Margin="0,10,0,2" FontWeight="SemiBold" Text="Raid boss kills"/>
+                                <DockPanel Margin="0,2,0,0">
+                                    <Button DockPanel.Dock="Right" Content="Save" Margin="6,0,0,0" Padding="10,2" Command="{Binding SaveDiscordKillsCommand}"
+                                            ToolTip="Saves the address on the Overwatch server under this raid key. Clear the box and Save to remove it."/>
+                                    <TextBox Text="{Binding DiscordKillsUrl, UpdateSourceTrigger=PropertyChanged}" MinWidth="320"
+                                             ToolTip="Paste a webhook address from the Discord channel's settings (Integrations, Webhooks)."/>
+                                </DockPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                    <TextBlock Text="Key" VerticalAlignment="Center" Style="{StaticResource HintText}" Margin="0,0,8,0"/>
+                                    <TextBox Text="{Binding DiscordKillsKey, Mode=OneWay}" IsReadOnly="True" FontFamily="Consolas" MinWidth="130"/>
+                                    <Button Content="Copy" Margin="6,0,0,0" Padding="10,2" Style="{StaticResource SecondaryButton}"
+                                            Command="{Binding CopyDiscordKeyCommand}" CommandParameter="{Binding DiscordKillsKey}"/>
+                                    <Button Content="New" Margin="6,0,0,0" Padding="10,2" Style="{StaticResource SecondaryButton}"
+                                            Command="{Binding NewDiscordKillsKeyCommand}" ToolTip="Makes a new key; the old one stops working."/>
+                                </StackPanel>
+                                <CheckBox Content="Share automatically" Margin="0,6,0,0" IsChecked="{Binding DiscordKillsAuto}"
+                                          ToolTip="Sends these posts by itself to every key of this kind said in raid chat, from live logs only. Off: use the Send to Discord buttons."/>
+                                <TextBlock Margin="0,10,0,2" FontWeight="SemiBold" Text="Posted loot"/>
+                                <DockPanel Margin="0,2,0,0">
+                                    <Button DockPanel.Dock="Right" Content="Save" Margin="6,0,0,0" Padding="10,2" Command="{Binding SaveDiscordLootCommand}"
+                                            ToolTip="Saves the address on the Overwatch server under this raid key. Clear the box and Save to remove it."/>
+                                    <TextBox Text="{Binding DiscordLootUrl, UpdateSourceTrigger=PropertyChanged}" MinWidth="320"
+                                             ToolTip="Paste a webhook address from the Discord channel's settings (Integrations, Webhooks)."/>
+                                </DockPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                    <TextBlock Text="Key" VerticalAlignment="Center" Style="{StaticResource HintText}" Margin="0,0,8,0"/>
+                                    <TextBox Text="{Binding DiscordLootKey, Mode=OneWay}" IsReadOnly="True" FontFamily="Consolas" MinWidth="130"/>
+                                    <Button Content="Copy" Margin="6,0,0,0" Padding="10,2" Style="{StaticResource SecondaryButton}"
+                                            Command="{Binding CopyDiscordKeyCommand}" CommandParameter="{Binding DiscordLootKey}"/>
+                                    <Button Content="New" Margin="6,0,0,0" Padding="10,2" Style="{StaticResource SecondaryButton}"
+                                            Command="{Binding NewDiscordLootKeyCommand}" ToolTip="Makes a new key; the old one stops working."/>
+                                </StackPanel>
+                                <CheckBox Content="Share automatically" Margin="0,6,0,0" IsChecked="{Binding DiscordLootAuto}"
+                                          ToolTip="Sends these posts by itself to every key of this kind said in raid chat, from live logs only. Off: use the Send to Discord buttons."/>
+                                <TextBlock Margin="0,10,0,2" FontWeight="SemiBold" Text="Unlooted items"/>
+                                <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" Text="Posts with @here: an item not looted within a minute of being given out, and a reminder 14 minutes after the kill of what is still on the corpse."/>
+                                <DockPanel Margin="0,2,0,0">
+                                    <Button DockPanel.Dock="Right" Content="Save" Margin="6,0,0,0" Padding="10,2" Command="{Binding SaveDiscordUnlootedCommand}"
+                                            ToolTip="Saves the address on the Overwatch server under this raid key. Clear the box and Save to remove it."/>
+                                    <TextBox Text="{Binding DiscordUnlootedUrl, UpdateSourceTrigger=PropertyChanged}" MinWidth="320"
+                                             ToolTip="Paste a webhook address from the Discord channel's settings (Integrations, Webhooks)."/>
+                                </DockPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                    <TextBlock Text="Key" VerticalAlignment="Center" Style="{StaticResource HintText}" Margin="0,0,8,0"/>
+                                    <TextBox Text="{Binding DiscordUnlootedKey, Mode=OneWay}" IsReadOnly="True" FontFamily="Consolas" MinWidth="130"/>
+                                    <Button Content="Copy" Margin="6,0,0,0" Padding="10,2" Style="{StaticResource SecondaryButton}"
+                                            Command="{Binding CopyDiscordKeyCommand}" CommandParameter="{Binding DiscordUnlootedKey}"/>
+                                    <Button Content="New" Margin="6,0,0,0" Padding="10,2" Style="{StaticResource SecondaryButton}"
+                                            Command="{Binding NewDiscordUnlootedKeyCommand}" ToolTip="Makes a new key; the old one stops working."/>
+                                </StackPanel>
+                                <CheckBox Content="Share automatically" Margin="0,6,0,0" IsChecked="{Binding DiscordUnlootedAuto}"
+                                          ToolTip="Sends these posts by itself to every key of this kind said in raid chat, from live logs only. Off: use the Send to Discord buttons."/>
+                                <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,10,0,0"
+                                           Text="Say a key in /rsay to have every Overwatch player in the raid send to that Discord. They never see the address."/>
+                                <TextBlock Text="{Binding DiscordStatus}" TextWrapping="Wrap" Margin="0,6,0,0"/>
                             </StackPanel>
                         </GroupBox>
 

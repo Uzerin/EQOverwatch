@@ -146,10 +146,10 @@ public static class BackupService
         return count;
     }
 
-    /// <summary>The settings that never travel in a backup: the pairing code and the Discord webhook address.</summary>
-    private static readonly string[] SecretKeys = { "SyncCode", "DiscordWebhookUrl" };
+    /// <summary>The settings that never travel in a backup: the pairing code and the Discord webhook addresses.</summary>
+    private static readonly string[] SecretKeys = { "SyncCode", "DiscordWebhookUrl", "DiscordKillsUrl", "DiscordLootUrl", "DiscordUnlootedUrl" };
 
-    /// <summary>The settings JSON with the pairing code and the Discord webhook address blanked.</summary>
+    /// <summary>The settings JSON with the pairing code and the Discord webhook addresses blanked.</summary>
     public static string ScrubSecrets(string settingsJson)
     {
         string result = settingsJson;

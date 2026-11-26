@@ -40,6 +40,15 @@ public partial class MainWindow : Window
         }
     }
 
+    // The Raid Boss tick belongs to the mob: ticking one fight ticks every fight of it.
+    private void RaidBoss_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is CheckBox { DataContext: EncounterRowViewModel row } box)
+        {
+            _viewModel?.SetRaidBoss(row.TargetName, box.IsChecked == true);
+        }
+    }
+
     private void ScrollWholePage(object sender, System.Windows.Input.MouseWheelEventArgs e)
     {
         if (sender is ScrollViewer page)

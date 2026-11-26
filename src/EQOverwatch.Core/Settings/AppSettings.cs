@@ -320,6 +320,31 @@ public sealed partial class AppSettings
     /// <summary>Show how far along a fight is on the DPS overlay, from the recorded kills of the same mob.</summary>
     public bool ShowFightProgress { get; set; } = true;
 
+    /// <summary>Mobs ticked as raid bosses in the encounter list (by the player, or by the server's kill announcement).</summary>
+    public List<string>? RaidBosses { get; set; }
+
+    /// <summary>Mobs the player unticked: a kill announcement never ticks them again.</summary>
+    public List<string>? RaidBossesUnticked { get; set; }
+
+    /// <summary>Discord webhooks (address, raid key, share automatically) for raid boss kills, posted loot and unlooted items.</summary>
+    public string DiscordKillsUrl { get; set; } = string.Empty;
+
+    public string DiscordKillsKey { get; set; } = string.Empty;
+
+    public bool DiscordKillsAuto { get; set; }
+
+    public string DiscordLootUrl { get; set; } = string.Empty;
+
+    public string DiscordLootKey { get; set; } = string.Empty;
+
+    public bool DiscordLootAuto { get; set; }
+
+    public string DiscordUnlootedUrl { get; set; } = string.Empty;
+
+    public string DiscordUnlootedKey { get; set; } = string.Empty;
+
+    public bool DiscordUnlootedAuto { get; set; }
+
     /// <summary>Speak when one of your character's buffs did not take hold.</summary>
     public bool TakeHoldAlert { get; set; } = true;
 

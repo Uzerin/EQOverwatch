@@ -272,6 +272,7 @@ public partial class CompanionApp : Application
         _sharedDropsHttp = new HttpClient { Timeout = TimeSpan.FromSeconds(60) };
         _sharedDropsHttp.DefaultRequestHeaders.UserAgent.ParseAdd(AppInfo.SettingsFolderName);
         _viewModel.ConfigureSharedDrops(new EQOverwatch.Core.Drops.HttpSharedDropsService(_sharedDropsHttp));
+        _viewModel.ConfigureDiscord(new EQOverwatch.Core.Discord.HttpDiscordRelay(_sharedDropsHttp));
         _viewModel.ConfigureServerFirsts(new EQOverwatch.Core.Firsts.HttpServerFirstService(_sharedDropsHttp));
         _viewModel.ConfigureMobStats(new EQOverwatch.Core.History.HttpMobStatsService(_sharedDropsHttp));
         _viewModel.ConfigureResourceHunter(new EQOverwatch.Core.ResourceHunter.HttpResourceHunterService(_sharedDropsHttp));

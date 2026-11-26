@@ -104,6 +104,7 @@ public sealed partial class MainViewModel : ObservableObject
         _pipeline.Roster.Changed += OnRosterChanged;
 
         Restore(settings);
+        HookDiscord();
         InitializeEdition();
         InitializeBoxAlerts();
         InitializeNotices();
@@ -833,6 +834,7 @@ public sealed partial class MainViewModel : ObservableObject
         RefreshRaidNight();
         RefreshReleaseFeatures();
         TickItemFoci(DateTime.UtcNow);
+        TickDiscord(DateTime.UtcNow);
         ApplyOverlayFade();
         _ = TickUpdateCheck(DateTime.UtcNow);
 
@@ -924,6 +926,7 @@ public sealed partial class MainViewModel : ObservableObject
             {
                 var row = new EncounterRowViewModel(entry.Snapshot.Id, entry.Imported);
                 row.Update(entry.Snapshot);
+                row.IsRaidBoss = IsRaidBoss(row.TargetName);
                 rebuilt.Add(row);
             }
 
@@ -937,7 +940,11 @@ public sealed partial class MainViewModel : ObservableObject
                 snapshotKey: e => e.Key,
                 viewModelKey: r => r.Key,
                 create: e => new EncounterRowViewModel(e.Snapshot.Id, e.Imported),
-                update: (row, e) => row.Update(e.Snapshot));
+                update: (row, e) =>
+                {
+                    row.Update(e.Snapshot);
+                    row.IsRaidBoss = IsRaidBoss(row.TargetName);
+                });
 
             if (SelectedEncounter is not null && !Encounters.Contains(SelectedEncounter))
             {
@@ -1555,6 +1562,7 @@ public sealed partial class MainViewModel : ObservableObject
             AggroAlert = settings.AggroAlert;
             RangeAlert = settings.RangeAlert;
             ShowFightProgress = settings.ShowFightProgress;
+            RestoreDiscord(settings);
             TakeHoldAlert = settings.TakeHoldAlert;
             ResistStreakAlert = settings.ResistStreakAlert;
             FeignDeathAlert = settings.FeignDeathAlert;
@@ -1598,6 +1606,7 @@ public sealed partial class MainViewModel : ObservableObject
     {
         AppSettings settings = BuildCoreSettings();
         SaveRelease82(settings);
+        SaveDiscord(settings);
         SaveEdition(settings);
         return settings;
     }

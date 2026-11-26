@@ -62,6 +62,7 @@ public sealed partial class CompanionPipeline : IAsyncDisposable
         Progress = new ProgressStore();
         TellInbox = new TellInbox();
         DynamicZones = new EQOverwatch.Core.Progress.DynamicZoneTracker();
+        RaidDiscord = new EQOverwatch.Core.Discord.RaidDiscordSink();
         ResistStore = new MobResistStore();
         Resists = new ResistTrackerService(Spells, ResistStore);
         BuffUptimeTracker uptime = Uptime;
@@ -72,7 +73,7 @@ public sealed partial class CompanionPipeline : IAsyncDisposable
 
         // Every sink sees every line of every trigger-enabled log. Historical imports use none of them.
         var triggerSinks = new CompositeTriggerSink(
-            new ITriggerLineSink[] { Triggers, Buffs, Songs, Charm, SpellAlerts, TimerPause, RaidBosses, ChChain, Cooldowns, Abilities, SharedTriggers, Roster, Loot, Tells, Experience, MobExperience, Resists, Zones, Drops, Progress, TellInbox, DynamicZones, OutputFiles, Chat, Guilds, ResourceHunter }, RaiseError);
+            new ITriggerLineSink[] { Triggers, Buffs, Songs, Charm, SpellAlerts, TimerPause, RaidBosses, ChChain, Cooldowns, Abilities, SharedTriggers, Roster, Loot, Tells, Experience, MobExperience, Resists, Zones, Drops, Progress, TellInbox, DynamicZones, RaidDiscord, OutputFiles, Chat, Guilds, ResourceHunter }, RaiseError);
         Activity = new CharacterActivityService();
         Songs.SetOwnCharacterProbe(IsMonitoredCharacter);
         Songs.SetActivityProbe(Activity.IsActive);
@@ -185,6 +186,9 @@ public sealed partial class CompanionPipeline : IAsyncDisposable
 
     /// <summary>Your characters' dynamic zones and when each closes (shown on the Tells overlay).</summary>
     public EQOverwatch.Core.Progress.DynamicZoneTracker DynamicZones { get; }
+
+    /// <summary>Raid keys heard in raid chat and the loot lines after raid boss kills, for the Discord posts.</summary>
+    public EQOverwatch.Core.Discord.RaidDiscordSink RaidDiscord { get; }
 
     /// <summary>Resist counts per mob and resist type, yours and the raid's shares.</summary>
     public MobResistStore ResistStore { get; }

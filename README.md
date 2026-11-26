@@ -62,8 +62,15 @@ are kept. Untick **Count me in the anonymous player count** on Settings to stop 
 - Run `/who all` to fill in classes and levels; target a pet and type `/pet leader` to count its damage with its owner.
 - Run `/outputfile inventory`, `spellbook` and `missingspells` in game to fill in character data. Right-click a character's profile
   window and pick **Add Overwatch Data socials** (while that character is logged out) to get two socials that run them all.
+- To post raid kills and loot to your Discord, paste a channel webhook on Settings, then say its raid key in /rsay.
 
 ## Changelog
+
+### 1.0.115
+
+- Encounter list shows Raid Boss, Name, Zone and Kill Time; the Raid Boss tick covers every fight of that mob and ticks itself on the server's kill announcement.
+- Discord webhooks on Settings for raid boss kills, posted loot and unlooted items, each with its own raid key and Share automatically; say the key in /rsay and the raid's Overwatch players send to it.
+- Send to Discord buttons on Encounter DPS and Loot.
 
 ### 1.0.114
 

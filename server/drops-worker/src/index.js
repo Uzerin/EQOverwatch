@@ -27,6 +27,10 @@
 //   GET    /v1/bonus-sizes/{server}?zone=Z  a zone's median size per day: { zone, sizes: [{ d, k, m, n }] }
 //   GET    /v1/itemfocus?name=N | ?id=I  an item's focus effects { items: [{ id, name, foci: [{ s, n }] }] } (s: spell id, n: spell
 //                                        name), looked up once from the item source (ITEM_SOURCE) and remembered for everyone
+//   PUT    /v1/hooks/{key}               register a Discord webhook behind a raid key: { id, kind, url } (X-Install-Key); the owner only
+//   DELETE /v1/hooks/{key}?id=I          forget it (X-Install-Key)
+//   POST   /v1/hooks/{key}/post          a post for that key's webhook (JSON, or multipart "payload" + "image" for a kill picture); the
+//                                        worker writes the message and posts each event once however many raiders send it
 //   POST   /v1/ping                      { id, version, servers? }: counts this install as active today (and on those servers)
 //   GET    /v1/stats                     public player counts
 //   GET    /v1/admin/stats               the same with the versions in use        (Authorization: Bearer ADMIN_KEY)
@@ -51,6 +55,13 @@ const MAX_STRETCHES = 20_000;
 const LEVELING_KEEP_SECONDS = 730 * 86400;
 const BAND = 5;
 const MERGED_FORMAT = "EQOverwatchDropsMerged";
+const HOOK_KEY = /^OW[KLU]-[2-9A-HJ-NP-Z]{4}-[2-9A-HJ-NP-Z]{4}$/;
+const WEBHOOK = /^https:\/\/(?:ptb\.|canary\.)?discord(?:app)?\.com\/api\/webhooks\/\d{5,25}\/[A-Za-z0-9_-]{20,100}$/;
+const HOOK_KINDS = { K: "kills", L: "loot", U: "unlooted" };
+const HOOK_TYPES = { kill: "kills", loot: "loot", unlooted: "unlooted", reminder: "unlooted" };
+const HOOK_SAME_SECONDS = { kill: 180, loot: 120, unlooted: 600, reminder: 600 };
+const HOOK_POSTS_PER_HOUR = 120;
+const MAX_IMAGE = 8 * 1024 * 1024;
 
 export default {
   async fetch(request, env) {
@@ -162,6 +173,17 @@ async function route(request, env) {
     if (parts.length === 4 && method === "PUT" && ID.test(parts[3])) return sizesUpload(request, env, server, parts[3]);
   }
 
+  if (parts[1] === "hooks" && parts.length >= 3) {
+    const key = parts[2].toUpperCase();
+    if (!HOOK_KEY.test(key)) {
+      return json({ error: "That isn't a raid key." }, 400);
+    }
+
+    if (parts.length === 3 && method === "PUT") return hookRegister(request, env, key);
+    if (parts.length === 3 && method === "DELETE") return hookRemove(request, env, key, url.searchParams.get("id") || "");
+    if (parts.length === 4 && parts[3] === "post" && method === "POST") return hookPost(request, env, key);
+  }
+
   if (parts[1] === "ping" && parts.length === 2 && method === "POST") {
     return ping(request, env);
   }
@@ -194,6 +216,218 @@ async function route(request, env) {
   }
 
   return json({ error: "Not found." }, 404);
+}
+
+// ───────────────────────── Discord webhooks ─────────────────────────
+
+/** The install behind a request's X-Install-Key, created when new. Returns { error } (a Response) or { ok: true }. */
+async function installFor(request, env, id) {
+  const key = request.headers.get("X-Install-Key") || "";
+  if (!ID.test(id) || !KEY.test(key)) {
+    return { error: json({ error: "Missing install key." }, 401) };
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  const hash = await sha256(key);
+  const install = await env.DB.prepare("SELECT key_hash, blocked FROM installs WHERE id = ?").bind(id).first();
+  if (install) {
+    if (!equal(install.key_hash, hash)) return { error: json({ error: "That id belongs to another install." }, 403) };
+    if (install.blocked) return { error: json({ error: "This install's uploads are turned off." }, 403) };
+    return { ok: true };
+  }
+
+  const today = await env.DB.prepare("SELECT new_installs FROM daily WHERE day = ?").bind(day(now)).first();
+  if (today && today.new_installs >= MAX_NEW_INSTALLS_PER_DAY) {
+    return { error: json({ error: "Too many new installs today. Try again tomorrow." }, 429) };
+  }
+
+  await env.DB.batch([
+    env.DB.prepare("INSERT INTO installs (id, key_hash, created) VALUES (?, ?, ?)").bind(id, hash, now),
+    env.DB.prepare("INSERT INTO daily (day, new_installs) VALUES (?, 1) ON CONFLICT(day) DO UPDATE SET new_installs = new_installs + 1").bind(day(now)),
+  ]);
+  return { ok: true };
+}
+
+/** Registers the webhook behind a raid key, after checking with Discord that it is a live webhook. */
+async function hookRegister(request, env, key) {
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    body = null;
+  }
+
+  const id = body && typeof body.id === "string" ? body.id : "";
+  const url = body && typeof body.url === "string" ? body.url.trim() : "";
+  const kind = HOOK_KINDS[key[2]];
+  if (!body || body.kind !== kind || !WEBHOOK.test(url)) {
+    return json({ error: "That isn't a Discord webhook address." }, 400);
+  }
+
+  const auth = await installFor(request, env, id);
+  if (auth.error) return auth.error;
+
+  const existing = await env.DB.prepare("SELECT owner FROM hooks WHERE key = ?").bind(key).first();
+  if (existing && existing.owner !== id) {
+    return json({ error: "That raid key belongs to another install. Make a new key." }, 403);
+  }
+
+  const check = await fetch(url, { method: "GET" });
+  if (!check.ok) {
+    return json({ error: "Discord doesn't know that webhook. Copy it again from the channel's Integrations." }, 400);
+  }
+
+  await env.DB.prepare(
+    "INSERT INTO hooks (key, kind, owner, url, created) VALUES (?, ?, ?, ?, ?) ON CONFLICT(key) DO UPDATE SET url = excluded.url")
+    .bind(key, kind, id, url, Math.floor(Date.now() / 1000)).run();
+  return json({ ok: true });
+}
+
+async function hookRemove(request, env, key, id) {
+  const auth = await installFor(request, env, id);
+  if (auth.error) return auth.error;
+  await env.DB.batch([
+    env.DB.prepare("DELETE FROM hooks WHERE key = ? AND owner = ?").bind(key, id),
+    env.DB.prepare("DELETE FROM hook_posts WHERE key = ?").bind(key),
+  ]);
+  return json({ ok: true });
+}
+
+/** Plain text for a Discord message: no mentions, links or formatting from the sender. */
+function plain(value, max = 80) {
+  return String(value ?? "").replace(/`/g, "'").replace(/[@<>*_~|\\#\[\]()\r\n]/g, "").replace(/\s+/g, " ").trim().slice(0, max);
+}
+
+function itemsText(items) {
+  if (!Array.isArray(items)) return "";
+  return items.slice(0, 60)
+    .map((i) => {
+      const name = plain(i && i.n);
+      const count = Number.isInteger(i && i.c) && i.c > 1 && i.c < 1000 ? ` x${i.c}` : "";
+      return name ? name + count : "";
+    })
+    .filter(Boolean)
+    .join(" · ");
+}
+
+function duration(seconds) {
+  const s = Math.max(0, Math.round(Number(seconds) || 0));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
+
+/** Writes the message for a post, or null when the post is not usable. */
+function hookMessage(p) {
+  const mob = plain(p.mob);
+  if (!mob) return null;
+  const n = (v) => Math.round(Number(v) || 0).toLocaleString("en-US");
+  switch (p.type) {
+    case "kill": {
+      const zone = plain(p.zone);
+      return { content: `**${mob}** killed${zone ? ` in ${zone}` : ""} · ${duration(p.seconds)} · ${n(p.damage)} damage · group DPS ${n(p.dps)}`, here: false, subject: mob };
+    }
+    case "loot": {
+      const poster = plain(p.poster, 20);
+      const items = itemsText(p.items);
+      if (!poster || !items) return null;
+      return { content: `**${mob}** loot, posted by ${poster}:\n${items}`, here: false, subject: `${poster}|${mob}` };
+    }
+    case "unlooted": {
+      const item = plain(p.item);
+      const player = plain(p.player, 20);
+      if (!item || !player) return null;
+      return { content: `@here **${item}** was given to **${player}** after **${mob}** and wasn't looted within a minute.`, here: true, subject: `${player}|${item}` };
+    }
+    case "reminder": {
+      const items = itemsText(p.items);
+      if (!items) return null;
+      return { content: `@here **${mob}**: loot is released in 1 minute. Not looted yet: ${items}.`, here: true, subject: mob };
+    }
+    default:
+      return null;
+  }
+}
+
+/** Posts one event to a raid key's webhook, once: the same event sent by other raiders is answered "already posted". */
+async function hookPost(request, env, key) {
+  const hook = await env.DB.prepare("SELECT url, kind FROM hooks WHERE key = ?").bind(key).first();
+  if (!hook) {
+    return json({ error: "Nobody has set up that raid key." }, 404);
+  }
+
+  let payload;
+  let image = null;
+  try {
+    const type = request.headers.get("Content-Type") || "";
+    if (type.startsWith("multipart/form-data")) {
+      const form = await request.formData();
+      payload = JSON.parse(String(form.get("payload") || ""));
+      const file = form.get("image");
+      if (file && typeof file === "object" && file.size > 0) {
+        if (file.size > MAX_IMAGE) return json({ error: "The picture is too big." }, 413);
+        image = await file.arrayBuffer();
+      }
+    } else {
+      payload = await request.json();
+    }
+  } catch {
+    payload = null;
+  }
+
+  if (!payload || HOOK_TYPES[payload.type] !== hook.kind) {
+    return json({ error: "That post doesn't go to this kind of webhook." }, 400);
+  }
+
+  const message = hookMessage(payload);
+  const now = Math.floor(Date.now() / 1000);
+  const t = Number.isInteger(payload.t) ? payload.t : now;
+  if (!message || Math.abs(now - t) > 3600) {
+    return json({ error: "That post is missing something or is too old." }, 400);
+  }
+
+  const same = HOOK_SAME_SECONDS[payload.type];
+  const earlier = await env.DB.prepare(
+    "SELECT 1 FROM hook_posts WHERE key = ? AND type = ? AND subject = ? AND t > ? AND t < ? LIMIT 1")
+    .bind(key, payload.type, message.subject, t - same, t + same).first();
+  if (earlier) {
+    return json({ ok: true, duplicate: true });
+  }
+
+  const recent = await env.DB.prepare("SELECT COUNT(*) AS n FROM hook_posts WHERE key = ? AND posted > ?").bind(key, now - 3600).first();
+  if (recent && recent.n >= HOOK_POSTS_PER_HOUR) {
+    return json({ error: "Too many posts to that webhook this hour." }, 429);
+  }
+
+  await env.DB.batch([
+    env.DB.prepare("INSERT INTO hook_posts (key, type, subject, t, posted) VALUES (?, ?, ?, ?, ?)").bind(key, payload.type, message.subject, t, now),
+    env.DB.prepare("DELETE FROM hook_posts WHERE posted < ?").bind(now - 7 * 86400),
+  ]);
+
+  const body = {
+    username: "EQ Overwatch",
+    content: message.content,
+    allowed_mentions: { parse: message.here ? ["everyone"] : [] },
+  };
+  let sent;
+  if (image) {
+    const form = new FormData();
+    form.append("payload_json", JSON.stringify(body));
+    form.append("files[0]", new Blob([image], { type: "image/png" }), "kill.png");
+    sent = await fetch(hook.url, { method: "POST", body: form });
+  } else {
+    sent = await fetch(hook.url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  }
+
+  if (sent.status === 404 || sent.status === 401) {
+    await env.DB.prepare("DELETE FROM hooks WHERE key = ?").bind(key).run();
+    return json({ error: "That webhook was deleted in Discord." }, 410);
+  }
+
+  if (!sent.ok) {
+    await env.DB.prepare("DELETE FROM hook_posts WHERE key = ? AND type = ? AND subject = ? AND t = ?").bind(key, payload.type, message.subject, t).run();
+    return json({ error: `Discord answered ${sent.status}.` }, 502);
+  }
+
+  return json({ ok: true });
 }
 
 // ───────────────────────── merged file ─────────────────────────

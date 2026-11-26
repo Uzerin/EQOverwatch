@@ -14,6 +14,9 @@ A Cloudflare Worker (Workers Paid plan, for the daily merge's CPU time).
 - **Server First (opt-in, off by default):** raid fights with more than 12 players on a named boss, shared WITH character names,
   guilds, classes, damage, healing and damage taken. The app warns before turning it on. A kill counts as a verified first only when
   shared within two days of happening (the worker's own clock). The same data gives class benchmarks per boss.
+- **Discord webhooks:** an install registers a Discord webhook under a raid key (OWK- kills, OWL- loot, OWU- unlooted). Anyone who
+  heard the key in raid chat sends posts to the key; the worker writes the message from the post's fields (no free text, no mentions
+  except @here on unlooted posts) and posts each event once. Stored: the key, its owner install id and the webhook address.
 - Never stores IP addresses. Character names and guilds are stored only for Server First fights.
 
 ## Deploy
