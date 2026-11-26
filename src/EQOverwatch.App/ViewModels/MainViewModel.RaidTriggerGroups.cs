@@ -2,6 +2,7 @@ using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Windows.Data;
 using CommunityToolkit.Mvvm.Input;
+using EQOverwatch.Core.History;
 using EQOverwatch.Core.Leveling;
 using EQOverwatch.Core.Maps;
 using EQOverwatch.Core.Models;
@@ -89,6 +90,80 @@ public sealed partial class MainViewModel
         {
             SetRaidRuleGroup(rule);
         }
+    }
+
+    private readonly HashSet<string> _bossZonesScanned = new(StringComparer.OrdinalIgnoreCase);
+    private Dictionary<string, string>? _bossZoneScanResult;
+    private int _bossZoneScanRunning;
+
+    private void RestoreBossZones(Dictionary<string, string>? saved)
+    {
+        foreach ((string mob, string zone) in saved ?? new Dictionary<string, string>())
+        {
+            if (mob.Trim().Length > 0 && zone.Trim().Length > 0 && !_bossZones.ContainsKey(mob.Trim()))
+            {
+                _bossZones[mob.Trim()] = (zone.Trim(), DateTime.MinValue);
+            }
+        }
+    }
+
+    /// <summary>The zones of the raid triggers' bosses, for the settings file.</summary>
+    private Dictionary<string, string> SavedBossZones()
+    {
+        var bosses = new HashSet<string>(RaidRules.Select(r => r.MobText), StringComparer.OrdinalIgnoreCase);
+        return _bossZones.Where(z => bosses.Contains(z.Key)).ToDictionary(z => z.Key, z => z.Value.Zone, StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Once per boss, in the background: a raid trigger whose boss has no known zone (its fights are older than the loaded encounters)
+    /// gets it from the watched logs. The result is applied on a later tick.
+    /// </summary>
+    private void TickBossZones()
+    {
+        if (Interlocked.Exchange(ref _bossZoneScanResult, null) is { } found)
+        {
+            foreach ((string mob, string zone) in found)
+            {
+                if (!_bossZones.ContainsKey(mob))
+                {
+                    _bossZones[mob] = (zone, DateTime.MinValue);
+                }
+            }
+
+            ApplyRaidTriggerGrouping();
+            RequestSave();
+        }
+
+        if (_raidRulesView is null || Logs.Count == 0 || Volatile.Read(ref _bossZoneScanRunning) != 0)
+        {
+            return;
+        }
+
+        List<string> unknown = RaidRules.Select(r => r.MobText)
+            .Where(m => m != "Any boss" && BossZone(m).Length == 0 && !_bossZonesScanned.Contains(m))
+            .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        if (unknown.Count == 0 || Interlocked.CompareExchange(ref _bossZoneScanRunning, 1, 0) != 0)
+        {
+            return;
+        }
+
+        _bossZonesScanned.UnionWith(unknown);
+        List<string> paths = Logs.Select(l => l.FilePath).Where(p => !string.IsNullOrWhiteSpace(p)).ToList();
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                Interlocked.Exchange(ref _bossZoneScanResult, BossZoneScanner.Scan(paths, unknown));
+            }
+            catch (Exception)
+            {
+                // the bosses stay under Unknown zone
+            }
+            finally
+            {
+                Interlocked.Exchange(ref _bossZoneScanRunning, 0);
+            }
+        });
     }
 
     /// <summary>The zone a boss was fought in, or the zone a consider line saw it in; empty when neither is known.</summary>

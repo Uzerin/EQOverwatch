@@ -326,6 +326,9 @@ public sealed partial class AppSettings
     /// <summary>Mobs the player unticked: a kill announcement never ticks them again.</summary>
     public List<string>? RaidBossesUnticked { get; set; }
 
+    /// <summary>The zone each raid trigger's boss was fought in (boss to zone), for grouping the Raid triggers list.</summary>
+    public Dictionary<string, string>? BossZones { get; set; }
+
     /// <summary>Discord webhooks (address, raid key, share automatically) for raid boss kills, posted loot and unlooted items.</summary>
     public string DiscordKillsUrl { get; set; } = string.Empty;
 

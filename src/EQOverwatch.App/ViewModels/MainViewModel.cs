@@ -848,6 +848,7 @@ public sealed partial class MainViewModel : ObservableObject
         RefreshReleaseFeatures();
         TickItemFoci(DateTime.UtcNow);
         TickDiscord(DateTime.UtcNow);
+        TickBossZones();
         ApplyOverlayFade();
         _ = TickUpdateCheck(DateTime.UtcNow);
 
