@@ -1,7 +1,13 @@
 namespace EQOverwatch.Core.Progress;
 
 /// <summary>One short notice for the Tells overlay: its text, when it came, and its kind ("roll" or "linkdead").</summary>
-public sealed record OverlayNotice(string Kind, string Text, DateTime Utc);
+public sealed record OverlayNotice(string Kind, string Text, DateTime Utc)
+{
+    /// <summary>When the notice goes away (null: <see cref="OverlayNoticeFeed.Lifetime"/> after it came).</summary>
+    public DateTime? Until { get; init; }
+
+    public DateTime Ends => Until ?? Utc + OverlayNoticeFeed.Lifetime;
+}
 
 /// <summary>
 /// The short notices shown on the Tells overlay for <see cref="Lifetime"/>: /random rolls and players gone linkdead. Every character's log
@@ -24,7 +30,7 @@ public sealed class OverlayNoticeFeed
     {
         lock (_gate)
         {
-            _notices.RemoveAll(n => utc - n.Utc > Lifetime);
+            _notices.RemoveAll(n => utc > n.Ends);
             if (_notices.Any(n => n.Text == text && (utc - n.Utc).Duration() < SameLine))
             {
                 return false;
@@ -42,7 +48,34 @@ public sealed class OverlayNoticeFeed
     {
         lock (_gate)
         {
-            return Enumerable.Reverse(_notices).Where(n => utc - n.Utc < Lifetime && n.Utc <= utc + SameLine).OrderByDescending(n => n.Utc).ToList();
+            return Enumerable.Reverse(_notices).Where(n => utc < n.Ends && n.Utc <= utc + SameLine).OrderByDescending(n => n.Utc).ToList();
+        }
+    }
+
+    /// <summary>Makes the notices of <paramref name="kind"/> exactly <paramref name="wanted"/> (text, when it came, when it goes).</summary>
+    public void Sync(string kind, IReadOnlyList<(string Text, DateTime Utc, DateTime Until)> wanted)
+    {
+        bool changed;
+        lock (_gate)
+        {
+            int before = _notices.Count;
+            int removed = _notices.RemoveAll(n => n.Kind == kind && !wanted.Any(w => w.Text == n.Text));
+            int added = 0;
+            foreach ((string text, DateTime utc, DateTime until) in wanted)
+            {
+                if (!_notices.Any(n => n.Kind == kind && n.Text == text))
+                {
+                    _notices.Add(new OverlayNotice(kind, text, utc) { Until = until });
+                    added++;
+                }
+            }
+
+            changed = removed > 0 || added > 0;
+        }
+
+        if (changed)
+        {
+            Interlocked.Increment(ref _version);
         }
     }
 }

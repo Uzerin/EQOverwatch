@@ -65,24 +65,54 @@ public static partial class RaidKey
         Find(key).Any(k => k.Kind == kind && k.Key.Equals(key, StringComparison.OrdinalIgnoreCase));
 }
 
-/// <summary>The raid keys each character heard in raid chat; a character's keys end when it leaves the raid.</summary>
+/// <summary>
+/// The raid keys each character heard in raid chat. A character's keys end when it leaves or joins a raid, logs in, or its log has had
+/// no lines for 30 minutes; a key also ends 6 hours after it was last said or a raid boss last died, whichever is later (characters
+/// left online in a raid for days stop sending).
+/// </summary>
 public sealed class RaidKeyBook
 {
-    private readonly object _gate = new();
-    private readonly Dictionary<string, Dictionary<string, HookKind>> _heard = new(StringComparer.OrdinalIgnoreCase);
+    public static readonly TimeSpan QuietLimit = TimeSpan.FromMinutes(30);
+    public static readonly TimeSpan KeyLife = TimeSpan.FromHours(6);
 
-    public void Hear(string character, string text)
+    private readonly object _gate = new();
+    private readonly Dictionary<string, Dictionary<string, (HookKind Kind, DateTime Heard)>> _heard = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, DateTime> _lastLine = new(StringComparer.OrdinalIgnoreCase);
+    private DateTime _lastBossKill;
+
+    public void Hear(string character, string text, DateTime utc)
     {
         lock (_gate)
         {
             foreach ((string key, HookKind kind) in RaidKey.Find(text))
             {
-                if (!_heard.TryGetValue(character, out Dictionary<string, HookKind>? keys))
+                if (!_heard.TryGetValue(character, out var keys))
                 {
-                    _heard[character] = keys = new Dictionary<string, HookKind>(StringComparer.OrdinalIgnoreCase);
+                    _heard[character] = keys = new Dictionary<string, (HookKind, DateTime)>(StringComparer.OrdinalIgnoreCase);
                 }
 
-                keys[key] = kind;
+                keys[key] = (kind, utc);
+            }
+        }
+    }
+
+    /// <summary>Any live line of <paramref name="character"/> (a log that keeps writing keeps its keys).</summary>
+    public void Saw(string character, DateTime utc)
+    {
+        lock (_gate)
+        {
+            _lastLine[character] = utc;
+        }
+    }
+
+    /// <summary>A raid boss died: every key heard so far lives 6 more hours.</summary>
+    public void BossKilled(DateTime utc)
+    {
+        lock (_gate)
+        {
+            if (utc > _lastBossKill)
+            {
+                _lastBossKill = utc;
             }
         }
     }
@@ -95,12 +125,19 @@ public sealed class RaidKeyBook
         }
     }
 
-    /// <summary>Every key of <paramref name="kind"/> a character still in its raid heard.</summary>
-    public IReadOnlyList<string> Active(HookKind kind)
+    /// <summary>Every key of <paramref name="kind"/> still active at <paramref name="utc"/>.</summary>
+    public IReadOnlyList<string> Active(HookKind kind, DateTime utc)
     {
         lock (_gate)
         {
-            return _heard.Values.SelectMany(k => k).Where(k => k.Value == kind).Select(k => k.Key)
+            foreach (string quiet in _heard.Keys.Where(c => !_lastLine.TryGetValue(c, out DateTime last) || utc - last > QuietLimit).ToList())
+            {
+                _heard.Remove(quiet);
+            }
+
+            return _heard.Values.SelectMany(k => k)
+                .Where(k => k.Value.Kind == kind && utc - (k.Value.Heard > _lastBossKill ? k.Value.Heard : _lastBossKill) <= KeyLife)
+                .Select(k => k.Key)
                 .Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(k => k, StringComparer.Ordinal).ToList();
         }
     }
@@ -329,6 +366,17 @@ public sealed class RaidLootWatch
         return posts;
     }
 
+    /// <summary>Items given out after a raid boss kill and not looted yet, until the corpse opens to everyone.</summary>
+    public IReadOnlyList<(string Item, string Player, string Mob, DateTime Given, DateTime Unlocks)> CurrentUnlooted(DateTime utc)
+    {
+        lock (_gate)
+        {
+            return _given.Where(g => g.Count > 0 && utc < g.Kill.At + LootWindow)
+                .Select(g => (g.Item, g.Player, g.Kill.Mob, g.At, g.Kill.At + LootWindow))
+                .ToList();
+        }
+    }
+
     /// <summary>The items of the last raid boss kill that are still not looted (for the manual button), or none.</summary>
     public LootReminderPost? LastUnlooted(DateTime utc)
     {
@@ -354,9 +402,23 @@ public sealed class RaidDiscordSink : EQOverwatch.Core.Pipeline.ITriggerLineSink
 
     public RaidLootWatch Loot { get; } = new();
 
+    /// <summary>A character entered a zone (Zone set) or started to camp (Zone null), for the loot unlock timer.</summary>
+    public System.Collections.Concurrent.ConcurrentQueue<(string Character, string? Zone)> Moves { get; } = new();
+
     public void OnLine(string characterName, ReadOnlySpan<char> message, DateTime receivedUtc)
     {
-        if (RaidLootLines.IsRaidLeft(message))
+        Keys.Saw(characterName, receivedUtc);
+        if (message.StartsWith("You have entered ", StringComparison.Ordinal) && EQOverwatch.Core.Maps.ZoneTracker.ParseZone(message) is { } zone)
+        {
+            Moves.Enqueue((characterName, zone));
+        }
+        else if (message.StartsWith("It will take you about ", StringComparison.Ordinal) && message.EndsWith("to prepare your camp.", StringComparison.Ordinal))
+        {
+            Moves.Enqueue((characterName, null));
+        }
+
+        if (RaidLootLines.IsRaidLeft(message) || message.SequenceEqual("You have joined the raid.")
+            || message.StartsWith("Welcome to EverQuest!", StringComparison.Ordinal))
         {
             Keys.Left(characterName);
             return;
@@ -365,7 +427,7 @@ public sealed class RaidDiscordSink : EQOverwatch.Core.Pipeline.ITriggerLineSink
         if (message.Contains(" raid, ", StringComparison.Ordinal) && message.Contains("OW", StringComparison.OrdinalIgnoreCase)
             && RaidLootLines.TryRaidSay(message, out RaidSay say))
         {
-            Keys.Hear(characterName, say.Text);
+            Keys.Hear(characterName, say.Text, receivedUtc);
         }
 
         Loot.OnLine(characterName, message, receivedUtc);

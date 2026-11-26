@@ -731,6 +731,18 @@ public sealed partial class MainViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// The level a spell's duration is worked out at when its caster's level is unknown (another player not seen in /who): your
+    /// highest character's level, or 60 when none is known. Your own characters' durations use their own levels.
+    /// </summary>
+    private int FallbackCasterLevel()
+    {
+        int highest = _pipeline.Logs.Select(l => _pipeline.Roster.GetLevel(l.CharacterName, l.ServerName)).DefaultIfEmpty(0).Max();
+        return highest > 0
+            ? Math.Clamp(highest, SpellDatabaseService.MinCasterLevel, SpellDatabaseService.MaxCasterLevel)
+            : SpellDatabaseService.DefaultCasterLevel;
+    }
+
     [RelayCommand]
     private async Task BrowseSpellsAsync()
     {
@@ -758,7 +770,7 @@ public sealed partial class MainViewModel : ObservableObject
             return SpellLoadTask = Task.CompletedTask;
         }
 
-        return SpellLoadTask = LoadSpellsAsync(SpellsFilePath, DefaultCasterLevel, sequence);
+        return SpellLoadTask = LoadSpellsAsync(SpellsFilePath, FallbackCasterLevel(), sequence);
     }
 
     private async Task LoadSpellsAsync(string path, int casterLevel, int sequence)

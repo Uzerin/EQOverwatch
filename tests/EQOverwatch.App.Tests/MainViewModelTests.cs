@@ -959,29 +959,19 @@ public partial class MainViewModelTests
     }
 
     [Fact]
-    public async Task Changing_the_caster_level_recalculates_durations_and_is_clamped_to_1_through_125()
+    public async Task An_unknown_casters_level_is_your_highest_characters_level_or_60()
     {
         using var h = new Harness();
         h.Dialogs.SpellsFile = Harness.WriteSpellFile(h.SpellsPath);
         await h.Vm.BrowseSpellsCommand.ExecuteAsync(null);
-        Assert.Equal(180, Find(h, "Short Buff").Spell.BaseDurationSeconds); // ceil(60 / 2) ticks
+        Assert.Equal(180, Find(h, "Short Buff").Spell.BaseDurationSeconds); // no character level known: level 60, ceil(60 / 2) ticks
 
-        h.Vm.DefaultCasterLevel = 20;
-        await h.Vm.SpellLoadTask;
-        SpellSuggestion shortBuff = Find(h, "Short Buff");
-        Assert.Equal(60, shortBuff.Spell.BaseDurationSeconds);
-        Assert.Equal("ID 103 · 01:00", shortBuff.Detail);
+        var log = new WatchedLogConfig(Path.Combine(Path.GetTempPath(), "eqlog_Porter_frostreaver.txt"));
+        h.Vm.Logs.Add(log);
+        h.Pipeline.Roster.LearnPlayer(log.CharacterName, "Cleric", 20, log.ServerName);
+        await h.Vm.BrowseSpellsCommand.ExecuteAsync(null);
+        Assert.Equal(60, Find(h, "Short Buff").Spell.BaseDurationSeconds);
         Assert.Contains("caster level 20", h.Vm.SpellsStatus);
-        Assert.Equal(20, h.Saved().DefaultCasterLevel);
-
-        h.Vm.DefaultCasterLevel = 0;
-        await h.Vm.SpellLoadTask;
-        Assert.Equal(1, h.Vm.DefaultCasterLevel);
-
-        h.Vm.DefaultCasterLevel = 500;
-        await h.Vm.SpellLoadTask;
-        Assert.Equal(125, h.Vm.DefaultCasterLevel);
-        Assert.Equal(63 * 6, Find(h, "Short Buff").Spell.BaseDurationSeconds);
     }
 
     [Fact]

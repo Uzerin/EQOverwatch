@@ -345,6 +345,15 @@ public sealed partial class AppSettings
 
     public bool DiscordUnlootedAuto { get; set; }
 
+    /// <summary>Say "Ream, loot Head of the Inquisitor" when an item given to one of your characters is not looted within a minute.</summary>
+    public bool UnlootedAlert { get; set; }
+
+    /// <summary>Save each raid boss kill's parse picture to Pictures\EQ Overwatch.</summary>
+    public bool SaveKillPictures { get; set; }
+
+    /// <summary>Loot lists linked to raid chat after raid boss kills (newest last, the last 200).</summary>
+    public List<PostedLootEntry>? PostedLoot { get; set; }
+
     /// <summary>Speak when one of your character's buffs did not take hold.</summary>
     public bool TakeHoldAlert { get; set; } = true;
 
@@ -726,3 +735,6 @@ public sealed class AdditionalCharacterSetting
     public string Name { get; set; } = string.Empty;
     public string Server { get; set; } = string.Empty;
 }
+
+/// <summary>One loot list linked to raid chat: the boss, who linked it, the items ("Thorny Chain Helm x2 · ...") and when (UTC).</summary>
+public sealed record PostedLootEntry(string Mob, string Poster, string Items, DateTime Utc);

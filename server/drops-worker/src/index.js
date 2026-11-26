@@ -404,9 +404,11 @@ async function hookPost(request, env, key) {
 
   const body = {
     username: "EQ Overwatch",
-    content: message.content,
     allowed_mentions: { parse: message.here ? ["everyone"] : [] },
   };
+  if (!image || payload.type !== "kill") {
+    body.content = message.content; // a kill with its picture is posted as the picture alone
+  }
   let sent;
   if (image) {
     const form = new FormData();

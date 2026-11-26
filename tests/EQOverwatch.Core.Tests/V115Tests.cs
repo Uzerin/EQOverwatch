@@ -25,12 +25,12 @@ public sealed class V115Tests
         var sink = new RaidDiscordSink();
         sink.OnLine("Tankard", "Mendwell tells the raid, 'kills go to OWK-7QM2-XPAH'", Kill);
         sink.OnLine("Gearbox", "You tell your raid, 'OWK-7QM2-XPAH'", Kill);
-        Assert.Equal(new[] { "OWK-7QM2-XPAH" }, sink.Keys.Active(HookKind.Kills));
+        Assert.Equal(new[] { "OWK-7QM2-XPAH" }, sink.Keys.Active(HookKind.Kills, Kill));
 
         sink.OnLine("Tankard", "You were removed from the raid.", Kill);
-        Assert.Single(sink.Keys.Active(HookKind.Kills)); // Gearbox is still in it
+        Assert.Single(sink.Keys.Active(HookKind.Kills, Kill)); // Gearbox is still in it
         sink.OnLine("Gearbox", "Your raid was disbanded.", Kill);
-        Assert.Empty(sink.Keys.Active(HookKind.Kills));
+        Assert.Empty(sink.Keys.Active(HookKind.Kills, Kill));
     }
 
     [Fact]

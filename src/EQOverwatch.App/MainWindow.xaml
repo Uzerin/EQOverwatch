@@ -1748,6 +1748,7 @@
                         </Grid>
                     </TabItem>
 
+
                     <TabItem Header="Drop Table">
                         <Grid Margin="6">
                             <Grid.Resources>
@@ -2042,6 +2043,22 @@
                                 </DockPanel>
                             </Grid>
                         </Grid>
+                    </TabItem>
+
+                    <TabItem Header="Posted Loot">
+                        <DockPanel Margin="6">
+                            <TextBlock DockPanel.Dock="Top" Style="{StaticResource HintText}" Margin="0,0,0,8" TextWrapping="Wrap"
+                                       Text="Loot lists linked to raid chat within 15 minutes of a raid boss kill, newest first. Every line one player sent together is one row."/>
+                            <DataGrid ItemsSource="{Binding PostedLootRows}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
+                                      HorizontalAlignment="Left" HeadersVisibility="Column" GridLinesVisibility="Horizontal">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Time" Binding="{Binding Time}" SortMemberPath="TimeSort" Width="Auto"/>
+                                    <DataGridTextColumn Header="Mob" Binding="{Binding Mob}" Width="Auto"/>
+                                    <DataGridTextColumn Header="Poster" Binding="{Binding Poster}" Width="Auto"/>
+                                    <DataGridTextColumn Header="Items" Binding="{Binding Items}" Width="Auto"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </DockPanel>
                     </TabItem>
                 </TabControl>
             </TabItem>
@@ -3796,9 +3813,10 @@
 
             <!-- ═════════ Settings ═════════ -->
             <TabItem Header="Settings">
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <presentation:ResponsiveColumnsPanel Margin="6,6,14,6" MinColumnWidth="430" MaxColumns="3" ColumnGap="12">
-
+                <TabControl Margin="0,6,0,0" SelectedIndex="{Binding SelectedSettingsTab, Mode=TwoWay}">
+                    <TabItem Header="General">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                            <presentation:ResponsiveColumnsPanel Margin="6,6,14,6" MinColumnWidth="430" MaxColumns="3" ColumnGap="12">
                         <GroupBox Header="Problems lately" Visibility="{Binding HasProblems, Converter={StaticResource BoolToVisibility}}">
                             <StackPanel Margin="4">
                                 <ItemsControl ItemsSource="{Binding Problems}" MaxHeight="160">
@@ -3841,11 +3859,6 @@
                                     <TextBox IsReadOnly="True" VerticalAlignment="Center" Text="{Binding EqFolderPath, Mode=OneWay}"/>
                                 </DockPanel>
                                 <WrapPanel Margin="0,0,0,8">
-                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Default Caster Level"/>
-                                    <TextBox Width="56" VerticalAlignment="Center"
-                                             ToolTip="Durations are calculated for this caster level (focus and AA extensions are not included)."
-                                             Text="{Binding DefaultCasterLevel, UpdateSourceTrigger=LostFocus}"/>
-                                    <TextBlock Text="1-125" Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" Margin="8,0,24,0"/>
                                     <Button Content="Choose spell file…" Command="{Binding BrowseSpellsCommand}" Style="{StaticResource SecondaryButton}"
                                             ToolTip="Only needed if spells_us.txt is not in the EverQuest folder."/>
                                 </WrapPanel>
@@ -3854,56 +3867,25 @@
                             </StackPanel>
                         </GroupBox>
 
-                        <GroupBox Header="Several PCs">
+                        <GroupBox Header="Historical fights &amp; DPS">
                             <StackPanel Margin="4">
-                                <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,0,0,8"
-                                           Text="Run Overwatch on your other PCs and see all of your characters' inventories and spells on your main PC. The PCs must be on the same home network."/>
-                                <WrapPanel Margin="0,0,0,8">
-                                    <TextBlock Style="{StaticResource FieldLabel}" Text="This PC"/>
-                                    <ComboBox Width="280" ItemsSource="{Binding SyncModes}" SelectedIndex="{Binding SyncModeIndex}"/>
+                                <WrapPanel>
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Historical Days to Load"/>
+                                    <ComboBox Width="140" Margin="0,0,28,6"
+                                              ItemsSource="{Binding HistoricalDaysOptions}" DisplayMemberPath="Display" SelectedValuePath="Days"
+                                              SelectedValue="{Binding HistoricalDaysLimit}"/>
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Encounter Timeout Seconds"
+                                               ToolTip="An encounter ends after this many log seconds without activity. Applies to new events; reload history to re-split old fights."/>
+                                    <TextBox Width="64" VerticalAlignment="Center" Margin="0,0,0,6"
+                                             Text="{Binding EncounterTimeoutSeconds, UpdateSourceTrigger=LostFocus, StringFormat=0.##}"/>
                                 </WrapPanel>
-                                <WrapPanel Margin="0,0,0,8">
-                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Pairing code"
-                                               ToolTip="The main PC makes the code. Type the same code into each of your other PCs."/>
-                                    <TextBox Width="150" VerticalAlignment="Center" Margin="0,0,8,0" Text="{Binding SyncCode, UpdateSourceTrigger=LostFocus}"/>
-                                    <Button Content="New code" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0" Command="{Binding NewSyncCodeCommand}"
-                                            ToolTip="Makes a new code. PCs using the old one are no longer accepted."/>
-                                    <Button Content="Copy" Style="{StaticResource SecondaryButton}" Command="{Binding CopySyncCodeCommand}"/>
+                                <TextBlock Style="{StaticResource HintText}"
+                                           Text="When the app opens it loads every character's recent log into the DPS meter, so a fight already in progress shows as if the app had been open all along. A hit seen in several logs counts once. All fights, live and imported, share one list on the DPS tab, newest first."/>
+                                <WrapPanel>
+                                    <Button Content="Reload All Logs" Margin="0,4,12,4" Command="{Binding ReloadHistoryCommand}"
+                                            ToolTip="Reads every character's log again for the Historical Days to Load, and adds the fights to Mob History."/>
+                                    <TextBlock Style="{StaticResource HintText}" VerticalAlignment="Center" Text="{Binding ImportStatus}"/>
                                 </WrapPanel>
-                                <WrapPanel Margin="0,0,0,8">
-                                    <TextBlock Style="{StaticResource FieldLabel}" Text="This PC's name"/>
-                                    <TextBox Width="150" VerticalAlignment="Center" Margin="0,0,14,0" Text="{Binding SyncPcName, UpdateSourceTrigger=LostFocus}"/>
-                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Main PC address"
-                                               ToolTip="Leave empty to find the main PC automatically. Only needed if it is not found."/>
-                                    <TextBox Width="130" VerticalAlignment="Center" Text="{Binding SyncHostAddress, UpdateSourceTrigger=LostFocus}"/>
-                                </WrapPanel>
-                                <WrapPanel Margin="0,0,0,8">
-                                    <Button Content="Send now" Margin="0,0,8,0" Command="{Binding SendCharacterFilesNowCommand}"
-                                            ToolTip="Sends every character file from this PC to the main PC again."/>
-                                    <Button Content="Find main PC" Style="{StaticResource SecondaryButton}" Command="{Binding FindMainPcCommand}"/>
-                                </WrapPanel>
-                                <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" Text="{Binding SyncStatus}"/>
-                            </StackPanel>
-                        </GroupBox>
-
-                        <GroupBox Header="Overlay layouts">
-                            <StackPanel Margin="4">
-                                <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,0,0,8"
-                                           Text="Save where your overlays are now (position, size, shown and locked), and switch back to it later. Handy when you play on a different monitor setup."/>
-                                <WrapPanel Margin="0,0,0,8">
-                                    <ComboBox Width="190" Margin="0,0,8,0" ItemsSource="{Binding OverlayProfileNames}" SelectedItem="{Binding SelectedOverlayProfile}"/>
-                                    <Button Content="Apply" Margin="0,0,8,0" Command="{Binding ApplyOverlayProfileCommand}"/>
-                                    <Button Content="Delete" Style="{StaticResource SecondaryButton}" Command="{Binding DeleteOverlayProfileCommand}"/>
-                                </WrapPanel>
-                                <WrapPanel Margin="0,0,0,8">
-                                    <TextBox Width="190" Margin="0,0,8,0" VerticalAlignment="Center"
-                                             ToolTip="A name for the layout you have now, for example Two monitors"
-                                             Text="{Binding NewOverlayProfileName, UpdateSourceTrigger=PropertyChanged}"/>
-                                    <Button Content="Save current layout" Style="{StaticResource SecondaryButton}" Command="{Binding SaveOverlayProfileCommand}"/>
-                                </WrapPanel>
-                                <CheckBox Content="Switch automatically when the monitors change" IsChecked="{Binding AutoSwitchOverlayProfiles}" Margin="0,0,0,6"
-                                          ToolTip="Uses the newest saved layout that was made for the monitor setup you have now. Off by default."/>
-                                <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" Text="{Binding OverlayProfileStatus}"/>
                             </StackPanel>
                         </GroupBox>
 
@@ -3919,6 +3901,29 @@
                             </StackPanel>
                         </GroupBox>
 
+                        <GroupBox Header="Updates">
+                            <StackPanel Margin="4">
+                                <CheckBox Content="Start with Windows (minimized)" IsChecked="{Binding StartWithWindows}" Margin="0,0,0,6"
+                                          ToolTip="Opens EQ Overwatch minimized when you sign in to Windows."/>
+                                <CheckBox Content="Check for a newer version when the app opens" IsChecked="{Binding CheckForUpdates}" Margin="0,0,0,6"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                    <TextBlock Text="Check again while running every (hours)" VerticalAlignment="Center" Margin="0,0,8,0"
+                                               ToolTip="How often the app looks for a newer version while it stays open. 0 checks only when the app opens."/>
+                                    <TextBox Width="50" Text="{Binding UpdateCheckHours, UpdateSourceTrigger=PropertyChanged}"/>
+                                </StackPanel>
+                                <WrapPanel>
+                                    <Button Content="Check now" Command="{Binding CheckUpdatesNowCommand}" Style="{StaticResource SecondaryButton}" Margin="0,0,12,0"/>
+                                    <TextBlock VerticalAlignment="Center" Style="{StaticResource HintText}" Text="{Binding UpdateStatus}"/>
+                                </WrapPanel>
+                            </StackPanel>
+                        </GroupBox>
+                            </presentation:ResponsiveColumnsPanel>
+                        </ScrollViewer>
+                    </TabItem>
+
+                    <TabItem Header="Overlays">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                            <presentation:ResponsiveColumnsPanel Margin="6,6,14,6" MinColumnWidth="430" MaxColumns="3" ColumnGap="12">
                         <GroupBox Header="Overlay windows">
                             <StackPanel Margin="4">
                                 <WrapPanel>
@@ -3985,28 +3990,101 @@
                             </StackPanel>
                         </GroupBox>
 
-                        <GroupBox Header="Historical fights &amp; DPS">
+                        <GroupBox Header="Overlay fading">
                             <StackPanel Margin="4">
                                 <WrapPanel>
-                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Historical Days to Load"/>
-                                    <ComboBox Width="140" Margin="0,0,28,6"
-                                              ItemsSource="{Binding HistoricalDaysOptions}" DisplayMemberPath="Display" SelectedValuePath="Days"
-                                              SelectedValue="{Binding HistoricalDaysLimit}"/>
-                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Encounter Timeout Seconds"
-                                               ToolTip="An encounter ends after this many log seconds without activity. Applies to new events; reload history to re-split old fights."/>
-                                    <TextBox Width="64" VerticalAlignment="Center" Margin="0,0,0,6"
-                                             Text="{Binding EncounterTimeoutSeconds, UpdateSourceTrigger=LostFocus, StringFormat=0.##}"/>
+                                    <StackPanel Orientation="Horizontal" Margin="0,2,32,6">
+                                        <TextBlock Text="Overlays out of combat (% visible)" VerticalAlignment="Center" Margin="0,0,8,0"
+                                                   ToolTip="How see-through every overlay gets when no combat line has been seen for 10 seconds. 100 = no fading. The overlays are always fully shown while unlocked."/>
+                                        <TextBox Width="50" Text="{Binding OverlayIdlePercent, UpdateSourceTrigger=PropertyChanged}"/>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,2,0,6">
+                                        <TextBlock Text="Hide DPS overlay after (seconds)" VerticalAlignment="Center" Margin="0,0,8,0"
+                                                   ToolTip="The DPS overlay goes away when no combat line has been seen for this long, and comes back with the next one. 0 keeps it up."/>
+                                        <TextBox Width="50" Text="{Binding DpsHideSeconds, UpdateSourceTrigger=PropertyChanged}"/>
+                                    </StackPanel>
                                 </WrapPanel>
                                 <TextBlock Style="{StaticResource HintText}"
-                                           Text="When the app opens it loads every character's recent log into the DPS meter, so a fight already in progress shows as if the app had been open all along. A hit seen in several logs counts once. All fights, live and imported, share one list on the DPS tab, newest first."/>
-                                <WrapPanel>
-                                    <Button Content="Reload All Logs" Margin="0,4,12,4" Command="{Binding ReloadHistoryCommand}"
-                                            ToolTip="Reads every character's log again for the Historical Days to Load, and adds the fights to Mob History."/>
-                                    <TextBlock Style="{StaticResource HintText}" VerticalAlignment="Center" Text="{Binding ImportStatus}"/>
-                                </WrapPanel>
+                                           Text="The colors of the Discord picture are on the Encounter DPS tab (Colors...)."/>
                             </StackPanel>
                         </GroupBox>
 
+                        <GroupBox Header="Overlay layouts">
+                            <StackPanel Margin="4">
+                                <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,0,0,8"
+                                           Text="Save where your overlays are now (position, size, shown and locked), and switch back to it later. Handy when you play on a different monitor setup."/>
+                                <WrapPanel Margin="0,0,0,8">
+                                    <ComboBox Width="190" Margin="0,0,8,0" ItemsSource="{Binding OverlayProfileNames}" SelectedItem="{Binding SelectedOverlayProfile}"/>
+                                    <Button Content="Apply" Margin="0,0,8,0" Command="{Binding ApplyOverlayProfileCommand}"/>
+                                    <Button Content="Delete" Style="{StaticResource SecondaryButton}" Command="{Binding DeleteOverlayProfileCommand}"/>
+                                </WrapPanel>
+                                <WrapPanel Margin="0,0,0,8">
+                                    <TextBox Width="190" Margin="0,0,8,0" VerticalAlignment="Center"
+                                             ToolTip="A name for the layout you have now, for example Two monitors"
+                                             Text="{Binding NewOverlayProfileName, UpdateSourceTrigger=PropertyChanged}"/>
+                                    <Button Content="Save current layout" Style="{StaticResource SecondaryButton}" Command="{Binding SaveOverlayProfileCommand}"/>
+                                </WrapPanel>
+                                <CheckBox Content="Switch automatically when the monitors change" IsChecked="{Binding AutoSwitchOverlayProfiles}" Margin="0,0,0,6"
+                                          ToolTip="Uses the newest saved layout that was made for the monitor setup you have now. Off by default."/>
+                                <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" Text="{Binding OverlayProfileStatus}"/>
+                            </StackPanel>
+                        </GroupBox>
+
+                        <GroupBox Header="Theme &amp; colors">
+                            <StackPanel Margin="4">
+                                <WrapPanel Margin="0,0,0,10">
+                                    <Button Content="Obsidian Slate" Style="{StaticResource PresetPill}" Margin="0,0,8,4"
+                                            Command="{Binding SelectThemePresetCommand}" CommandParameter="ObsidianSlate"
+                                            Tag="{Binding IsObsidianSlateSelected}"/>
+                                    <Button Content="Velious Frost" Style="{StaticResource PresetPill}" Margin="0,0,8,4"
+                                            Command="{Binding SelectThemePresetCommand}" CommandParameter="VeliousFrost"
+                                            Tag="{Binding IsVeliousFrostSelected}"/>
+                                    <Button Content="Kunark Ember" Style="{StaticResource PresetPill}" Margin="0,0,8,4"
+                                            Command="{Binding SelectThemePresetCommand}" CommandParameter="KunarkEmber"
+                                            Tag="{Binding IsKunarkEmberSelected}"/>
+                                    <Button Content="Custom" Style="{StaticResource PresetPill}" Margin="0,0,8,4"
+                                            Command="{Binding SelectThemePresetCommand}" CommandParameter="Custom"
+                                            Tag="{Binding IsCustomThemeSelected}"/>
+                                    <TextBlock Style="{StaticResource HintText}" VerticalAlignment="Center" Margin="8,0,0,4"
+                                               Text="Click a swatch to pick a color from a wheel (or type #RRGGBB) to start a custom theme. It applies to every window straight away."/>
+                                </WrapPanel>
+
+                <ItemsControl ItemsSource="{Binding ThemeColors}" Focusable="False">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,20,6">
+                                <ctl:ColorSwatchPicker Width="24" Height="24" Margin="0,0,8,0" Hex="{Binding HexText, Mode=TwoWay}"/>
+                                <TextBlock Text="{Binding Label}" Width="118" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource TextMutedBrush}"/>
+                                <TextBox Width="96" FontFamily="Consolas" Text="{Binding HexText, UpdateSourceTrigger=PropertyChanged}">
+                                    <TextBox.Style>
+                                        <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsValid}" Value="False">
+                                                    <Setter Property="BorderBrush" Value="{DynamicResource DebuffsBarBrush}"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBox.Style>
+                                </TextBox>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                            </StackPanel>
+                        </GroupBox>
+                            </presentation:ResponsiveColumnsPanel>
+                        </ScrollViewer>
+                    </TabItem>
+
+                    <TabItem Header="Alerts">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                            <presentation:ResponsiveColumnsPanel Margin="6,6,14,6" MinColumnWidth="430" MaxColumns="3" ColumnGap="12">
                         <GroupBox Header="Box alerts">
                             <StackPanel Margin="4">
                                 <CheckBox Content="Aggro alert" Margin="0,2,0,6" IsChecked="{Binding AggroAlert}"
@@ -4027,70 +4105,10 @@
                                           ToolTip="Says when one of your characters fell to the ground instead of feigning."/>
                                 <CheckBox Content="Root or mez broke" Margin="0,0,0,6" IsChecked="{Binding RootMezAlert}"
                                           ToolTip="Says when your root or mez wears off or breaks."/>
+                                <CheckBox Content="Unlooted item" Margin="0,0,0,6" IsChecked="{Binding UnlootedAlert}"
+                                          ToolTip="Says &quot;Ream, loot Head of the Inquisitor&quot; when an item given to one of your characters is not looted within a minute."/>
                                 <CheckBox Content="Log went quiet" Margin="0,0,0,6" IsChecked="{Binding QuietLogAlert}"
                                           ToolTip="Says when a character's log has had no lines for 2 minutes during a fight (a disconnect or crash)."/>
-                            </StackPanel>
-                        </GroupBox>
-
-                        <GroupBox Header="Discord">
-                            <StackPanel>
-                                <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap"
-                                           Text="Share automatically sends to every key said in raid chat since your character joined the raid, from logs the app watches live: a kill as soon as the boss dies, loot within 15 minutes of the kill. When it's off, use the Send to Discord buttons on Encounter DPS and Loot."/>
-                                <TextBlock Margin="0,10,0,2" FontWeight="SemiBold" Text="Raid boss kills"/>
-                                <DockPanel Margin="0,2,0,0">
-                                    <Button DockPanel.Dock="Right" Content="Save" Margin="6,0,0,0" Padding="10,2" Command="{Binding SaveDiscordKillsCommand}"
-                                            ToolTip="Saves the address on the Overwatch server under this raid key. Clear the box and Save to remove it."/>
-                                    <TextBox Text="{Binding DiscordKillsUrl, UpdateSourceTrigger=PropertyChanged}" MinWidth="320"
-                                             ToolTip="Paste a webhook address from the Discord channel's settings (Integrations, Webhooks)."/>
-                                </DockPanel>
-                                <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                                    <TextBlock Text="Key" VerticalAlignment="Center" Style="{StaticResource HintText}" Margin="0,0,8,0"/>
-                                    <TextBox Text="{Binding DiscordKillsKey, Mode=OneWay}" IsReadOnly="True" FontFamily="Consolas" MinWidth="130"/>
-                                    <Button Content="Copy" Margin="6,0,0,0" Padding="10,2" Style="{StaticResource SecondaryButton}"
-                                            Command="{Binding CopyDiscordKeyCommand}" CommandParameter="{Binding DiscordKillsKey}"/>
-                                    <Button Content="New" Margin="6,0,0,0" Padding="10,2" Style="{StaticResource SecondaryButton}"
-                                            Command="{Binding NewDiscordKillsKeyCommand}" ToolTip="Makes a new key; the old one stops working."/>
-                                </StackPanel>
-                                <CheckBox Content="Share automatically" Margin="0,6,0,0" IsChecked="{Binding DiscordKillsAuto}"
-                                          ToolTip="Sends these posts by itself to every key of this kind said in raid chat, from live logs only. Off: use the Send to Discord buttons."/>
-                                <TextBlock Margin="0,10,0,2" FontWeight="SemiBold" Text="Posted loot"/>
-                                <DockPanel Margin="0,2,0,0">
-                                    <Button DockPanel.Dock="Right" Content="Save" Margin="6,0,0,0" Padding="10,2" Command="{Binding SaveDiscordLootCommand}"
-                                            ToolTip="Saves the address on the Overwatch server under this raid key. Clear the box and Save to remove it."/>
-                                    <TextBox Text="{Binding DiscordLootUrl, UpdateSourceTrigger=PropertyChanged}" MinWidth="320"
-                                             ToolTip="Paste a webhook address from the Discord channel's settings (Integrations, Webhooks)."/>
-                                </DockPanel>
-                                <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                                    <TextBlock Text="Key" VerticalAlignment="Center" Style="{StaticResource HintText}" Margin="0,0,8,0"/>
-                                    <TextBox Text="{Binding DiscordLootKey, Mode=OneWay}" IsReadOnly="True" FontFamily="Consolas" MinWidth="130"/>
-                                    <Button Content="Copy" Margin="6,0,0,0" Padding="10,2" Style="{StaticResource SecondaryButton}"
-                                            Command="{Binding CopyDiscordKeyCommand}" CommandParameter="{Binding DiscordLootKey}"/>
-                                    <Button Content="New" Margin="6,0,0,0" Padding="10,2" Style="{StaticResource SecondaryButton}"
-                                            Command="{Binding NewDiscordLootKeyCommand}" ToolTip="Makes a new key; the old one stops working."/>
-                                </StackPanel>
-                                <CheckBox Content="Share automatically" Margin="0,6,0,0" IsChecked="{Binding DiscordLootAuto}"
-                                          ToolTip="Sends these posts by itself to every key of this kind said in raid chat, from live logs only. Off: use the Send to Discord buttons."/>
-                                <TextBlock Margin="0,10,0,2" FontWeight="SemiBold" Text="Unlooted items"/>
-                                <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" Text="Posts with @here: an item not looted within a minute of being given out, and a reminder 14 minutes after the kill of what is still on the corpse."/>
-                                <DockPanel Margin="0,2,0,0">
-                                    <Button DockPanel.Dock="Right" Content="Save" Margin="6,0,0,0" Padding="10,2" Command="{Binding SaveDiscordUnlootedCommand}"
-                                            ToolTip="Saves the address on the Overwatch server under this raid key. Clear the box and Save to remove it."/>
-                                    <TextBox Text="{Binding DiscordUnlootedUrl, UpdateSourceTrigger=PropertyChanged}" MinWidth="320"
-                                             ToolTip="Paste a webhook address from the Discord channel's settings (Integrations, Webhooks)."/>
-                                </DockPanel>
-                                <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                                    <TextBlock Text="Key" VerticalAlignment="Center" Style="{StaticResource HintText}" Margin="0,0,8,0"/>
-                                    <TextBox Text="{Binding DiscordUnlootedKey, Mode=OneWay}" IsReadOnly="True" FontFamily="Consolas" MinWidth="130"/>
-                                    <Button Content="Copy" Margin="6,0,0,0" Padding="10,2" Style="{StaticResource SecondaryButton}"
-                                            Command="{Binding CopyDiscordKeyCommand}" CommandParameter="{Binding DiscordUnlootedKey}"/>
-                                    <Button Content="New" Margin="6,0,0,0" Padding="10,2" Style="{StaticResource SecondaryButton}"
-                                            Command="{Binding NewDiscordUnlootedKeyCommand}" ToolTip="Makes a new key; the old one stops working."/>
-                                </StackPanel>
-                                <CheckBox Content="Share automatically" Margin="0,6,0,0" IsChecked="{Binding DiscordUnlootedAuto}"
-                                          ToolTip="Sends these posts by itself to every key of this kind said in raid chat, from live logs only. Off: use the Send to Discord buttons."/>
-                                <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,10,0,0"
-                                           Text="Say a key in /rsay to have every Overwatch player in the raid send to that Discord. They never see the address."/>
-                                <TextBlock Text="{Binding DiscordStatus}" TextWrapping="Wrap" Margin="0,6,0,0"/>
                             </StackPanel>
                         </GroupBox>
 
@@ -4163,76 +4181,13 @@
                                         Style="{StaticResource SecondaryButton}" Command="{Binding ResetSafeZonesCommand}"/>
                             </StackPanel>
                         </GroupBox>
+                            </presentation:ResponsiveColumnsPanel>
+                        </ScrollViewer>
+                    </TabItem>
 
-                        <GroupBox Header="Overlay fading">
-                            <StackPanel Margin="4">
-                                <WrapPanel>
-                                    <StackPanel Orientation="Horizontal" Margin="0,2,32,6">
-                                        <TextBlock Text="Overlays out of combat (% visible)" VerticalAlignment="Center" Margin="0,0,8,0"
-                                                   ToolTip="How see-through every overlay gets when no combat line has been seen for 10 seconds. 100 = no fading. The overlays are always fully shown while unlocked."/>
-                                        <TextBox Width="50" Text="{Binding OverlayIdlePercent, UpdateSourceTrigger=PropertyChanged}"/>
-                                    </StackPanel>
-                                    <StackPanel Orientation="Horizontal" Margin="0,2,0,6">
-                                        <TextBlock Text="Hide DPS overlay after (seconds)" VerticalAlignment="Center" Margin="0,0,8,0"
-                                                   ToolTip="The DPS overlay goes away when no combat line has been seen for this long, and comes back with the next one. 0 keeps it up."/>
-                                        <TextBox Width="50" Text="{Binding DpsHideSeconds, UpdateSourceTrigger=PropertyChanged}"/>
-                                    </StackPanel>
-                                </WrapPanel>
-                                <TextBlock Style="{StaticResource HintText}"
-                                           Text="The colors of the Discord picture are on the Encounter DPS tab (Colors...)."/>
-                            </StackPanel>
-                        </GroupBox>
-
-                        <GroupBox Header="Theme &amp; colors">
-                            <StackPanel Margin="4">
-                                <WrapPanel Margin="0,0,0,10">
-                                    <Button Content="Obsidian Slate" Style="{StaticResource PresetPill}" Margin="0,0,8,4"
-                                            Command="{Binding SelectThemePresetCommand}" CommandParameter="ObsidianSlate"
-                                            Tag="{Binding IsObsidianSlateSelected}"/>
-                                    <Button Content="Velious Frost" Style="{StaticResource PresetPill}" Margin="0,0,8,4"
-                                            Command="{Binding SelectThemePresetCommand}" CommandParameter="VeliousFrost"
-                                            Tag="{Binding IsVeliousFrostSelected}"/>
-                                    <Button Content="Kunark Ember" Style="{StaticResource PresetPill}" Margin="0,0,8,4"
-                                            Command="{Binding SelectThemePresetCommand}" CommandParameter="KunarkEmber"
-                                            Tag="{Binding IsKunarkEmberSelected}"/>
-                                    <Button Content="Custom" Style="{StaticResource PresetPill}" Margin="0,0,8,4"
-                                            Command="{Binding SelectThemePresetCommand}" CommandParameter="Custom"
-                                            Tag="{Binding IsCustomThemeSelected}"/>
-                                    <TextBlock Style="{StaticResource HintText}" VerticalAlignment="Center" Margin="8,0,0,4"
-                                               Text="Click a swatch to pick a color from a wheel (or type #RRGGBB) to start a custom theme. It applies to every window straight away."/>
-                                </WrapPanel>
-
-                <ItemsControl ItemsSource="{Binding ThemeColors}" Focusable="False">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <WrapPanel/>
-                        </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <StackPanel Orientation="Horizontal" Margin="0,0,20,6">
-                                <ctl:ColorSwatchPicker Width="24" Height="24" Margin="0,0,8,0" Hex="{Binding HexText, Mode=TwoWay}"/>
-                                <TextBlock Text="{Binding Label}" Width="118" VerticalAlignment="Center"
-                                           Foreground="{DynamicResource TextMutedBrush}"/>
-                                <TextBox Width="96" FontFamily="Consolas" Text="{Binding HexText, UpdateSourceTrigger=PropertyChanged}">
-                                    <TextBox.Style>
-                                        <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsValid}" Value="False">
-                                                    <Setter Property="BorderBrush" Value="{DynamicResource DebuffsBarBrush}"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </TextBox.Style>
-                                </TextBox>
-                            </StackPanel>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-                            </StackPanel>
-                        </GroupBox>
-
-
+                    <TabItem Header="Sharing">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                            <presentation:ResponsiveColumnsPanel Margin="6,6,14,6" MinColumnWidth="430" MaxColumns="3" ColumnGap="12">
                         <GroupBox Header="Sharing">
                             <StackPanel Margin="4" MaxWidth="820" HorizontalAlignment="Left">
                                 <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,0,0,10"
@@ -4291,24 +4246,105 @@
                             </StackPanel>
                         </GroupBox>
 
-                        <GroupBox Header="Updates">
-                            <StackPanel Margin="4">
-                                <CheckBox Content="Start with Windows (minimized)" IsChecked="{Binding StartWithWindows}" Margin="0,0,0,6"
-                                          ToolTip="Opens EQ Overwatch minimized when you sign in to Windows."/>
-                                <CheckBox Content="Check for a newer version when the app opens" IsChecked="{Binding CheckForUpdates}" Margin="0,0,0,6"/>
-                                <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                                    <TextBlock Text="Check again while running every (hours)" VerticalAlignment="Center" Margin="0,0,8,0"
-                                               ToolTip="How often the app looks for a newer version while it stays open. 0 checks only when the app opens."/>
-                                    <TextBox Width="50" Text="{Binding UpdateCheckHours, UpdateSourceTrigger=PropertyChanged}"/>
+                        <GroupBox Header="Discord">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap"
+                                           Text="Share automatically sends to every key said in raid chat since your character joined the raid, from logs the app watches live: a kill as soon as the boss dies, loot within 15 minutes of the kill. When it's off, use the Send to Discord buttons on Encounter DPS and Loot."/>
+                                <TextBlock Margin="0,10,0,2" FontWeight="SemiBold" Text="Raid boss kills"/>
+                                <DockPanel Margin="0,2,0,0">
+                                    <Button DockPanel.Dock="Right" Content="Save" Margin="6,0,0,0" Padding="10,2" Command="{Binding SaveDiscordKillsCommand}"
+                                            ToolTip="Saves the address on the Overwatch server under this raid key. Clear the box and Save to remove it."/>
+                                    <TextBox Text="{Binding DiscordKillsUrl, UpdateSourceTrigger=PropertyChanged}" MinWidth="320"
+                                             ToolTip="Paste a webhook address from the Discord channel's settings (Integrations, Webhooks)."/>
+                                </DockPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                    <TextBlock Text="Key" VerticalAlignment="Center" Style="{StaticResource HintText}" Margin="0,0,8,0"/>
+                                    <TextBox Text="{Binding DiscordKillsKey, Mode=OneWay}" IsReadOnly="True" FontFamily="Consolas" MinWidth="130"/>
+                                    <Button Content="Copy" Margin="6,0,0,0" Padding="10,2" Style="{StaticResource SecondaryButton}"
+                                            Command="{Binding CopyDiscordKeyCommand}" CommandParameter="{Binding DiscordKillsKey}"/>
+                                    <Button Content="New" Margin="6,0,0,0" Padding="10,2" Style="{StaticResource SecondaryButton}"
+                                            Command="{Binding NewDiscordKillsKeyCommand}" ToolTip="Makes a new key; the old one stops working."/>
                                 </StackPanel>
-                                <WrapPanel>
-                                    <Button Content="Check now" Command="{Binding CheckUpdatesNowCommand}" Style="{StaticResource SecondaryButton}" Margin="0,0,12,0"/>
-                                    <TextBlock VerticalAlignment="Center" Style="{StaticResource HintText}" Text="{Binding UpdateStatus}"/>
-                                </WrapPanel>
+                                <CheckBox Content="Share automatically" Margin="0,6,0,0" IsChecked="{Binding DiscordKillsAuto}"
+                                          ToolTip="Sends these posts by itself to every key of this kind said in raid chat, from live logs only. Off: use the Send to Discord buttons."/>
+                                <TextBlock Margin="0,10,0,2" FontWeight="SemiBold" Text="Posted loot"/>
+                                <DockPanel Margin="0,2,0,0">
+                                    <Button DockPanel.Dock="Right" Content="Save" Margin="6,0,0,0" Padding="10,2" Command="{Binding SaveDiscordLootCommand}"
+                                            ToolTip="Saves the address on the Overwatch server under this raid key. Clear the box and Save to remove it."/>
+                                    <TextBox Text="{Binding DiscordLootUrl, UpdateSourceTrigger=PropertyChanged}" MinWidth="320"
+                                             ToolTip="Paste a webhook address from the Discord channel's settings (Integrations, Webhooks)."/>
+                                </DockPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                    <TextBlock Text="Key" VerticalAlignment="Center" Style="{StaticResource HintText}" Margin="0,0,8,0"/>
+                                    <TextBox Text="{Binding DiscordLootKey, Mode=OneWay}" IsReadOnly="True" FontFamily="Consolas" MinWidth="130"/>
+                                    <Button Content="Copy" Margin="6,0,0,0" Padding="10,2" Style="{StaticResource SecondaryButton}"
+                                            Command="{Binding CopyDiscordKeyCommand}" CommandParameter="{Binding DiscordLootKey}"/>
+                                    <Button Content="New" Margin="6,0,0,0" Padding="10,2" Style="{StaticResource SecondaryButton}"
+                                            Command="{Binding NewDiscordLootKeyCommand}" ToolTip="Makes a new key; the old one stops working."/>
+                                </StackPanel>
+                                <CheckBox Content="Share automatically" Margin="0,6,0,0" IsChecked="{Binding DiscordLootAuto}"
+                                          ToolTip="Sends these posts by itself to every key of this kind said in raid chat, from live logs only. Off: use the Send to Discord buttons."/>
+                                <TextBlock Margin="0,10,0,2" FontWeight="SemiBold" Text="Unlooted items"/>
+                                <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" Text="Posts with @here: an item not looted within a minute of being given out, and a reminder 14 minutes after the kill of what is still on the corpse."/>
+                                <DockPanel Margin="0,2,0,0">
+                                    <Button DockPanel.Dock="Right" Content="Save" Margin="6,0,0,0" Padding="10,2" Command="{Binding SaveDiscordUnlootedCommand}"
+                                            ToolTip="Saves the address on the Overwatch server under this raid key. Clear the box and Save to remove it."/>
+                                    <TextBox Text="{Binding DiscordUnlootedUrl, UpdateSourceTrigger=PropertyChanged}" MinWidth="320"
+                                             ToolTip="Paste a webhook address from the Discord channel's settings (Integrations, Webhooks)."/>
+                                </DockPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                    <TextBlock Text="Key" VerticalAlignment="Center" Style="{StaticResource HintText}" Margin="0,0,8,0"/>
+                                    <TextBox Text="{Binding DiscordUnlootedKey, Mode=OneWay}" IsReadOnly="True" FontFamily="Consolas" MinWidth="130"/>
+                                    <Button Content="Copy" Margin="6,0,0,0" Padding="10,2" Style="{StaticResource SecondaryButton}"
+                                            Command="{Binding CopyDiscordKeyCommand}" CommandParameter="{Binding DiscordUnlootedKey}"/>
+                                    <Button Content="New" Margin="6,0,0,0" Padding="10,2" Style="{StaticResource SecondaryButton}"
+                                            Command="{Binding NewDiscordUnlootedKeyCommand}" ToolTip="Makes a new key; the old one stops working."/>
+                                </StackPanel>
+                                <CheckBox Content="Share automatically" Margin="0,6,0,0" IsChecked="{Binding DiscordUnlootedAuto}"
+                                          ToolTip="Sends these posts by itself to every key of this kind said in raid chat, from live logs only. Off: use the Send to Discord buttons."/>
+                                <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,10,0,0"
+                                           Text="Say a key in /rsay to have every Overwatch player in the raid send to that Discord. They never see the address."/>
+                                <CheckBox Content="Save raid boss kill pictures" Margin="0,10,0,0" IsChecked="{Binding SaveKillPictures}"
+                                          ToolTip="Saves each raid boss kill's parse picture to Pictures\EQ Overwatch, named like &quot;2026-11-18 Lord Inquisitor Seru.png&quot;."/>
+                                <TextBlock Text="{Binding DiscordStatus}" TextWrapping="Wrap" Margin="0,6,0,0"/>
                             </StackPanel>
                         </GroupBox>
-                    </presentation:ResponsiveColumnsPanel>
-                </ScrollViewer>
+
+                        <GroupBox Header="Several PCs">
+                            <StackPanel Margin="4">
+                                <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,0,0,8"
+                                           Text="Run Overwatch on your other PCs and see all of your characters' inventories and spells on your main PC. The PCs must be on the same home network."/>
+                                <WrapPanel Margin="0,0,0,8">
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="This PC"/>
+                                    <ComboBox Width="280" ItemsSource="{Binding SyncModes}" SelectedIndex="{Binding SyncModeIndex}"/>
+                                </WrapPanel>
+                                <WrapPanel Margin="0,0,0,8">
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Pairing code"
+                                               ToolTip="The main PC makes the code. Type the same code into each of your other PCs."/>
+                                    <TextBox Width="150" VerticalAlignment="Center" Margin="0,0,8,0" Text="{Binding SyncCode, UpdateSourceTrigger=LostFocus}"/>
+                                    <Button Content="New code" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0" Command="{Binding NewSyncCodeCommand}"
+                                            ToolTip="Makes a new code. PCs using the old one are no longer accepted."/>
+                                    <Button Content="Copy" Style="{StaticResource SecondaryButton}" Command="{Binding CopySyncCodeCommand}"/>
+                                </WrapPanel>
+                                <WrapPanel Margin="0,0,0,8">
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="This PC's name"/>
+                                    <TextBox Width="150" VerticalAlignment="Center" Margin="0,0,14,0" Text="{Binding SyncPcName, UpdateSourceTrigger=LostFocus}"/>
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Main PC address"
+                                               ToolTip="Leave empty to find the main PC automatically. Only needed if it is not found."/>
+                                    <TextBox Width="130" VerticalAlignment="Center" Text="{Binding SyncHostAddress, UpdateSourceTrigger=LostFocus}"/>
+                                </WrapPanel>
+                                <WrapPanel Margin="0,0,0,8">
+                                    <Button Content="Send now" Margin="0,0,8,0" Command="{Binding SendCharacterFilesNowCommand}"
+                                            ToolTip="Sends every character file from this PC to the main PC again."/>
+                                    <Button Content="Find main PC" Style="{StaticResource SecondaryButton}" Command="{Binding FindMainPcCommand}"/>
+                                </WrapPanel>
+                                <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" Text="{Binding SyncStatus}"/>
+                            </StackPanel>
+                        </GroupBox>
+                            </presentation:ResponsiveColumnsPanel>
+                        </ScrollViewer>
+                    </TabItem>
+                </TabControl>
             </TabItem>
 
         </TabControl>

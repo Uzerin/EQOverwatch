@@ -66,6 +66,12 @@ are kept. Untick **Count me in the anonymous player count** on Settings to stop 
 
 ## Changelog
 
+### 1.0.116
+
+- Settings split into General, Overlays, Alerts and Sharing; Default Caster Level removed (your highest character's level is used).
+- Raid boss kill posts are the parse picture alone; raid keys expire on raid changes, logins, quiet logs and after 6 hours without a boss kill.
+- Loot unlock timer after raid boss kills, unlooted items on the Tells overlay, a Posted Loot tab, an Unlooted item box alert and saving kill pictures.
+
 ### 1.0.115
 
 - Encounter list shows Raid Boss, Name, Zone and Kill Time; the Raid Boss tick covers every fight of that mob and ticks itself on the server's kill announcement.
