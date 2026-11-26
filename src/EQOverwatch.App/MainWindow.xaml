@@ -840,7 +840,7 @@
                                             </DataTemplate>
                                         </DataGridTemplateColumn.CellTemplate>
                                     </DataGridTemplateColumn>
-                                    <DataGridTextColumn Header="Boss" Binding="{Binding MobText}" Width="140"/>
+                                    <DataGridTextColumn Header="Boss" Binding="{Binding MobText}" Width="Auto" MinWidth="140"/>
                                     <DataGridTextColumn Header="Spell" Binding="{Binding SpellName}" Width="190"/>
                                     <DataGridTextColumn Header="Log text" Binding="{Binding MatchText}" Width="*"/>
                                     <DataGridTextColumn Header="Recast (s)" Binding="{Binding RecastSeconds}" Width="84" ElementStyle="{StaticResource NumericCell}"/>
@@ -951,9 +951,10 @@
 
                             <!-- List header: summary, filter and the activity line -->
                             <DockPanel Grid.Row="2" Margin="0,0,0,8">
-                                <TextBox DockPanel.Dock="Right" Width="240" Margin="14,0,0,0"
+                                <TextBox DockPanel.Dock="Right" Width="240" Margin="6,0,0,0"
                                          ToolTip="Filters your list by spell name, landing text or overlay"
                                          Text="{Binding TrackedFilterText, UpdateSourceTrigger=PropertyChanged}"/>
+                                <TextBlock DockPanel.Dock="Right" Style="{StaticResource HintText}" VerticalAlignment="Center" Margin="14,0,0,0" Text="Filter"/>
                                 <TextBlock DockPanel.Dock="Left" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,16,0"
                                            Text="{Binding TrackedSummary}"/>
                                 <TextBlock Style="{StaticResource HintText}" VerticalAlignment="Center" Text="{Binding TrackerActivity}"/>
@@ -1109,14 +1110,14 @@
                                         </DataGridTemplateColumn.CellTemplate>
                                     </DataGridTemplateColumn>
                                     <DataGridTextColumn Header="Ability" Binding="{Binding Name}" Width="150" ElementStyle="{StaticResource WrapCell}"/>
-                                    <DataGridTemplateColumn Header="Lasts" Width="80">
+                                    <DataGridTemplateColumn Header="Lasts" Width="110">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
                                                 <TextBox Margin="4,2" MinHeight="26" Text="{Binding ActiveText, UpdateSourceTrigger=LostFocus}"/>
                                             </DataTemplate>
                                         </DataGridTemplateColumn.CellTemplate>
                                     </DataGridTemplateColumn>
-                                    <DataGridTemplateColumn Header="Active overlay" Width="125">
+                                    <DataGridTemplateColumn Header="Active overlay" Width="155">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
                                                 <ComboBox Margin="4,2" MinHeight="26"
@@ -1126,14 +1127,14 @@
                                             </DataTemplate>
                                         </DataGridTemplateColumn.CellTemplate>
                                     </DataGridTemplateColumn>
-                                    <DataGridTemplateColumn Header="Cooldown" Width="80">
+                                    <DataGridTemplateColumn Header="Cooldown" Width="110">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
                                                 <TextBox Margin="4,2" MinHeight="26" Text="{Binding CooldownText, UpdateSourceTrigger=LostFocus}"/>
                                             </DataTemplate>
                                         </DataGridTemplateColumn.CellTemplate>
                                     </DataGridTemplateColumn>
-                                    <DataGridTemplateColumn Header="Cooldown overlay" Width="125">
+                                    <DataGridTemplateColumn Header="Cooldown overlay" Width="155">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
                                                 <ComboBox Margin="4,2" MinHeight="26"
@@ -1143,7 +1144,7 @@
                                             </DataTemplate>
                                         </DataGridTemplateColumn.CellTemplate>
                                     </DataGridTemplateColumn>
-                                    <DataGridTemplateColumn Header="Whose use" Width="150">
+                                    <DataGridTemplateColumn Header="Whose use" Width="205">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
                                                 <ComboBox Margin="4,2" MinHeight="26"
@@ -1248,7 +1249,12 @@
                                 <!-- Two lines, so the filter never needs more than the list's width. -->
                                 <StackPanel Orientation="Horizontal">
                                     <StackPanel.Resources>
-                                        <Style TargetType="DatePickerTextBox" BasedOn="{StaticResource {x:Type TextBox}}"/>
+                                        <Style TargetType="DatePickerTextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+                                            <!-- The date picker draws the border; a second one inside made it taller than the Mob box. -->
+                                            <Setter Property="BorderThickness" Value="0"/>
+                                            <Setter Property="Background" Value="Transparent"/>
+                                            <Setter Property="Padding" Value="7,4"/>
+                                        </Style>
                                         <Style TargetType="DatePicker">
                                             <Setter Property="Width" Value="130"/>
                                             <Setter Property="VerticalAlignment" Value="Center"/>
@@ -1256,6 +1262,9 @@
                                             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
                                             <Setter Property="BorderBrush" Value="{DynamicResource BorderSoftBrush}"/>
                                             <Setter Property="SelectedDateFormat" Value="Short"/>
+                                            <Setter Property="Padding" Value="0"/>
+                                            <Setter Property="BorderThickness" Value="1"/>
+                                            <Setter Property="VerticalContentAlignment" Value="Center"/>
                                         </Style>
                                     </StackPanel.Resources>
                                     <TextBlock Text="Start" VerticalAlignment="Center" Margin="0,0,6,0"/>
@@ -2343,9 +2352,9 @@
 
                             <Grid Grid.Row="2" Visibility="{Binding ShowMobsView, Converter={StaticResource BoolToVisibility}}">
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="3*" MinWidth="420"/>
+                                    <ColumnDefinition Width="7*" MinWidth="420"/>
                                     <ColumnDefinition Width="14"/>
-                                    <ColumnDefinition Width="2*" MinWidth="320"/>
+                                    <ColumnDefinition Width="3*" MinWidth="320"/>
                                 </Grid.ColumnDefinitions>
 
                                 <DataGrid Grid.Column="0" ItemsSource="{Binding BossHistoryRows}" SelectedItem="{Binding SelectedBossHistoryRow, Mode=TwoWay}"
@@ -2727,10 +2736,8 @@
                                 <TextBlock DockPanel.Dock="Right" Style="{StaticResource HintText}" VerticalAlignment="Center" Text="Character"/>
                             </DockPanel>
                             <DockPanel Grid.Row="5">
-                            <DockPanel DockPanel.Dock="Right" Margin="16,0,0,0">
-                                <TextBlock DockPanel.Dock="Top" FontWeight="SemiBold" Margin="0,0,0,6" Text="XP by zone (last 7 days)"/>
-                                <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource HintText}" Margin="0,6,0,0" TextWrapping="Wrap" MaxWidth="420"
-                                           Text="All your characters together; hours are time played in the zone. Best XP per hour first."/>
+                            <StackPanel DockPanel.Dock="Right" Margin="16,0,0,0" VerticalAlignment="Top">
+                                <TextBlock FontWeight="SemiBold" Margin="0,0,0,6" Text="XP by zone (last 7 days)"/>
                                 <DataGrid MaxHeight="320" HorizontalAlignment="Left" ItemsSource="{Binding ZoneXpRows}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
                                           HeadersVisibility="Column" GridLinesVisibility="Horizontal">
                                     <DataGrid.Columns>
@@ -2741,7 +2748,9 @@
                                         <DataGridTextColumn Header="Kills with XP" Binding="{Binding Gains, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                                     </DataGrid.Columns>
                                 </DataGrid>
-                            </DockPanel>
+                                <TextBlock HorizontalAlignment="Left" Style="{StaticResource HintText}" Margin="0,6,0,0" TextWrapping="Wrap" MaxWidth="420"
+                                           Text="All your characters together; hours are time played in the zone. Best XP per hour first."/>
+                            </StackPanel>
                             <DataGrid MaxHeight="320" HorizontalAlignment="Left" VerticalAlignment="Top" ItemsSource="{Binding MobExperienceRows}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
                                       HeadersVisibility="Column" GridLinesVisibility="Horizontal">
                                 <DataGrid.Columns>
@@ -3017,6 +3026,14 @@
                                                     </DataGrid>
                                                 </StackPanel>
                                             </DataTemplate>
+                                            <!-- A pair with only one bonus group shows nothing in the other place (it showed an empty table). -->
+                                            <Style x:Key="HiddenWhenEmpty" TargetType="ContentControl">
+                                                <Style.Triggers>
+                                                    <Trigger Property="Content" Value="{x:Null}">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </Trigger>
+                                                </Style.Triggers>
+                                            </Style>
                                         </ItemsControl.Resources>
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
@@ -3025,8 +3042,8 @@
                                                         <ColumnDefinition Width="Auto" SharedSizeGroup="ResourceLeft"/>
                                                         <ColumnDefinition Width="Auto"/>
                                                     </Grid.ColumnDefinitions>
-                                                    <ContentControl Content="{Binding Left}" ContentTemplate="{StaticResource ResourceTable}" VerticalAlignment="Top"/>
-                                                    <ContentControl Grid.Column="1" Content="{Binding Right}" ContentTemplate="{StaticResource ResourceTable}" VerticalAlignment="Top"/>
+                                                    <ContentControl Content="{Binding Left}" ContentTemplate="{StaticResource ResourceTable}" VerticalAlignment="Top" Style="{StaticResource HiddenWhenEmpty}"/>
+                                                    <ContentControl Grid.Column="1" Content="{Binding Right}" ContentTemplate="{StaticResource ResourceTable}" VerticalAlignment="Top" Style="{StaticResource HiddenWhenEmpty}"/>
                                                 </Grid>
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
@@ -4034,9 +4051,12 @@
                                               ToolTip="Hits within 0.3 seconds from one character on one target show as one number, like 3,412 x4."/>
                                     <CheckBox Content="Show misses" IsChecked="{Binding FctShowMisses}" VerticalAlignment="Center" Margin="0,0,20,6"
                                               ToolTip="Dodge, Parry, Block, Riposte, Miss and Resisted show as small gray words."/>
-                                    <TextBlock Text="Font" Style="{StaticResource HintText}" VerticalAlignment="Center" Margin="0,0,6,6"/>
-                                    <ComboBox Width="130" Margin="0,0,8,6" ItemsSource="{Binding FctFontChoices}" SelectedItem="{Binding FctFont}"/>
-                                    <ComboBox Width="120" Margin="0,0,20,6" ItemsSource="{Binding FctWeightChoices}" SelectedItem="{Binding FctWeight}"/>
+                                    <!-- Font and weight stay together when the row wraps. -->
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="Font" Style="{StaticResource HintText}" VerticalAlignment="Center" Margin="0,0,6,6"/>
+                                        <ComboBox Width="130" Margin="0,0,8,6" ItemsSource="{Binding FctFontChoices}" SelectedItem="{Binding FctFont}"/>
+                                        <ComboBox Width="120" Margin="0,0,20,6" ItemsSource="{Binding FctWeightChoices}" SelectedItem="{Binding FctWeight}"/>
+                                    </StackPanel>
                                 </WrapPanel>
                                 <TextBlock Style="{StaticResource HintText}"
                                            Text="New numbers appear at the top and push older ones down; each fades over 3 seconds and crits are bold. Left lane: what your character deals or casts. Right lane: what it takes or receives. The boxes are text sizes; colors are in the Colors window."/>
@@ -4110,9 +4130,9 @@
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <StackPanel Orientation="Horizontal" Margin="0,0,20,6">
-                                <ctl:ColorSwatchPicker Width="24" Height="24" Margin="0,0,8,0" Hex="{Binding HexText, Mode=TwoWay}"/>
-                                <TextBlock Text="{Binding Label}" Width="118" VerticalAlignment="Center"
+                            <StackPanel Orientation="Horizontal" Margin="0,0,12,6">
+                                <ctl:ColorSwatchPicker Width="24" Height="24" Margin="0,0,6,0" Hex="{Binding HexText, Mode=TwoWay}"/>
+                                <TextBlock Text="{Binding Label}" Width="132" VerticalAlignment="Center"
                                            Foreground="{DynamicResource TextMutedBrush}"/>
                                 <TextBox Width="96" FontFamily="Consolas" Text="{Binding HexText, UpdateSourceTrigger=PropertyChanged}">
                                     <TextBox.Style>
