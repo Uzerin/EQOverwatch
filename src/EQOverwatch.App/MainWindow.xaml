@@ -784,9 +784,53 @@
                             </Border>
 
                             <!-- Saved rules -->
-                            <DataGrid Grid.Row="1" ItemsSource="{Binding RaidRules}"
-                                      AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
+                            <DataGrid Grid.Row="1" ItemsSource="{Binding RaidRulesView}"
+                                      AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" CanUserSortColumns="False"
                                       IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal" SelectionMode="Single">
+                                <DataGrid.GroupStyle>
+                                    <GroupStyle>
+                                        <GroupStyle.ContainerStyle>
+                                            <Style TargetType="GroupItem">
+                                                <Setter Property="Template">
+                                                    <Setter.Value>
+                                                        <ControlTemplate TargetType="GroupItem">
+                                                            <Expander IsExpanded="True" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2,0,0">
+                                                                <Expander.Header>
+                                                                    <StackPanel Orientation="Horizontal">
+                                                                        <TextBlock FontWeight="SemiBold" VerticalAlignment="Center">
+                                                                            <Run Text="{Binding Name, Mode=OneWay}"/><Run Text="  "/><Run Foreground="{DynamicResource TextMutedBrush}" Text="{Binding ItemCount, Mode=OneWay}"/>
+                                                                        </TextBlock>
+                                                                        <Button Content="on" Style="{StaticResource SecondaryButton}" Padding="6,0" Margin="10,0,0,0" FontSize="11"
+                                                                                ToolTip="Turn every raid trigger in this group on"
+                                                                                Command="{Binding DataContext.EnableRaidTriggerGroupCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                                                CommandParameter="{Binding}"/>
+                                                                        <Button Content="off" Style="{StaticResource SecondaryButton}" Padding="6,0" Margin="4,0,0,0" FontSize="11"
+                                                                                ToolTip="Turn every raid trigger in this group off"
+                                                                                Command="{Binding DataContext.DisableRaidTriggerGroupCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                                                CommandParameter="{Binding}"/>
+                                                                    </StackPanel>
+                                                                </Expander.Header>
+                                                                <ItemsPresenter Margin="12,0,0,0"/>
+                                                            </Expander>
+                                                        </ControlTemplate>
+                                                    </Setter.Value>
+                                                </Setter>
+                                                <Style.Triggers>
+                                                    <!-- A boss with no known zone has no inner group: show its rows without an empty header. -->
+                                                    <DataTrigger Binding="{Binding Name}" Value="">
+                                                        <Setter Property="Template">
+                                                            <Setter.Value>
+                                                                <ControlTemplate TargetType="GroupItem">
+                                                                    <ItemsPresenter/>
+                                                                </ControlTemplate>
+                                                            </Setter.Value>
+                                                        </Setter>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </GroupStyle.ContainerStyle>
+                                    </GroupStyle>
+                                </DataGrid.GroupStyle>
                                 <DataGrid.Columns>
                                     <DataGridTemplateColumn Header="On" Width="52">
                                         <DataGridTemplateColumn.CellTemplate>

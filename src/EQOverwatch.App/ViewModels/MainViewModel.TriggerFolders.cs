@@ -55,6 +55,10 @@ public sealed partial class MainViewModel
         }
 
         ApplyViewGrouping();
+        if (_raidRulesView is not null)
+        {
+            ApplyRaidTriggerGrouping(); // the zone list may have just loaded
+        }
     }
 
     private void ApplyViewGrouping()

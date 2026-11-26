@@ -152,7 +152,7 @@ public sealed class FocusDurationTests : IDisposable
         var engine2 = new TriggerEngineService();
         var other = new BuffTrackerService(spells, engine2);
         other.SetTrackedSpells(new[] { 100 });
-        other.SetDurationProvider(name => new CasterDuration(-1, new DurationProfile(null, null, 50)));
+        other.SetDurationProvider(name => name == "Stackprime" ? new CasterDuration(-1, new DurationProfile(null, null, 50)) : null); // Ream is not one of yours
         other.OnLine("Stackprime", "Ream begins to cast a spell. <Spirit of Wolf>", T0);
         other.OnLine("Stackprime", "You feel quick as a wolf.", T0.AddSeconds(2));
         Assert.Equal(900, Assert.Single(engine2.Snapshot.Timers).DurationSeconds);

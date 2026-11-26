@@ -108,6 +108,17 @@ public sealed partial class RaidTimerRuleViewModel : ObservableObject
     [ObservableProperty]
     private bool _isEnabled;
 
+    /// <summary>The list's outer group: the boss's expansion ("Unknown zone" before the boss was fought).</summary>
+    [ObservableProperty]
+    private string _groupTop = string.Empty;
+
+    /// <summary>The inner group: the zone the boss was fought in.</summary>
+    [ObservableProperty]
+    private string _groupSub = string.Empty;
+
+    [ObservableProperty]
+    private int _groupOrder;
+
     partial void OnIsEnabledChanged(bool value)
     {
         _rule.IsEnabled = value;

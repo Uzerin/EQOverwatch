@@ -66,6 +66,11 @@ are kept. Untick **Count me in the anonymous player count** on Settings to stop 
 
 ## Changelog
 
+### 1.0.118
+
+- Raid triggers are grouped by expansion and zone, with on/off for each group.
+- Buffs your characters cast keep their focus and AA bonuses when another of your boxes sees them land.
+
 ### 1.0.117
 
 - Loot lists linked from the loot window ("Item | Item | Item") are read from raid chat.

@@ -58,7 +58,7 @@ public sealed partial class BuffTrackerService : ITriggerLineSink
     private const int MaxPendingCasts = 64;
     private const int MinSuffixLength = 3;
 
-    private sealed record PendingCast(SpellInfo Spell, string ObservedBy, DateTime ExpiresUtc, bool IsSinging, bool Mine = false);
+    private sealed record PendingCast(SpellInfo Spell, string ObservedBy, DateTime ExpiresUtc, bool IsSinging, string? Caster = null);
 
     private sealed record SuffixGroup(string Suffix, SpellInfo[] Spells);
 
@@ -268,7 +268,7 @@ public sealed partial class BuffTrackerService : ITriggerLineSink
     {
         ReadOnlySpan<char> spellName;
         bool isSinging = false;
-        bool mine = message.StartsWith(YouBeginCasting, StringComparison.Ordinal);
+        string? caster = message.StartsWith(YouBeginCasting, StringComparison.Ordinal) ? observedBy : null;
 
         if (message.StartsWith(YouBeginCasting, StringComparison.Ordinal))
         {
@@ -279,9 +279,10 @@ public sealed partial class BuffTrackerService : ITriggerLineSink
             spellName = WithoutTrailingPeriod(message[YouBeginSinging.Length..]);
             isSinging = true;
         }
-        else if ((message[^1] == '>' || message[^1] == '.') && TrySplitOtherCast(message, out spellName, out isSinging))
+        else if ((message[^1] == '>' || message[^1] == '.') && TrySplitOtherCast(message, out spellName, out isSinging, out ReadOnlySpan<char> other))
         {
-            // spellName and isSinging were set by TrySplitOtherCast
+            // Another of your characters casting it, seen from this log, still gets that character's focus and AA bonuses.
+            caster = isSinging ? null : other.ToString();
         }
         else
         {
@@ -298,7 +299,7 @@ public sealed partial class BuffTrackerService : ITriggerLineSink
             lock (_gate)
             {
                 PurgeExpiredLocked(now);
-                _pending.Add(new PendingCast(spell, observedBy, now.AddMilliseconds(spell.CastTimeMs) + PendingCastGrace, isSinging, mine));
+                _pending.Add(new PendingCast(spell, observedBy, now.AddMilliseconds(spell.CastTimeMs) + PendingCastGrace, isSinging, caster));
                 if (_pending.Count > MaxPendingCasts)
                 {
                     _pending.RemoveAt(0);
@@ -310,9 +311,10 @@ public sealed partial class BuffTrackerService : ITriggerLineSink
     }
 
     /// <summary>Handles "(?&lt;caster&gt;\w+) begins to cast a spell. &lt;(?&lt;spell&gt;.+)&gt;" and the "sing a song" variant.</summary>
-    private static bool TrySplitOtherCast(ReadOnlySpan<char> message, out ReadOnlySpan<char> spellName, out bool isSinging)
+    private static bool TrySplitOtherCast(ReadOnlySpan<char> message, out ReadOnlySpan<char> spellName, out bool isSinging, out ReadOnlySpan<char> caster)
     {
         spellName = default;
+        caster = default;
         isSinging = false;
 
         int marker = OtherCastMarker.Length;
@@ -343,6 +345,7 @@ public sealed partial class BuffTrackerService : ITriggerLineSink
             }
 
             spellName = message[(index + marker)..^1];
+            caster = message[..index];
             return !spellName.IsEmpty;
         }
 
@@ -352,6 +355,7 @@ public sealed partial class BuffTrackerService : ITriggerLineSink
         }
 
         spellName = message[(index + marker)..^1];
+        caster = message[..index];
         return !spellName.IsEmpty;
     }
 
@@ -472,7 +476,7 @@ public sealed partial class BuffTrackerService : ITriggerLineSink
             return;
         }
 
-        (SpellInfo spell, bool wasSung, bool mine) = Resolve(candidates, characterName, now);
+        (SpellInfo spell, bool wasSung, string? caster) = Resolve(candidates, characterName, now);
 
         // The user's overlay choice wins. Without one, a spell announced with "sing" and short enough to be a song belongs in the
         // Songs overlay even if the file's class columns say otherwise.
@@ -496,9 +500,10 @@ public sealed partial class BuffTrackerService : ITriggerLineSink
             return;
         }
 
-        // Focus and AA bonuses apply only to spells this monitored character cast.
-        int seconds = mine ? ExtendedSeconds(spell, characterName) : spell.BaseDurationSeconds;
-        string aaText = mine ? AaBonusText(spell, characterName) : string.Empty;
+        // Focus and AA bonuses apply only to spells a monitored character cast (the provider knows none for anyone else), whichever
+        // of your logs saw it land: otherwise a second box would put the bar back to the base duration.
+        int seconds = caster is not null ? ExtendedSeconds(spell, caster) : spell.BaseDurationSeconds;
+        string aaText = caster is not null ? AaBonusText(spell, caster) : string.Empty;
         string label = Label(target, spell);
         if (!bystander)
         {
@@ -536,7 +541,7 @@ public sealed partial class BuffTrackerService : ITriggerLineSink
     }
 
     /// <summary>A pending cast from the same log decides; otherwise the longest-lasting tracked candidate (they are pre-sorted).</summary>
-    private (SpellInfo Spell, bool WasSung, bool Mine) Resolve(SpellInfo[] candidates, string observedBy, DateTime now)
+    private (SpellInfo Spell, bool WasSung, string? Caster) Resolve(SpellInfo[] candidates, string observedBy, DateTime now)
     {
         lock (_gate)
         {
@@ -555,13 +560,13 @@ public sealed partial class BuffTrackerService : ITriggerLineSink
                     if (candidate.SpellId == pending.Spell.SpellId)
                     {
                         _pending.RemoveAt(i);
-                        return (candidate, pending.IsSinging, pending.Mine);
+                        return (candidate, pending.IsSinging, pending.Caster);
                     }
                 }
             }
         }
 
-        return (candidates[0], false, false);
+        return (candidates[0], false, null);
     }
 
     // ───────────────────────── state ─────────────────────────

@@ -901,6 +901,7 @@ public sealed partial class MainViewModel : ObservableObject
             }
         }
 
+        LearnBossZones(live.All.Concat(imported.All));
         Dictionary<string, DateTime[]> liveStarts = live.All
             .GroupBy(e => e.TargetName, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.Select(e => e.StartTime).ToArray(), StringComparer.OrdinalIgnoreCase);
