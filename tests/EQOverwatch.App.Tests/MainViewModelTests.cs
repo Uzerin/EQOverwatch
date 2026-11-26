@@ -1031,8 +1031,9 @@ public partial class MainViewModelTests
             s.TrackedSpellIds.Add(302);
         });
 
-        Assert.Equal(3, h.Vm.TrackedSpells.Count);
+        // The spell file may finish loading before this line (it then drops the song), so the rows are checked once it has.
         await h.Vm.SpellLoadTask;
+        Assert.Equal(2, h.Vm.TrackedSpells.Count);
 
         Assert.Equal(TimerOverlayCategory.Buffs, h.Vm.TrackedSpells.Single(r => r.SpellId == 300).Overlay);
         Assert.Equal(TimerOverlayCategory.Debuffs, h.Vm.TrackedSpells.Single(r => r.SpellId == 301).Overlay);
