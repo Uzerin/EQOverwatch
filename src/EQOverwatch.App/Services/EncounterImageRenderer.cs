@@ -37,6 +37,12 @@ public static class EncounterImageRenderer
     private const double GraphPlotHeight = 170;
     private const double IncomingPlotHeight = 110;
 
+    /// <summary>The picture's width over its height (16:9).</summary>
+    private const double AspectRatio = 16.0 / 9.0;
+
+    /// <summary>The most rows each table (DPS, Healing, Tanking) shows.</summary>
+    public const int MaxRows = 25;
+
     private static readonly Typeface Regular = new("Segoe UI");
     private static readonly Typeface Bold = new(new FontFamily("Segoe UI"), FontStyles.Normal, FontWeights.SemiBold, FontStretches.Normal);
 
@@ -56,9 +62,10 @@ public static class EncounterImageRenderer
         ArgumentNullException.ThrowIfNull(encounter);
         ArgumentNullException.ThrowIfNull(palette);
 
-        IReadOnlyList<EncounterExportRow> rows = EncounterExport.BuildRows(encounter, topCount);
-        IReadOnlyList<DamageTakenSnapshot> taken = encounter.TakenRows;
-        IReadOnlyList<HealingSnapshot> healing = encounter.HealingRows;
+        // Each table shows its top 25 (characters and pets), so a big raid still fits a 16:9 picture.
+        IReadOnlyList<EncounterExportRow> rows = EncounterExport.BuildRows(encounter, Math.Min(topCount, MaxRows));
+        IReadOnlyList<DamageTakenSnapshot> taken = encounter.TakenRows.Take(MaxRows).ToList();
+        IReadOnlyList<HealingSnapshot> healing = encounter.HealingRows.Take(MaxRows).ToList();
 
         colors ??= AttackColorScheme.Current;
         IReadOnlyList<AttackType> legend = AttackTypes.All
@@ -74,7 +81,7 @@ public static class EncounterImageRenderer
                 r.Rank.ToString(CultureInfo.InvariantCulture), r.DisplayName, r.Class, r.Total, r.Hits, r.Misses, r.HitRate, r.Sdps, r.MaxHit, r.MaxCrit, r.CritPercent,
             }).ToList());
 
-        long healTotal = healing.Sum(h => h.Effective);
+        long healTotal = encounter.HealingRows.Sum(h => h.Effective); // the whole raid's healing, not only the 25 shown
         Table? takenTable = taken.Count == 0 ? null : new Table(
             new[] { "#", "Name", "Taken", "% of total", "Hits", "Avoid %", "Max Hit" },
             new[] { false, false, true, true, true, true, true }, flexColumn: 1,
@@ -114,37 +121,74 @@ public static class EncounterImageRenderer
             takenTable?.NaturalWidth ?? 0, TitleWidth(takenTitle, takenTotalText),
         }.Max());
 
-        dpsTable.FitTo(dpsContent);
-        healTable?.FitTo(healContent);
-        takenTable?.FitTo(tankContent);
-
-        double dpsColumn = dpsContent + (2 * Padding);
-        double healColumn = healContent + (2 * Padding);
-        double tankColumn = tankContent + (2 * Padding);
-        double width = dpsColumn + healColumn + tankColumn;
-
-        int legendPerLine = Math.Max(1, (int)Math.Floor(dpsContent / LegendEntryWidth));
-        double legendHeight = legend.Count == 0 ? 0 : LegendCaptionHeight + (Math.Ceiling(legend.Count / (double)legendPerLine) * LegendLineHeight) + 6;
-
         static double SectionBlock(int rowCount) => TitleHeight + (rowCount == 0 ? RowHeight : TableHeaderHeight + (rowCount * RowHeight));
 
-        double dpsHeight = TitleHeight + TableHeaderHeight + (Math.Max(1, rows.Count) * RowHeight) + legendHeight;
-        double healHeight = SectionBlock(healing.Count);
-        double tankHeight = SectionBlock(taken.Count);
-
-        // The graph runs the full width of the picture, between the mob's name and the tables.
         DpsTimeline? timeline = encounter.Timeline;
-        double graphWidth = width - (2 * Padding);
-        double graphHeight = timeline is null ? 0 : DpsGraph.TotalHeight(timeline, graphWidth, GraphPlotHeight, Scale);
-        double graphBlock = timeline is null ? 0 : TitleHeight + graphHeight + SectionGap;
-        double headerHeight = HeaderHeight + (encounter.RegenText.Length > 0 ? RegenLineHeight : 0);
-        double bodyTop = headerHeight + graphBlock;
-        double columnsHeight = Math.Max(dpsHeight, Math.Max(healHeight, tankHeight));
-
-        // The damage the raid took per second runs the full width under the tables.
         bool incoming = timeline?.Incoming is { Count: > 0 };
-        double incomingBlock = incoming ? SectionGap + TitleHeight + DpsGraph.IncomingHeight(IncomingPlotHeight) : 0;
-        double height = bodyTop + columnsHeight + incomingBlock + FooterHeight;
+        double headerHeight = HeaderHeight + (encounter.RegenText.Length > 0 ? RegenLineHeight : 0);
+        double graphPlot = GraphPlotHeight, incomingPlot = IncomingPlotHeight;
+        double width = 0, height = 0, graphWidth = 0, graphHeight = 0, bodyTop = 0, columnsHeight = 0, legendHeight = 0;
+        int legendPerLine = 1;
+
+        void Measure()
+        {
+            dpsTable.FitTo(dpsContent);
+            healTable?.FitTo(healContent);
+            takenTable?.FitTo(tankContent);
+            width = dpsContent + healContent + tankContent + (6 * Padding);
+
+            legendPerLine = Math.Max(1, (int)Math.Floor(dpsContent / LegendEntryWidth));
+            legendHeight = legend.Count == 0 ? 0 : LegendCaptionHeight + (Math.Ceiling(legend.Count / (double)legendPerLine) * LegendLineHeight) + 6;
+            double dpsHeight = TitleHeight + TableHeaderHeight + (Math.Max(1, rows.Count) * RowHeight) + legendHeight;
+
+            // The graph runs the full width of the picture, between the mob's name and the tables.
+            graphWidth = width - (2 * Padding);
+            graphHeight = timeline is null ? 0 : DpsGraph.TotalHeight(timeline, graphWidth, graphPlot, Scale);
+            double graphBlock = timeline is null ? 0 : TitleHeight + graphHeight + SectionGap;
+            bodyTop = headerHeight + graphBlock;
+            columnsHeight = Math.Max(dpsHeight, Math.Max(SectionBlock(healing.Count), SectionBlock(taken.Count)));
+
+            // The damage the raid took per second runs the full width under the tables.
+            double incomingBlock = incoming ? SectionGap + TitleHeight + DpsGraph.IncomingHeight(incomingPlot) : 0;
+            height = bodyTop + columnsHeight + incomingBlock + FooterHeight;
+        }
+
+        // The picture is 16:9: too narrow, the three columns widen evenly; too short, the graphs grow.
+        Measure();
+        if (width < height * AspectRatio)
+        {
+            double extra = (height * AspectRatio) - width;
+            dpsContent += extra / 3;
+            healContent += extra / 3;
+            tankContent += extra / 3;
+            Measure(); // wider columns can need fewer legend lines, so the height may drop a little
+        }
+
+        if (height < width / AspectRatio)
+        {
+            double extra = (width / AspectRatio) - height;
+            if (timeline is null)
+            {
+                height += extra; // nothing to grow: the space goes above the footer
+            }
+            else
+            {
+                graphPlot += incoming ? extra * 0.6 : extra;
+                incomingPlot += incoming ? extra * 0.4 : 0;
+                Measure();
+            }
+        }
+
+        if (width < (height * AspectRatio) - 0.5)
+        {
+            tankContent += (height * AspectRatio) - width; // a graph that grew can still leave it a little narrow
+            Measure();
+        }
+
+        height = Math.Max(height, width / AspectRatio);
+        width = height * AspectRatio;
+        double dpsColumn = dpsContent + (2 * Padding);
+        double healColumn = healContent + (2 * Padding);
 
         Brush window = Solid(palette.WindowBg);
         Brush card = Solid(palette.CardBg);
@@ -174,7 +218,7 @@ public static class EncounterImageRenderer
             if (timeline is not null)
             {
                 DrawTitle(dc, "DPS over time", "group + top " + timeline.Players.Count.ToString(CultureInfo.InvariantCulture), graphWidth, headerHeight, text, muted, Bold);
-                DpsGraph.Draw(dc, timeline, new Rect(Padding, headerHeight + TitleHeight, graphWidth, graphHeight), GraphPlotHeight, text, muted, line, text, Scale);
+                DpsGraph.Draw(dc, timeline, new Rect(Padding, headerHeight + TitleHeight, graphWidth, graphHeight), graphPlot, text, muted, line, text, Scale);
             }
 
             // thin dividers between the columns
@@ -296,8 +340,8 @@ public static class EncounterImageRenderer
                 double iy = bodyTop + columnsHeight + SectionGap;
                 long takenSum = encounter.TotalDamageTaken;
                 DrawTitle(dc, "Damage taken over time", $"{takenSum.ToString("N0", CultureInfo.InvariantCulture)} total", graphWidth, iy, text, muted, Bold);
-                DpsGraph.DrawIncoming(dc, timeline!, new Rect(Padding, iy + TitleHeight, graphWidth, DpsGraph.IncomingHeight(IncomingPlotHeight)),
-                    IncomingPlotHeight, muted, line, Scale);
+                DpsGraph.DrawIncoming(dc, timeline!, new Rect(Padding, iy + TitleHeight, graphWidth, DpsGraph.IncomingHeight(incomingPlot)),
+                    incomingPlot, muted, line, Scale);
             }
 
             // footer

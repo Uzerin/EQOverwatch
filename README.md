@@ -66,6 +66,10 @@ are kept. Untick **Count me in the anonymous player count** on Settings to stop 
 
 ## Changelog
 
+### 1.0.122
+
+- The Discord picture is 16:9, and its DPS, Healing and Tanking tables each show the top 25.
+
 ### 1.0.121
 
 - Mob HP and regen estimates use the kills with the most damage (the top 5 or the top half).
