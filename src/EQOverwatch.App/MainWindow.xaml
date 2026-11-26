@@ -1244,28 +1244,33 @@
 
                         <!-- Fight list, with a date filter above it. -->
                         <DockPanel Grid.Column="0">
-                            <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
-                                <StackPanel.Resources>
-                                    <Style TargetType="DatePickerTextBox" BasedOn="{StaticResource {x:Type TextBox}}"/>
-                                    <Style TargetType="DatePicker">
-                                        <Setter Property="Width" Value="130"/>
-                                        <Setter Property="VerticalAlignment" Value="Center"/>
-                                        <Setter Property="Background" Value="{DynamicResource InputBgBrush}"/>
-                                        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
-                                        <Setter Property="BorderBrush" Value="{DynamicResource BorderSoftBrush}"/>
-                                        <Setter Property="SelectedDateFormat" Value="Short"/>
-                                    </Style>
-                                </StackPanel.Resources>
-                                <TextBlock Text="Start" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                <DatePicker SelectedDate="{Binding EncounterFrom, Mode=TwoWay}" ToolTip="Show fights that started on or after this day."/>
-                                <TextBlock Text="End" VerticalAlignment="Center" Margin="12,0,6,0"/>
-                                <DatePicker SelectedDate="{Binding EncounterTo, Mode=TwoWay}" ToolTip="Show fights that started on or before this day."/>
-                                <TextBlock Text="Mob" VerticalAlignment="Center" Margin="12,0,6,0"/>
-                                <TextBox Width="130" VerticalAlignment="Center" Text="{Binding EncounterNameFilter, UpdateSourceTrigger=PropertyChanged, Delay=250}"
-                                         ToolTip="Type part of a mob's name to list only its fights."/>
-                                <Button Style="{StaticResource SecondaryButton}" Content="Reset" Margin="10,0,0,0" Padding="12,3" Command="{Binding ResetEncounterDatesCommand}"
-                                        ToolTip="Clear the dates and the name, and show every fight again."/>
-                                <TextBlock Text="{Binding EncounterCountText}" Style="{StaticResource HintText}" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                            <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                                <!-- Two lines, so the filter never needs more than the list's width. -->
+                                <StackPanel Orientation="Horizontal">
+                                    <StackPanel.Resources>
+                                        <Style TargetType="DatePickerTextBox" BasedOn="{StaticResource {x:Type TextBox}}"/>
+                                        <Style TargetType="DatePicker">
+                                            <Setter Property="Width" Value="130"/>
+                                            <Setter Property="VerticalAlignment" Value="Center"/>
+                                            <Setter Property="Background" Value="{DynamicResource InputBgBrush}"/>
+                                            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+                                            <Setter Property="BorderBrush" Value="{DynamicResource BorderSoftBrush}"/>
+                                            <Setter Property="SelectedDateFormat" Value="Short"/>
+                                        </Style>
+                                    </StackPanel.Resources>
+                                    <TextBlock Text="Start" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                    <DatePicker SelectedDate="{Binding EncounterFrom, Mode=TwoWay}" ToolTip="Show fights that started on or after this day."/>
+                                    <TextBlock Text="End" VerticalAlignment="Center" Margin="12,0,6,0"/>
+                                    <DatePicker SelectedDate="{Binding EncounterTo, Mode=TwoWay}" ToolTip="Show fights that started on or before this day."/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                    <TextBlock Text="Mob" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                    <TextBox Width="130" VerticalAlignment="Center" Text="{Binding EncounterNameFilter, UpdateSourceTrigger=PropertyChanged, Delay=250}"
+                                             ToolTip="Type part of a mob's name to list only its fights."/>
+                                    <Button Style="{StaticResource SecondaryButton}" Content="Reset" Margin="10,0,0,0" Padding="12,3" Command="{Binding ResetEncounterDatesCommand}"
+                                            ToolTip="Clear the dates and the name, and show every fight again."/>
+                                    <TextBlock Text="{Binding EncounterCountText}" Style="{StaticResource HintText}" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                                </StackPanel>
                             </StackPanel>
                             <DataGrid HorizontalAlignment="Left" ItemsSource="{Binding Encounters}" SelectedItem="{Binding SelectedEncounter, Mode=TwoWay}"
                                       AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" SelectionChanged="EncounterList_SelectionChanged"

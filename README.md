@@ -66,6 +66,10 @@ are kept. Untick **Count me in the anonymous player count** on Settings to stop 
 
 ## Changelog
 
+### 1.0.124
+
+- The encounter list's filter is on two lines, so its Reset button is no longer cut off.
+
 ### 1.0.123
 
 - First run: overlays no longer cover the welcome window. It picks which overlays to show, stays on top, can be dragged, and finds EverQuest in more places (including a running game).
