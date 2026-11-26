@@ -65,6 +65,9 @@ public static class DarkWindowChrome
     /// <summary>The interface size (0.5 to 1.5) every window with this chrome is drawn at.</summary>
     public static double Scale { get; private set; } = 1.0;
 
+    /// <summary>The space above and below each table row's text chosen in Settings (Row height), or null for the compact mode's own.</summary>
+    public static double? RowPadding { get; set; }
+
     /// <summary>Compact mode: smaller text and tighter table rows.</summary>
     public static bool Compact { get; private set; }
 
@@ -75,7 +78,9 @@ public static class DarkWindowChrome
         Compact = compact;
         if (Application.Current?.Resources is { } resources)
         {
-            resources["GridCellPadding"] = compact ? new Thickness(4, 2, 4, 2) : new Thickness(6, 5, 6, 5);
+            double side = compact ? 4 : 6;
+            double row = RowPadding ?? (compact ? 2 : 5);
+            resources["GridCellPadding"] = new Thickness(side, row, side, row);
             resources["GridHeaderPadding"] = compact ? new Thickness(6, 4, 6, 4) : new Thickness(8, 8, 8, 8);
         }
 

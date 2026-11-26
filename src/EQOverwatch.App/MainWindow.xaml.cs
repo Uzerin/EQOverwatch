@@ -91,11 +91,16 @@ public partial class MainWindow : Window
         _viewModel = viewModel;
         DataContext = viewModel;
 
-        // Opens where it was last time; stored before the view model's final save on close.
+        // Opens where it was last time on this monitor setup (else where it was last); stored before the view model's final save on close.
         WindowPlacementKeeper.Attach(
             this,
-            () => viewModel.GetWindowPlacement(WindowPlacementSetting.Main),
-            placement => viewModel.SetWindowPlacement(WindowPlacementSetting.Main, placement));
+            () => viewModel.GetWindowPlacement(WindowPlacementSetting.Main + "@" + Presentation.LayoutCustomizer.DisplaySignature)
+                  ?? viewModel.GetWindowPlacement(WindowPlacementSetting.Main),
+            placement =>
+            {
+                viewModel.SetWindowPlacement(WindowPlacementSetting.Main + "@" + Presentation.LayoutCustomizer.DisplaySignature, placement);
+                viewModel.SetWindowPlacement(WindowPlacementSetting.Main, placement);
+            });
         viewModel.ShowColorsRequested += OpenColorsWindow;
         OnEditionCreated();
 
@@ -105,6 +110,7 @@ public partial class MainWindow : Window
         Loaded += (_, _) =>
         {
             _refreshTimer.Start();
+            SetUpLayout();
         };
         SourceInitialized += (_, _) => OnEditionSourceInitialized();
         Closing += (_, e) =>
@@ -121,6 +127,118 @@ public partial class MainWindow : Window
         };
     }
 
+
+    private Presentation.LayoutCustomizer? _layout;
+    private bool _fillingLayoutBoxes;
+
+    private static readonly (string Value, string Label)[] RowHeights = { ("compact", "Compact"), ("normal", "Normal"), ("roomy", "Roomy") };
+
+    /// <summary>Dividers, table and tab customizing (remembered in layout.json), then the Layout settings and the start-up tab.</summary>
+    private void SetUpLayout()
+    {
+        if (_layout is not null)
+        {
+            return;
+        }
+
+        var store = new Core.Settings.UiLayoutStore();
+        store.Load(System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            Core.AppInfo.SettingsFolderName, "layout.json"));
+        _layout = Presentation.LayoutCustomizer.Attach(this, store, _viewModel.IsOwnCharacter,
+            _viewModel.GetWindowPlacement, _viewModel.SetWindowPlacement);
+        if (_layout.StartupTabIndex() is int start)
+        {
+            _viewModel.SelectedMainTab = start;
+        }
+
+        FillLayoutBoxes();
+    }
+
+    private void FillLayoutBoxes()
+    {
+        if (_layout is null)
+        {
+            return;
+        }
+
+        _fillingLayoutBoxes = true;
+        try
+        {
+            StartupTabBox.ItemsSource = new[] { "Last used" }.Concat(_layout.MainTabTitles).ToList();
+            string startup = _layout.Store.Get(Presentation.LayoutCustomizer.StartupTabKey) ?? string.Empty;
+            StartupTabBox.SelectedItem = startup.Length == 0 ? "Last used" : startup;
+            RowHeightBox.ItemsSource = RowHeights.Select(r => r.Label).ToList();
+            string rows = _layout.Store.Get(Presentation.LayoutCustomizer.RowHeightKey) ?? "normal";
+            RowHeightBox.SelectedItem = RowHeights.FirstOrDefault(r => r.Value == rows).Label ?? "Normal";
+            LayoutPresetBox.ItemsSource = _layout.Store.PresetNames;
+        }
+        finally
+        {
+            _fillingLayoutBoxes = false;
+        }
+    }
+
+    private void StartupTab_Changed(object sender, SelectionChangedEventArgs e)
+    {
+        if (!_fillingLayoutBoxes && _layout is not null && StartupTabBox.SelectedItem is string title)
+        {
+            _layout.Store.Set(Presentation.LayoutCustomizer.StartupTabKey, title == "Last used" ? null : title);
+        }
+    }
+
+    private void RowHeight_Changed(object sender, SelectionChangedEventArgs e)
+    {
+        if (!_fillingLayoutBoxes && _layout is not null && RowHeightBox.SelectedItem is string label)
+        {
+            string value = RowHeights.FirstOrDefault(r => r.Label == label).Value ?? "normal";
+            _layout.Store.Set(Presentation.LayoutCustomizer.RowHeightKey, value == "normal" ? null : value);
+            Presentation.LayoutCustomizer.ApplyRowHeight(value);
+        }
+    }
+
+    private void SaveLayoutPreset_Click(object sender, RoutedEventArgs e)
+    {
+        string name = LayoutPresetBox.Text.Trim();
+        if (_layout is null || name.Length == 0)
+        {
+            return;
+        }
+
+        _layout.Store.SavePreset(name);
+        FillLayoutBoxes();
+        LayoutPresetBox.Text = name;
+    }
+
+    private void ApplyLayoutPreset_Click(object sender, RoutedEventArgs e)
+    {
+        string name = LayoutPresetBox.Text.Trim();
+        if (_layout is not null && name.Length > 0 && _layout.Store.ApplyPreset(name))
+        {
+            FillLayoutBoxes();
+            LayoutPresetBox.Text = name;
+        }
+    }
+
+    private void DeleteLayoutPreset_Click(object sender, RoutedEventArgs e)
+    {
+        string name = LayoutPresetBox.Text.Trim();
+        if (_layout is not null && name.Length > 0)
+        {
+            _layout.Store.DeletePreset(name);
+            FillLayoutBoxes();
+            LayoutPresetBox.Text = string.Empty;
+        }
+    }
+
+    private void ResetLayout_Click(object sender, RoutedEventArgs e)
+    {
+        if (_layout is not null && MessageBox.Show(this, "Put every divider, table column, sort, group, tab and text size back as they came?",
+                Core.AppInfo.Name, MessageBoxButton.OKCancel, MessageBoxImage.Question) == MessageBoxResult.OK)
+        {
+            _layout.Store.Reset();
+            FillLayoutBoxes();
+        }
+    }
 
     // Hooks an edition fills in with windows and hotkeys of its own (they do nothing in this one).
     partial void OnEditionCreated();

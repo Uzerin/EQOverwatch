@@ -87,12 +87,15 @@ public sealed class StaticTabPanel : Panel
 
     private List<UIElement> Visible()
     {
-        var list = new List<UIElement>(InternalChildren.Count);
-        foreach (UIElement child in InternalChildren)
+        var list = new List<(UIElement Child, int Rank)>(InternalChildren.Count);
+        for (int i = 0; i < InternalChildren.Count; i++)
         {
+            UIElement child = InternalChildren[i];
             if (child.Visibility != Visibility.Collapsed)
             {
-                list.Add(child);
+                // A tab the player dragged elsewhere carries its place (Presentation.LayoutCustomizer.TabOrder).
+                int order = Presentation.LayoutCustomizer.GetTabOrder(child);
+                list.Add((child, order >= 0 ? order : i));
             }
             else
             {
@@ -100,6 +103,6 @@ public sealed class StaticTabPanel : Panel
             }
         }
 
-        return list;
+        return list.OrderBy(x => x.Rank).Select(x => x.Child).ToList();
     }
 }

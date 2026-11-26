@@ -39,6 +39,7 @@ as many characters as you play, without touching the game.
 **Built for boxers**
 - Movable overlays that only show for characters who are logged in, plus overlays of your own; minimize or close any of them.
 - Sync between several PCs, backups, and saved overlay layouts.
+- An adjustable layout: drag dividers and table columns, hide, move or pop out tabs and columns, and save layouts by name.
 - An installer that needs no admin rights, and updates from inside the app.
 
 ## Install
@@ -65,6 +66,10 @@ are kept. Untick **Count me in the anonymous player count** on Settings to stop 
 - To post raid kills and loot to your Discord, paste a channel webhook on Settings, then say its raid key in /rsay.
 
 ## Changelog
+
+### 1.0.126
+
+- Fixed minor layout issues; tables and tabs can be rearranged, resized, hidden and popped out.
 
 ### 1.0.125
 

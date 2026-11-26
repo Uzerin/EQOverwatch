@@ -794,7 +794,7 @@
                                                 <Setter Property="Template">
                                                     <Setter.Value>
                                                         <ControlTemplate TargetType="GroupItem">
-                                                            <Expander IsExpanded="True" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2,0,0">
+                                                            <Expander x:Name="GroupExpander" IsExpanded="True" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2,0,0">
                                                                 <Expander.Header>
                                                                     <StackPanel Orientation="Horizontal">
                                                                         <TextBlock FontWeight="SemiBold" VerticalAlignment="Center">
@@ -810,8 +810,15 @@
                                                                                 CommandParameter="{Binding}"/>
                                                                     </StackPanel>
                                                                 </Expander.Header>
-                                                                <ItemsPresenter Margin="12,0,0,0"/>
+                                                                <!-- Rows are not indented, so they stay under the column headers; a zone header is indented under its expansion instead. -->
+                                                                <ItemsPresenter x:Name="GroupRows"/>
                                                             </Expander>
+                                                            <ControlTemplate.Triggers>
+                                                                <DataTrigger Binding="{Binding IsBottomLevel}" Value="True">
+                                                                    <Setter TargetName="GroupExpander" Property="Margin" Value="14,2,0,0"/>
+                                                                    <Setter TargetName="GroupRows" Property="Margin" Value="-14,0,0,0"/>
+                                                                </DataTrigger>
+                                                            </ControlTemplate.Triggers>
                                                         </ControlTemplate>
                                                     </Setter.Value>
                                                 </Setter>
@@ -1653,7 +1660,17 @@
             </TabItem>
 
             <!-- ═════════ Loot (Loot, Drop Table, Items & Scrolls) ═════════ -->
-            <TabItem Header="Loot">
+            <TabItem AutomationProperties.Name="Loot">
+                <TabItem.Header>
+                    <!-- The count of new loot since the tab was last opened. -->
+                    <StackPanel Orientation="Horizontal" Tag="Loot">
+                        <TextBlock Text="Loot" VerticalAlignment="Center"/>
+                        <Border Margin="6,0,0,0" Padding="5,0" CornerRadius="7" MinWidth="16" Background="#EF4444" VerticalAlignment="Center"
+                                Visibility="{Binding HasLootBadge, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Text="{Binding LootBadge}" FontSize="10" FontWeight="SemiBold" Foreground="White" HorizontalAlignment="Center"/>
+                        </Border>
+                    </StackPanel>
+                </TabItem.Header>
                 <TabControl Margin="0,6,0,0" SelectedIndex="{Binding SelectedLootTab, Mode=TwoWay}">
 
                     <TabItem Header="Loot Log">
@@ -2520,17 +2537,17 @@
                                             BorderBrush="{DynamicResource BorderSoftBrush}" Background="{DynamicResource WindowBgBrush}">
                                         <StackPanel>
                                             <TextBlock FontSize="14" FontWeight="SemiBold" Margin="0,0,0,6" Text="{Binding ResistPanelTitle}"/>
-                                            <DataGrid ItemsSource="{Binding ResistTypeRows}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
+                                            <DataGrid ItemsSource="{Binding ResistTypeRows}" HorizontalAlignment="Left" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
                                                       HeadersVisibility="Column" GridLinesVisibility="Horizontal" MaxHeight="170" Margin="0,0,0,8">
                                                 <DataGrid.Columns>
-                                                    <DataGridTextColumn Header="Resist type" Binding="{Binding Type, Mode=OneWay}" Width="*"/>
+                                                    <DataGridTextColumn Header="Resist type" Binding="{Binding Type, Mode=OneWay}" Width="Auto"/>
                                                     <DataGridTextColumn Header="Landed" Binding="{Binding Landed, Mode=OneWay, StringFormat=N0}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                                                     <DataGridTextColumn Header="Resisted" Binding="{Binding Resisted, Mode=OneWay, StringFormat=N0}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                                                     <DataGridTextColumn Header="Resist %" Binding="{Binding Percent, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                                                 </DataGrid.Columns>
                                             </DataGrid>
                                             <TextBlock FontWeight="SemiBold" Margin="0,0,0,4" Text="Contributors"/>
-                                            <DataGrid ItemsSource="{Binding ResistContributorRows}" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
+                                            <DataGrid ItemsSource="{Binding ResistContributorRows}" HorizontalAlignment="Left" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
                                                       HeadersVisibility="Column" GridLinesVisibility="Horizontal" MaxHeight="170" HorizontalScrollBarVisibility="Auto">
                                                 <DataGrid.RowStyle>
                                                     <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
@@ -2549,7 +2566,7 @@
                                                     <DataGridTextColumn Header="Cold" Binding="{Binding Cold, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                                                     <DataGridTextColumn Header="Poison" Binding="{Binding Poison, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
                                                     <DataGridTextColumn Header="Disease" Binding="{Binding Disease, Mode=OneWay}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
-                                                    <DataGridTextColumn Header="Status" Binding="{Binding Status, Mode=OneWay}" Width="*" MinWidth="120"/>
+                                                    <DataGridTextColumn Header="Status" Binding="{Binding Status, Mode=OneWay}" Width="Auto" MinWidth="120"/>
                                                 </DataGrid.Columns>
                                             </DataGrid>
                                             <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,6,0,0" Text="{Binding ResistPanelHint}"/>
@@ -3007,7 +3024,8 @@
                             </StackPanel>
                             <Grid Grid.Row="1">
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
+                                    <!-- The zone tables take the width they need, so their scrollbar sits right after them. -->
+                                    <ColumnDefinition Width="Auto"/>
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
                                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" PreviewMouseWheel="ScrollWholePage">
@@ -3016,7 +3034,7 @@
                                             <DataTemplate x:Key="ResourceTable">
                                                 <StackPanel Margin="0,0,16,12">
                                                     <TextBlock FontWeight="SemiBold" Margin="0,0,0,4" Text="{Binding Title}"/>
-                                                    <DataGrid ItemsSource="{Binding Rows}" HorizontalAlignment="Left" AutoGenerateColumns="False" CanUserAddRows="False"
+                                                    <DataGrid ItemsSource="{Binding Rows}" HorizontalAlignment="Stretch" AutoGenerateColumns="False" CanUserAddRows="False"
                                                               IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal" SelectionMode="Single"
                                                               SelectedItem="{Binding DataContext.ResourcePickedRow, RelativeSource={RelativeSource AncestorType=ScrollViewer, AncestorLevel=1}, Mode=OneWayToSource}">
                                                         <DataGrid.Columns>
@@ -3039,8 +3057,9 @@
                                             <DataTemplate>
                                                 <Grid>
                                                     <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="Auto" SharedSizeGroup="ResourceLeft"/>
-                                                        <ColumnDefinition Width="Auto"/>
+                                                        <!-- Both columns are as wide as the widest table (the longest zone name), left and right alike. -->
+                                                        <ColumnDefinition Width="Auto" SharedSizeGroup="ResourceColumn"/>
+                                                        <ColumnDefinition Width="Auto" SharedSizeGroup="ResourceColumn"/>
                                                     </Grid.ColumnDefinitions>
                                                     <ContentControl Content="{Binding Left}" ContentTemplate="{StaticResource ResourceTable}" VerticalAlignment="Top" Style="{StaticResource HiddenWhenEmpty}"/>
                                                     <ContentControl Grid.Column="1" Content="{Binding Right}" ContentTemplate="{StaticResource ResourceTable}" VerticalAlignment="Top" Style="{StaticResource HiddenWhenEmpty}"/>
@@ -3436,7 +3455,17 @@
             </TabItem>
 
             <!-- ═════════ Logs (Chat, Log Search) ═════════ -->
-            <TabItem Header="Logs">
+            <TabItem AutomationProperties.Name="Logs">
+                <TabItem.Header>
+                    <!-- The count of new tells since the tab was last opened. -->
+                    <StackPanel Orientation="Horizontal" Tag="Logs">
+                        <TextBlock Text="Logs" VerticalAlignment="Center"/>
+                        <Border Margin="6,0,0,0" Padding="5,0" CornerRadius="7" MinWidth="16" Background="#EF4444" VerticalAlignment="Center"
+                                Visibility="{Binding HasLogsBadge, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Text="{Binding LogsBadge}" FontSize="10" FontWeight="SemiBold" Foreground="White" HorizontalAlignment="Center"/>
+                        </Border>
+                    </StackPanel>
+                </TabItem.Header>
                 <TabControl Margin="0,6,0,0" SelectedIndex="{Binding SelectedLogsTab, Mode=TwoWay}">
 
                     <TabItem Header="Chat">
@@ -3916,6 +3945,34 @@
                                 <CheckBox Content="Compact mode (smaller text, tighter tables)" IsChecked="{Binding CompactMode}" Margin="0,0,0,6"/>
                                 <CheckBox Content="Minimize to the system tray" IsChecked="{Binding MinimizeToTray}"
                                           ToolTip="Minimizing hides the window to the tray icon (double-click it to bring the window back). The ✕ still closes the app."/>
+                            </StackPanel>
+                        </GroupBox>
+
+                        <GroupBox Header="Layout">
+                            <StackPanel Margin="4">
+                                <WrapPanel Margin="0,0,0,8">
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Start-up tab"/>
+                                    <ComboBox x:Name="StartupTabBox" Width="150" Margin="0,0,20,6" SelectionChanged="StartupTab_Changed"
+                                              ToolTip="The tab the app opens on. Last used opens where you left off."/>
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Row height"/>
+                                    <ComboBox x:Name="RowHeightBox" Width="110" Margin="0,0,0,6" SelectionChanged="RowHeight_Changed"
+                                              ToolTip="How tall the rows of every table are. Right-click a table to set its own."/>
+                                </WrapPanel>
+                                <WrapPanel Margin="0,0,0,8">
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Layout"/>
+                                    <ComboBox x:Name="LayoutPresetBox" Width="150" Margin="0,0,8,6" IsEditable="True"
+                                              ToolTip="Type a name to save the current layout under it, or pick a saved one."/>
+                                    <Button Content="Save" Style="{StaticResource SecondaryButton}" Margin="0,0,6,6" Click="SaveLayoutPreset_Click"
+                                            ToolTip="Saves dividers, columns, hidden and moved tabs and text sizes under the name."/>
+                                    <Button Content="Apply" Style="{StaticResource SecondaryButton}" Margin="0,0,6,6" Click="ApplyLayoutPreset_Click"/>
+                                    <Button Content="Delete" Style="{StaticResource SecondaryButton}" Margin="0,0,0,6" Click="DeleteLayoutPreset_Click"/>
+                                </WrapPanel>
+                                <WrapPanel>
+                                    <Button Content="Reset layout" Style="{StaticResource SecondaryButton}" Margin="0,0,12,0" Click="ResetLayout_Click"
+                                            ToolTip="Puts every divider, table column, sort, group, tab and text size back as they came."/>
+                                </WrapPanel>
+                                <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,8,0,0"
+                                           Text="Drag dividers and column edges to resize, and column headers or tabs to move them. Right-click a table or a tab to hide, show or pop it out. Ctrl + mouse wheel sizes a tab's text."/>
                             </StackPanel>
                         </GroupBox>
 

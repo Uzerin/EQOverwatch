@@ -837,6 +837,7 @@ public sealed partial class MainViewModel : ObservableObject
     public void Refresh()
     {
         UpdateLiveStatus();
+        TickBadges();
         DrainSharedOffers();
         UpdateTrackerActivity();
         UpdateAbilityActivity();

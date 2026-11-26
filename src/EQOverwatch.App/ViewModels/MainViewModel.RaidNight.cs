@@ -131,6 +131,7 @@ public sealed partial class MainViewModel
 
     partial void OnSelectedMainTabChanged(int value)
     {
+        ClearBadgeFor(value);
         if (!_restoring)
         {
             RequestSave();

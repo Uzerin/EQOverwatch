@@ -342,6 +342,78 @@
         </Setter>
     </Style>
 
+    <!-- ───────────── Right-click menus ───────────── -->
+    <Style TargetType="ContextMenu">
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ContextMenu">
+                    <Border Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource BorderSoftBrush}" BorderThickness="1"
+                            CornerRadius="6" Padding="4">
+                        <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="{x:Static MenuItem.SeparatorStyleKey}" TargetType="Separator">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Separator">
+                    <Border Height="1" Margin="6,4" Background="{DynamicResource BorderSoftBrush}"/>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style TargetType="MenuItem">
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="MenuItem">
+                    <Border x:Name="Bd" Padding="6,5,10,5" CornerRadius="4" Background="Transparent">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="20"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Name="Check" Text="✓" Visibility="Collapsed" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center"/>
+                            <ContentPresenter Grid.Column="1" ContentSource="Header" RecognizesAccessKey="True" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="Arrow" Grid.Column="2" Text="›" Margin="14,0,0,0" Visibility="Collapsed" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource TextMutedBrush}"/>
+                            <Popup x:Name="PART_Popup" Placement="Right" IsOpen="{TemplateBinding IsSubmenuOpen}" AllowsTransparency="True"
+                                   Focusable="False" PopupAnimation="None" HorizontalOffset="6">
+                                <Border Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource BorderSoftBrush}" BorderThickness="1"
+                                        CornerRadius="6" Padding="4">
+                                    <ScrollViewer MaxHeight="520" VerticalScrollBarVisibility="Auto">
+                                        <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle"/>
+                                    </ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Check" Property="Visibility" Value="Visible"/>
+                        </Trigger>
+                        <Trigger Property="HasItems" Value="True">
+                            <Setter TargetName="Arrow" Property="Visibility" Value="Visible"/>
+                        </Trigger>
+                        <Trigger Property="IsHighlighted" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBgBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.5"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- ───────────── TabControl ───────────── -->
     <Style TargetType="TabItem">
         <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
@@ -476,6 +548,7 @@
     <!-- Table spacing; compact mode (Settings) replaces these two. -->
     <Thickness x:Key="GridHeaderPadding">8,8</Thickness>
     <Thickness x:Key="GridCellPadding">6,5</Thickness>
+    <SolidColorBrush x:Key="MineRowBrush" Color="#6366F1" Opacity="0.16"/>
 
     <Style TargetType="DataGridColumnHeader">
         <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
@@ -537,6 +610,10 @@
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
         <Style.Triggers>
+            <!-- A row that names one of your characters (set by the layout code). -->
+            <Trigger Property="presentation:LayoutCustomizer.IsMine" Value="True">
+                <Setter Property="Background" Value="{DynamicResource MineRowBrush}"/>
+            </Trigger>
             <Trigger Property="IsMouseOver" Value="True">
                 <Setter Property="Background" Value="{DynamicResource HoverBgBrush}"/>
             </Trigger>

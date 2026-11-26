@@ -21,6 +21,12 @@ public static class SortKeeper
     private static readonly DependencyPropertyDescriptor ItemsSourceDescriptor =
         DependencyPropertyDescriptor.FromProperty(ItemsControl.ItemsSourceProperty, typeof(DataGrid));
 
+    /// <summary>Raised after the player sorted a table by clicking a header (the layout remembers it).</summary>
+    public static event Action<DataGrid>? Sorted;
+
+    /// <summary>Makes <paramref name="sorts"/> the sort this grid keeps when its rows are replaced.</summary>
+    public static void Remember(DataGrid grid, SortDescription[] sorts) => grid.SetValue(SavedProperty, sorts);
+
     public static bool GetKeep(DependencyObject element) => (bool)element.GetValue(KeepProperty);
 
     public static void SetKeep(DependencyObject element, bool value) => element.SetValue(KeepProperty, value);
@@ -49,7 +55,11 @@ public static class SortKeeper
         if (sender is DataGrid grid)
         {
             // The grid sorts after this event; remember the result once it has.
-            grid.Dispatcher.BeginInvoke(() => grid.SetValue(SavedProperty, grid.Items.SortDescriptions.ToArray()));
+            grid.Dispatcher.BeginInvoke(() =>
+            {
+                grid.SetValue(SavedProperty, grid.Items.SortDescriptions.ToArray());
+                Sorted?.Invoke(grid);
+            });
         }
     }
 

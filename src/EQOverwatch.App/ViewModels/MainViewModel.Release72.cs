@@ -295,6 +295,7 @@ public sealed partial class MainViewModel
         }
 
         _tellToastSince = fresh[^1].Utc;
+        CountTellsForBadge(fresh.Count);
         if (!TellToast)
         {
             return;
