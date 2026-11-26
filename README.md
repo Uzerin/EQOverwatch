@@ -69,7 +69,7 @@ are kept. Untick **Count me in the anonymous player count** on Settings to stop 
 
 ### 1.0.126
 
-- Fixed minor layout issues; tables and tabs can be rearranged, resized, hidden and popped out.
+- Layout is even further customizable.
 
 ### 1.0.125
 
