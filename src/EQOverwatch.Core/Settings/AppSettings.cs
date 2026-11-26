@@ -235,6 +235,9 @@ public sealed partial class AppSettings
     /// <summary>True once the encounter list was rebuilt from every log (done once, so every raid boss fight is in it).</summary>
     public bool EncounterListRebuilt { get; set; }
 
+    /// <summary>The app version whose buff bars are up: after an update the bars are started again from the logs once.</summary>
+    public string BuffBarsVersion { get; set; } = string.Empty;
+
     /// <summary>The newest crash.log entry already shown (so each error is reported once).</summary>
     public DateTime? LastCrashSeenUtc { get; set; }
 

@@ -66,6 +66,10 @@ are kept. Untick **Count me in the anonymous player count** on Settings to stop 
 
 ## Changelog
 
+### 1.0.120
+
+- Reload buff bars (Triggers › Spells) starts the buff and debuff bars again from the last 3 hours of your logs; it also runs once after each update.
+
 ### 1.0.119
 
 - Every raid boss fight stays in the encounter list, plus the newest 500 other fights; the first start reads all logs once to rebuild it.

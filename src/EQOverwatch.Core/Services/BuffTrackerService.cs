@@ -214,6 +214,11 @@ public sealed partial class BuffTrackerService : ITriggerLineSink
     }
 
     /// <summary>Raised when a tracked spell lands on someone: target, spell name, base duration in seconds, and when the line was received.</summary>
+    private volatile bool _replaying;
+
+    /// <summary>True while old log lines are played back to start the bars again: landings and fades are not announced then.</summary>
+    public bool Replaying { get => _replaying; set => _replaying = value; }
+
     public event Action<string, string, int, DateTime>? Landed;
 
     /// <summary>Raised when a tracked spell's fade line is seen: the character, the spell name and when the line was received.</summary>
@@ -391,7 +396,10 @@ public sealed partial class BuffTrackerService : ITriggerLineSink
         foreach (SpellInfo spell in spells)
         {
             _timers.CancelTimer(TimerSourceId, characterName, Label(characterName, spell));
-            Faded?.Invoke(characterName, spell.Name, now);
+            if (!_replaying)
+            {
+                Faded?.Invoke(characterName, spell.Name, now);
+            }
         }
     }
 
@@ -419,7 +427,10 @@ public sealed partial class BuffTrackerService : ITriggerLineSink
         string label = $"{target}: {spell}";
         if (_timers.CureTimer(TimerSourceId, target, label, $"{label} cured by {curer}", CuredShowSeconds, now))
         {
-            Faded?.Invoke(target, spell, now);
+            if (!_replaying)
+            {
+                Faded?.Invoke(target, spell, now);
+            }
         }
 
         return true;
@@ -512,7 +523,10 @@ public sealed partial class BuffTrackerService : ITriggerLineSink
             Volatile.Write(ref _lastStarted, label);
         }
 
-        Landed?.Invoke(target, spell.Name, seconds, now);
+        if (!_replaying)
+        {
+            Landed?.Invoke(target, spell.Name, seconds, now);
+        }
     }
 
     private Func<string, CasterDuration?>? _durationProvider;

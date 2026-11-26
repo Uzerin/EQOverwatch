@@ -19,10 +19,10 @@ public sealed partial class MainViewModel
     /// <summary>"EQ Overwatch".</summary>
     public string AppName => AppInfo.Name;
 
-    /// <summary>"v1.0.119", read from this assembly's version.</summary>
+    /// <summary>"v1.0.120", read from this assembly's version.</summary>
     public string AppVersion { get; } = AppInfo.FormatVersion(typeof(MainViewModel).Assembly);
 
-    /// <summary>"EQ Overwatch v1.0.119": the window title, and the footer of the Discord picture.</summary>
+    /// <summary>"EQ Overwatch v1.0.120": the window title, and the footer of the Discord picture.</summary>
     public string WindowTitle => $"{AppName} {AppVersion}";
 
     // ───────────────────────── EverQuest folder ─────────────────────────
@@ -558,6 +558,10 @@ public sealed partial class MainViewModel
         UpdateLiveStatus();
         _lastLiveVersion = -1;
         Refresh();
+        if (_buffBarsVersion != EQOverwatch.Core.AppInfo.Version)
+        {
+            await ReloadBuffBarsAsync(); // bars kept from the version before an update come back with this version's labels
+        }
         OfferAllLogsLoad();
     }
 

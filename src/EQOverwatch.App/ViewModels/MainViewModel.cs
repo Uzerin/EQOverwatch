@@ -1492,6 +1492,7 @@ public sealed partial class MainViewModel : ObservableObject
             _backfillFrom = settings.BackfillFromLocal;
             _backfillKey = settings.BackfillLogsKey ?? string.Empty;
             _encounterListRebuilt = settings.EncounterListRebuilt;
+            _buffBarsVersion = settings.BuffBarsVersion ?? string.Empty;
 
             SelectedRule = Rules.FirstOrDefault();
             ApplyTriggers();
@@ -1659,6 +1660,7 @@ public sealed partial class MainViewModel : ObservableObject
         BackfillFromLocal = _backfillFrom,
         BackfillLogsKey = _backfillKey,
         EncounterListRebuilt = _encounterListRebuilt,
+        BuffBarsVersion = _buffBarsVersion,
         EncounterTimeoutSeconds = EncounterTimeoutSeconds,
         IsAudioMuted = IsAudioMuted,
         ReadTellsAloud = ReadTellsAloud,

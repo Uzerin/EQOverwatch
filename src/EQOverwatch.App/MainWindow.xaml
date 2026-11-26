@@ -935,8 +935,12 @@
                                                       SelectedValue="{Binding TrackerOverlay}"/>
                                         </StackPanel>
 
-                                        <Button Grid.Column="4" Content="Add to Tracker" VerticalAlignment="Bottom"
-                                                Command="{Binding AddTrackedSpellCommand}"/>
+                                        <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Bottom">
+                                            <Button Content="Add to Tracker" Command="{Binding AddTrackedSpellCommand}"/>
+                                            <Button Content="Reload buff bars" Margin="8,0,0,0" Style="{StaticResource SecondaryButton}"
+                                                    Command="{Binding ReloadBuffBarsCommand}"
+                                                    ToolTip="Clears the buff and debuff bars and starts them again from the last 3 hours of your logs, with the current durations."/>
+                                        </StackPanel>
                                     </Grid>
                                     <TextBlock Style="{StaticResource HintText}" Margin="0,8,0,0"
                                                Text="Songs go to the Songs overlay on their own and don't need adding."/>
