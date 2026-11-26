@@ -33,8 +33,8 @@ public sealed record MobRegen(double RegenPerSecond, long HitPoints, int Kills)
 
 /// <summary>
 /// Estimates regen and hit points from kills of different lengths: a kill takes the mob's hit points plus its regen over the fight, so
-/// longer kills take more damage. Kills where the logs saw only part of the damage (players out of range or filtered) are left out, the
-/// slope is the median of the pairwise slopes (so a few odd kills do not move it), and nothing is returned when the kills disagree.
+/// longer kills take more damage. Only the kills with the most damage are used (the top five or the top half), so kills where the logs saw
+/// only part of the damage are left out; the slope is the median of the pairwise slopes (so a few odd kills do not move it), and nothing is returned when the kills disagree.
 /// </summary>
 public static class MobRegenEstimator
 {
@@ -45,6 +45,9 @@ public static class MobRegenEstimator
     public const double MinSpreadSeconds = 30;
 
     private const int MaxKills = 200;
+
+    /// <summary>At least this many of the kills with the most damage are used (more when half the kills is more).</summary>
+    public const int TopKills = 5;
     private const double MinPairSeconds = 10;
 
     /// <summary>
@@ -78,10 +81,10 @@ public static class MobRegenEstimator
             return null;
         }
 
-        // A full kill takes at least the mob's hit points, so the fastest third shows about what a complete kill looks like.
-        double[] fast = kills.OrderBy(k => k.Seconds).Take(Math.Max(MinKills, kills.Count / 3)).Select(k => k.Damage).OrderBy(d => d).ToArray();
-        double complete = fast[(int)(0.75 * (fast.Length - 1))];
-        (double T, double D)[] kept = kills.Where(k => k.Damage >= 0.85 * complete).Select(k => (k.Seconds, k.Damage)).ToArray();
+        // Kills where the logs missed damage (players out of range) show too little, so only the kills with the most damage are used:
+        // the top five or the top half, whichever is more.
+        int take = Math.Max(TopKills, (kills.Count + 1) / 2);
+        (double T, double D)[] kept = kills.OrderByDescending(k => k.Damage).Take(take).Select(k => (k.Seconds, k.Damage)).ToArray();
         if (kept.Length < MinKills || kept.Max(k => k.T) - kept.Min(k => k.T) < MinSpreadSeconds)
         {
             return null;
