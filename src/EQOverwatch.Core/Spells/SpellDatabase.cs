@@ -105,7 +105,8 @@ public sealed record SpellCounters(int Disease, int Poison, int Curse, int Corru
 /// <param name="ResistType">The resist the spell checks (see <see cref="SpellResist"/>): 0 unresistable or unknown, 1 magic, 2 fire, 3 cold, 4 poison, 5 disease, 6 chromatic, 7 prismatic, 8 physical, 9 corruption.</param>
 /// <param name="CastTimeMs">Cast time in milliseconds.</param>
 /// <param name="IsDetrimental">True when the spell file marks it detrimental (it can be resisted by a mob).</param>
-public sealed record SpellDefinition(int SpellId, string Name, string CastOnYou, string CastOnOther, int ResistType = 0, int CastTimeMs = 0, bool IsDetrimental = false)
+/// <param name="ResistAdjust">The spell's resist adjustment: below 0 is harder to resist (−1000 is all but certain to land), above 0 easier.</param>
+public sealed record SpellDefinition(int SpellId, string Name, string CastOnYou, string CastOnOther, int ResistType = 0, int CastTimeMs = 0, bool IsDetrimental = false, int ResistAdjust = 0)
 {
     /// <summary><see cref="CastOnOther"/> without surrounding whitespace: the text a log line ends with.</summary>
     public string CastOnOtherSuffix => CastOnOther.Trim();

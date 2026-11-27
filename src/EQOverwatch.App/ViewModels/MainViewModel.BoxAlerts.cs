@@ -10,7 +10,17 @@ using EQOverwatch.Core.Spells;
 namespace EQOverwatch.App.ViewModels;
 
 /// <summary>What the mob card shows for a mob you /con: a heading and the lines the app has something for.</summary>
-public sealed record MobCardInfo(string Mob, string Heading, IReadOnlyList<string> Lines);
+public sealed record MobCardInfo(string Mob, string Heading, IReadOnlyList<string> Lines, IReadOnlyList<MobCardSpell>? Spells = null)
+{
+    /// <summary>A raid boss's spells (empty for other mobs).</summary>
+    public IReadOnlyList<MobCardSpell> SpellRows => Spells ?? Array.Empty<MobCardSpell>();
+}
+
+/// <summary>
+/// One row of a raid boss's spells on the mob card: the spell, its resist type and adjustment (from the spell file), the shortest time
+/// between two casts and how many casts were seen. <see cref="IsHard"/> marks an adjustment of −100 or lower (very hard to resist).
+/// </summary>
+public sealed record MobCardSpell(string Spell, string Resist, string Adjust, bool IsHard, string MinGap, string Seen);
 
 // Alerts for your boxes (a mob attacking a character that is not a tank, a character that can't reach its target) and the mob card shown
 // when you /con a mob.
@@ -328,7 +338,9 @@ public partial class MainViewModel
                 .Select(i => $"{i.Item} {i.Drops.ToString(culture)} in {drops.Kills.ToString(culture)} kill{(drops.Kills == 1 ? string.Empty : "s")}")));
         }
 
-        if (lines.Count == 0)
+        IReadOnlyList<MobCardSpell> spells = IsRaidBoss(mob) || RaidRules.Any(r => r.MobText.Trim().Equals(mob.Trim(), StringComparison.OrdinalIgnoreCase))
+            ? BossSpellRows(mob, culture) : Array.Empty<MobCardSpell>();
+        if (lines.Count == 0 && spells.Count == 0)
         {
             return null;
         }
@@ -339,6 +351,40 @@ public partial class MainViewModel
             heading += $" (seen {seen.Lowest.ToString(culture)}–{seen.Highest.ToString(culture)})";
         }
 
-        return new MobCardInfo(mob, heading, lines);
+        return new MobCardInfo(mob, heading, lines, spells);
+    }
+
+    /// <summary>How many spells a raid boss's mob card lists.</summary>
+    public const int MobCardSpellLimit = 6;
+
+    /// <summary>
+    /// A raid boss's spells for its mob card: the ones it cast in the fights the app has (most-cast first), then its raid trigger spells
+    /// not seen yet, at most <see cref="MobCardSpellLimit"/>.
+    /// </summary>
+    public IReadOnlyList<MobCardSpell> BossSpellRows(string mob, CultureInfo culture)
+    {
+        IReadOnlyList<BossSpellSeen> seen = BossSpellSummary.For(
+            _pipeline.LiveDps.Snapshot.All.Concat(_pipeline.HistoricalDps.Snapshot.All), mob);
+        var rows = new List<(string Spell, BossSpellSeen? Seen)>(seen.Select(s => (s.Spell, (BossSpellSeen?)s)));
+        foreach (RaidTimerRuleViewModel rule in RaidRules.Where(r => r.MobText.Trim().Equals(mob.Trim(), StringComparison.OrdinalIgnoreCase)))
+        {
+            string spell = rule.SpellName.Trim();
+            if (spell.Length > 0 && !rows.Any(r => r.Spell.Equals(spell, StringComparison.OrdinalIgnoreCase)))
+            {
+                rows.Add((spell, null));
+            }
+        }
+
+        SpellDatabase database = _pipeline.Spells.Database;
+        return rows.Take(MobCardSpellLimit).Select(r =>
+        {
+            SpellDefinition? definition = database.FindDefinitionByName(r.Spell);
+            string resist = definition is null ? "—" : !definition.IsDetrimental ? "Beneficial" : SpellResist.Name(definition.ResistType);
+            bool shows = definition is { IsDetrimental: true };
+            string adjust = shows ? definition!.ResistAdjust.ToString("0;−0;0", culture) : "—";
+            string gap = r.Seen?.MinGapSeconds is int seconds ? TimeSpan.FromSeconds(seconds).ToString(@"m\:ss", culture) : "—";
+            string count = r.Seen is { } s ? $"{s.Casts.ToString("N0", culture)} cast{(s.Casts == 1 ? string.Empty : "s")}" : "trigger";
+            return new MobCardSpell(r.Spell, resist, adjust, shows && definition!.ResistAdjust <= -100, gap, count);
+        }).ToList();
     }
 }

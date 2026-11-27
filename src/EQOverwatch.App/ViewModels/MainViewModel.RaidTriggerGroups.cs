@@ -56,25 +56,22 @@ public sealed partial class MainViewModel
         }
     }
 
-    /// <summary>Remembers where each boss was fought (the newest fight wins) and regroups the raid triggers when that changed.</summary>
+    /// <summary>
+    /// Remembers where each boss was fought: the zone most of its fights were in (the newest fight's zone breaks a tie), so one fight
+    /// tagged with another zone does not move it. Regroups the raid triggers when that changed.
+    /// </summary>
     private void LearnBossZones(IEnumerable<EncounterSnapshot> encounters)
     {
         bool changed = false;
-        foreach (EncounterSnapshot encounter in encounters)
+        foreach (var (mob, zone, start) in MostFoughtZones(encounters))
         {
-            if (string.IsNullOrWhiteSpace(encounter.Zone))
+            _bossZones.TryGetValue(mob, out var known);
+            if (known.Zone == zone && known.Start == start)
             {
                 continue;
             }
 
-            string mob = encounter.TargetName.Trim();
-            if (_bossZones.TryGetValue(mob, out var known) && known.Start >= encounter.StartTime)
-            {
-                continue;
-            }
-
-            string zone = encounter.Zone.Trim();
-            _bossZones[mob] = (zone, encounter.StartTime);
+            _bossZones[mob] = (zone, start);
             changed = changed || (known.Zone != zone && RaidRules.Any(r => r.MobText.Equals(mob, StringComparison.OrdinalIgnoreCase)));
         }
 
@@ -83,6 +80,20 @@ public sealed partial class MainViewModel
             ApplyRaidTriggerGrouping();
         }
     }
+
+    /// <summary>Each mob's most-fought zone (ties go to the newest fight) and its newest fight's start.</summary>
+    public static IEnumerable<(string Mob, string Zone, DateTime Start)> MostFoughtZones(IEnumerable<EncounterSnapshot> encounters) =>
+        encounters
+            .Where(e => !string.IsNullOrWhiteSpace(e.Zone) && !string.IsNullOrWhiteSpace(e.TargetName))
+            .GroupBy(e => e.TargetName.Trim(), StringComparer.OrdinalIgnoreCase)
+            .Select(mob =>
+            {
+                var best = mob.GroupBy(e => e.Zone.Trim(), StringComparer.OrdinalIgnoreCase)
+                    .Select(z => (Zone: z.Key, Count: z.Select(e => e.StartTime).Distinct().Count(), Last: z.Max(e => e.StartTime)))
+                    .OrderByDescending(z => z.Count).ThenByDescending(z => z.Last)
+                    .First();
+                return (mob.Key, best.Zone, mob.Max(e => e.StartTime));
+            });
 
     private void ApplyRaidTriggerGrouping()
     {

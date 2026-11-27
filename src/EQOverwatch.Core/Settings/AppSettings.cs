@@ -335,6 +335,9 @@ public sealed partial class AppSettings
     /// <summary>The zone each raid trigger's boss was fought in (boss to zone), for grouping the Raid triggers list.</summary>
     public Dictionary<string, string>? BossZones { get; set; }
 
+    /// <summary>False for zones saved before 1.0.127, some of which were wrong (the zone of an earlier fight): those are found again once.</summary>
+    public bool BossZonesChecked { get; set; }
+
     /// <summary>Discord webhooks (address, raid key, share automatically) for raid boss kills, posted loot and unlooted items.</summary>
     public string DiscordKillsUrl { get; set; } = string.Empty;
 

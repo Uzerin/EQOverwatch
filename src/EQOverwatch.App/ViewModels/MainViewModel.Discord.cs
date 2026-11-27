@@ -179,7 +179,7 @@ public sealed partial class MainViewModel
             _raidBossesUnticked.UnionWith(settings.RaidBossesUnticked ?? new List<string>());
         }
 
-        RestoreBossZones(settings.BossZones);
+        RestoreBossZones(settings.BossZonesChecked ? settings.BossZones : null);
         DiscordKillsUrl = settings.DiscordKillsUrl ?? string.Empty;
         DiscordKillsKey = RaidKey.IsValid(settings.DiscordKillsKey ?? string.Empty, HookKind.Kills) ? settings.DiscordKillsKey! : RaidKey.New(HookKind.Kills);
         DiscordKillsAuto = settings.DiscordKillsAuto;
@@ -204,6 +204,7 @@ public sealed partial class MainViewModel
         }
 
         settings.BossZones = SavedBossZones();
+        settings.BossZonesChecked = true;
         settings.DiscordKillsUrl = DiscordKillsUrl;
         settings.DiscordKillsKey = DiscordKillsKey;
         settings.DiscordKillsAuto = DiscordKillsAuto;

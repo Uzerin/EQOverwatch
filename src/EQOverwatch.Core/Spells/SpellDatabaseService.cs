@@ -67,6 +67,7 @@ public sealed class SpellDatabaseService
     private const int LegacyGoodEffect = 83;
     private const int LegacyBardLevel = 115;
     private const int LegacyResistType = 85;
+    private const int LegacyResistAdjust = 147;
 
     private const int SplitCastTime = 8;
     private const int SplitFormula = 11;
@@ -75,6 +76,7 @@ public sealed class SpellDatabaseService
     private const int SplitBardLevel = 43;
     private const int SplitRecastMs = 10;
     private const int SplitResistType = 29;
+    private const int SplitResistAdjust = 78;
     private const int SplitSpellGroup = 84;
     private const int SplitSpellLine = 163;
 
@@ -170,7 +172,8 @@ public sealed class SpellDatabaseService
                 // Every readable row is a candidate for the raid boss picker; the split layout fills the messages in later.
                 int resistType = columns.TryInt(split ? SplitResistType : LegacyResistType, out int resist) && resist is >= 0 and <= 9 ? resist : 0;
                 bool detrimental = columns.TryInt(goodEffectColumn, out int good) && good == 0;
-                definitions[id] = new SpellDefinition(id, name, castOnYou, castOnOther, resistType, castTimeMs, detrimental);
+                int resistAdjust = columns.TryInt(split ? SplitResistAdjust : LegacyResistAdjust, out int adjust) ? adjust : 0;
+                definitions[id] = new SpellDefinition(id, name, castOnYou, castOnOther, resistType, castTimeMs, detrimental, resistAdjust);
 
                 if (split && name.Length > 0 && columns.TryInt(SplitRecastMs, out int recastMs) && recastMs >= MinAbilityRecastSeconds * 1000)
                 {

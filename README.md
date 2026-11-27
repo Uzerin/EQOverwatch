@@ -67,6 +67,11 @@ are kept. Untick **Count me in the anonymous player count** on Settings to stop 
 
 ## Changelog
 
+### 1.0.127
+
+- Raid boss mob cards list the boss's spells with their resist type, resist adjustment and shortest time between casts.
+- Raid bosses are grouped under the zone they were really fought in.
+
 ### 1.0.126
 
 - Layout is even further customizable.

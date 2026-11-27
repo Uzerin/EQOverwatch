@@ -22,6 +22,13 @@ public sealed partial class MobCardOverlayViewModel : ObservableObject
     [ObservableProperty]
     private IReadOnlyList<string> _lines = new[] { "/con a mob to see what the app knows about it." };
 
+    /// <summary>A raid boss's spells (resist type and adjustment, shortest time between casts, casts seen); empty for other mobs.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasSpells))]
+    private IReadOnlyList<MobCardSpell> _spells = Array.Empty<MobCardSpell>();
+
+    public bool HasSpells => Spells.Count > 0;
+
     /// <summary>True while a card is up; the overlay shows nothing otherwise (unless it is unlocked, to move it).</summary>
     [ObservableProperty]
     private bool _hasCard;
@@ -32,6 +39,7 @@ public sealed partial class MobCardOverlayViewModel : ObservableObject
         ArgumentNullException.ThrowIfNull(card);
         Heading = card.Heading;
         Lines = card.Lines;
+        Spells = card.SpellRows;
         HasCard = true;
         _hideAtUtc = _utcNow().AddSeconds(ShowSeconds);
     }

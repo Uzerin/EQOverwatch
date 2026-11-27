@@ -161,6 +161,7 @@ public sealed class HistoricalLogImporter
     {
         Exception? error = null;
         var sources = new List<Source>();
+        var zoneLines = new List<LogEvent>(); // each log's zone when the read starts, so fights get the right zone
         try
         {
             foreach (string path in filePaths)
@@ -174,6 +175,14 @@ public sealed class HistoricalLogImporter
                 {
                     // The slack keeps lines just before a daylight-saving change; the start filter below drops them.
                     offset = LogSeek.FindOffset(stream, startTime.Value - EarlyExitSlack);
+                    if (LogSeek.LastZoneLineBefore(stream, offset) is { } zoneLine
+                        && LogLineFormat.TryParseTimestamp(zoneLine, out DateTime zoneTime))
+                    {
+                        zoneLines.Add(new LogEvent(
+                            LogFileName.GetCharacterName(path), zoneLine, default, LogRoute.Dps, zoneTime,
+                            LogFileName.TryParse(path, out _, out string zoneServer) ? zoneServer : string.Empty));
+                    }
+
                     stream.Position = offset;
                 }
 
@@ -192,6 +201,10 @@ public sealed class HistoricalLogImporter
                 ? endTime.Value + EarlyExitSlack
                 : DateTime.MaxValue;
             double lastReported = 0;
+            foreach (LogEvent zoneLine in zoneLines)
+            {
+                await writer.WriteAsync(zoneLine, cancellationToken).ConfigureAwait(false);
+            }
 
             foreach (Source source in sources)
             {
@@ -218,7 +231,7 @@ public sealed class HistoricalLogImporter
                 string line = next.Line!;
                 DateTime timestamp = next.Time;
                 bool queue = timestamp != default
-                             && !(startTime.HasValue && timestamp < startTime.Value)
+                             && !(startTime.HasValue && timestamp < startTime.Value && !IsZoneLine(line))
                              && !(endTime.HasValue && timestamp > endTime.Value);
                 if (queue)
                 {
@@ -260,6 +273,10 @@ public sealed class HistoricalLogImporter
             writer.TryComplete(error);
         }
     }
+
+    /// <summary>"You have entered X." lines before the start are still read: they say which zone the first fights are in.</summary>
+    private static bool IsZoneLine(string line) =>
+        line.AsSpan(LogLineFormat.MessageOffset).StartsWith("You have entered ", StringComparison.Ordinal);
 
     /// <summary>Reads a log's next line that has a timestamp (other lines are skipped). Past the end filter the log is done.</summary>
     private static async Task AdvanceAsync(Source source, DateTime earlyExitAfter, ImportCounters counters, CancellationToken cancellationToken)

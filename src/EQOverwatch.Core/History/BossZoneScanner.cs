@@ -2,7 +2,8 @@ namespace EQOverwatch.Core.History;
 
 /// <summary>
 /// Finds the zone each boss was fought in by reading logs: the zone of the latest "You have entered X." before each line that names the
-/// boss. Chat lines (", '") are skipped, and the zone with the most lines wins, so talk about a boss elsewhere does not move it.
+/// boss. Lines that name a boss from anywhere are skipped (chat, tells, faction changes and the server's kill announcements), and
+/// the zone with the most lines wins, so a mention elsewhere does not move it.
 /// </summary>
 public static class BossZoneScanner
 {
@@ -41,7 +42,7 @@ public static class BossZoneScanner
                         continue;
                     }
 
-                    if (zone is null || message.Contains(", '", StringComparison.Ordinal))
+                    if (zone is null || NamesBossFromAnywhere(message))
                     {
                         continue;
                     }
@@ -71,4 +72,11 @@ public static class BossZoneScanner
 
         return counts.ToDictionary(c => c.Key, c => c.Value.OrderByDescending(z => z.Value).First().Key, StringComparer.OrdinalIgnoreCase);
     }
+
+    /// <summary>True for lines that can name a boss fought in another zone: chat, tells, faction changes, kill announcements.</summary>
+    public static bool NamesBossFromAnywhere(ReadOnlySpan<char> message) =>
+        message.Contains(", '", StringComparison.Ordinal)
+        || message.Contains(" tells you", StringComparison.Ordinal)
+        || message.Contains("faction", StringComparison.OrdinalIgnoreCase)
+        || message.Contains(" has been defeated by ", StringComparison.Ordinal);
 }

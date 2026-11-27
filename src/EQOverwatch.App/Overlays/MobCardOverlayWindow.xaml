@@ -6,7 +6,7 @@
                             OverlayName="Mob Card"
                             WindowStartupLocation="Manual"
                             Left="1020" Top="240"
-                            Width="340" Height="150"
+                            Width="360" Height="240"
                             MinWidth="200" MinHeight="70">
     <Grid>
         <!-- Between cards a locked overlay shows nothing; unlocked it stays visible so it can be moved and sized. -->
@@ -46,6 +46,65 @@
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
+                <!-- A raid boss's spells: a small table whose columns line up across the rows. -->
+                <StackPanel Margin="0,6,0,0" Grid.IsSharedSizeScope="True">
+                    <StackPanel.Style>
+                        <Style TargetType="StackPanel">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding HasSpells}" Value="False">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </StackPanel.Style>
+                    <TextBlock FontWeight="SemiBold" Opacity="0.75" Style="{StaticResource OverlayTextStyle}" Text="Spells"/>
+                    <Grid Opacity="0.75">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" SharedSizeGroup="CardSpell"/>
+                            <ColumnDefinition Width="Auto" SharedSizeGroup="CardResist"/>
+                            <ColumnDefinition Width="Auto" SharedSizeGroup="CardAdjust"/>
+                            <ColumnDefinition Width="Auto" SharedSizeGroup="CardGap"/>
+                            <ColumnDefinition Width="Auto" SharedSizeGroup="CardSeen"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Margin="0,1,12,0" Style="{StaticResource OverlayTextStyle}" Text="Spell"/>
+                        <TextBlock Grid.Column="1" Margin="0,1,12,0" Style="{StaticResource OverlayTextStyle}" Text="Resist"/>
+                        <TextBlock Grid.Column="2" Margin="0,1,12,0" HorizontalAlignment="Right" Style="{StaticResource OverlayTextStyle}" Text="Adj"
+                                   ToolTip="The spell's resist adjustment: below 0 is harder to resist"/>
+                        <TextBlock Grid.Column="3" Margin="0,1,12,0" HorizontalAlignment="Right" Style="{StaticResource OverlayTextStyle}" Text="Min gap"
+                                   ToolTip="The shortest time seen between two casts"/>
+                        <TextBlock Grid.Column="4" Margin="0,1,0,0" Style="{StaticResource OverlayTextStyle}" Text="Seen"/>
+                    </Grid>
+                    <ItemsControl ItemsSource="{Binding Spells}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="CardSpell"/>
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="CardResist"/>
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="CardAdjust"/>
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="CardGap"/>
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="CardSeen"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Margin="0,1,12,0" Style="{StaticResource OverlayTextStyle}" Text="{Binding Spell}"/>
+                                    <TextBlock Grid.Column="1" Margin="0,1,12,0" Style="{StaticResource OverlayTextStyle}" Text="{Binding Resist}"/>
+                                    <TextBlock Grid.Column="2" Margin="0,1,12,0" HorizontalAlignment="Right" Text="{Binding Adjust}">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock" BasedOn="{StaticResource OverlayTextStyle}">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsHard}" Value="True">
+                                                        <Setter Property="Foreground" Value="#FFFF8A7A"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                    <TextBlock Grid.Column="3" Margin="0,1,12,0" HorizontalAlignment="Right" Style="{StaticResource OverlayTextStyle}" Text="{Binding MinGap}"/>
+                                    <TextBlock Grid.Column="4" Margin="0,1,0,0" Style="{StaticResource OverlayTextStyle}" Text="{Binding Seen}"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
             </StackPanel>
         </Grid>
     </Grid>
