@@ -239,4 +239,44 @@ public sealed class MapsViewModelTests : IDisposable
             return Answer;
         }
     }
+
+    [Fact]
+    public void Possible_locations_open_on_the_current_zone_and_copy_verify_and_show_spots()
+    {
+        string verified = Path.Combine(_eq, "verifiedspawns.json");
+        MapsViewModel vm = Create();
+        vm.SetVerifiedPath(verified);
+        string copied = string.Empty;
+        vm.CopyText = text => copied = text;
+        Enter("Velketor's Labyrinth");
+        vm.Refresh(_logs[0]);
+
+        vm.IsSpawnsTab = true;
+        Assert.False(vm.IsMapTab);
+        Assert.Equal("velketor", vm.SpawnZone!.ShortName);
+        Assert.NotEmpty(vm.SpawnRows);
+        Assert.All(vm.SpawnRows, r => Assert.True(r.HasSpot)); // a dungeon: fixed spots
+
+        vm.SpawnSearch = "zzzz";
+        Assert.Empty(vm.SpawnRows);
+        vm.SpawnSearch = string.Empty;
+
+        SpawnRowView row = vm.SpawnRows[0];
+        vm.CopyWaypointCommand.Execute(row);
+        Assert.Equal($"/waypoint {row.Spot!.Y} {row.Spot.X} {row.Spot.Z}", copied);
+
+        row.Verified = true;
+        MapsViewModel again = Create();
+        again.SetVerifiedPath(verified);
+        again.IsSpawnsTab = true;
+        again.SpawnZone = again.SpawnZones.Single(z => z.ShortName == "velketor");
+        Assert.True(again.SpawnRows.First(r => r.Name == row.Name && r.Spot == row.Spot).Verified);
+
+        vm.ShowSpawnOnMapCommand.Execute(row);
+        Assert.True(vm.IsSelectZoneTab);
+        Assert.Equal("velketor", vm.ShownZone);
+        Assert.Equal(row.Spot.LocText, vm.EditLoc);
+        Assert.Equal(row.Name, vm.EditText);
+        Assert.Equal(((double)-row.Spot.X, (double)-row.Spot.Y), vm.Pending);
+    }
 }

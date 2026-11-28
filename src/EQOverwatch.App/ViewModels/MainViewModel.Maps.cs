@@ -33,6 +33,11 @@ public sealed partial class MainViewModel
         });
         maps.ConfigurePack(() => IsInCombat, Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), AppInfo.SettingsFolderName));
+        if (_dataDirectory is { } data)
+        {
+            maps.SetVerifiedPath(Path.Combine(data, "verifiedspawns.json"));
+        }
+
         return maps;
     }
 

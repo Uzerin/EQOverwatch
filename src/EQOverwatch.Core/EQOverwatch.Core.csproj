@@ -12,9 +12,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>EQOverwatch.Core</RootNamespace>
     <AnalysisLevel>latest</AnalysisLevel>
-    <Version>1.0.130</Version>
-    <AssemblyVersion>1.0.130.0</AssemblyVersion>
-    <FileVersion>1.0.130.0</FileVersion>
+    <Version>1.0.131</Version>
+    <AssemblyVersion>1.0.131.0</AssemblyVersion>
+    <FileVersion>1.0.131.0</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -23,6 +23,7 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Spells\AaDurations.json" LogicalName="EQOverwatch.Core.Spells.AaDurations.json" />
+    <EmbeddedResource Include="Maps\SpawnLocations.json.gz" LogicalName="EQOverwatch.Core.Maps.SpawnLocations.json.gz" />
   </ItemGroup>
 
   <ItemGroup>

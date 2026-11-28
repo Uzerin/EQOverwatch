@@ -34,7 +34,7 @@ as many characters as you play, without touching the game.
 - Skills with their caps, tradeskill success rates and faction for each character.
 - Drop Table: drop rates by mob and item for each server, pooled with other players and with servers whose loot is normal.
 - Unanswered tells and DZ timers across all your characters, and a search of every character's chat history.
-- Maps: the Overwatch map pack and your own labels on the in-game maps.
+- Maps: the Overwatch map pack, your own labels on the in-game maps, and where each zone's mobs can spawn.
 
 **Built for boxers**
 - Movable overlays that only show for characters who are logged in, plus overlays of your own; minimize or close any of them.
@@ -66,6 +66,9 @@ are kept. Untick **Count me in the anonymous player count** on Settings to stop 
 - To post raid kills and loot to your Discord, paste a channel webhook on Settings, then say its raid key in /rsay.
 
 ## Changelog
+
+### 1.0.131
+- Maps has a new Possible Locations tab: mob spawn spots for each zone, with Copy /waypoint, Show on map and a Verified check you can tick.
 
 ### 1.0.130
 - Overlays stay on top when you switch between EverQuest windows.

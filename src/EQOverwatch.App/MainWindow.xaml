@@ -3312,6 +3312,14 @@
                                 </DataTrigger>
                             </Style.Triggers>
                         </Style>
+                        <Style x:Key="MapsShowOnMap" TargetType="FrameworkElement">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsMapTab}" Value="True">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
                         <Style x:Key="MapsShowOnCurrent" TargetType="FrameworkElement">
                             <Setter Property="Visibility" Value="Collapsed"/>
                             <Style.Triggers>
@@ -3331,6 +3339,7 @@
                     <DockPanel Grid.Row="0" Margin="0,0,0,10" LastChildFill="True">
                         <RadioButton DockPanel.Dock="Left" GroupName="MapsSubTabs" Style="{StaticResource MapsSubTab}" Content="Current Zone" IsChecked="{Binding IsCurrentZoneTab, Mode=TwoWay}"/>
                         <RadioButton DockPanel.Dock="Left" GroupName="MapsSubTabs" Style="{StaticResource MapsSubTab}" Content="Select Zone" IsChecked="{Binding IsSelectZoneTab, Mode=TwoWay}"/>
+                        <RadioButton DockPanel.Dock="Left" GroupName="MapsSubTabs" Style="{StaticResource MapsSubTab}" Content="Possible Locations" IsChecked="{Binding IsSpawnsTab, Mode=TwoWay}"/>
                         <Button DockPanel.Dock="Right" Content="{Binding PackButtonText}" Command="{Binding InstallMapPackCommand}"
                                 ToolTip="Checks maps\Overwatch in your EverQuest folder and installs the Overwatch map pack's missing or updated files. Files you edited are only replaced if you say so, after a backup. Not available during combat."/>
                         <ProgressBar DockPanel.Dock="Right" Width="120" Height="6" Margin="12,0,10,0" VerticalAlignment="Center" Maximum="100"
@@ -3339,8 +3348,54 @@
                                    TextTrimming="CharacterEllipsis" Text="{Binding PackStatus}" ToolTip="{Binding PackStatus}"/>
                     </DockPanel>
 
+                    <!-- Possible Locations: where each zone's mobs can spawn -->
+                    <DockPanel Grid.Row="1" Grid.RowSpan="3" Visibility="{Binding IsSpawnsTab, Converter={StaticResource MapsVisible}}">
+                        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="Zone" VerticalAlignment="Center"/>
+                            <ComboBox MinWidth="260" ItemsSource="{Binding SpawnZones}" DisplayMemberPath="Name" SelectedItem="{Binding SpawnZone, Mode=TwoWay}"
+                                      IsTextSearchEnabled="True" TextSearch.TextPath="Name"/>
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="Search" VerticalAlignment="Center" Margin="16,0,0,0"/>
+                            <TextBox Width="200" Text="{Binding SpawnSearch, UpdateSourceTrigger=PropertyChanged}" ToolTip="Shows mobs whose name contains this."/>
+                            <CheckBox Content="Named only" Margin="16,0,0,0" VerticalAlignment="Center" IsChecked="{Binding NamedOnly}"/>
+                        </StackPanel>
+                        <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource HintText}" Margin="0,8,0,0" TextWrapping="Wrap"
+                                   Text="Tick Verified when you have seen a mob spawn at that spot; it is saved on this PC only. Copy /waypoint copies the spot to paste in game. Show on map opens the zone map with the spot marked; Add label there keeps it."/>
+                        <TextBlock DockPanel.Dock="Top" Style="{StaticResource HintText}" Margin="0,0,0,6" TextWrapping="Wrap" Text="{Binding SpawnStatus}"/>
+                        <DataGrid ItemsSource="{Binding SpawnRows}" HorizontalAlignment="Left"
+                                  AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
+                                  HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                                  EnableRowVirtualization="True" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Mob" Binding="{Binding Name}" Width="Auto" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="Level" Binding="{Binding Level}" Width="Auto" IsReadOnly="True" ElementStyle="{StaticResource NumericCell}"/>
+                                <DataGridTextColumn Header="Location (/loc)" Binding="{Binding Location}" Width="Auto" IsReadOnly="True"/>
+                                <DataGridTemplateColumn Header="Verified" Width="Auto" SortMemberPath="Verified">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <CheckBox HorizontalAlignment="Center" IsChecked="{Binding Verified, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                      Visibility="{Binding HasSpot, Converter={StaticResource BoolToVisibility}}"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTextColumn Header="Respawn" Binding="{Binding Respawn}" Width="Auto" IsReadOnly="True" ElementStyle="{StaticResource NumericCell}"/>
+                                <DataGridTemplateColumn Header="" Width="Auto">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Orientation="Horizontal" Visibility="{Binding HasSpot, Converter={StaticResource BoolToVisibility}}">
+                                                <Button Content="Copy /waypoint" Style="{StaticResource SecondaryButton}" Padding="8,1" Margin="0,1,6,1"
+                                                        Command="{Binding DataContext.CopyWaypointCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}"/>
+                                                <Button Content="Show on map" Style="{StaticResource SecondaryButton}" Padding="8,1" Margin="0,1,0,1"
+                                                        Command="{Binding DataContext.ShowSpawnOnMapCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}"/>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </DockPanel>
+
                     <!-- Expansion, Zone and Map pack in one row (Current zone shows where the character you played last is instead of the first two) -->
-                    <Grid Grid.Row="1" Margin="0,0,0,8">
+                    <Grid Style="{StaticResource MapsShowOnMap}" Grid.Row="1" Margin="0,0,0,8">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="*"/>
@@ -3371,7 +3426,7 @@
                                 ToolTip="Reads the map packs and map files again, for changes made outside the app."/>
                     </Grid>
 
-                    <DockPanel Grid.Row="2" Margin="0,0,0,8" LastChildFill="True">
+                    <DockPanel Style="{StaticResource MapsShowOnMap}" Grid.Row="2" Margin="0,0,0,8" LastChildFill="True">
                         <TextBlock DockPanel.Dock="Left" Style="{StaticResource FieldLabel}" Text="Edit layer"/>
                         <ListBox DockPanel.Dock="Left" ItemsSource="{Binding LayerChoices}" SelectedIndex="{Binding SelectedLayer, Mode=TwoWay}"
                                  BorderThickness="0" Background="Transparent" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
@@ -3387,7 +3442,7 @@
                         <TextBlock Style="{StaticResource ErrorText}" VerticalAlignment="Center" Margin="16,0,0,0" Text="{Binding FollowNote}"/>
                     </DockPanel>
 
-                    <Grid Grid.Row="3">
+                    <Grid Grid.Row="3" Style="{StaticResource MapsShowOnMap}">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" MinWidth="300"/>
                             <ColumnDefinition Width="340"/>

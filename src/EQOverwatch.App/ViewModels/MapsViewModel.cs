@@ -202,13 +202,13 @@ public sealed partial class MapsViewModel : ObservableObject
 
     // ───────────────────────── the choices that change what is shown ─────────────────────────
 
-    /// <summary>0 for Current zone, 1 for Select zone.</summary>
+    /// <summary>0 for Current zone, 1 for Select zone, 2 for Possible Locations.</summary>
     public int SelectedSubTab
     {
         get => _selectedSubTab;
         set
         {
-            if (value == _selectedSubTab || value is < 0 or > 1)
+            if (value == _selectedSubTab || value is < 0 or > 2)
             {
                 return;
             }
@@ -218,6 +218,7 @@ public sealed partial class MapsViewModel : ObservableObject
                 Revert(nameof(SelectedSubTab));
                 Revert(nameof(IsCurrentZoneTab));
                 Revert(nameof(IsSelectZoneTab));
+                Revert(nameof(IsSpawnsTab));
                 return;
             }
 
@@ -225,7 +226,16 @@ public sealed partial class MapsViewModel : ObservableObject
             OnPropertyChanged();
             OnPropertyChanged(nameof(IsCurrentZoneTab));
             OnPropertyChanged(nameof(IsSelectZoneTab));
-            ShowZone();
+            OnPropertyChanged(nameof(IsSpawnsTab));
+            OnPropertyChanged(nameof(IsMapTab));
+            if (value == 2)
+            {
+                OpenSpawnsTab();
+            }
+            else
+            {
+                ShowZone();
+            }
         }
     }
 
