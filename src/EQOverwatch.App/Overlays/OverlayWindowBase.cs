@@ -34,7 +34,11 @@ public abstract class OverlayWindowBase : Window
         ShowActivated = false; // appearing must not pull focus out of EverQuest
         ResizeMode = ResizeMode.CanResizeWithGrip;
 
-        SourceInitialized += (_, _) => ApplyLockState();
+        SourceInitialized += (_, _) =>
+        {
+            ApplyLockState();
+            OverlayTopmostKeeper.Add(this);
+        };
 
         LocationChanged += (_, _) => RaisePlacementChanged();
         SizeChanged += (_, _) => RaisePlacementChanged();
