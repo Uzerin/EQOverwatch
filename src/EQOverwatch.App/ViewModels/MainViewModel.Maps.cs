@@ -36,8 +36,10 @@ public sealed partial class MainViewModel
         if (_dataDirectory is { } data)
         {
             maps.SetVerifiedPath(Path.Combine(data, "verifiedspawns.json"));
+            maps.SetNamedPath(Path.Combine(data, "namedspawns.json"));
         }
 
+        maps.PlayerLevel = () => LastPlayedLog() is { } log ? _pipeline.Roster.GetLevel(log.CharacterName, log.ServerName) : 0;
         return maps;
     }
 

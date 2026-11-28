@@ -4,9 +4,18 @@ using System.Text.Json;
 
 namespace EQOverwatch.Core.Maps;
 
-/// <summary>A spot a mob can spawn at, in /loc order (Y, X, Z).</summary>
-public sealed record SpawnSpot(int Y, int X, int Z)
+/// <summary>A spot a mob can spawn at, in /loc order (Y, X, Z), how often it takes the spot (percent, 0 when not known)
+/// and, for named mobs, the other mobs that spawn there (its placeholders).</summary>
+public sealed record SpawnSpot(int Y, int X, int Z, int Chance = 0, IReadOnlyList<string>? SharesWith = null)
 {
+    /// <summary>"a chromadrac, a wurm".</summary>
+    public string SharesWithText => SharesWith is { Count: > 0 } others ? string.Join(", ", others) : string.Empty;
+
+    public string ChanceText => Chance > 0 ? string.Create(CultureInfo.InvariantCulture, $"{Chance}%") : string.Empty;
+
+    /// <summary>Same place (the placeholders and chance are not compared).</summary>
+    public bool SamePlace(SpawnSpot other) => Y == other.Y && X == other.X && Z == other.Z;
+
     /// <summary>"1768, -3849, -160", as /loc prints it.</summary>
     public string LocText => string.Create(CultureInfo.InvariantCulture, $"{Y}, {X}, {Z}");
 
@@ -66,7 +75,7 @@ public static class SpawnLocations
     public static SpawnZone? Find(string? shortName) =>
         shortName is null ? null : Zones.FirstOrDefault(z => z.ShortName.Equals(shortName, StringComparison.OrdinalIgnoreCase));
 
-    /// <summary>Reads the gzipped list: {"zones":[{"s":short,"n":name,"o":outdoor,"m":[[name,min,max,respawn,[[y,x,z],...]|null],...]}]}.</summary>
+    /// <summary>Reads the gzipped list: {"zones":[{"s":short,"n":name,"o":outdoor,"m":[[name,min,max,respawn,[[y,x,z,chance,[others]],...]|null],...]}]}.</summary>
     public static IReadOnlyList<SpawnZone> Read(Stream gzipped)
     {
         using var gzip = new GZipStream(gzipped, CompressionMode.Decompress);
@@ -80,7 +89,9 @@ public static class SpawnLocations
                 List<SpawnSpot>? spots = null;
                 if (mob[4].ValueKind == JsonValueKind.Array)
                 {
-                    spots = mob[4].EnumerateArray().Select(s => new SpawnSpot(s[0].GetInt32(), s[1].GetInt32(), s[2].GetInt32())).ToList();
+                    spots = mob[4].EnumerateArray().Select(s => new SpawnSpot(s[0].GetInt32(), s[1].GetInt32(), s[2].GetInt32(),
+                        s.GetArrayLength() > 3 ? s[3].GetInt32() : 0,
+                        s.GetArrayLength() > 4 ? s[4].EnumerateArray().Select(n => n.GetString() ?? string.Empty).ToList() : null)).ToList();
                 }
 
                 mobs.Add(new SpawnMob(mob[0].GetString() ?? string.Empty, mob[1].GetInt32(), mob[2].GetInt32(), mob[3].GetInt32(), spots));
@@ -140,5 +151,116 @@ public sealed class VerifiedSpawnStore
         {
             // kept in memory; saved with the next change
         }
+    }
+}
+
+/// <summary>The player's own Named ticks, by zone and mob, saved on this PC only (namedspawns.json). Missing means "as known".</summary>
+public sealed class NamedSpawnStore
+{
+    private readonly Dictionary<string, bool> _named = new(StringComparer.OrdinalIgnoreCase);
+    private string? _path;
+
+    public void SetStoragePath(string path)
+    {
+        _path = path;
+        _named.Clear();
+        try
+        {
+            if (File.Exists(path) && JsonSerializer.Deserialize<Dictionary<string, bool>>(File.ReadAllText(path)) is { } named)
+            {
+                foreach ((string key, bool value) in named)
+                {
+                    _named[key] = value;
+                }
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+        {
+            // start empty
+        }
+    }
+
+    private static string Key(string zone, string mob) => zone + "|" + mob;
+
+    /// <summary>The player's tick, or the known answer when they have not changed it.</summary>
+    public bool IsNamed(string zone, SpawnMob mob) => _named.TryGetValue(Key(zone, mob.Name), out bool named) ? named : mob.IsNamed;
+
+    public void Set(string zone, SpawnMob mob, bool named)
+    {
+        string key = Key(zone, mob.Name);
+        if (named == mob.IsNamed)
+        {
+            _named.Remove(key);
+        }
+        else
+        {
+            _named[key] = named;
+        }
+
+        if (_path is null)
+        {
+            return;
+        }
+
+        try
+        {
+            string tmp = _path + ".tmp";
+            File.WriteAllText(tmp, JsonSerializer.Serialize(_named));
+            File.Move(tmp, _path, overwrite: true);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // kept in memory; saved with the next change
+        }
+    }
+}
+
+/// <summary>EverQuest con colors: how a mob of one level looks to a player of another.</summary>
+public enum ConColor
+{
+    None,
+    Gray,
+    Green,
+    LightBlue,
+    Blue,
+    White,
+    Yellow,
+    Red,
+}
+
+public static class Cons
+{
+    // (highest player level, gray at or below this difference, green at or below, light blue at or below); 0 = no such band.
+    private static readonly (int Level, int Gray, int Green, int LightBlue)[] Bands =
+    {
+        (8, -4, 0, 0), (9, -6, 0, -4), (13, -7, 0, -5), (15, -7, -5, 0), (17, -8, -6, 0), (21, -9, -7, -5), (25, -10, -8, -6),
+        (29, -11, -9, -7), (31, -12, -9, -7), (33, -13, -10, -8), (37, -14, -11, -8), (40, -16, -12, -9), (42, -17, -13, -10),
+        (44, -18, -13, -10), (48, -19, -14, -11), (49, -20, -15, -12), (53, -21, -16, -12), (55, -22, -17, -13), (60, -23, -18, -14),
+        (65, -24, -19, -15), (70, -25, -20, -16), (int.MaxValue, -26, -21, -17),
+    };
+
+    public static ConColor For(int playerLevel, int mobLevel)
+    {
+        if (playerLevel <= 0 || mobLevel <= 0)
+        {
+            return ConColor.None;
+        }
+
+        int diff = mobLevel - playerLevel;
+        if (diff == 0)
+        {
+            return ConColor.White;
+        }
+
+        if (diff > 0)
+        {
+            return diff <= 2 ? ConColor.Yellow : ConColor.Red;
+        }
+
+        (int _, int gray, int green, int lightBlue) = Bands.First(b => playerLevel <= b.Level);
+        return diff <= gray ? ConColor.Gray
+            : green != 0 && diff <= green ? ConColor.Green
+            : lightBlue != 0 && diff <= lightBlue ? ConColor.LightBlue
+            : ConColor.Blue;
     }
 }

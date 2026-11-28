@@ -3357,17 +3357,46 @@
                             <TextBlock Style="{StaticResource FieldLabel}" Text="Search" VerticalAlignment="Center" Margin="16,0,0,0"/>
                             <TextBox Width="200" Text="{Binding SpawnSearch, UpdateSourceTrigger=PropertyChanged}" ToolTip="Shows mobs whose name contains this."/>
                             <CheckBox Content="Named only" Margin="16,0,0,0" VerticalAlignment="Center" IsChecked="{Binding NamedOnly}"/>
+                            <Button Content="Show all on map" Margin="16,0,0,0" Style="{StaticResource SecondaryButton}" Command="{Binding ShowAllOnMapCommand}"
+                                    ToolTip="Opens the zone map with every spawn spot as a dot, named mobs labeled. The dots are not saved to your map files."/>
                         </StackPanel>
                         <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource HintText}" Margin="0,8,0,0" TextWrapping="Wrap"
-                                   Text="Tick Verified when you have seen a mob spawn at that spot; it is saved on this PC only. Copy /waypoint copies the spot to paste in game. Show on map opens the zone map with the spot marked; Add label there keeps it."/>
+                                   Text="Named is ticked for known named mobs; tick or untick it to change it. Shares spot with lists a named mob's placeholders. Level colors are cons for the character you played last. Tick Verified when you have seen a mob spawn at that spot. Your ticks are saved on this PC only. Copy /waypoint copies the spot to paste in game. Show on map opens the zone map with the spot marked; Add label there keeps it."/>
                         <TextBlock DockPanel.Dock="Top" Style="{StaticResource HintText}" Margin="0,0,0,6" TextWrapping="Wrap" Text="{Binding SpawnStatus}"/>
                         <DataGrid ItemsSource="{Binding SpawnRows}" HorizontalAlignment="Left"
                                   AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
                                   HeadersVisibility="Column" GridLinesVisibility="Horizontal"
                                   EnableRowVirtualization="True" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling">
                             <DataGrid.Columns>
+                                <DataGridTemplateColumn Header="Named" Width="Auto" SortMemberPath="Named">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <CheckBox HorizontalAlignment="Center" IsChecked="{Binding Named, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                      ToolTip="Ticked for known named mobs. Change it for this mob in this zone; saved on this PC only."/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
                                 <DataGridTextColumn Header="Mob" Binding="{Binding Name}" Width="Auto" IsReadOnly="True"/>
-                                <DataGridTextColumn Header="Level" Binding="{Binding Level}" Width="Auto" IsReadOnly="True" ElementStyle="{StaticResource NumericCell}"/>
+                                <DataGridTemplateColumn Header="Level" Width="Auto" SortMemberPath="Mob.MinLevel">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Level}" HorizontalAlignment="Right" Margin="4,0" ToolTip="Colored by how it cons to the character you played last.">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding Con}" Value="Gray"><Setter Property="Foreground" Value="#8B93A1"/></DataTrigger>
+                                                            <DataTrigger Binding="{Binding Con}" Value="Green"><Setter Property="Foreground" Value="#22C55E"/></DataTrigger>
+                                                            <DataTrigger Binding="{Binding Con}" Value="LightBlue"><Setter Property="Foreground" Value="#7DD3FC"/></DataTrigger>
+                                                            <DataTrigger Binding="{Binding Con}" Value="Blue"><Setter Property="Foreground" Value="#60A5FA"/></DataTrigger>
+                                                            <DataTrigger Binding="{Binding Con}" Value="Yellow"><Setter Property="Foreground" Value="#FACC15"/></DataTrigger>
+                                                            <DataTrigger Binding="{Binding Con}" Value="Red"><Setter Property="Foreground" Value="#EF4444"/></DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
                                 <DataGridTextColumn Header="Location (/loc)" Binding="{Binding Location}" Width="Auto" IsReadOnly="True"/>
                                 <DataGridTemplateColumn Header="Verified" Width="Auto" SortMemberPath="Verified">
                                     <DataGridTemplateColumn.CellTemplate>
@@ -3378,6 +3407,8 @@
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>
                                 <DataGridTextColumn Header="Respawn" Binding="{Binding Respawn}" Width="Auto" IsReadOnly="True" ElementStyle="{StaticResource NumericCell}"/>
+                                <DataGridTextColumn Header="Chance" Binding="{Binding Chance}" Width="Auto" IsReadOnly="True" ElementStyle="{StaticResource NumericCell}"/>
+                                <DataGridTextColumn Header="Shares spot with" Binding="{Binding SharesWith}" Width="Auto" MaxWidth="360" IsReadOnly="True"/>
                                 <DataGridTemplateColumn Header="" Width="Auto">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>

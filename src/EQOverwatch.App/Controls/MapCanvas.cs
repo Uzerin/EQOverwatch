@@ -144,6 +144,17 @@ public sealed class MapCanvas : FrameworkElement
             dc.DrawText(Text(label.Text, FontSize(label.Size), brush, ppd), new Point(at.X + 7, at.Y - FontSize(label.Size) * 0.7));
         }
 
+        // Possible Locations › Show all on map: every spawn spot of the zone, named mobs labeled.
+        foreach (MapSpawnDot dot in maps.VisibleSpawnDots)
+        {
+            Point at = ToScreen(dot.X, dot.Y);
+            dc.DrawEllipse(dot.Label.Length > 0 ? SpawnNamedBrush : SpawnBrush, null, at, dot.Label.Length > 0 ? 3.5 : 2.5, dot.Label.Length > 0 ? 3.5 : 2.5);
+            if (dot.Label.Length > 0)
+            {
+                dc.DrawText(Text(dot.Label, 11, SpawnNamedBrush, ppd), new Point(at.X + 6, at.Y - 8));
+            }
+        }
+
         // Each character's last known /loc in this zone, with its name.
         foreach (MapPlayerSpot player in maps.PlayerSpots)
         {
@@ -160,6 +171,16 @@ public sealed class MapCanvas : FrameworkElement
             dc.DrawLine(pen, new Point(at.X, at.Y - 10), new Point(at.X, at.Y + 10));
             dc.DrawLine(pen, new Point(at.X - 10, at.Y), new Point(at.X + 10, at.Y));
         }
+    }
+
+    private static readonly Brush SpawnBrush = FrozenBrush(Color.FromArgb(0xB0, 0xF5, 0x9E, 0x0B));
+    private static readonly Brush SpawnNamedBrush = FrozenBrush(Color.FromRgb(0xF9, 0x73, 0x16));
+
+    private static Brush FrozenBrush(Color color)
+    {
+        var brush = new SolidColorBrush(color);
+        brush.Freeze();
+        return brush;
     }
 
     private static string FitKey(MapsViewModel maps) => maps.ShownZone + "|" + maps.SelectedPack?.Folder;

@@ -1,3 +1,4 @@
+using EQOverwatch.Core.Maps;
 using EQOverwatch.Core.Characters;
 using EQOverwatch.Core.Models;
 
@@ -95,6 +96,23 @@ public sealed partial class MainViewModel
             {
                 SelectedMainTab = MapsMainTab;
                 Maps.OpenZone(shortName);
+            }));
+        }
+
+        // Where mobs spawn, from Maps › Possible Locations: named mobs first.
+        var spawns = SpawnLocations.Zones
+            .SelectMany(z => z.Mobs.Where(m => Has(m.Name)).Select(m => (Zone: z, Mob: m)))
+            .OrderBy(h => h.Mob.IsNamed ? 0 : 1).ThenBy(h => h.Mob.Name, StringComparer.OrdinalIgnoreCase).ThenBy(h => h.Zone.Name, StringComparer.OrdinalIgnoreCase)
+            .Take(MaxSearchHitsPerKind);
+        foreach ((SpawnZone zone, SpawnMob mob) in spawns)
+        {
+            int spots = mob.Spots?.Count ?? 0;
+            string where = spots == 0 ? $"{zone.Name} · random spots" : $"{zone.Name} · {spots} spot{(spots == 1 ? string.Empty : "s")}";
+            string zoneName = zone.ShortName, mobName = mob.Name;
+            hits.Add(new SearchHit("Spawn locations", mob.Name, where, () =>
+            {
+                SelectedMainTab = MapsMainTab;
+                Maps.OpenSpawn(zoneName, mobName);
             }));
         }
 

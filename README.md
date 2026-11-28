@@ -67,6 +67,9 @@ are kept. Untick **Count me in the anonymous player count** on Settings to stop 
 
 ## Changelog
 
+### 1.0.132
+- Possible Locations adds a Named column you can tick, con-colored levels, placeholders, spawn chance and a Show all on map button. Ctrl+F also finds the zones mobs spawn in.
+
 ### 1.0.131
 - Maps has a new Possible Locations tab: mob spawn spots for each zone, with Copy /waypoint, Show on map and a Verified check you can tick.
 

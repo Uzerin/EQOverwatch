@@ -279,4 +279,38 @@ public sealed class MapsViewModelTests : IDisposable
         Assert.Equal(row.Name, vm.EditText);
         Assert.Equal(((double)-row.Spot.X, (double)-row.Spot.Y), vm.Pending);
     }
+
+    [Fact]
+    public void Named_ticks_change_every_row_of_the_mob_and_show_all_on_map_draws_the_spots()
+    {
+        string named = Path.Combine(_eq, "namedspawns.json");
+        MapsViewModel vm = Create();
+        vm.SetNamedPath(named);
+        vm.PlayerLevel = () => 52;
+        vm.IsSpawnsTab = true;
+        vm.SpawnZone = vm.SpawnZones.Single(z => z.ShortName == "velketor");
+
+        SpawnRowView row = vm.SpawnRows.First(r => !r.Named && vm.SpawnRows.Count(o => o.Mob == r.Mob) > 1);
+        Assert.NotEqual(ConColor.None, row.Con);
+        row.Named = true;
+        Assert.All(vm.SpawnRows.Where(r => r.Mob == row.Mob), r => Assert.True(r.Named));
+
+        MapsViewModel again = Create();
+        again.SetNamedPath(named);
+        again.IsSpawnsTab = true;
+        again.SpawnZone = again.SpawnZones.Single(z => z.ShortName == "velketor");
+        again.NamedOnly = true;
+        Assert.Contains(again.SpawnRows, r => r.Mob.Name == row.Name);
+        Assert.All(again.SpawnRows, r => Assert.True(r.Named));
+
+        vm.ShowAllOnMapCommand.Execute(null);
+        Assert.True(vm.IsSelectZoneTab);
+        Assert.Equal("velketor", vm.ShownZone);
+        Assert.Equal(vm.SpawnZone!.Mobs.Sum(m => m.Spots?.Count ?? 0), vm.VisibleSpawnDots.Count);
+        Assert.Contains(vm.VisibleSpawnDots, d => d.Label == row.Name);
+
+        Assert.True(vm.OpenSpawn("velketor", row.Name));
+        Assert.True(vm.IsSpawnsTab);
+        Assert.All(vm.SpawnRows, r => Assert.Contains(row.Name, r.Name, StringComparison.OrdinalIgnoreCase));
+    }
 }
