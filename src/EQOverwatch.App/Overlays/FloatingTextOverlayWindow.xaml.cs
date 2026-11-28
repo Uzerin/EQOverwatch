@@ -133,17 +133,22 @@ public partial class FloatingTextOverlayWindow : OverlayWindowBase
     /// </summary>
     public void SetBanners(IReadOnlyList<(string Text, DateTime Started)> banners, DateTime now, FontFamily font)
     {
-        string key = string.Join("|", banners.Select(b => b.Text));
+        string key = string.Join("|", banners.Select(b => b.Text)) + "|" + Math.Round(Lane.ActualWidth).ToString(System.Globalization.CultureInfo.InvariantCulture);
         if (key != _bannerKey)
         {
             _bannerKey = key;
             Banners.Children.Clear();
             foreach ((string text, _) in banners)
             {
-                Banners.Children.Add(new OutlinedText(text, 20, true, BannerBrush, font, FontWeights.Bold)
+                // A long line ("OODLES LOST CONTROL! (Phoenix Charm)") shrinks to the overlay's width instead of being cut off.
+                Banners.Children.Add(new Viewbox
                 {
+                    Stretch = Stretch.Uniform,
+                    StretchDirection = StretchDirection.DownOnly,
+                    MaxWidth = Math.Max(40, Lane.ActualWidth - 8),
                     HorizontalAlignment = HorizontalAlignment.Center,
                     Margin = new Thickness(0, 2, 0, 2),
+                    Child = new OutlinedText(text, 20, true, BannerBrush, font, FontWeights.Bold),
                 });
             }
         }

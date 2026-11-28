@@ -67,6 +67,9 @@ are kept. Untick **Count me in the anonymous player count** on Settings to stop 
 
 ## Changelog
 
+### 1.0.129
+- Long alert banners on the floating text overlay now shrink to fit instead of being cut off.
+
 ### 1.0.128
 
 - The character profile shows raid boss DPS by week for the last 12 weeks.
