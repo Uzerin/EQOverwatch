@@ -109,6 +109,7 @@ public sealed partial class MainViewModel : ObservableObject
         InitializeEdition();
         InitializeBoxAlerts();
         InitializeNotices();
+        InitializeRaidDps();
         InitializeRelease82();
         InitializeReleaseFeatures();
         _characterData.SetPersonaResolver(PersonaWhenWritten); // worn gear is filed under the persona that was on
@@ -848,6 +849,7 @@ public sealed partial class MainViewModel : ObservableObject
         _pipeline.TimerPause.Tick(DateTime.UtcNow);
         RefreshRaidNight();
         RefreshReleaseFeatures();
+        TickControlAlerts(DateTime.UtcNow);
         TickItemFoci(DateTime.UtcNow);
         TickDiscord(DateTime.UtcNow);
         TickBossZones();
@@ -1580,6 +1582,11 @@ public sealed partial class MainViewModel : ObservableObject
             RebuildAccountColors();
             AggroAlert = settings.AggroAlert;
             RangeAlert = settings.RangeAlert;
+            StunAlert = settings.StunAlert;
+            LostControlAlert = settings.LostControlAlert;
+            StunAlertOverlay = Enum.IsDefined(settings.StunAlertOverlay) ? settings.StunAlertOverlay : AlertOverlay.FloatingText;
+            LostControlAlertOverlay = Enum.IsDefined(settings.LostControlAlertOverlay) ? settings.LostControlAlertOverlay : AlertOverlay.FloatingText;
+            FoodAlert = settings.FoodAlert;
             ShowFightProgress = settings.ShowFightProgress;
             RestoreDiscord(settings);
             TakeHoldAlert = settings.TakeHoldAlert;
@@ -1699,6 +1706,11 @@ public sealed partial class MainViewModel : ObservableObject
         TellsOverlayNotices = TellsOverlayNotices,
         AggroAlert = AggroAlert,
         RangeAlert = RangeAlert,
+        StunAlert = StunAlert,
+        LostControlAlert = LostControlAlert,
+        StunAlertOverlay = StunAlertOverlay,
+        LostControlAlertOverlay = LostControlAlertOverlay,
+        FoodAlert = FoodAlert,
         ShowFightProgress = ShowFightProgress,
         TakeHoldAlert = TakeHoldAlert,
         ResistStreakAlert = ResistStreakAlert,

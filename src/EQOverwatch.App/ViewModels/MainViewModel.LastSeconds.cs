@@ -7,6 +7,9 @@ namespace EQOverwatch.App.ViewModels;
 /// <summary>One hit, heal or heal cast in the Damage Taken tab's "Last 20 Seconds" list.</summary>
 public sealed record LastSecondsRowView(string Time, string Seconds, string From, string What, string Damage, string Healed, bool IsHeal, bool IsCast = false);
 
+/// <summary>One row of the Damage Taken tab's Lost Control list: when, who, the spell and caster (when seen) and how long it lasted.</summary>
+public sealed record LostControlRowView(string Time, string Character, string Spell, string Caster, string Lasted);
+
 /// <summary>One turn on the Tank Timeline list.</summary>
 public sealed record TankRowView(string Name, string From, string To, string Length, int Swings);
 
@@ -46,8 +49,62 @@ public partial class MainViewModel
         }
     }
 
+    /// <summary>Each time one of your characters lost control of itself in the fight (a charm, fear or mind control).</summary>
+    [ObservableProperty]
+    private IReadOnlyList<LostControlRowView> _lostControlRows = Array.Empty<LostControlRowView>();
+
+    [ObservableProperty]
+    private string _lostControlSummary = string.Empty;
+
+    private ValueList<LostControlSnapshot>? _lostControlShown;
+
+    /// <summary>The Lost Control rows and the line above them for <paramref name="encounter"/>.</summary>
+    public static (IReadOnlyList<LostControlRowView> Rows, string Summary) LostControlView(EncounterSnapshot? encounter, CultureInfo culture)
+    {
+        if (encounter is null)
+        {
+            return (Array.Empty<LostControlRowView>(), string.Empty);
+        }
+
+        var rows = new List<LostControlRowView>();
+        var totals = new Dictionary<string, (int Times, double Seconds)>(StringComparer.OrdinalIgnoreCase);
+        foreach (LostControlSnapshot lost in encounter.LostControl)
+        {
+            DateTime end = lost.End ?? (encounter.EndTime > lost.Start ? encounter.EndTime : lost.Start);
+            double seconds = Math.Max(0, (end - lost.Start).TotalSeconds);
+            string lasted = Clock(seconds) + (lost.End is null ? "+" : string.Empty);
+            rows.Add(new LostControlRowView(lost.Start.ToString("HH:mm:ss", culture), lost.Character, lost.Spell, lost.Caster, lasted));
+            (int times, double total) = totals.GetValueOrDefault(lost.Character);
+            totals[lost.Character] = (times + 1, total + seconds);
+        }
+
+        string summary = totals.Count == 0
+            ? "None of your characters lost control of themselves in this fight."
+            : string.Join("  ", totals.Select(t =>
+                $"{t.Key} lost control {t.Value.Times.ToString(culture)} time{(t.Value.Times == 1 ? string.Empty : "s")} for {Clock(t.Value.Seconds)} in total."));
+        return (rows, summary);
+
+        static string Clock(double seconds)
+        {
+            int s = (int)Math.Round(seconds);
+            return $"{s / 60}:{s % 60:00}";
+        }
+    }
+
+    private void ShowLostControl(EncounterSnapshot? encounter)
+    {
+        if (encounter is not null && Equals(_lostControlShown, encounter.LostControl) && LostControlSummary.Length > 0)
+        {
+            return;
+        }
+
+        _lostControlShown = encounter?.LostControl;
+        (LostControlRows, LostControlSummary) = LostControlView(encounter, CultureInfo.CurrentCulture);
+    }
+
     private void ShowLastSeconds(EncounterSnapshot? encounter)
     {
+        ShowLostControl(encounter);
         _lastSecondsWindows = encounter?.LastSeconds ?? Array.Empty<LastSecondsSnapshot>();
         RebuildLastSeconds();
         IReadOnlyList<TankSpanSnapshot> spans = encounter?.TankSpans ?? Array.Empty<TankSpanSnapshot>();

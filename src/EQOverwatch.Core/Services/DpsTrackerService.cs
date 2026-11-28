@@ -532,15 +532,23 @@ public partial class DpsTrackerService : IDpsEventSink
         }
 
         // A box that cannot reach its target during a fight (a ranger past bow range, or out of sight).
-        bool tooFar = message.SequenceEqual("Your target is too far away, get closer!") || message.SequenceEqual("Your target is out of range, get closer!");
+        bool tooFar = message.SequenceEqual("Your target is too far away, get closer!") || message.SequenceEqual("Your target is out of range, get closer!")
+            || message.SequenceEqual("You can't hit them from here.");
         bool unseen = !tooFar && message.SequenceEqual("You cannot see your target.");
         if ((tooFar || unseen) && TargetOutOfReach is not null && LiveOwner(inFight: true) is { } reacher)
         {
             TargetOutOfReach(reacher, unseen);
         }
 
-        if (Notice is not null && EQOverwatch.Core.Parsing.NoticeLineParser.Parse(message) is { Kind: not EQOverwatch.Core.Parsing.NoticeKind.None } notice
-            && LiveOwner() is { } noticed)
+        EQOverwatch.Core.Parsing.NoticeLine notice = message.Length > 0 && (Notice is not null || message[0] == 'Y')
+            ? EQOverwatch.Core.Parsing.NoticeLineParser.Parse(message)
+            : default;
+        if (notice.Kind is EQOverwatch.Core.Parsing.NoticeKind.LostControl or EQOverwatch.Core.Parsing.NoticeKind.ControlBack)
+        {
+            notice = ObserveControl(notice);
+        }
+
+        if (Notice is not null && notice.Kind != EQOverwatch.Core.Parsing.NoticeKind.None && LiveOwner() is { } noticed)
         {
             Notice(noticed, notice);
         }
@@ -562,6 +570,56 @@ public partial class DpsTrackerService : IDpsEventSink
         else if (message.IndexOf(" healed ", StringComparison.Ordinal) > 0 && message.IndexOf(" hit point", StringComparison.Ordinal) > 0)
         {
             ObserveHeal(message.ToString());
+        }
+    }
+
+    /// <summary>The latest "X begins casting Y." line: the log it came from, its log time, the caster and the spell.</summary>
+    private (string Owner, DateTime Time, string Caster, string Spell) _lastCastLine = (string.Empty, default, string.Empty, string.Empty);
+
+    /// <summary>
+    /// "You lose control of yourself!" / "You have control of yourself again.": files the stretch under every fight in progress, with the
+    /// spell and caster of a cast in the same second. Returns the notice with the spell (Name) and caster (Other) filled in.
+    /// </summary>
+    private EQOverwatch.Core.Parsing.NoticeLine ObserveControl(EQOverwatch.Core.Parsing.NoticeLine notice)
+    {
+        lock (_gate)
+        {
+            if (_logOwner.Length == 0)
+            {
+                return notice;
+            }
+
+            if (notice.Kind == EQOverwatch.Core.Parsing.NoticeKind.LostControl)
+            {
+                (string owner, DateTime time, string caster, string spell) = _lastCastLine;
+                bool same = owner.Equals(_logOwner, StringComparison.OrdinalIgnoreCase) && Math.Abs((_logClock - time).TotalSeconds) <= 1;
+                string spellName = same ? spell : string.Empty;
+                string casterName = same ? caster : string.Empty;
+                foreach (CombatEncounter fight in _active.Values)
+                {
+                    fight.AddLostControl(_logOwner, _logClock, spellName, casterName);
+                }
+
+                if (_active.Count > 0)
+                {
+                    Publish();
+                }
+
+                return notice with { Name = spellName, Other = casterName };
+            }
+
+            bool changed = false;
+            foreach (CombatEncounter fight in _active.Values)
+            {
+                changed |= fight.EndLostControl(_logOwner, _logClock);
+            }
+
+            if (changed)
+            {
+                Publish();
+            }
+
+            return notice;
         }
     }
 
@@ -632,6 +690,11 @@ public partial class DpsTrackerService : IDpsEventSink
 
         lock (_gate)
         {
+            if (!caster.Equals("You", StringComparison.OrdinalIgnoreCase))
+            {
+                _lastCastLine = (_logOwner, _logClock, caster, spell);
+            }
+
             string who = caster.Equals("You", StringComparison.OrdinalIgnoreCase) ? _logOwner : caster;
             if (who.Length > 0 && _repeats.IsRepeat("s|" + who + "|" + spell, _logClock, _logOwner))
             {

@@ -297,6 +297,41 @@ public sealed class CombatEncounter : ObservableObject
         }
     }
 
+    private readonly List<LostControlSnapshot> _lostControl = new();
+
+    /// <summary>A log's own character lost control of itself (charm, fear or mind control) during the fight.</summary>
+    internal void AddLostControl(string character, DateTime start, string spell, string caster)
+    {
+        if (_lostControl.Count < 500)
+        {
+            _lostControl.Add(new LostControlSnapshot(character, start, null, spell, caster));
+        }
+    }
+
+    /// <summary>The character has control of itself again: ends its open stretch, if any.</summary>
+    internal bool EndLostControl(string character, DateTime end)
+    {
+        for (int i = _lostControl.Count - 1; i >= 0; i--)
+        {
+            LostControlSnapshot open = _lostControl[i];
+            if (open.Character.Equals(character, StringComparison.OrdinalIgnoreCase))
+            {
+                if (open.End is not null)
+                {
+                    return false;
+                }
+
+                _lostControl[i] = open with { End = end < open.Start ? open.Start : end };
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Each time a log's own character lost control of itself during the fight.</summary>
+    internal IReadOnlyList<LostControlSnapshot> LostControl => _lostControl;
+
     /// <summary>A player or pet began casting a spell during the fight.</summary>
     internal void AddPlayerCast(PlayerCastSnapshot cast)
     {

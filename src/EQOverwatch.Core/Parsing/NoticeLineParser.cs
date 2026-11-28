@@ -11,10 +11,31 @@ public enum NoticeKind
     Roll,
     PetBuffFaded,
     LevelUp,
+
+    /// <summary>"You are stunned!"</summary>
+    Stunned,
+
+    /// <summary>"You are no longer stunned."</summary>
+    StunEnded,
+
+    /// <summary>"You lose control of yourself!" (a charm, fear or mind control); the tracker fills in the spell when one was cast that second.</summary>
+    LostControl,
+
+    /// <summary>"You have control of yourself again."</summary>
+    ControlBack,
+
+    /// <summary>"You are low on food and drink." (Name: "low on food and drink").</summary>
+    FoodLow,
+
+    /// <summary>"You are out of food and drink." or "You are out of drink and low on food." (Name: the part after "You are ").</summary>
+    FoodOut,
 }
 
-/// <summary>A parsed notice line: the name it is about (the followed player, the linkdead player, the roller or the pet's spell) and numbers.</summary>
-public readonly record struct NoticeLine(NoticeKind Kind, string Name, int Value = 0, int Low = 0, int High = 0);
+/// <summary>
+/// A parsed notice line: the name it is about (the followed player, the linkdead player, the roller, the pet's spell, the spell that took
+/// control, or the food state) and numbers. <see cref="Other"/> is the caster of the spell that took control, when known.
+/// </summary>
+public readonly record struct NoticeLine(NoticeKind Kind, string Name, int Value = 0, int Low = 0, int High = 0, string Other = "");
 
 /// <summary>Reads the lines behind the box alerts and Tells overlay notices.</summary>
 public static class NoticeLineParser
@@ -30,6 +51,11 @@ public static class NoticeLineParser
 
     public static NoticeLine Parse(ReadOnlySpan<char> message)
     {
+        if (message.Length > 0 && message[0] == 'Y' && ParseSelf(message) is { Kind: not NoticeKind.None } self)
+        {
+            return self;
+        }
+
         if (message.StartsWith(FollowPrefix, StringComparison.Ordinal) && message.EndsWith(".", StringComparison.Ordinal))
         {
             ReadOnlySpan<char> name = message[FollowPrefix.Length..^1];
@@ -57,6 +83,48 @@ public static class NoticeLineParser
             && int.TryParse(message[LevelPrefix.Length..^1], NumberStyles.None, CultureInfo.InvariantCulture, out int level))
         {
             return new NoticeLine(NoticeKind.LevelUp, string.Empty, level);
+        }
+
+        return default;
+    }
+
+    private static NoticeLine ParseSelf(ReadOnlySpan<char> message)
+    {
+        if (message.SequenceEqual("You are stunned!"))
+        {
+            return new NoticeLine(NoticeKind.Stunned, string.Empty);
+        }
+
+        if (message.SequenceEqual("You are no longer stunned."))
+        {
+            return new NoticeLine(NoticeKind.StunEnded, string.Empty);
+        }
+
+        if (message.SequenceEqual("You lose control of yourself!"))
+        {
+            return new NoticeLine(NoticeKind.LostControl, string.Empty);
+        }
+
+        if (message.SequenceEqual("You have control of yourself again."))
+        {
+            return new NoticeLine(NoticeKind.ControlBack, string.Empty);
+        }
+
+        const string youAre = "You are ";
+        if (message.StartsWith(youAre, StringComparison.Ordinal) && message.EndsWith(".", StringComparison.Ordinal)
+            && (message.Contains("food", StringComparison.Ordinal) || message.Contains("drink", StringComparison.Ordinal))
+            && message.Length < 60)
+        {
+            ReadOnlySpan<char> state = message[youAre.Length..^1];
+            if (state.StartsWith("out of ", StringComparison.Ordinal))
+            {
+                return new NoticeLine(NoticeKind.FoodOut, state.ToString());
+            }
+
+            if (state.StartsWith("low on ", StringComparison.Ordinal))
+            {
+                return new NoticeLine(NoticeKind.FoodLow, state.ToString());
+            }
         }
 
         return default;

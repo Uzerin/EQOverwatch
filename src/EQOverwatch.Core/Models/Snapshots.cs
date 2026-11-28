@@ -141,6 +141,12 @@ public sealed record HealingSnapshot(
     public double CritHealPercent => Effective > 0 ? 100.0 * CritEffective / Effective : 0.0;
 }
 
+/// <summary>
+/// One time a log's own character lost control of itself during a fight (a charm, fear or mind control): who, when, until when (null when
+/// the fight ended first), and the spell and caster when a cast was seen in the same second (else empty).
+/// </summary>
+public sealed record LostControlSnapshot(string Character, DateTime Start, DateTime? End, string Spell, string Caster);
+
 public sealed record EncounterSnapshot(
     int Id,
     string TargetName,
@@ -176,6 +182,11 @@ public sealed record EncounterSnapshot(
 
     /// <summary>Who the target meleed, turn by turn (the tank timeline).</summary>
     public IReadOnlyList<TankSpanSnapshot> TankSpans { get; init; } = Array.Empty<TankSpanSnapshot>();
+
+    /// <summary>Each time one of the logs' own characters lost control of itself during the fight, in order.</summary>
+    public ValueList<LostControlSnapshot> LostControl { get; init; } = NoLostControl;
+
+    private static readonly ValueList<LostControlSnapshot> NoLostControl = new(Array.Empty<LostControlSnapshot>());
 
     /// <summary>Who the target hurt, most damage first (empty when nothing was recorded).</summary>
     public IReadOnlyList<DamageTakenSnapshot> TakenRows => DamageTaken ?? Array.Empty<DamageTakenSnapshot>();
@@ -264,6 +275,7 @@ public sealed record EncounterSnapshot(
             Zone = encounter.Zone,
             LastSeconds = encounter.LastSeconds(),
             TankSpans = encounter.TankSpans.ToArray(),
+            LostControl = new ValueList<LostControlSnapshot>(encounter.LostControl.ToArray()),
         };
     }
 
@@ -370,6 +382,7 @@ public sealed record EncounterSnapshot(
             Server = ordered[0].Server,
             Zone = ordered[0].Zone,
             TankSpans = ordered[0].TankSpans,
+            LostControl = new ValueList<LostControlSnapshot>(parts.SelectMany(p => p.LostControl).Distinct().OrderBy(l => l.Start).ToArray()),
             LastSeconds = parts.SelectMany(p => p.LastSeconds).GroupBy(w => w.Name, StringComparer.Ordinal)
                 .Select(g => g.OrderByDescending(w => w.Died).ThenByDescending(w => w.End).First()).ToList(),
         };

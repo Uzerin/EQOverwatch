@@ -21,7 +21,7 @@ public class Release81Tests
         Assert.Equal(new NoticeLine(NoticeKind.PetBuffFaded, "Storm Strength"), NoticeLineParser.Parse("Your pet's Storm Strength spell has worn off."));
         Assert.Equal(new NoticeLine(NoticeKind.LevelUp, string.Empty, 60), NoticeLineParser.Parse("You have gained a level! Welcome to level 60!"));
         Assert.Equal(NoticeKind.None, NoticeLineParser.Parse("Raytlen tells NewPlayers:1, 'Your pet plays for you'").Kind);
-        Assert.Equal(NoticeKind.None, NoticeLineParser.Parse("You are no longer stunned.").Kind);
+        Assert.Equal(NoticeKind.StunEnded, NoticeLineParser.Parse("You are no longer stunned.").Kind); // read since 1.0.128 for the stun alert
     }
 
     [Fact]

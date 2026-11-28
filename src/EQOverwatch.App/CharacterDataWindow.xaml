@@ -129,6 +129,13 @@
             <ctl:LevelHistoryControl Levels="{Binding LevelHistory, Mode=OneWay}" Height="90" MaxWidth="560" HorizontalAlignment="Left"/>
         </StackPanel>
 
+        <!-- The character's raid boss DPS week by week (kept on disk, so it reaches past the days the app loads). -->
+        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8" Visibility="{Binding HasRaidDpsTrend, Converter={StaticResource BoolToVisibility}}">
+            <TextBlock Text="Raid boss DPS by week (last 12 weeks)" Style="{StaticResource HintText}" Margin="0,0,0,2"/>
+            <ctl:DpsTrendControl Trend="{Binding RaidDpsTrend, Mode=OneWay}" Height="150" MaxWidth="560" HorizontalAlignment="Left"/>
+            <TextBlock Text="{Binding RaidDpsSummary}" Style="{StaticResource HintText}" Margin="0,2,0,0"/>
+        </StackPanel>
+
         <!-- The class persona the per-persona tabs show. -->
         <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8" Visibility="{Binding HasPersonas, Converter={StaticResource BoolToVisibility}}">
             <TextBlock DockPanel.Dock="Left" Text="Persona" Style="{StaticResource HintText}" VerticalAlignment="Center" Margin="0,0,8,0"/>

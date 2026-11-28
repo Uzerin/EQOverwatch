@@ -60,6 +60,7 @@ public sealed partial class MainViewModel
         if (now - _lastBossHistoryCheck >= BossHistoryEvery)
         {
             _lastBossHistoryCheck = now;
+            TickRaidDps();
             DpsSnapshot live = _pipeline.LiveDps.Snapshot;
             DpsSnapshot imported = _pipeline.HistoricalDps.Snapshot;
             if (live.Version != _bossLiveVersion)
@@ -67,6 +68,7 @@ public sealed partial class MainViewModel
                 // Live and caught-up fights come from every log combined; each is filed under its own server.
                 _bossLiveVersion = live.Version;
                 _bossHistory.Record(live.Completed);
+                RecordRaidDps(live.Completed);
                 _pipeline.BossAbilities.Learn(live.Completed);
                 QueueServerFirsts(live.Completed);
                 CheckPersonalBests(live.Completed);
@@ -76,6 +78,7 @@ public sealed partial class MainViewModel
             {
                 _bossHistoricalVersion = imported.Version;
                 _bossHistory.Record(imported.Completed, _historicalCharacter, _historicalServer);
+                RecordRaidDps(imported.Completed);
                 _pipeline.BossAbilities.Learn(imported.Completed);
             }
         }

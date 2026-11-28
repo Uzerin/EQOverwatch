@@ -68,7 +68,8 @@ public sealed record CharacterProgressSource(
     Func<IReadOnlyList<EQOverwatch.Core.Leveling.LevelEvent>>? LevelHistory = null,
     Func<IReadOnlyList<ChallengeRowView>>? Challenges = null,
     AaSource? Aas = null,
-    Func<bool>? IsLoggedIn = null);
+    Func<bool>? IsLoggedIn = null,
+    Func<EQOverwatch.Core.History.RaidDpsTrend?>? RaidDps = null);
 
 /// <summary>
 /// One character's data window: inventory, spellbook, missing spells and key ring, read from the character's <c>/outputfile</c> files.
@@ -226,6 +227,29 @@ public sealed partial class CharacterDataViewModel : ObservableObject
         _progress?.LevelHistory?.Invoke() ?? Array.Empty<EQOverwatch.Core.Leveling.LevelEvent>();
 
     public bool HasLevelHistory => LevelHistory.Count >= 2;
+
+    private EQOverwatch.Core.History.RaidDpsTrend? _raidDpsTrend;
+    private bool _raidDpsRead;
+
+    /// <summary>The character's raid boss DPS by week (null with fewer than 2 weeks of fights).</summary>
+    public EQOverwatch.Core.History.RaidDpsTrend? RaidDpsTrend
+    {
+        get
+        {
+            if (!_raidDpsRead)
+            {
+                _raidDpsRead = true;
+                _raidDpsTrend = _progress?.RaidDps?.Invoke();
+            }
+
+            return _raidDpsTrend;
+        }
+    }
+
+    public bool HasRaidDpsTrend => RaidDpsTrend is not null;
+
+    /// <summary>"Last 4 weeks 780 DPS against 676 the 4 weeks before (+15%) · 53 raid boss fights".</summary>
+    public string RaidDpsSummary => RaidDpsTrend?.Describe(System.Globalization.CultureInfo.CurrentCulture) ?? string.Empty;
 
     /// <summary>The account names already used on this server, for the Account box.</summary>
     public IReadOnlyList<string> AccountNames => _progress?.AccountNames?.Invoke() ?? Array.Empty<string>();

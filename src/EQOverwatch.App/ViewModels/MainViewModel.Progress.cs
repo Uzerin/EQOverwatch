@@ -345,7 +345,8 @@ public sealed partial class MainViewModel
             (persona, name, rank) => { _pipeline.Progress.SetAa(character, server, persona, name, rank, DateTime.UtcNow); _ = Task.Run(_pipeline.Progress.Flush); },
             (persona, name) => { _pipeline.Progress.RemoveAa(character, server, persona, name, DateTime.UtcNow); _ = Task.Run(_pipeline.Progress.Flush); },
             () => AaCatalogFor().Select(a => a.Name).ToList()),
-        () => _pipeline.Activity.IsActive(character, server, DateTime.UtcNow));
+        () => _pipeline.Activity.IsActive(character, server, DateTime.UtcNow),
+        () => RaidDpsTrendFor(character, server));
 
     private IReadOnlyList<EQOverwatch.Core.Spells.AaInfo>? _aaCatalog;
     private string? _aaCatalogFolder;

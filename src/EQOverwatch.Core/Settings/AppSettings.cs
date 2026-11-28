@@ -323,6 +323,21 @@ public sealed partial class AppSettings
     /// <summary>Speak "X out of range" / "X can't see the target" when one of your characters can't reach its target in a fight.</summary>
     public bool RangeAlert { get; set; } = true;
 
+    /// <summary>Show and say "MENDWELL STUNNED!" when one of your characters is stunned during a fight.</summary>
+    public bool StunAlert { get; set; } = true;
+
+    /// <summary>Show and say "OODLES LOST CONTROL!" when one of your characters is charmed, feared or mind controlled.</summary>
+    public bool LostControlAlert { get; set; } = true;
+
+    /// <summary>Where the stun banner shows.</summary>
+    public AlertOverlay StunAlertOverlay { get; set; } = AlertOverlay.FloatingText;
+
+    /// <summary>Where the lost-control banner shows.</summary>
+    public AlertOverlay LostControlAlertOverlay { get; set; } = AlertOverlay.FloatingText;
+
+    /// <summary>Say when one of your characters is out of food or drink, and show a banner when it is low.</summary>
+    public bool FoodAlert { get; set; } = true;
+
     /// <summary>Show how far along a fight is on the DPS overlay, from the recorded kills of the same mob.</summary>
     public bool ShowFightProgress { get; set; } = true;
 

@@ -15,7 +15,7 @@ as many characters as you play, without touching the game.
 - GINA-style triggers: text, sounds, speech and timers from any log line, shareable in chat.
 - Buff, debuff and song bars for all your characters, lengthened by your focus items and learned AAs, paused in safe zones and while logged out.
 - Raid boss ability timers, CH chain bars with a late-cast alarm, and AA and discipline cooldowns.
-- Charm break, aggro and range alerts for your boxes, and tells read aloud.
+- Charm break, aggro, range, stun, lost control and food alerts for your boxes, and tells read aloud.
 
 **Damage and raids**
 - Live DPS meter from all your characters' logs, combined parses of fights you pick, a fight graph, tanking, healing, deaths, spell casts and boss abilities.
@@ -66,6 +66,13 @@ are kept. Untick **Count me in the anonymous player count** on Settings to stop 
 - To post raid kills and loot to your Discord, paste a channel webhook on Settings, then say its raid key in /rsay.
 
 ## Changelog
+
+### 1.0.128
+
+- The character profile shows raid boss DPS by week for the last 12 weeks.
+- Stun and lost control (charm, fear, mind control) alerts flash in the overlay you pick.
+- Damage Taken has a Lost Control list: each charm or fear on your characters, with spell, caster and length.
+- Food and drink alert; the range alert also catches "You can't hit them from here."
 
 ### 1.0.127
 

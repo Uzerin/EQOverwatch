@@ -23,6 +23,8 @@
                 </DockPanel>
             </Border>
             <Canvas x:Name="Lane" Grid.Row="1" ClipToBounds="True" IsHitTestVisible="False"/>
+            <!-- Stun and lost-control banners, centered over the numbers; they flash like CAST CH NOW! -->
+            <StackPanel x:Name="Banners" Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Center" IsHitTestVisible="False"/>
         </Grid>
         <Rectangle Style="{StaticResource OverlayDashedBorderStyle}"/>
     </Grid>

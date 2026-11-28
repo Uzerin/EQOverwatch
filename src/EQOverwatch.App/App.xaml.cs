@@ -205,6 +205,12 @@ public partial class CompanionApp : Application
         var fctTimer = new System.Windows.Threading.DispatcherTimer(System.Windows.Threading.DispatcherPriority.Normal) { Interval = TimeSpan.FromMilliseconds(50) };
         fctTimer.Tick += (_, _) =>
         {
+            if (windows.TryGetValue(OverlayKind.FctDamage, out OverlayWindowBase? bannerWindow) && bannerWindow is FloatingTextOverlayWindow banners)
+            {
+                DateTime bannerNow = DateTime.UtcNow;
+                banners.SetBanners(fctVm.FloatingBanners(bannerNow), bannerNow, fctVm.FctFontFamily);
+            }
+
             foreach (EQOverwatch.Core.Services.FloatingNumber number in _pipeline.FloatingCombat.TakeAll())
             {
                 (OverlayKind kind, string hex, double size, bool shown) = fctVm.FloatingLook(number);

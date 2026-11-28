@@ -124,6 +124,37 @@ public partial class FloatingTextOverlayWindow : OverlayWindowBase
         }
     }
 
+    private static readonly Brush BannerBrush = Freeze(new SolidColorBrush(Color.FromRgb(0xFF, 0xD5, 0x4A)));
+    private string _bannerKey = string.Empty;
+
+    /// <summary>
+    /// Shows the stun and lost-control banners (UI thread), centered; each is hidden for the last quarter of every second it shows, so
+    /// it flashes. An empty list clears them.
+    /// </summary>
+    public void SetBanners(IReadOnlyList<(string Text, DateTime Started)> banners, DateTime now, FontFamily font)
+    {
+        string key = string.Join("|", banners.Select(b => b.Text));
+        if (key != _bannerKey)
+        {
+            _bannerKey = key;
+            Banners.Children.Clear();
+            foreach ((string text, _) in banners)
+            {
+                Banners.Children.Add(new OutlinedText(text, 20, true, BannerBrush, font, FontWeights.Bold)
+                {
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    Margin = new Thickness(0, 2, 0, 2),
+                });
+            }
+        }
+
+        for (int i = 0; i < banners.Count && i < Banners.Children.Count; i++)
+        {
+            double phase = (now - banners[i].Started).TotalSeconds % 1.0;
+            Banners.Children[i].Opacity = phase < 0.75 ? 1 : 0;
+        }
+    }
+
     /// <summary>Lays a lane out newest first from the top, sliding each number to its new place; drops any pushed past the bottom.</summary>
     private void Restack(List<StackPanel> lane)
     {

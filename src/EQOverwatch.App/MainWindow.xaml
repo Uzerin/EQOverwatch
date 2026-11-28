@@ -1489,6 +1489,24 @@
                                                 </DataGrid>
                                             </DockPanel>
                                         </TabItem>
+                                        <TabItem Header="Lost Control">
+                                            <DockPanel Margin="0,6,0,0">
+                                                <TextBlock DockPanel.Dock="Top" FontWeight="SemiBold" Margin="0,0,0,8" TextWrapping="Wrap" Text="{Binding LostControlSummary}"/>
+                                                <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource HintText}" Margin="0,8,0,0" TextWrapping="Wrap"
+                                                           Text="Charms, fears and mind control on your characters (&quot;You lose control of yourself!&quot;) until &quot;You have control of yourself again.&quot; Spell and caster are blank when no cast was seen in the same second; + means it lasted past the fight's end."/>
+                                                <DataGrid ItemsSource="{Binding LostControlRows}" HorizontalAlignment="Left" VerticalAlignment="Top"
+                                                          AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
+                                                          HeadersVisibility="Column" GridLinesVisibility="Horizontal">
+                                                    <DataGrid.Columns>
+                                                        <DataGridTextColumn Header="Time" Binding="{Binding Time}" Width="Auto"/>
+                                                        <DataGridTextColumn Header="Character" Binding="{Binding Character}" Width="Auto"/>
+                                                        <DataGridTextColumn Header="Spell" Binding="{Binding Spell}" Width="Auto"/>
+                                                        <DataGridTextColumn Header="Caster" Binding="{Binding Caster}" Width="Auto"/>
+                                                        <DataGridTextColumn Header="Lasted" Binding="{Binding Lasted}" Width="Auto" ElementStyle="{StaticResource NumericCell}"/>
+                                                    </DataGrid.Columns>
+                                                </DataGrid>
+                                            </DockPanel>
+                                        </TabItem>
                                     </TabControl>
                                 </TabItem>
 
@@ -4220,7 +4238,23 @@
                                 <CheckBox Content="Aggro alert" Margin="0,2,0,6" IsChecked="{Binding AggroAlert}"
                                           ToolTip="Says and shows &quot;Plethora is being attacked by Yasiz the Devourer&quot; when a mob in a fight attacks one of your characters without the Tank box (Characters tab). Rampage hits don't count."/>
                                 <CheckBox Content="Range alert" Margin="0,0,0,6" IsChecked="{Binding RangeAlert}"
-                                          ToolTip="Says &quot;Myriad out of range&quot; or &quot;Myriad can't see the target&quot; when one of your characters can't reach its target during a fight."/>
+                                          ToolTip="Says &quot;Myriad out of range&quot; or &quot;Myriad can't see the target&quot; when one of your characters can't reach or hit its target during a fight."/>
+                                <DockPanel Margin="0,0,0,6">
+                                    <ComboBox DockPanel.Dock="Right" Width="130" Margin="8,0,0,0" ItemsSource="{Binding AlertOverlayOptions}" DisplayMemberPath="Label"
+                                              SelectedValuePath="Value" SelectedValue="{Binding StunAlertOverlay}" IsEnabled="{Binding StunAlert}"
+                                              ToolTip="Which overlay shows the banner. Floating text uses the Floating Text (Damage) overlay; while that is off the banner shows on Raid Triggers."/>
+                                    <CheckBox Content="Stun alert" VerticalAlignment="Center" IsChecked="{Binding StunAlert}"
+                                              ToolTip="Shows a flashing &quot;MENDWELL STUNNED!&quot; and says &quot;Mendwell stunned&quot; when one of your characters is stunned during a fight. It ends on &quot;You are no longer stunned.&quot; (10 seconds at most)."/>
+                                </DockPanel>
+                                <DockPanel Margin="0,0,0,6">
+                                    <ComboBox DockPanel.Dock="Right" Width="130" Margin="8,0,0,0" ItemsSource="{Binding AlertOverlayOptions}" DisplayMemberPath="Label"
+                                              SelectedValuePath="Value" SelectedValue="{Binding LostControlAlertOverlay}" IsEnabled="{Binding LostControlAlert}"
+                                              ToolTip="Which overlay shows the banner. Floating text uses the Floating Text (Damage) overlay; while that is off the banner shows on Raid Triggers."/>
+                                    <CheckBox Content="Lost control alert" VerticalAlignment="Center" IsChecked="{Binding LostControlAlert}"
+                                              ToolTip="Shows a flashing &quot;OODLES LOST CONTROL! (Phoenix Charm)&quot; and says &quot;Oodles lost control&quot; when one of your characters is charmed, feared or mind controlled. It ends on &quot;You have control of yourself again.&quot;"/>
+                                </DockPanel>
+                                <CheckBox Content="Food and drink alert" Margin="0,0,0,6" IsChecked="{Binding FoodAlert}"
+                                          ToolTip="Shows &quot;Gearbox low on food and drink&quot; and says &quot;Gearbox out of food and drink&quot; when one of your characters runs low or out (once every 5 minutes)."/>
                                 <CheckBox Content="Follow alert" Margin="0,0,0,6" IsChecked="{Binding FollowAlert}"
                                           ToolTip="Says &quot;Myriad stopped following&quot; when one of your characters stops auto-following."/>
                                 <CheckBox Content="Pet buff faded" Margin="0,0,0,6" IsChecked="{Binding PetBuffAlert}"

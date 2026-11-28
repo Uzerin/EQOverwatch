@@ -70,6 +70,11 @@ public partial class MainViewModel
     internal void OnNotice(string character, NoticeLine notice)
     {
         DateTime now = BoxAlertClock();
+        if (OnControlNotice(character, notice, now))
+        {
+            return;
+        }
+
         switch (notice.Kind)
         {
             case NoticeKind.FollowBroke when FollowAlert && _ownCharacters.ContainsKey(character):
